@@ -1,5 +1,21 @@
-import { expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { runCommandLine } from '../../src/mev/cli/program';
+
+let stdout: ReturnType<typeof spyOn>;
+let stderr: ReturnType<typeof spyOn>;
+let log: ReturnType<typeof spyOn>;
+
+beforeEach(() => {
+  stdout = spyOn(process.stdout, 'write').mockReturnValue(true);
+  stderr = spyOn(process.stderr, 'write').mockReturnValue(true);
+  log = spyOn(console, 'log').mockReturnValue(undefined);
+});
+
+afterEach(() => {
+  stdout.mockRestore();
+  stderr.mockRestore();
+  log.mockRestore();
+});
 
 test('exits 0 with no args and outputs help', async () => {
   const exitCode = await runCommandLine([]);
