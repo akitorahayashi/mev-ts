@@ -2,14 +2,13 @@
 
 ## Scope
 
-`bun-cli` is a Bun and TypeScript template repository for CLI projects.
+`mev` is a macOS development environment provisioning CLI built with Bun and TypeScript.
 
 The repository owns:
 
-- the CLI entrypoint in `src/bun_cli/main.ts`
-- the CLI boundary in `src/bun_cli/cli/`
-- the application layer in `src/bun_cli/app/`
-- the feature owner in `src/bun_cli/greetings/`
+- the CLI entrypoint in `src/mev/main.ts`
+- the CLI boundary in `src/mev/cli/`
+- the application layer in `src/mev/app/`
 - the repository-owned tests in `tests/`
 - the validation surface in `package.json`
 - the GitHub Actions automation in `.github/workflows/`
@@ -20,7 +19,7 @@ The repository owns:
 
 The repository-owned tasks are:
 
-- `bun run bun-cli greet <name>`
+- `bun run mev <command>`
 - `bun run build`
 - `bun run fix`
 - `bun run check`

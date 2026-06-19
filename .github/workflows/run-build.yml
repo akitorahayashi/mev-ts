@@ -1,6 +1,6 @@
 # Build Workflow
 #
-# Compiles the Bun CLI into standalone executables.
+# Compiles mev into standalone executables for macOS.
 
 name: Run Build
 
@@ -26,7 +26,7 @@ jobs:
       - name: Setup Development Environment
         uses: ./.github/actions/setup
 
-      - name: Build Bun CLI
+      - name: Build mev
         run: bun run build
 
   build-release:
@@ -35,14 +35,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: bun-linux-x64
-            artifact: bun-cli-linux-x64
-          - target: bun-linux-arm64
-            artifact: bun-cli-linux-arm64
           - target: bun-darwin-x64
-            artifact: bun-cli-darwin-x64
+            artifact: mev-darwin-x64
           - target: bun-darwin-arm64
-            artifact: bun-cli-darwin-arm64
+            artifact: mev-darwin-arm64
 
     runs-on: ubuntu-latest
 
@@ -53,8 +49,8 @@ jobs:
       - name: Setup Development Environment
         uses: ./.github/actions/setup
 
-      - name: Build Bun CLI
-        run: bun build src/bun_cli/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
+      - name: Build mev
+        run: bun build src/mev/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
       - name: Upload Release Asset
         if: inputs.release_id != ''

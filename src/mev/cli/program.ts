@@ -1,7 +1,6 @@
 import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
-import { registerGreetCommand } from './greet';
 
 export async function runCommandLine(
   args: readonly string[] = Bun.argv.slice(2),
@@ -51,7 +50,6 @@ function createProgram(): CAC {
   const program = cac(packageMetadata.name);
 
   program.usage('<command> [options]');
-  registerGreetCommand(program);
   program.help();
 
   return program;

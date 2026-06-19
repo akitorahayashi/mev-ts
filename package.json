@@ -1,18 +1,18 @@
 {
-  "name": "bun-cli",
+  "name": "mev",
   "version": "0.1.0",
-  "description": "Bun and TypeScript CLI template",
+  "description": "macOS development environment provisioning CLI",
   "packageManager": "bun@1.3.14",
-  "module": "src/bun_cli/main.ts",
+  "module": "src/mev/main.ts",
   "type": "module",
   "private": true,
   "bin": {
-    "bun-cli": "./src/bun_cli/main.ts"
+    "mev": "./src/mev/main.ts"
   },
   "scripts": {
-    "bun-cli": "bun src/bun_cli/main.ts",
+    "mev": "bun src/mev/main.ts",
     "prebuild": "mkdir -p dist",
-    "build": "bun build src/bun_cli/main.ts --compile --outfile dist/bun-cli && rm -f .*.bun-build",
+    "build": "bun build src/mev/main.ts --compile --outfile dist/mev && rm -f .*.bun-build",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "check": "biome check . && bun run typecheck",
