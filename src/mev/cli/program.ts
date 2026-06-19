@@ -1,14 +1,13 @@
 import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
-import { registerGreetCommand } from './greet';
 
 export async function runCommandLine(
   args: readonly string[] = Bun.argv.slice(2),
 ): Promise<number> {
   const program = createProgram();
 
-  if (args.length === 0) {
+  if (args.length === 0 || isHelpRequest(args[0])) {
     program.outputHelp();
     return 0;
   }
@@ -22,10 +21,6 @@ export async function runCommandLine(
     rejectUnsupportedTopLevelOptions(args);
 
     program.parse(['bun', packageMetadata.name, ...args], { run: false });
-
-    if (program.options.help) {
-      return 0;
-    }
 
     if (!program.matchedCommand) {
       throw new CommandLineError(`Unknown command '${program.args[0]}'.`);
@@ -51,7 +46,6 @@ function createProgram(): CAC {
   const program = cac(packageMetadata.name);
 
   program.usage('<command> [options]');
-  registerGreetCommand(program);
   program.help();
 
   return program;
@@ -64,14 +58,14 @@ function isVersionRequest(args: readonly string[]): boolean {
 function rejectUnsupportedTopLevelOptions(args: readonly string[]): void {
   const firstArg = args[0];
 
-  if (!firstArg?.startsWith('-') || isHelpRequest(firstArg)) {
+  if (!firstArg?.startsWith('-')) {
     return;
   }
 
   throw new CommandLineError(`Unknown option '${firstArg}'.`);
 }
 
-function isHelpRequest(arg: string): boolean {
+function isHelpRequest(arg: string | undefined): boolean {
   return arg === '--help' || arg === '-h';
 }
 
