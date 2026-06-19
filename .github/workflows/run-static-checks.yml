@@ -1,0 +1,26 @@
+# Static Checks Workflow
+#
+# Runs formatting checks, Biome lint, and TypeScript typecheck.
+
+name: Run Static Checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  run-static-checks:
+    name: Run Static Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Development Environment
+        uses: ./.github/actions/setup
+
+      - name: Run Repository Checks
+        run: bun run check

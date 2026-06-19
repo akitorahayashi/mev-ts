@@ -1,0 +1,26 @@
+# Test Workflow
+#
+# Runs Bun tests.
+
+name: Run Tests
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Development Environment
+        uses: ./.github/actions/setup
+
+      - name: Run Bun Tests
+        run: bun run test
