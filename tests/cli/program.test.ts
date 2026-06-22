@@ -51,3 +51,13 @@ test('exits 0 for ls alias', async () => {
   const exitCode = await runCommandLine(['ls']);
   expect(exitCode).toBe(0);
 });
+
+test('routes internal subcommands without exposing them in main help', async () => {
+  const exitCode = await runCommandLine(['internal', '--help']);
+  expect(exitCode).toBe(0);
+});
+
+test('exits 1 for unknown internal command', async () => {
+  const exitCode = await runCommandLine(['internal', 'unknown']);
+  expect(exitCode).toBe(1);
+});

@@ -1,9 +1,9 @@
 import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
-import { registerInternalGhCommands } from './commands/internal-gh';
 import { registerListCommand } from './commands/list';
 import { registerMakeCommand } from './commands/make';
+import { runInternalCommandLine } from './internal';
 
 export interface CommandOutcome {
   readonly failed: boolean;
@@ -22,6 +22,10 @@ export async function runCommandLine(
   if (isVersionRequest(args)) {
     writeOutput(`${packageMetadata.name} ${packageMetadata.version}`);
     return 0;
+  }
+
+  if (args[0] === 'internal') {
+    return runInternalCommandLine(args.slice(1));
   }
 
   try {
@@ -55,7 +59,6 @@ function createProgram(): CAC {
   program.usage('<command> [options]');
   registerMakeCommand(program);
   registerListCommand(program);
-  registerInternalGhCommands(program);
   program.help();
 
   return program;
