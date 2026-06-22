@@ -7,6 +7,7 @@ import { feature } from '../feature';
 const ghconfig = asset('gh/global/config.yml');
 
 export const ghFeature = feature('gh', {
+  description: 'GitHub CLI configuration and label management',
   tags: ['gh'],
   resources: [
     brew.formula('gh'),

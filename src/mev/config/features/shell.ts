@@ -19,7 +19,9 @@ const aliasRefs = assetKeysByPrefix(aliasPrefix).map((key) => asset(key));
 const aliasDeploys = aliasRefs.map((ref) => fs.deployAsset(ref));
 
 export const shellFeature = feature('shell', {
+  description: 'Shell environment, dotfiles, and aliases',
   tags: ['shell'],
+  aliases: ['sh'],
   resources: [
     ...dotfileResources,
     ...aliasDeploys,

@@ -11,6 +11,7 @@ const configLink = fs.symlink(gitconfig, home('.config/git/config'));
 const gitignoreLink = fs.symlink(gitignore, home('.gitignore_global'));
 
 export const gitFeature = feature('git', {
+  description: 'Git configuration and global gitignore',
   tags: ['git'],
   resources: [
     brew.formula('git'),
