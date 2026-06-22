@@ -1,5 +1,10 @@
 import type { Resource } from '../resources/model';
 
+/**
+ * A named unit of provisioning. A target owns the tags and aliases that select
+ * it and the resources it contributes, so tag, alias, and package information
+ * are all derived from the same definition rather than parallel tables.
+ */
 export interface Target {
   readonly name: string;
   readonly description: string;
