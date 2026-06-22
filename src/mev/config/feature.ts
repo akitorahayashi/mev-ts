@@ -7,12 +7,14 @@ import type { Resource } from '../resources/model';
  */
 export interface Feature {
   readonly name: string;
+  readonly description: string;
   readonly tags: readonly string[];
   readonly aliases: readonly string[];
   readonly resources: readonly Resource[];
 }
 
 interface FeatureDefinition {
+  readonly description: string;
   readonly tags?: readonly string[];
   readonly aliases?: readonly string[];
   readonly resources: readonly Resource[];
@@ -21,6 +23,7 @@ interface FeatureDefinition {
 export function feature(name: string, definition: FeatureDefinition): Feature {
   return {
     name,
+    description: definition.description,
     tags: definition.tags ?? [name],
     aliases: definition.aliases ?? [],
     resources: definition.resources,

@@ -41,3 +41,13 @@ test('exits 1 for unknown top-level option', async () => {
   const exitCode = await runCommandLine(['--unknown']);
   expect(exitCode).toBe(1);
 });
+
+test('exits 0 for list', async () => {
+  const exitCode = await runCommandLine(['list']);
+  expect(exitCode).toBe(0);
+});
+
+test('exits 0 for ls alias', async () => {
+  const exitCode = await runCommandLine(['ls']);
+  expect(exitCode).toBe(0);
+});
