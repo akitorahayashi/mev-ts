@@ -138,6 +138,20 @@ test('rejects parent traversal', async () => {
   );
 });
 
+test('rejects parent traversal hidden inside the path', async () => {
+  const run = sequenceRunner([], []);
+  await expect(
+    deleteSubmodule(run, ['vendor/../escape']),
+  ).rejects.toBeInstanceOf(CommandLineError);
+});
+
+test('rejects backslash-separated traversal', async () => {
+  const run = sequenceRunner([], []);
+  await expect(
+    deleteSubmodule(run, ['vendor\\..\\escape']),
+  ).rejects.toBeInstanceOf(CommandLineError);
+});
+
 test('rejects a current-directory segment', async () => {
   const run = sequenceRunner([], []);
   await expect(deleteSubmodule(run, ['./vendor/dep'])).rejects.toBeInstanceOf(

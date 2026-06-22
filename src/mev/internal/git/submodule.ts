@@ -1,5 +1,5 @@
 import { rm, stat } from 'node:fs/promises';
-import { isAbsolute, join, sep } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { CommandLineError, ProvisioningError } from '../../errors';
 import type { CommandRunner } from '../../resources/model';
 
@@ -37,7 +37,7 @@ function parsePath(tokens: readonly string[]): string {
  * any `.`/`..` segment are rejected so deletion cannot escape the repository.
  */
 function validatePath(path: string): string {
-  const segments = path.split(sep);
+  const segments = path.split(/[/\\]/);
   const isValid =
     path.length > 0 &&
     !isAbsolute(path) &&
