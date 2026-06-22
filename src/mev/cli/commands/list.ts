@@ -30,28 +30,29 @@ export function formatFeatureList(
   );
 
   const pad = (s: string, width: number) =>
-    s + ' '.repeat(width - s.length + 2);
+    s + ' '.repeat(width - s.length + 1);
 
   const header =
-    `  ${c.bold(pad('FEATURE', nameColWidth))}` +
+    ` ${c.bold(pad('FEATURE', nameColWidth))}` +
     `${c.bold(pad('TAGS', tagColWidth))}` +
     `${c.bold('DESCRIPTION')}`;
 
   const sep =
-    `  ${c.dim(pad('─'.repeat(nameColWidth), nameColWidth))}` +
+    ` ${c.dim(pad('─'.repeat(nameColWidth), nameColWidth))}` +
     `${c.dim(pad('─'.repeat(tagColWidth), tagColWidth))}` +
     `${c.dim('─'.repeat('DESCRIPTION'.length))}`;
 
   const rows = features.map((f) => {
     const tags = [...f.tags, ...f.aliases].join(', ');
     return (
-      `  ${c.cyan(f.name)}${' '.repeat(nameColWidth - f.name.length + 2)}` +
-      `${c.yellow(tags)}${' '.repeat(tagColWidth - tags.length + 2)}` +
+      ' ' +
+      c.cyan(pad(f.name, nameColWidth)) +
+      c.yellow(pad(tags, tagColWidth)) +
       f.description
     );
   });
 
-  return `Available features:\n\n${header}\n${sep}\n${rows.join('\n')}\n`;
+  return `\n${header}\n${sep}\n${rows.join('\n')}\n\n`;
 }
 
 export function registerListCommand(program: CAC): void {
