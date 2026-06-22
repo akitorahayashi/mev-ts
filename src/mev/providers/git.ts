@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../errors';
+import { configGet, configSet } from '../internal/git/config';
 import type {
   ApplyResult,
   Context,
@@ -32,16 +32,8 @@ function config(
     concurrencyGroup: 'git',
     async inspect(context: Context): Promise<ResourceState> {
       const desired = resolveHostPath(value, context.home);
-      const result = await context.commands.run('git', [
-        'config',
-        '--global',
-        '--get',
-        name,
-      ]);
-      if (result.code !== 0) {
-        return { kind: 'missing' };
-      }
-      const current = result.stdout.trim();
+      const current = await configGet(context.commands, name);
+      if (current === null) return { kind: 'missing' };
       return current === desired
         ? { kind: 'present' }
         : { kind: 'diverged', detail: current };
@@ -49,18 +41,7 @@ function config(
     async apply(context: Context): Promise<ApplyResult> {
       const desired = resolveHostPath(value, context.home);
       const file = join(context.home, '.gitconfig');
-      const result = await context.commands.run('git', [
-        'config',
-        '--file',
-        file,
-        name,
-        desired,
-      ]);
-      if (result.code !== 0) {
-        throw new ProvisioningError(
-          `git config ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
-        );
-      }
+      await configSet(context.commands, file, name, desired);
       return { detail: `${name}=${desired}` };
     },
   };
