@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "cac": "6.7.14",
+    "listr2": "^10.2.1",
     "p-limit": "^7.3.0"
   },
   "devDependencies": {

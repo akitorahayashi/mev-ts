@@ -1,15 +1,16 @@
 import { CommandLineError } from '../errors';
-import { deployLabels, resetLabels } from '../internal/gh/labels';
+import { buildDeployTasks, buildResetTasks } from '../internal/gh/labels';
 import { deleteBranches } from '../internal/git/branches';
 import { cloneRepositories } from '../internal/git/clone';
 import { deleteSubmodule } from '../internal/git/submodule';
 import { bunCommandRunner } from '../runtime/command';
+import { renderLiveList } from './tty/livelist';
 
 const USAGE = `mev internal <command>
 
 Commands:
   git clone <urls...> [-- <flags...>]            Clone repositories sequentially.
-  git delete-branches <branches...>              Delete local branches, checking out the default branch first if needed.
+  git delete-branches <branches...> [-- <to>]    Delete local branches after updating the checkout branch.
   git delete-submodule <path>                    Delete a git submodule completely.
   gh labels deploy [--repo <owner/repo>]         Deploy the mev label catalog to a repository.
   gh labels reset [--repo <owner/repo>]          Delete all labels from a repository.
@@ -65,16 +66,17 @@ async function dispatchGh(
   }
 
   const repo = extractRepo(args.slice(3));
+
   if (action === 'deploy') {
-    return deployLabels(bunCommandRunner, repo);
+    const items = await buildDeployTasks(bunCommandRunner, repo);
+    await renderLiveList(items, { concurrent: true });
+    return;
   }
-  return resetLabels(bunCommandRunner, repo);
+
+  const items = await buildResetTasks(bunCommandRunner, repo);
+  await renderLiveList(items, { concurrent: true });
 }
 
-/**
- * Parse the optional `--repo <owner/repo>` (or `-R`) flag, rejecting any other
- * positional or option so unsupported input fails loudly instead of silently.
- */
 function extractRepo(tokens: readonly string[]): string | undefined {
   if (tokens.length === 0) {
     return undefined;

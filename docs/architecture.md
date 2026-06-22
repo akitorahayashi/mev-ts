@@ -4,22 +4,24 @@
 
 `mev` is a macOS provisioning CLI compiled to a standalone binary via `bun build --compile`. The binary embeds configuration assets (dotfiles) so no install-time file extraction is needed.
 
-The execution model is: tag resolution → feature lookup → resource graph → parallel inspect → selective apply → report.
+The execution model is: tag resolution → target lookup → resource graph → parallel inspect → selective apply → report.
 
 ## Layer Map
 
 ```
 src/mev/
-  cli/          argv parsing, exit code mapping          (cac)
-  app/          use-case orchestration                   (runMake)
-  config/       feature DSL, tag/alias registry
+  cli/          argv parsing, exit code mapping, terminal rendering  (cac + hand-rolled dispatch)
+  app/          use-case orchestration                               (runMake)
+  config/       target DSL, tag/alias registry
   resources/    core contracts, graph, executor
   providers/    resource implementations per surface
   assets/       embedded dotfiles, asset registry
   runtime/      live context construction
-  output/       terminal report rendering
+  internal/     gh and git tool-boundary command implementations
   errors.ts     typed error hierarchy
 ```
+
+`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), and the `list` table (`targetlist.ts`). Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
 
 ## Core Contracts (resources/model.ts)
 
@@ -42,7 +44,7 @@ src/mev/
 
 `buildGraph(resources)` normalizes a flat resource list before execution:
 
-1. Deduplicates by `id` — the same resource referenced from two features runs once.
+1. Deduplicates by `id` — the same resource referenced from two targets runs once.
 2. Rejects missing dependencies — a declared `after` id that does not exist in the selected set fails fast at build time.
 3. Detects dependency cycles via DFS before any I/O begins.
 
@@ -53,13 +55,15 @@ src/mev/
 `applyGraph` — inspects all resources in parallel, then drives a dependency-ordered apply loop:
 - Resources whose dependencies are unsatisfied wait.
 - Resources whose dependencies failed or were blocked become `blocked` without being attempted.
-- Concurrency is capped per group via an `inflight` counter; `Promise.race` advances the loop whenever a slot frees.
+- Concurrency is capped per group via p-limit.
+
+Both functions accept an optional `onProgress(report)` callback that fires as each resource resolves. The CLI layer uses it to drive the progress bar.
 
 Outcomes: `unchanged | changed | failed | blocked`.
 
-## Feature DSL (config/feature.ts, config/features/)
+## Target DSL (config/target.ts, config/targets/)
 
-A `Feature` owns its name, tags, aliases, and the resources it contributes. The registry (`config/registry.ts`) is the single source of truth — tag/alias resolution, available-selector enumeration, and any future listing command all derive from it. Adding a feature means registering it there; no parallel tables.
+A `Target` owns its name, tags, aliases, description, and the resources it contributes. The registry (`config/registry.ts`) is the single source of truth — tag/alias resolution, available-selector enumeration, and the `list` command all derive from it. Adding a target means registering it there; no parallel tables.
 
 ## Providers
 
@@ -75,7 +79,7 @@ Each provider creates `Resource` values from a higher-level description.
 
 Raw asset files live under `assets/files/` with their real deployed names (including leading dots). `scripts/generate-assets.ts` walks that tree and inlines every file's content as a string keyed by its path relative to `files/`, emitting `assets/registry.generated.ts`. The content is therefore embedded in the compiled binary as plain data, with no per-file imports or filesystem access at runtime. The asset directory is the single authority for what ships; codegen runs before build, test, and check.
 
-`assets/registry.ts` wraps the generated map as `AssetSource` (an unknown key throws `ProvisioningError` rather than returning empty content) and exposes `assetKeysByPrefix` so features derive their file lists from the embedded set rather than hand-enumerating them.
+`assets/registry.ts` wraps the generated map as `AssetSource` (an unknown key throws `ProvisioningError` rather than returning empty content) and exposes `assetKeysByPrefix` so targets derive their file lists from the embedded set rather than hand-enumerating them.
 
 `AssetRef` keys double as sub-paths under the deploy root (`~/.config/mev/roles/`), so the deployed filename preserves the original dotfile name without a separate mapping.
 
@@ -87,8 +91,12 @@ Raw asset files live under `assets/files/` with their real deployed names (inclu
 
 ## CLI (cli/)
 
-The command boundary uses `cac`. `--help` and `--version` are intercepted before `program.parse()` to avoid `process.exit(0)` terminating tests.
+The main command surface uses `cac` and exposes two commands:
 
-`make <tags...>` is a variadic command. Because cac spreads a variadic into separate positionals and appends the options object last, the action handler uses a rest-params signature (`...inputs`) and pops the trailing object to separate tags from options.
+`make <tags...>` — resolves tags, builds the resource graph, and applies or plans it. The action handler calls `runMake` in `app/make.ts`, passing `onStart(total)` and `onProgress(report)` callbacks that drive the `cli/tty/progress.ts` bar. The bar runs a timer-driven spinner so the line keeps animating during a long apply, and advances the count on each completion; it stays silent on a non-TTY stream. After completion, `cli/tty/outcomes.ts` renders the full outcome table with ANSI colors.
 
-`runMake` in `app/make.ts` is the testable use-case entry point; the CLI handler delegates immediately to it and converts `MakeResult` to an exit code.
+`list` — formats and prints all registered targets in a three-column table (TARGET / TAGS / DESCRIPTION) via `cli/tty/targetlist.ts`, with ANSI colors from `cli/tty/style.ts`.
+
+`internal` — routes to `cli/internal.ts` via hand-rolled string dispatch rather than cac, because cac cannot parse multi-word subcommands combined with trailing variadic arguments and `--` separators. Internal commands are not shown in `mev --help`. Git subcommands (`clone`, `delete-branches`, `delete-submodule`) delegate to `internal/git/`. GitHub subcommands (`gh labels deploy`, `gh labels reset`) build concurrent items via `internal/gh/labels.ts` and render them with `cli/tty/livelist.ts` (listr2).
+
+`runMake` in `app/make.ts` is the testable use-case entry point. It returns `MakeResult` with a `reports: readonly ResourceReport[]` field and a `failed` boolean; rendering is the CLI layer's responsibility.

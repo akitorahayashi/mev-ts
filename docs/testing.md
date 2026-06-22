@@ -2,7 +2,7 @@
 
 ## Principle
 
-Tests assert externally observable behavior at the boundary that owns it. Internal composition — which resources a feature lists, how the executor schedules inflight work internally, wording of generated output — is not frozen unless it is the explicit contract of that boundary.
+Tests assert externally observable behavior at the boundary that owns it. Internal composition — which resources a target lists, how the executor schedules inflight work internally, wording of generated output — is not frozen unless it is the explicit contract of that boundary.
 
 ## Layer Map
 
@@ -14,8 +14,10 @@ Tests assert externally observable behavior at the boundary that owns it. Intern
 | Brew provider | `tests/providers/brew.test.ts` | Fake `CommandRunner` | None |
 | Git provider | `tests/providers/git.test.ts` | Fake `CommandRunner` | None |
 | App use-case (runMake) | `tests/app/make.test.ts` | Injected fake `Context` | None |
-| CLI (exit code, help, version) | `tests/cli/program.test.ts` | String argv; spy on stdout/stderr | None |
-| Feature registry invariants | `tests/config/registry.test.ts` | Iterates `allFeatures()` | None |
+| CLI (exit code, help, version, routing) | `tests/cli/program.test.ts` | String argv; spy on stdout/stderr | None |
+| Target registry invariants | `tests/config/registry.test.ts` | Iterates `allTargets()` | None |
+| Internal git (clone, delete-branches, delete-submodule) | `tests/internal/git/*.test.ts` | Fake `CommandRunner`; real temp dir for submodule | `.tmp/submodule-<pid>-<n>/` |
+| Internal gh (label, labels, api, auth, extension) | `tests/internal/gh/*.test.ts` | Fake `CommandRunner` | None |
 
 ## Context Injection
 
@@ -31,9 +33,11 @@ Real `brew` and `git` binaries are never invoked. Their contract (what exit code
 
 The filesystem provider creates real files and symlinks, so its tests use real directories. Each test gets a unique sandbox under `.tmp/fs-<pid>-<counter>/` created in `beforeEach` and deleted in `afterEach`. The `.tmp/` directory is git-ignored. No test writes outside `.tmp/`; the `home` value passed to `contextFor()` is always the sandbox path.
 
+The submodule deletion test also uses a real temp dir to verify that `.git/modules/<path>` is removed from disk.
+
 ## What is Deliberately Not Tested
 
-Feature-level end-to-end tests (provision a full feature against a fake home) are not present. Idempotency across a full feature is the composition of individual provider idempotency (covered by provider tests) and executor logic (covered by executor tests). Maintaining a feature-scoped integration harness would cost more than it catches, and a broken deployment is recoverable with `mev make <tag>` on the real machine.
+Target-level end-to-end tests (provision a full target against a fake home) are not present. Idempotency across a full target is the composition of individual provider idempotency (covered by provider tests) and executor logic (covered by executor tests). Maintaining a target-scoped integration harness would cost more than it catches, and a broken deployment is recoverable with `mev make <tag>` on the real machine.
 
 ## Adding a New Provider
 
@@ -41,12 +45,12 @@ Feature-level end-to-end tests (provision a full feature against a fake home) ar
 2. Cover: correct argv construction per state, correct `ResourceState` per exit code, error path (`ProvisioningError` on failure).
 3. If the provider writes to the filesystem (not just shells out), use a real temp sandbox as in `filesystem.test.ts`.
 
-## Adding a New Feature
+## Adding a New Target
 
-Adding a feature to `config/registry.ts` requires no new test files. The graph and executor tests are feature-agnostic, and `tests/config/registry.test.ts` iterates `allFeatures()` to enforce, for every feature including new ones:
+Adding a target to `config/registry.ts` requires no new test files. The graph and executor tests are target-agnostic, and `tests/config/registry.test.ts` iterates `allTargets()` to enforce, for every target including new ones:
 
-- `buildGraph(feature.resources)` does not throw (no missing deps, no cycles, no id collisions).
-- Every embedded-asset id (`fs:asset:<key>`) a feature references resolves in the asset registry.
-- No two features share a tag or alias.
+- `buildGraph(target.resources)` does not throw (no missing deps, no cycles, no id collisions).
+- Every embedded-asset id (`fs:asset:<key>`) a target references resolves in the asset registry.
+- No two targets share a tag or alias.
 
-These are parametric over the registry rather than per-feature, so a malformed new feature is caught without bespoke tests. The app test (`make.test.ts`) covers the use-case pipeline with a fake context, not feature content.
+These are parametric over the registry rather than per-target, so a malformed new target is caught without bespoke tests. The app test (`make.test.ts`) covers the use-case pipeline with a fake context, not target content.
