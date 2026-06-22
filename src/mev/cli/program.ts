@@ -1,6 +1,11 @@
 import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
+import { registerMakeCommand } from './commands/make';
+
+export interface CommandOutcome {
+  readonly failed: boolean;
+}
 
 export async function runCommandLine(
   args: readonly string[] = Bun.argv.slice(2),
@@ -27,9 +32,9 @@ export async function runCommandLine(
     }
 
     rejectUnexpectedPositionals(program);
-    await program.runMatchedCommand();
+    const outcome: unknown = await program.runMatchedCommand();
 
-    return 0;
+    return isFailingOutcome(outcome) ? 1 : 0;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     writeError(message);
@@ -46,9 +51,19 @@ function createProgram(): CAC {
   const program = cac(packageMetadata.name);
 
   program.usage('<command> [options]');
+  registerMakeCommand(program);
   program.help();
 
   return program;
+}
+
+function isFailingOutcome(value: unknown): value is CommandOutcome {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'failed' in value &&
+    (value as CommandOutcome).failed === true
+  );
 }
 
 function isVersionRequest(args: readonly string[]): boolean {

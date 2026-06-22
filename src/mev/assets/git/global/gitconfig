@@ -1,0 +1,76 @@
+[init]
+	defaultBranch = main
+
+[alias]
+    ini = init
+    cl = !mev internal git clone
+    rf-cl = !mkdir -p references && echo '*' > references/.gitignore && git -C references clone
+
+    co = checkout
+    co-m = checkout main
+    b = branch
+    br = branch
+    b-d = !mev internal git delete-branches
+    cln = remote prune origin
+    ft = fetch
+
+    p = pull
+    p-r = pull --rebase
+    pl = pull
+    pl-r = pull --rebase
+
+    a = add
+    ad = add
+    df = diff
+    cpd = !git diff | pbcopy
+    ts = status
+    ts-s = status --stat
+    
+    sh = stash
+    sh-p = stash pop
+    sh-d = stash drop
+    sh-ls = stash list
+    sh-cl = stash clear
+    rs = reset
+    rs-s = reset --soft
+    rs-h = reset --hard
+    rs-h-m = reset --hard origin/main
+    rt = restore
+    rm-c = rm --cached
+
+    c = commit -m
+    cm = commit -m
+    amd = !git add . && git commit --amend --no-edit
+    sb = submodule
+    sb-a = submodule add
+    sb-u = submodule update --init --recursive
+    sb-u-r = submodule update --remote
+    sb-ts = submodule status
+    sb-d = !mev internal git delete-submodule
+
+    ps = push
+    ps-u-o = push -u origin
+    ps-o = push origin
+    ps-u-m = push --set-upstream origin main
+    ps-f-l = push --force-with-lease
+    sw = show
+
+    tg = tag
+    tg-ls = tag -l -n
+    tg-ls-rm = !git fetch --tags && git tag -l -n
+    tg-d = tag -d
+    tg-d-rm = push --delete origin
+
+    mr = merge
+    rb = rebase
+    rb-o-m = rebase origin/main
+    rb-c = rebase --continue
+    rb-a = rebase --abort
+    l = log --oneline --graph --decorate --all -n 15
+    lg = l
+
+[core]
+	excludesfile = ~/.gitignore_global
+
+[pull]
+    ff = only
