@@ -1,6 +1,7 @@
 import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
+import { registerInternalGhCommands } from './commands/internal-gh';
 import { registerMakeCommand } from './commands/make';
 
 export interface CommandOutcome {
@@ -52,6 +53,7 @@ function createProgram(): CAC {
 
   program.usage('<command> [options]');
   registerMakeCommand(program);
+  registerInternalGhCommands(program);
   program.help();
 
   return program;

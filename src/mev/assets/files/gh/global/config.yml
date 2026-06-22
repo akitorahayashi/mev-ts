@@ -1,0 +1,13 @@
+---
+version: "1"
+git_protocol: ssh
+prompt: disabled
+spinner: enabled
+aliases:
+  # gh organization aliases
+  or: org
+  or-ls: org list
+  re: repo
+  re-cl: repo clone
+  lb-rs: "!mev internal gh labels reset"
+  lb-dp: "!mev internal gh labels deploy"

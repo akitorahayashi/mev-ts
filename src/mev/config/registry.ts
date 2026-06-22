@@ -1,10 +1,11 @@
 import { CommandLineError } from '../errors';
 import type { Feature } from './feature';
+import { ghFeature } from './features/gh';
 import { gitFeature } from './features/git';
 import { shellFeature } from './features/shell';
 
 /** Every feature mev can provision. Tags, aliases, and packages derive from here. */
-const features: readonly Feature[] = [gitFeature, shellFeature];
+const features: readonly Feature[] = [gitFeature, shellFeature, ghFeature];
 
 /** Resolve a tag or alias to its owning feature. */
 export function resolveFeature(selector: string): Feature {
