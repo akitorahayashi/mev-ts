@@ -20,7 +20,7 @@ interface RenderOptions {
   readonly isTTY?: boolean;
 }
 
-export function renderReports(
+export function renderOutcomes(
   reports: readonly ResourceReport[],
   options: RenderOptions,
 ): string {

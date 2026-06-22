@@ -4,7 +4,7 @@ import { deleteBranches } from '../internal/git/branches';
 import { cloneRepositories } from '../internal/git/clone';
 import { deleteSubmodule } from '../internal/git/submodule';
 import { bunCommandRunner } from '../runtime/command';
-import { runTasks } from './render/tasks';
+import { renderLiveList } from './tty/livelist';
 
 const USAGE = `mev internal <command>
 
@@ -68,13 +68,13 @@ async function dispatchGh(
   const repo = extractRepo(args.slice(3));
 
   if (action === 'deploy') {
-    const tasks = await buildDeployTasks(bunCommandRunner, repo);
-    await runTasks(tasks, { concurrent: true });
+    const items = await buildDeployTasks(bunCommandRunner, repo);
+    await renderLiveList(items, { concurrent: true });
     return;
   }
 
-  const tasks = await buildResetTasks(bunCommandRunner, repo);
-  await runTasks(tasks, { concurrent: true });
+  const items = await buildResetTasks(bunCommandRunner, repo);
+  await renderLiveList(items, { concurrent: true });
 }
 
 function extractRepo(tokens: readonly string[]): string | undefined {

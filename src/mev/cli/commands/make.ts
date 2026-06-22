@@ -1,8 +1,8 @@
 import type { CAC } from 'cac';
 import { runMake } from '../../app/make';
 import type { CommandOutcome } from '../program';
-import { createProgressBar } from '../render/bar';
-import { renderReports } from '../render/report';
+import { renderOutcomes } from '../tty/outcomes';
+import { createProgressBar } from '../tty/progress';
 
 interface MakeOptions {
   plan?: boolean;
@@ -29,13 +29,13 @@ export function registerMakeCommand(program: CAC): void {
         onStart(total) {
           if (total > 0) bar = createProgressBar(total);
         },
-        onProgress(report) {
-          bar?.tick(report.id);
+        onProgress() {
+          bar?.tick();
         },
       });
 
       bar?.stop();
-      process.stdout.write(`\n${renderReports(result.reports, { plan })}\n`);
+      process.stdout.write(`\n${renderOutcomes(result.reports, { plan })}\n`);
       return { failed: result.failed };
     });
 }

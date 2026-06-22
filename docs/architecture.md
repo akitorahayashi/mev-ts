@@ -21,7 +21,7 @@ src/mev/
   errors.ts     typed error hierarchy
 ```
 
-`cli/render/` owns all terminal output: ANSI style utilities (`style.ts`), final report formatting (`report.ts`), progress bar (`bar.ts`), and the listr2-based concurrent task runner (`tasks.ts`).
+`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), and the `list` table (`targetlist.ts`). Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
 
 ## Core Contracts (resources/model.ts)
 
@@ -93,10 +93,10 @@ Raw asset files live under `assets/files/` with their real deployed names (inclu
 
 The main command surface uses `cac` and exposes two commands:
 
-`make <tags...>` — resolves tags, builds the resource graph, and applies or plans it. The action handler calls `runMake` in `app/make.ts`, passing `onStart(total)` and `onProgress(report)` callbacks that drive a `━/─` progress bar in `cli/render/bar.ts`. After completion, `cli/render/report.ts` renders the full outcome table with ANSI colors.
+`make <tags...>` — resolves tags, builds the resource graph, and applies or plans it. The action handler calls `runMake` in `app/make.ts`, passing `onStart(total)` and `onProgress(report)` callbacks that drive the `cli/tty/progress.ts` bar. The bar runs a timer-driven spinner so the line keeps animating during a long apply, and advances the count on each completion; it stays silent on a non-TTY stream. After completion, `cli/tty/outcomes.ts` renders the full outcome table with ANSI colors.
 
-`list` — formats and prints all registered targets in a three-column table (TARGET / TAGS / DESCRIPTION) with ANSI colors from `cli/render/style.ts`.
+`list` — formats and prints all registered targets in a three-column table (TARGET / TAGS / DESCRIPTION) via `cli/tty/targetlist.ts`, with ANSI colors from `cli/tty/style.ts`.
 
-`internal` — routes to `cli/internal.ts` via hand-rolled string dispatch rather than cac, because cac cannot parse multi-word subcommands combined with trailing variadic arguments and `--` separators. Internal commands are not shown in `mev --help`. Git subcommands (`clone`, `delete-branches`, `delete-submodule`) delegate to `internal/git/`. GitHub subcommands (`gh labels deploy`, `gh labels reset`) build concurrent task lists via `internal/gh/labels.ts` and render them with `cli/render/tasks.ts` (listr2).
+`internal` — routes to `cli/internal.ts` via hand-rolled string dispatch rather than cac, because cac cannot parse multi-word subcommands combined with trailing variadic arguments and `--` separators. Internal commands are not shown in `mev --help`. Git subcommands (`clone`, `delete-branches`, `delete-submodule`) delegate to `internal/git/`. GitHub subcommands (`gh labels deploy`, `gh labels reset`) build concurrent items via `internal/gh/labels.ts` and render them with `cli/tty/livelist.ts` (listr2).
 
 `runMake` in `app/make.ts` is the testable use-case entry point. It returns `MakeResult` with a `reports: readonly ResourceReport[]` field and a `failed` boolean; rendering is the CLI layer's responsibility.

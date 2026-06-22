@@ -1,16 +1,16 @@
 import { Listr } from 'listr2';
 
-export interface Task {
+export interface LiveItem {
   label: string;
   run: () => Promise<void>;
 }
 
-export async function runTasks(
-  tasks: Task[],
+export async function renderLiveList(
+  items: LiveItem[],
   options: { concurrent: boolean },
 ): Promise<void> {
   const listr = new Listr(
-    tasks.map((t) => ({ title: t.label, task: () => t.run() })),
+    items.map((item) => ({ title: item.label, task: () => item.run() })),
     {
       concurrent: options.concurrent,
       rendererOptions: { collapseErrors: false },
