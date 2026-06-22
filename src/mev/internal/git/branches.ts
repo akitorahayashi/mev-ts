@@ -10,12 +10,13 @@ export async function deleteBranches(
   }
 
   const current = await resolveCurrentBranch(run);
+  const base = await resolveDefaultBranch(run);
+
+  if (tokens.includes(base)) {
+    throw new CommandLineError(`Cannot delete the default branch '${base}'.`);
+  }
 
   if (tokens.includes(current)) {
-    const base = await resolveDefaultBranch(run);
-    if (tokens.includes(base)) {
-      throw new CommandLineError(`Cannot delete the default branch '${base}'.`);
-    }
     await runStep(run, ['checkout', base]);
     await runStep(run, ['pull']);
   }
