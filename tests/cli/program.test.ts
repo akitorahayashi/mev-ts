@@ -71,3 +71,25 @@ test('exits 1 for incomplete multi-word internal command', async () => {
   const exitCode = await runCommandLine(['internal', 'gh', 'labels']);
   expect(exitCode).toBe(1);
 });
+
+// These reach the git command modules and fail on argument validation before
+// any git process is spawned, confirming the dispatch wiring per command.
+test('routes git clone and rejects an empty url list', async () => {
+  const exitCode = await runCommandLine(['internal', 'git', 'clone']);
+  expect(exitCode).toBe(1);
+});
+
+test('routes git delete-branches and rejects an empty branch list', async () => {
+  const exitCode = await runCommandLine(['internal', 'git', 'delete-branches']);
+  expect(exitCode).toBe(1);
+});
+
+test('routes git delete-submodule and rejects an absolute path', async () => {
+  const exitCode = await runCommandLine([
+    'internal',
+    'git',
+    'delete-submodule',
+    '/abs',
+  ]);
+  expect(exitCode).toBe(1);
+});
