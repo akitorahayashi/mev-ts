@@ -65,7 +65,7 @@ A `Feature` owns its name, tags, aliases, and the resources it contributes. The 
 
 Each provider creates `Resource` values from a higher-level description.
 
-`providers/filesystem.ts` — `deployAsset`, `directory`, `symlink`. Symlink refuses to replace an unmanaged file at the destination unless `context.overwrite` is set.
+`providers/filesystem.ts` — `deployAsset`, `directory`, `symlink`, `linkTree`. Symlink refuses to replace an unmanaged file at the destination unless `context.overwrite` is set. `linkTree` mirrors a set of deployed assets into a directory as symlinks preserving their relative layout, and owns that directory's managed-link state: links pointing into the deploy root that are no longer expected are pruned, while unrelated user files are left untouched.
 
 `providers/brew.ts` — `formula`. Groups formulae into a single Brewfile written to `tmpdir`, then drives `brew bundle check` (inspect) and `brew bundle install --no-upgrade` (apply) as one batch.
 
@@ -73,9 +73,11 @@ Each provider creates `Resource` values from a higher-level description.
 
 ## Asset Embedding (assets/)
 
-Assets are imported with Bun's `with { type: 'file' }` syntax. Bun resolves these to paths both in development (source tree) and in the compiled binary (embedded). The asset registry (`assets/registry.ts`) maps string keys to those paths and implements `AssetSource`. An unknown key throws `ProvisioningError` rather than silently returning empty content.
+Raw asset files live under `assets/files/` with their real deployed names (including leading dots). `scripts/generate-assets.ts` walks that tree and inlines every file's content as a string keyed by its path relative to `files/`, emitting `assets/registry.generated.ts`. The content is therefore embedded in the compiled binary as plain data, with no per-file imports or filesystem access at runtime. The asset directory is the single authority for what ships; codegen runs before build, test, and check.
 
-`AssetRef` keys double as sub-paths under the deploy root (`~/.config/mev/roles/`), so the deployed filename preserves the original dotfile name without needing a separate mapping.
+`assets/registry.ts` wraps the generated map as `AssetSource` (an unknown key throws `ProvisioningError` rather than returning empty content) and exposes `assetKeysByPrefix` so features derive their file lists from the embedded set rather than hand-enumerating them.
+
+`AssetRef` keys double as sub-paths under the deploy root (`~/.config/mev/roles/`), so the deployed filename preserves the original dotfile name without a separate mapping.
 
 ## Runtime Context (runtime/)
 

@@ -11,8 +11,9 @@ bun install
 ## Usage
 
 ```bash
-bun run mev make git          # Provision the git feature
-bun run mev make git --plan   # Show what would change without applying
+bun run mev make git           # Provision the git feature
+bun run mev make git shell      # Provision multiple features at once
+bun run mev make shell --plan   # Show what would change without applying
 bun run mev --help
 bun run mev --version
 ```
