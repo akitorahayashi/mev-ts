@@ -8,14 +8,19 @@ interface ContextOptions {
   readonly overwrite: boolean;
 }
 
-/** Build the live execution context bound to the current user's environment. */
-export function createContext(options: ContextOptions): Context {
+/** Resolve the current user's home directory or surface a typed failure. */
+export function resolveHome(): string {
   const home = process.env.HOME ?? homedir();
   if (!home) {
     throw new ProvisioningError('Unable to resolve the home directory.');
   }
+  return home;
+}
+
+/** Build the live execution context bound to the current user's environment. */
+export function createContext(options: ContextOptions): Context {
   return {
-    home,
+    home: resolveHome(),
     overwrite: options.overwrite,
     commands: bunCommandRunner,
     assets: embeddedAssets,

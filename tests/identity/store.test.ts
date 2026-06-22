@@ -1,0 +1,77 @@
+import { afterAll, expect, test } from 'bun:test';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { AppError } from '../../src/mev/errors';
+import {
+  identityFilePath,
+  loadState,
+  makeIdentity,
+  saveState,
+  stateExists,
+} from '../../src/mev/identity/store';
+
+const roots: string[] = [];
+
+function tempHome(): string {
+  const dir = mkdtempSync(join('.tmp', 'identity-'));
+  roots.push(dir);
+  return dir;
+}
+
+afterAll(() => {
+  for (const dir of roots) rmSync(dir, { recursive: true, force: true });
+});
+
+test('makeIdentity trims and validates non-empty fields', () => {
+  expect(makeIdentity(' Jane ', ' jane@example.com ')).toEqual({
+    name: 'Jane',
+    email: 'jane@example.com',
+  });
+  expect(makeIdentity('', 'jane@example.com')).toBeNull();
+  expect(makeIdentity('Jane', '  ')).toBeNull();
+});
+
+test('identityFilePath resolves under ~/.config/mev', () => {
+  expect(identityFilePath('/Users/test')).toBe(
+    '/Users/test/.config/mev/identity.json',
+  );
+});
+
+test('stateExists reflects whether the file is present', async () => {
+  const home = tempHome();
+  const path = identityFilePath(home);
+  expect(stateExists(path)).toBe(false);
+  await saveState(path, {
+    personal: makeIdentity('P', 'p@x.com'),
+    work: null,
+  });
+  expect(stateExists(path)).toBe(true);
+});
+
+test('saveState then loadState round-trips identities', async () => {
+  const path = identityFilePath(tempHome());
+  const state = {
+    personal: makeIdentity('Personal Name', 'personal@example.com'),
+    work: makeIdentity('Work Name', 'work@example.com'),
+  };
+  await saveState(path, state);
+  expect(await loadState(path)).toEqual(state);
+});
+
+test('saveState omits null profiles from the serialized file', async () => {
+  const path = identityFilePath(tempHome());
+  await saveState(path, {
+    personal: makeIdentity('Only Personal', 'p@example.com'),
+    work: null,
+  });
+  const json = JSON.parse(await readFile(path, 'utf8'));
+  expect(json).toEqual({
+    personal: { name: 'Only Personal', email: 'p@example.com' },
+  });
+});
+
+test('loadState throws when the file does not exist', async () => {
+  const path = identityFilePath(tempHome());
+  await expect(loadState(path)).rejects.toBeInstanceOf(AppError);
+});
