@@ -73,8 +73,18 @@ test('listLabelNames appends --repo when provided', async () => {
   ]);
 });
 
-test('listLabelNames throws ProvisioningError on failure', async () => {
+test('listLabelNames throws ProvisioningError on non-zero exit', async () => {
   const run = runner({ code: 1, stdout: '', stderr: 'error' });
+  await expect(listLabelNames(run)).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+test('listLabelNames throws ProvisioningError on invalid JSON', async () => {
+  const run = runner({ code: 0, stdout: 'not json', stderr: '' });
+  await expect(listLabelNames(run)).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+test('listLabelNames throws ProvisioningError when JSON is not an array', async () => {
+  const run = runner({ code: 0, stdout: '{"name":"C-bugs"}', stderr: '' });
   await expect(listLabelNames(run)).rejects.toBeInstanceOf(ProvisioningError);
 });
 

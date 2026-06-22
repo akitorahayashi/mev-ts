@@ -71,6 +71,24 @@ test('deployLabels edits labels already present in the repository', async () => 
   }
 });
 
+test('deployLabels edits labels whose existing name differs only by case', async () => {
+  const lowercaseNames = LABEL_CATALOG.map((l) =>
+    JSON.stringify({ name: l.name.toLowerCase() }),
+  ).join(',');
+  const calls: Call[] = [];
+  const responses: CommandResult[] = [
+    { code: 0, stdout: `[${lowercaseNames}]`, stderr: '' },
+    ...LABEL_CATALOG.map(() => ({ code: 0, stdout: '', stderr: '' })),
+  ];
+  const run = sequenceRunner(responses, calls);
+
+  await deployLabels(run);
+
+  for (let i = 1; i <= LABEL_CATALOG.length; i++) {
+    expect(calls[i]?.args[1]).toBe('edit');
+  }
+});
+
 test('deployLabels passes --repo to all operations', async () => {
   const calls: Call[] = [];
   const responses: CommandResult[] = [

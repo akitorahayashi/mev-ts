@@ -72,9 +72,11 @@ export async function deployLabels(
   run: CommandRunner,
   repo?: string,
 ): Promise<void> {
-  const existing = new Set(await listLabelNames(run, repo));
+  const existing = new Set(
+    (await listLabelNames(run, repo)).map((n) => n.toLowerCase()),
+  );
   for (const label of LABEL_CATALOG) {
-    if (existing.has(label.name)) {
+    if (existing.has(label.name.toLowerCase())) {
       await editLabel(run, label, repo);
     } else {
       await createLabel(run, label, repo);

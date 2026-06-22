@@ -29,8 +29,20 @@ export async function listLabelNames(
       `gh label list failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
     );
   }
-  const parsed = JSON.parse(result.stdout) as Array<{ name: string }>;
-  return parsed.map((l) => l.name);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch (error) {
+    throw new ProvisioningError(
+      `Failed to parse gh label list output: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new ProvisioningError(
+      'Failed to parse gh label list output: expected an array',
+    );
+  }
+  return parsed.map((l: { name: string }) => l.name);
 }
 
 export async function createLabel(
