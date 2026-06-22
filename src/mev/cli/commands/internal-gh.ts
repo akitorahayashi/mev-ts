@@ -18,7 +18,7 @@ function resolveRepo(value: string | boolean | undefined): string | undefined {
 export function registerInternalGhCommands(program: CAC): void {
   program
     .command(
-      'internal gh labels deploy',
+      'gh labels deploy',
       'Deploy the mev label catalog to a GitHub repository.',
     )
     .option(
@@ -31,10 +31,7 @@ export function registerInternalGhCommands(program: CAC): void {
     });
 
   program
-    .command(
-      'internal gh labels reset',
-      'Delete all labels from a GitHub repository.',
-    )
+    .command('gh labels reset', 'Delete all labels from a GitHub repository.')
     .option(
       '--repo <owner/repo>',
       'Target repository (defaults to current repo).',
