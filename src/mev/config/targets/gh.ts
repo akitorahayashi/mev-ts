@@ -2,11 +2,11 @@ import { brew } from '../../providers/brew';
 import { fs } from '../../providers/filesystem';
 import { asset } from '../../resources/asset';
 import { home } from '../../resources/path';
-import { feature } from '../feature';
+import { target } from '../target';
 
 const ghconfig = asset('gh/global/config.yml');
 
-export const ghFeature = feature('gh', {
+export const ghTarget = target('gh', {
   description: 'GitHub CLI configuration and label management',
   tags: ['gh'],
   resources: [
