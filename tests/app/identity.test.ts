@@ -104,6 +104,18 @@ test('showIdentity reports unset when git has no identity', async () => {
   expect(view.current.kind).toBe('unset');
 });
 
+test('showIdentity surfaces a half-configured identity as unmanaged', async () => {
+  const home = tempHome();
+  await seed(home);
+  const run = gitRunner({ 'user.name': 'Solo Name' });
+
+  const view = await showIdentity({ run, home });
+  expect(view.current).toEqual({
+    kind: 'unmanaged',
+    identity: { name: 'Solo Name', email: '' },
+  });
+});
+
 test('showIdentity throws when no configuration exists', async () => {
   const run = gitRunner({});
   await expect(showIdentity({ run, home: tempHome() })).rejects.toBeInstanceOf(

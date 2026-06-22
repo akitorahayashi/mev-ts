@@ -36,8 +36,14 @@ export async function loadState(path: string): Promise<IdentityState> {
   let content: string;
   try {
     content = await readFile(path, 'utf8');
-  } catch {
-    throw new AppError('identity configuration does not exist');
+  } catch (error) {
+    const code =
+      error instanceof Error ? (error as { code?: string }).code : undefined;
+    if (code === 'ENOENT') {
+      throw new AppError('identity configuration does not exist');
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new AppError(`failed to read identity config: ${message}`);
   }
 
   let raw: unknown;
