@@ -27,8 +27,12 @@ export async function runInternalCommandLine(
     });
 
     if (!program.matchedCommand) {
+      const firstArg = args[0];
+      if (firstArg?.startsWith('-')) {
+        throw new CommandLineError(`Unknown option '${firstArg}'.`);
+      }
       throw new CommandLineError(
-        `Unknown internal command '${program.args[0]}'.`,
+        `Unknown internal command '${program.args.join(' ')}'.`,
       );
     }
 

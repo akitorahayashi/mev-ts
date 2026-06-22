@@ -61,3 +61,13 @@ test('exits 1 for unknown internal command', async () => {
   const exitCode = await runCommandLine(['internal', 'unknown']);
   expect(exitCode).toBe(1);
 });
+
+test('exits 1 for unknown internal option', async () => {
+  const exitCode = await runCommandLine(['internal', '--unknown']);
+  expect(exitCode).toBe(1);
+});
+
+test('exits 1 for incomplete multi-word internal command', async () => {
+  const exitCode = await runCommandLine(['internal', 'gh', 'labels']);
+  expect(exitCode).toBe(1);
+});
