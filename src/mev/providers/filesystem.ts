@@ -149,12 +149,15 @@ async function staleLinks(
   managedRoot: string,
   expected: ReadonlySet<string>,
 ): Promise<string[]> {
-  if ((await lstatOrNull(root)) === null) {
+  let names: string[];
+  try {
+    names = await readdir(root, { recursive: true });
+  } catch {
     return [];
   }
   const base = managedRoot.endsWith('/') ? managedRoot : `${managedRoot}/`;
   const stale: string[] = [];
-  for (const name of await readdir(root, { recursive: true })) {
+  for (const name of names) {
     const path = join(root, name);
     if (expected.has(path)) {
       continue;
@@ -218,7 +221,7 @@ function linkTree(
       const entries = planEntries(refs, sourcePrefix, destDir, context.home);
       for (const { link, target } of entries) {
         await mkdir(dirname(link), { recursive: true });
-        await rm(link, { force: true });
+        await rm(link, { force: true, recursive: true });
         await symlink(target, link);
       }
       const stale = await staleLinks(

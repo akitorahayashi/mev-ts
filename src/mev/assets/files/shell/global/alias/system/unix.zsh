@@ -4,13 +4,12 @@ al-c() {
 		echo "Usage: al-c <alias_name>"
 		return 1
 	fi
-	local alias_value
-	alias_value=$(alias "$1" 2>/dev/null | cut -d= -f2- | sed "s/^'//;s/'$//")
+	local alias_value="${aliases[$1]}"
 	if [[ -z "$alias_value" ]]; then
 		echo "Alias '$1' not found."
 		return 1
 	fi
-	echo "$alias_value" | pbcopy
+	printf %s "$alias_value" | pbcopy
 	echo "✅ Copied '$alias_value' to clipboard"
 }
 alias sc="source"
