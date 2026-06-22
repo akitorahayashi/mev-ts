@@ -23,3 +23,16 @@ export async function configSet(
     );
   }
 }
+
+export async function configSetGlobal(
+  run: CommandRunner,
+  name: string,
+  value: string,
+): Promise<void> {
+  const result = await run.run('git', ['config', '--global', name, value]);
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      `git config --global ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+    );
+  }
+}
