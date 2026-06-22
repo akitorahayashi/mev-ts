@@ -1,26 +1,26 @@
 import { ProvisioningError } from '../errors';
 import type { AssetSource } from '../resources/model';
-import gitconfig from './git/global/gitconfig' with { type: 'file' };
-import gitignoreGlobal from './git/global/gitignore_global' with {
-  type: 'file',
-};
+import { assetContents } from './registry.generated';
 
 /**
- * Embedded configuration assets, keyed by their deployed path under the config
- * root. Bun compiles these files into the standalone binary, so the values
- * resolve to readable paths both in development and in the compiled executable.
+ * Embedded configuration assets, keyed by their path under the deployed config
+ * root. The map is generated from `src/mev/assets/files/` by
+ * `scripts/generate-assets.ts`, so the source tree is the single authority for
+ * what ships in the binary.
  */
-const embedded: Record<string, string> = {
-  'git/global/.gitconfig': gitconfig,
-  'git/global/.gitignore_global': gitignoreGlobal,
-};
-
 export const embeddedAssets: AssetSource = {
   async read(key): Promise<string> {
-    const path = embedded[key];
-    if (path === undefined) {
+    const content = assetContents[key];
+    if (content === undefined) {
       throw new ProvisioningError(`Unknown asset '${key}'.`);
     }
-    return Bun.file(path).text();
+    return content;
   },
 };
+
+/** All embedded asset keys whose path begins with the given prefix. */
+export function assetKeysByPrefix(prefix: string): string[] {
+  return Object.keys(assetContents)
+    .filter((key) => key.startsWith(prefix))
+    .sort();
+}

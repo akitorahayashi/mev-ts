@@ -11,10 +11,13 @@
   },
   "scripts": {
     "mev": "bun src/mev/main.ts",
-    "prebuild": "mkdir -p dist",
+    "codegen": "bun scripts/generate-assets.ts",
+    "prebuild": "mkdir -p dist && bun run codegen",
     "build": "bun build src/mev/main.ts --compile --outfile dist/mev && rm -f .*.bun-build",
+    "pretest": "bun run codegen",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
+    "precheck": "bun run codegen",
     "check": "biome check . && bun run typecheck",
     "fix": "biome check --write .",
     "prepare": "husky"

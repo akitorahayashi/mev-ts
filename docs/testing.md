@@ -15,6 +15,7 @@ Tests assert externally observable behavior at the boundary that owns it. Intern
 | Git provider | `tests/providers/git.test.ts` | Fake `CommandRunner` | None |
 | App use-case (runMake) | `tests/app/make.test.ts` | Injected fake `Context` | None |
 | CLI (exit code, help, version) | `tests/cli/program.test.ts` | String argv; spy on stdout/stderr | None |
+| Feature registry invariants | `tests/config/registry.test.ts` | Iterates `allFeatures()` | None |
 
 ## Context Injection
 
@@ -42,12 +43,10 @@ Feature-level end-to-end tests (provision a full feature against a fake home) ar
 
 ## Adding a New Feature
 
-Adding a feature to `config/registry.ts` requires no new test files. The graph and executor tests are feature-agnostic. The app test (`make.test.ts`) uses a fake context and verifies the use-case pipeline, not feature content.
-
-The observable invariants to assert when the feature list grows:
+Adding a feature to `config/registry.ts` requires no new test files. The graph and executor tests are feature-agnostic, and `tests/config/registry.test.ts` iterates `allFeatures()` to enforce, for every feature including new ones:
 
 - `buildGraph(feature.resources)` does not throw (no missing deps, no cycles, no id collisions).
-- Every `AssetRef` key used in the feature exists in the asset registry.
+- Every embedded-asset id (`fs:asset:<key>`) a feature references resolves in the asset registry.
 - No two features share a tag or alias.
 
-These are best captured as a single parametric suite over `features` from the registry rather than as per-feature tests.
+These are parametric over the registry rather than per-feature, so a malformed new feature is caught without bespoke tests. The app test (`make.test.ts`) covers the use-case pipeline with a fake context, not feature content.

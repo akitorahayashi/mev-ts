@@ -2,7 +2,15 @@
   "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!node_modules", "!coverage", "!.tmp", "!references"]
+    "includes": [
+      "**",
+      "!node_modules",
+      "!coverage",
+      "!.tmp",
+      "!references",
+      "!src/mev/assets/files",
+      "!src/mev/assets/registry.generated.ts"
+    ]
   },
   "formatter": {
     "enabled": true,

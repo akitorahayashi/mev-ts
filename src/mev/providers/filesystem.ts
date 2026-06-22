@@ -1,15 +1,16 @@
 import {
   lstat,
   mkdir,
+  readdir,
   readFile,
   readlink,
   rm,
   symlink,
   writeFile,
 } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { ProvisioningError } from '../errors';
-import { type AssetRef, deployedPath } from '../resources/asset';
+import { type AssetRef, deployedDir, deployedPath } from '../resources/asset';
 import type {
   ApplyResult,
   Context,
@@ -125,8 +126,117 @@ function assetSymlink(source: AssetRef, dest: HostPath): Resource {
   };
 }
 
+interface TreeEntry {
+  readonly link: string;
+  readonly target: string;
+}
+
+function planEntries(
+  refs: readonly AssetRef[],
+  sourcePrefix: string,
+  destDir: HostPath,
+  home: string,
+): TreeEntry[] {
+  const root = resolveHostPath(destDir, home);
+  return refs.map((ref) => ({
+    link: join(root, ref.key.slice(sourcePrefix.length)),
+    target: deployedPath(ref, home),
+  }));
+}
+
+async function staleLinks(
+  root: string,
+  managedRoot: string,
+  expected: ReadonlySet<string>,
+): Promise<string[]> {
+  if ((await lstatOrNull(root)) === null) {
+    return [];
+  }
+  const base = managedRoot.endsWith('/') ? managedRoot : `${managedRoot}/`;
+  const stale: string[] = [];
+  for (const name of await readdir(root, { recursive: true })) {
+    const path = join(root, name);
+    if (expected.has(path)) {
+      continue;
+    }
+    const stats = await lstatOrNull(path);
+    if (!stats?.isSymbolicLink()) {
+      continue;
+    }
+    const target = await readlink(path).catch(() => '');
+    if (target.startsWith(base)) {
+      stale.push(path);
+    }
+  }
+  return stale;
+}
+
+/**
+ * Mirrors a set of deployed assets into a destination directory as symlinks,
+ * preserving their relative layout. Owns the managed-link state of `destDir`:
+ * links pointing into the deploy root that are no longer expected are pruned,
+ * while unrelated user files in the directory are left untouched.
+ */
+function linkTree(
+  destDir: HostPath,
+  refs: readonly AssetRef[],
+  sourcePrefix: string,
+): Resource {
+  return {
+    id: `fs:linktree:${symbolic(destDir)}`,
+    dependencies: refs.map((ref) => `fs:asset:${ref.key}`),
+    concurrencyGroup: 'filesystem',
+    async inspect(context: Context): Promise<ResourceState> {
+      const root = resolveHostPath(destDir, context.home);
+      const entries = planEntries(refs, sourcePrefix, destDir, context.home);
+      let present = 0;
+      for (const { link, target } of entries) {
+        const stats = await lstatOrNull(link);
+        if (stats?.isSymbolicLink() && (await readlink(link)) === target) {
+          present += 1;
+        }
+      }
+      const stale = await staleLinks(
+        root,
+        deployedDir(sourcePrefix, context.home),
+        new Set(entries.map((entry) => entry.link)),
+      );
+      if (present === entries.length && stale.length === 0) {
+        return { kind: 'present' };
+      }
+      if (present === 0 && stale.length === 0) {
+        return { kind: 'missing' };
+      }
+      const detail =
+        stale.length > 0
+          ? `${stale.length} stale, ${entries.length - present} to link`
+          : `${entries.length - present} to link`;
+      return { kind: 'diverged', detail };
+    },
+    async apply(context: Context): Promise<ApplyResult> {
+      const root = resolveHostPath(destDir, context.home);
+      const entries = planEntries(refs, sourcePrefix, destDir, context.home);
+      for (const { link, target } of entries) {
+        await mkdir(dirname(link), { recursive: true });
+        await rm(link, { force: true });
+        await symlink(target, link);
+      }
+      const stale = await staleLinks(
+        root,
+        deployedDir(sourcePrefix, context.home),
+        new Set(entries.map((entry) => entry.link)),
+      );
+      for (const link of stale) {
+        await rm(link, { force: true });
+      }
+      return { detail: `${entries.length} links, ${stale.length} pruned` };
+    },
+  };
+}
+
 export const fs = {
   deployAsset,
   directory,
   symlink: assetSymlink,
+  linkTree,
 };

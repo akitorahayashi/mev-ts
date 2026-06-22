@@ -20,6 +20,11 @@ export function deployedPath(ref: AssetRef, homeDir: string): string {
   return join(homeDir, deployRoot, ref.key);
 }
 
+/** Concrete deploy directory shared by all assets whose key has this prefix. */
+export function deployedDir(prefix: string, homeDir: string): string {
+  return join(homeDir, deployRoot, prefix);
+}
+
 /** Stable, home-independent rendering of the deployed path. */
 export function deployedSymbolic(ref: AssetRef): string {
   return `~/${deployRoot}/${ref.key}`;
