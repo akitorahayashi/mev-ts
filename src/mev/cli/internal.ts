@@ -2,11 +2,13 @@ import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
 import { registerInternalGhCommands } from './commands/internal-gh';
+import { registerInternalGitCommands } from './commands/internal-git';
 
 function createInternalProgram(): CAC {
   const program = cac(`${packageMetadata.name} internal`);
   program.usage('<command> [options]');
   registerInternalGhCommands(program);
+  registerInternalGitCommands(program);
   program.help();
   return program;
 }
