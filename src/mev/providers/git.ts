@@ -58,7 +58,7 @@ function config(
       ]);
       if (result.code !== 0) {
         throw new ProvisioningError(
-          `git config ${name} failed: ${result.stderr || result.stdout}`,
+          `git config ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
         );
       }
       return { detail: `${name}=${desired}` };

@@ -58,7 +58,7 @@ function formula(name: string): Resource {
         ]);
         if (result.code !== 0) {
           throw new ProvisioningError(
-            `brew bundle install failed for ${name}: ${result.stderr || result.stdout}`,
+            `brew bundle install failed for ${name} with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
           );
         }
         return { detail: name };

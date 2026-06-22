@@ -72,15 +72,15 @@ export async function applyGraph(
       return p;
     });
 
-    outcomes.set(
-      resource.id,
-      limits[resource.concurrencyGroup](async () => {
-        const deps = await Promise.all(depPromises);
-        if (
-          deps.some((r) => r.outcome === 'failed' || r.outcome === 'blocked')
-        ) {
-          return make(resource.id, 'blocked');
-        }
+    // Resolve dependencies outside the concurrency group so waiting tasks do
+    // not hold a slot while their dependencies (potentially in another group)
+    // are still running.
+    const promise = (async () => {
+      const deps = await Promise.all(depPromises);
+      if (deps.some((r) => r.outcome === 'failed' || r.outcome === 'blocked')) {
+        return make(resource.id, 'blocked');
+      }
+      return limits[resource.concurrencyGroup](async () => {
         try {
           const state = await resource.inspect(context);
           if (state.kind === 'present') {
@@ -91,8 +91,9 @@ export async function applyGraph(
         } catch (error) {
           return make(resource.id, 'failed', { error: errorMessage(error) });
         }
-      }),
-    );
+      });
+    })();
+    outcomes.set(resource.id, promise);
   }
 
   return Promise.all(

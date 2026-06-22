@@ -34,6 +34,13 @@ function deployAsset(ref: AssetRef): Resource {
     concurrencyGroup: 'filesystem',
     async inspect(context: Context): Promise<ResourceState> {
       const dest = deployedPath(ref, context.home);
+      const stats = await lstatOrNull(dest);
+      if (stats === null) {
+        return { kind: 'missing' };
+      }
+      if (!stats.isFile()) {
+        return { kind: 'diverged', detail: 'not a regular file' };
+      }
       const desired = await context.assets.read(ref.key);
       const current = await readFile(dest, 'utf8').catch(() => null);
       if (current === null) {

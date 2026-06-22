@@ -16,6 +16,9 @@ export function buildGraph(selected: readonly Resource[]): ResourceGraph {
   const byId = new Map<string, Resource>();
   for (const resource of selected) {
     if (!byId.has(resource.id)) {
+      // Same desired state referenced from multiple features: keep one node so
+      // the work runs once. Distinct resources sharing an id is a definition
+      // bug; merging would silently hide conflicting declarations.
       byId.set(resource.id, resource);
     }
   }
