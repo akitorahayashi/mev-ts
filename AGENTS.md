@@ -1,4 +1,3 @@
-
 # Agent Guide
 
 ## Purpose
@@ -12,14 +11,14 @@ macOS development environment provisioning CLI built with Bun and TypeScript.
 - Install dependencies with `bun install`.
 - Run the CLI with `bun run mev <command>`.
 - Build the standalone binary with `bun run build`.
+- Apply repository formatting with `bun run fix`.
 - Run static validation with `bun run check`.
 - Run tests with `bun run test`.
-- Apply repository formatting with `bun run fix`.
 
 ## Development Rules
 
 - Keep dependencies minimal and clearly justified.
-- Use `cac` as the command-line boundary for command declaration, help, option parsing, and required argument validation.
+- Use `cac` as the command-line boundary for `make` and `list`. The `internal` subcommand uses hand-rolled dispatch (`cli/internal.ts`) because `cac` cannot handle multi-word commands with trailing variadic and `--` separators.
 - Keep the CLI surface small and explicit.
 - Keep the structure aligned to `cli/`, `app/`, and feature-owned modules under `src/mev/`.
 - Do not add silent fallback behavior.

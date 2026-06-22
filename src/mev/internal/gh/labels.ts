@@ -68,28 +68,50 @@ export const LABEL_CATALOG: readonly Label[] = [
   { name: 'P-low', description: 'Investment for the future', color: '725d81' },
 ];
 
+export interface LabelTask {
+  readonly label: string;
+  readonly run: () => Promise<void>;
+}
+
+export async function buildDeployTasks(
+  run: CommandRunner,
+  repo?: string,
+): Promise<LabelTask[]> {
+  const existing = new Set(
+    (await listLabelNames(run, repo)).map((n) => n.toLowerCase()),
+  );
+  return LABEL_CATALOG.map((label) => ({
+    label: label.name,
+    run: () =>
+      existing.has(label.name.toLowerCase())
+        ? editLabel(run, label, repo)
+        : createLabel(run, label, repo),
+  }));
+}
+
+export async function buildResetTasks(
+  run: CommandRunner,
+  repo?: string,
+): Promise<LabelTask[]> {
+  const names = await listLabelNames(run, repo);
+  return names.map((name) => ({
+    label: name,
+    run: () => deleteLabel(run, name, repo),
+  }));
+}
+
 export async function deployLabels(
   run: CommandRunner,
   repo?: string,
 ): Promise<void> {
-  const existing = new Set(
-    (await listLabelNames(run, repo)).map((n) => n.toLowerCase()),
-  );
-  for (const label of LABEL_CATALOG) {
-    if (existing.has(label.name.toLowerCase())) {
-      await editLabel(run, label, repo);
-    } else {
-      await createLabel(run, label, repo);
-    }
-  }
+  const tasks = await buildDeployTasks(run, repo);
+  await Promise.all(tasks.map((t) => t.run()));
 }
 
 export async function resetLabels(
   run: CommandRunner,
   repo?: string,
 ): Promise<void> {
-  const names = await listLabelNames(run, repo);
-  for (const name of names) {
-    await deleteLabel(run, name, repo);
-  }
+  const tasks = await buildResetTasks(run, repo);
+  await Promise.all(tasks.map((t) => t.run()));
 }

@@ -1,18 +1,6 @@
 import type { CAC } from 'cac';
 import { allTargets } from '../../config/registry';
-
-function ansi(code: string, s: string): string {
-  return `\x1b[${code}m${s}\x1b[0m`;
-}
-
-function makeStyle(isTTY: boolean) {
-  return {
-    bold: (s: string) => (isTTY ? ansi('1', s) : s),
-    dim: (s: string) => (isTTY ? ansi('2', s) : s),
-    cyan: (s: string) => (isTTY ? ansi('96', s) : s),
-    yellow: (s: string) => (isTTY ? ansi('33', s) : s),
-  };
-}
+import { makeStyle } from '../render/style';
 
 export function formatTargetList(
   isTTY = process.stdout.isTTY ?? false,

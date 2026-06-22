@@ -35,15 +35,22 @@ function make(
 export async function planGraph(
   graph: ResourceGraph,
   context: Context,
+  onProgress?: (report: ResourceReport) => void,
 ): Promise<ResourceReport[]> {
   return Promise.all(
     graph.resources.map(async (resource) => {
       try {
         const state = await resource.inspect(context);
         const outcome = state.kind === 'present' ? 'unchanged' : 'changed';
-        return make(resource.id, outcome, { detail: state.detail });
+        const report = make(resource.id, outcome, { detail: state.detail });
+        onProgress?.(report);
+        return report;
       } catch (error) {
-        return make(resource.id, 'failed', { error: errorMessage(error) });
+        const report = make(resource.id, 'failed', {
+          error: errorMessage(error),
+        });
+        onProgress?.(report);
+        return report;
       }
     }),
   );
@@ -58,6 +65,7 @@ export async function planGraph(
 export async function applyGraph(
   graph: ResourceGraph,
   context: Context,
+  onProgress?: (report: ResourceReport) => void,
 ): Promise<ResourceReport[]> {
   const limits = makeLimits();
   const outcomes = new Map<string, Promise<ResourceReport>>();
@@ -78,18 +86,32 @@ export async function applyGraph(
     const promise = (async () => {
       const deps = await Promise.all(depPromises);
       if (deps.some((r) => r.outcome === 'failed' || r.outcome === 'blocked')) {
-        return make(resource.id, 'blocked');
+        const report = make(resource.id, 'blocked');
+        onProgress?.(report);
+        return report;
       }
       return limits[resource.concurrencyGroup](async () => {
         try {
           const state = await resource.inspect(context);
           if (state.kind === 'present') {
-            return make(resource.id, 'unchanged', { detail: state.detail });
+            const report = make(resource.id, 'unchanged', {
+              detail: state.detail,
+            });
+            onProgress?.(report);
+            return report;
           }
           const result = await resource.apply(context);
-          return make(resource.id, 'changed', { detail: result.detail });
+          const report = make(resource.id, 'changed', {
+            detail: result.detail,
+          });
+          onProgress?.(report);
+          return report;
         } catch (error) {
-          return make(resource.id, 'failed', { error: errorMessage(error) });
+          const report = make(resource.id, 'failed', {
+            error: errorMessage(error),
+          });
+          onProgress?.(report);
+          return report;
         }
       });
     })();

@@ -42,10 +42,11 @@ test('plan lists the git target resources without applying', async () => {
     context,
   );
 
+  const ids = result.reports.map((r) => r.id);
   expect(result.failed).toBe(false);
-  expect(result.report).toContain('brew:formula:git');
-  expect(result.report).toContain('git:config:global:core.excludesfile');
-  expect(result.report).toContain('to change');
+  expect(ids).toContain('brew:formula:git');
+  expect(ids.some((id) => id.includes('core.excludesfile'))).toBe(true);
+  expect(result.reports.some((r) => r.outcome === 'changed')).toBe(true);
 });
 
 test('apply provisions the git target through the full pipeline', async () => {
@@ -56,7 +57,7 @@ test('apply provisions the git target through the full pipeline', async () => {
   );
 
   expect(result.failed).toBe(false);
-  expect(result.report).toContain('changed');
+  expect(result.reports.some((r) => r.outcome === 'changed')).toBe(true);
 });
 
 test('an unknown tag is rejected', async () => {
@@ -64,4 +65,38 @@ test('an unknown tag is rejected', async () => {
   await expect(
     runMake({ tags: ['nope'], plan: true, overwrite: false }, context),
   ).rejects.toBeInstanceOf(CommandLineError);
+});
+
+test('onStart fires with the total resource count', async () => {
+  const context = contextFor(sandbox, 0);
+  let total = -1;
+  await runMake(
+    {
+      tags: ['git'],
+      plan: true,
+      overwrite: false,
+      onStart: (n) => {
+        total = n;
+      },
+    },
+    context,
+  );
+  expect(total).toBeGreaterThan(0);
+});
+
+test('onProgress fires once per resource', async () => {
+  const context = contextFor(sandbox, 0);
+  let count = 0;
+  const result = await runMake(
+    {
+      tags: ['git'],
+      plan: false,
+      overwrite: false,
+      onProgress: () => {
+        count += 1;
+      },
+    },
+    context,
+  );
+  expect(count).toBe(result.reports.length);
 });

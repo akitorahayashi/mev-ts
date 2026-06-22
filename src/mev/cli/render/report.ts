@@ -1,4 +1,5 @@
-import type { Outcome, ResourceReport } from '../resources/model';
+import type { Outcome, ResourceReport } from '../../resources/model';
+import { makeStyle } from './style';
 
 const planLabels: Record<Outcome, string> = {
   unchanged: 'unchanged',
@@ -16,21 +17,31 @@ const applyLabels: Record<Outcome, string> = {
 
 interface RenderOptions {
   readonly plan: boolean;
+  readonly isTTY?: boolean;
 }
 
-/** Render execution reports as aligned per-resource lines plus a summary. */
 export function renderReports(
   reports: readonly ResourceReport[],
   options: RenderOptions,
 ): string {
+  const isTTY = options.isTTY ?? process.stdout.isTTY ?? false;
+  const c = makeStyle(isTTY);
   const labels = options.plan ? planLabels : applyLabels;
   const width = reports.reduce(
     (max, report) => Math.max(max, report.id.length),
     0,
   );
 
+  const colorLabel = (outcome: Outcome, text: string): string => {
+    if (!isTTY) return text;
+    if (outcome === 'changed') return c.green(text);
+    if (outcome === 'failed') return c.red(text);
+    if (outcome === 'blocked') return c.yellow(text);
+    return c.dim(text);
+  };
+
   const lines = reports.map((report) => {
-    const label = labels[report.outcome];
+    const label = colorLabel(report.outcome, labels[report.outcome]);
     const suffix = report.error ?? report.detail;
     const tail = suffix ? `  (${suffix})` : '';
     return `  ${report.id.padEnd(width)}  ${label}${tail}`;
