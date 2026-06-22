@@ -9,7 +9,7 @@ const USAGE = `mev internal <command>
 
 Commands:
   git clone <urls...> [-- <flags...>]            Clone repositories sequentially.
-  git delete-branches <branches...> [-- <to>]    Delete local branches after updating the checkout branch.
+  git delete-branches <branches...>              Delete local branches, checking out the default branch first if needed.
   git delete-submodule <path>                    Delete a git submodule completely.
   gh labels deploy [--repo <owner/repo>]         Deploy the mev label catalog to a repository.
   gh labels reset [--repo <owner/repo>]          Delete all labels from a repository.

@@ -23,13 +23,39 @@ function sequenceRunner(
   };
 }
 
-test('updates main, deletes branches, and prunes origin', async () => {
+// current branch is not in the delete list
+test('deletes branches and prunes without checkout when not on a deleted branch', async () => {
   const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
+  const run = sequenceRunner(
+    [{ code: 0, stdout: 'main\n', stderr: '' }],
+    calls,
+  );
 
   await deleteBranches(run, ['feature/a', 'feature/b']);
 
   expect(calls.map((c) => c.args)).toEqual([
+    ['rev-parse', '--abbrev-ref', 'HEAD'],
+    ['branch', '-D', '--', 'feature/a', 'feature/b'],
+    ['remote', 'prune', 'origin'],
+  ]);
+});
+
+// current branch is in the delete list
+test('checks out default branch and pulls before deleting when on a deleted branch', async () => {
+  const calls: Call[] = [];
+  const run = sequenceRunner(
+    [
+      { code: 0, stdout: 'feature/a\n', stderr: '' }, // current branch
+      { code: 0, stdout: 'origin/main\n', stderr: '' }, // origin/HEAD
+    ],
+    calls,
+  );
+
+  await deleteBranches(run, ['feature/a', 'feature/b']);
+
+  expect(calls.map((c) => c.args)).toEqual([
+    ['rev-parse', '--abbrev-ref', 'HEAD'],
+    ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
     ['checkout', 'main'],
     ['pull'],
     ['branch', '-D', '--', 'feature/a', 'feature/b'],
@@ -37,20 +63,7 @@ test('updates main, deletes branches, and prunes origin', async () => {
   ]);
 });
 
-test('checks out the branch named after the separator', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await deleteBranches(run, ['feature/a', '--', 'develop']);
-
-  expect(calls.map((c) => c.args)).toEqual([
-    ['checkout', 'develop'],
-    ['pull'],
-    ['branch', '-D', '--', 'feature/a'],
-    ['remote', 'prune', 'origin'],
-  ]);
-});
-
+// error cases
 test('rejects an empty branch list', async () => {
   const calls: Call[] = [];
   const run = sequenceRunner([], calls);
@@ -61,42 +74,27 @@ test('rejects an empty branch list', async () => {
   expect(calls).toHaveLength(0);
 });
 
-test('rejects when no checkout branch follows the separator', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await expect(deleteBranches(run, ['feature/a', '--'])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-  expect(calls).toHaveLength(0);
-});
-
-test('rejects more than one checkout branch', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await expect(
-    deleteBranches(run, ['feature/a', '--', 'develop', 'extra']),
-  ).rejects.toBeInstanceOf(CommandLineError);
-  expect(calls).toHaveLength(0);
-});
-
-test('rejects deleting the checkout branch', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await expect(deleteBranches(run, ['main'])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-  expect(calls).toHaveLength(0);
-});
-
-test('stops before delete when pull fails', async () => {
+test('rejects deleting the default branch when on another branch', async () => {
   const calls: Call[] = [];
   const run = sequenceRunner(
     [
-      { code: 0, stdout: '', stderr: '' },
-      { code: 1, stdout: '', stderr: 'pull failed' },
+      { code: 0, stdout: 'feature/a\n', stderr: '' },
+      { code: 0, stdout: 'origin/main\n', stderr: '' },
+    ],
+    calls,
+  );
+
+  await expect(
+    deleteBranches(run, ['feature/a', 'main']),
+  ).rejects.toBeInstanceOf(CommandLineError);
+});
+
+test('errors when origin/HEAD is not set', async () => {
+  const calls: Call[] = [];
+  const run = sequenceRunner(
+    [
+      { code: 0, stdout: 'feature/a\n', stderr: '' },
+      { code: 128, stdout: '', stderr: 'fatal: ambiguous argument' },
     ],
     calls,
   );
@@ -104,5 +102,27 @@ test('stops before delete when pull fails', async () => {
   await expect(deleteBranches(run, ['feature/a'])).rejects.toBeInstanceOf(
     ProvisioningError,
   );
-  expect(calls.map((c) => c.args)).toEqual([['checkout', 'main'], ['pull']]);
+});
+
+test('stops before delete when pull fails', async () => {
+  const calls: Call[] = [];
+  const run = sequenceRunner(
+    [
+      { code: 0, stdout: 'feature/a\n', stderr: '' },
+      { code: 0, stdout: 'origin/main\n', stderr: '' },
+      { code: 0, stdout: '', stderr: '' }, // checkout
+      { code: 1, stdout: '', stderr: 'pull failed' }, // pull
+    ],
+    calls,
+  );
+
+  await expect(deleteBranches(run, ['feature/a'])).rejects.toBeInstanceOf(
+    ProvisioningError,
+  );
+  expect(calls.map((c) => c.args)).toEqual([
+    ['rev-parse', '--abbrev-ref', 'HEAD'],
+    ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
+    ['checkout', 'main'],
+    ['pull'],
+  ]);
 });
