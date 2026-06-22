@@ -22,20 +22,26 @@ export function registerMakeCommand(program: CAC): void {
 
       let bar: ReturnType<typeof createProgressBar> | undefined;
 
-      const result = await runMake({
-        tags,
-        plan,
-        overwrite: options.overwrite ?? false,
-        onStart(total) {
-          if (total > 0) bar = createProgressBar(total);
-        },
-        onProgress() {
-          bar?.tick();
-        },
-      });
+      try {
+        const result = await runMake({
+          tags,
+          plan,
+          overwrite: options.overwrite ?? false,
+          onStart(total) {
+            if (total > 0) bar = createProgressBar(total);
+          },
+          onProgress() {
+            bar?.tick();
+          },
+        });
 
-      bar?.stop();
-      process.stdout.write(`\n${renderOutcomes(result.reports, { plan })}\n`);
-      return { failed: result.failed };
+        bar?.stop();
+        process.stdout.write(`\n${renderOutcomes(result.reports, { plan })}\n`);
+        return { failed: result.failed };
+      } finally {
+        // Guarantee the spinner interval is cleared even if runMake throws, so
+        // the event loop is not kept alive and the cursor is not left dirty.
+        bar?.stop();
+      }
     });
 }

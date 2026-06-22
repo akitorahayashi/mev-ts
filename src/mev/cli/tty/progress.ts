@@ -3,8 +3,12 @@ const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', 
 const SPINNER_INTERVAL_MS = 80;
 
 function renderLine(frame: string, completed: number, total: number): string {
+  // Clamp to the bar width so an unexpected completed > total never produces a
+  // negative repeat count, which would throw RangeError and crash the CLI.
   const filled =
-    total === 0 ? BAR_WIDTH : Math.round((completed / total) * BAR_WIDTH);
+    total === 0
+      ? BAR_WIDTH
+      : Math.min(BAR_WIDTH, Math.round((completed / total) * BAR_WIDTH));
   const bar = '━'.repeat(filled) + '─'.repeat(BAR_WIDTH - filled);
   const totalStr = String(total);
   const count = `${String(completed).padStart(totalStr.length)}/${totalStr}`;
@@ -44,12 +48,15 @@ export function createProgressBar(
     draw();
   }, SPINNER_INTERVAL_MS);
 
+  let stopped = false;
   return {
     tick() {
       completed += 1;
       draw();
     },
     stop() {
+      if (stopped) return;
+      stopped = true;
       clearInterval(timer);
       process.stdout.write('\r\x1b[2K');
     },
