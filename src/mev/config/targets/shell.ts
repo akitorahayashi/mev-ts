@@ -2,9 +2,8 @@ import { assetKeysByPrefix } from '../../assets/registry';
 import { fs } from '../../providers/filesystem';
 import { asset } from '../../resources/asset';
 import { home } from '../../resources/path';
-import { feature } from '../feature';
+import { target } from '../target';
 
-// Top-level dotfiles linked into $HOME, mirroring the git feature's pattern.
 const dotfiles = ['.zshenv', '.zprofile', '.zshrc'];
 const dotfileResources = dotfiles.flatMap((name) => {
   const ref = asset(`shell/global/${name}`);
@@ -18,7 +17,7 @@ const aliasPrefix = 'shell/global/alias/';
 const aliasRefs = assetKeysByPrefix(aliasPrefix).map((key) => asset(key));
 const aliasDeploys = aliasRefs.map((ref) => fs.deployAsset(ref));
 
-export const shellFeature = feature('shell', {
+export const shellTarget = target('shell', {
   description: 'Shell environment, dotfiles, and aliases',
   tags: ['shell'],
   aliases: ['sh'],

@@ -3,14 +3,14 @@ import { fs } from '../../providers/filesystem';
 import { git } from '../../providers/git';
 import { asset } from '../../resources/asset';
 import { home } from '../../resources/path';
-import { feature } from '../feature';
+import { target } from '../target';
 
 const gitconfig = asset('git/global/.gitconfig');
 const gitignore = asset('git/global/.gitignore_global');
 const configLink = fs.symlink(gitconfig, home('.config/git/config'));
 const gitignoreLink = fs.symlink(gitignore, home('.gitignore_global'));
 
-export const gitFeature = feature('git', {
+export const gitTarget = target('git', {
   description: 'Git configuration and global gitignore',
   tags: ['git'],
   resources: [

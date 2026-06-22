@@ -35,7 +35,7 @@ afterEach(async () => {
   await rm(sandbox, { force: true, recursive: true });
 });
 
-test('plan lists the git feature resources without applying', async () => {
+test('plan lists the git target resources without applying', async () => {
   const context = contextFor(sandbox, 1);
   const result = await runMake(
     { tags: ['git'], plan: true, overwrite: false },
@@ -48,7 +48,7 @@ test('plan lists the git feature resources without applying', async () => {
   expect(result.report).toContain('to change');
 });
 
-test('apply provisions the git feature through the full pipeline', async () => {
+test('apply provisions the git target through the full pipeline', async () => {
   const context = contextFor(sandbox, 0);
   const result = await runMake(
     { tags: ['git'], plan: false, overwrite: false },

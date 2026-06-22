@@ -1,17 +1,16 @@
 import { CommandLineError } from '../errors';
-import type { Feature } from './feature';
-import { ghFeature } from './features/gh';
-import { gitFeature } from './features/git';
-import { shellFeature } from './features/shell';
+import type { Target } from './target';
+import { ghTarget } from './targets/gh';
+import { gitTarget } from './targets/git';
+import { shellTarget } from './targets/shell';
 
-/** Every feature mev can provision. Tags, aliases, and packages derive from here. */
-const features: readonly Feature[] = [gitFeature, shellFeature, ghFeature];
+/** Every target mev can provision. Tags, aliases, and packages derive from here. */
+const targets: readonly Target[] = [gitTarget, shellTarget, ghTarget];
 
-/** Resolve a tag or alias to its owning feature. */
-export function resolveFeature(selector: string): Feature {
-  const match = features.find(
-    (feature) =>
-      feature.tags.includes(selector) || feature.aliases.includes(selector),
+/** Resolve a tag or alias to its owning target. */
+export function resolveTarget(selector: string): Target {
+  const match = targets.find(
+    (t) => t.tags.includes(selector) || t.aliases.includes(selector),
   );
   if (!match) {
     throw new CommandLineError(
@@ -23,10 +22,10 @@ export function resolveFeature(selector: string): Feature {
 
 /** All selectable tags and aliases, in declaration order. */
 export function availableSelectors(): string[] {
-  return features.flatMap((feature) => [...feature.tags, ...feature.aliases]);
+  return targets.flatMap((t) => [...t.tags, ...t.aliases]);
 }
 
-/** Every registered feature, in declaration order. */
-export function allFeatures(): readonly Feature[] {
-  return features;
+/** Every registered target, in declaration order. */
+export function allTargets(): readonly Target[] {
+  return targets;
 }

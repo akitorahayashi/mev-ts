@@ -1,5 +1,5 @@
 import type { CAC } from 'cac';
-import { allFeatures } from '../../config/registry';
+import { allTargets } from '../../config/registry';
 
 function ansi(code: string, s: string): string {
   return `\x1b[${code}m${s}\x1b[0m`;
@@ -14,26 +14,26 @@ function makeStyle(isTTY: boolean) {
   };
 }
 
-export function formatFeatureList(
+export function formatTargetList(
   isTTY = process.stdout.isTTY ?? false,
 ): string {
-  const features = allFeatures();
+  const targets = allTargets();
   const c = makeStyle(isTTY);
 
   const nameColWidth = Math.max(
-    'FEATURE'.length,
-    ...features.map((f) => f.name.length),
+    'TARGET'.length,
+    ...targets.map((t) => t.name.length),
   );
   const tagColWidth = Math.max(
     'TAGS'.length,
-    ...features.map((f) => [...f.tags, ...f.aliases].join(', ').length),
+    ...targets.map((t) => [...t.tags, ...t.aliases].join(', ').length),
   );
 
   const pad = (s: string, width: number) =>
     s + ' '.repeat(width - s.length + 1);
 
   const header =
-    ` ${c.bold(pad('FEATURE', nameColWidth))}` +
+    ` ${c.bold(pad('TARGET', nameColWidth))}` +
     `${c.bold(pad('TAGS', tagColWidth))}` +
     `${c.bold('DESCRIPTION')}`;
 
@@ -42,13 +42,13 @@ export function formatFeatureList(
     `${c.dim(pad('─'.repeat(tagColWidth), tagColWidth))}` +
     `${c.dim('─'.repeat('DESCRIPTION'.length))}`;
 
-  const rows = features.map((f) => {
-    const tags = [...f.tags, ...f.aliases].join(', ');
+  const rows = targets.map((t) => {
+    const tags = [...t.tags, ...t.aliases].join(', ');
     return (
       ' ' +
-      c.cyan(pad(f.name, nameColWidth)) +
+      c.cyan(pad(t.name, nameColWidth)) +
       c.yellow(pad(tags, tagColWidth)) +
-      f.description
+      t.description
     );
   });
 
@@ -57,9 +57,9 @@ export function formatFeatureList(
 
 export function registerListCommand(program: CAC): void {
   program
-    .command('list', 'List available features.')
+    .command('list', 'List available targets.')
     .alias('ls')
     .action(() => {
-      process.stdout.write(formatFeatureList());
+      process.stdout.write(formatTargetList());
     });
 }

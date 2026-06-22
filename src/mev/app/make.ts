@@ -1,4 +1,4 @@
-import { resolveFeature } from '../config/registry';
+import { resolveTarget } from '../config/registry';
 import { renderReports } from '../output/report';
 import { applyGraph, planGraph } from '../resources/executor';
 import { buildGraph } from '../resources/graph';
@@ -17,7 +17,7 @@ export interface MakeResult {
 }
 
 /**
- * Resolve the selected tags to features, normalize their resources into a
+ * Resolve the selected tags to targets, normalize their resources into a
  * graph, and either plan or apply it against the live host.
  */
 export async function runMake(
@@ -25,7 +25,7 @@ export async function runMake(
   context: Context = createContext({ overwrite: request.overwrite }),
 ): Promise<MakeResult> {
   const selected: Resource[] = request.tags.flatMap(
-    (tag) => resolveFeature(tag).resources,
+    (tag) => resolveTarget(tag).resources,
   );
   const graph = buildGraph(selected);
 

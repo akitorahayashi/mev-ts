@@ -1,43 +1,43 @@
 import { expect, test } from 'bun:test';
-import { formatFeatureList } from '../../src/mev/cli/commands/list';
-import { allFeatures } from '../../src/mev/config/registry';
+import { formatTargetList } from '../../src/mev/cli/commands/list';
+import { allTargets } from '../../src/mev/config/registry';
 
-test('formatFeatureList includes every registered feature name', () => {
-  const output = formatFeatureList(false);
-  for (const feature of allFeatures()) {
-    expect(output).toContain(feature.name);
+test('formatTargetList includes every registered target name', () => {
+  const output = formatTargetList(false);
+  for (const t of allTargets()) {
+    expect(output).toContain(t.name);
   }
 });
 
-test('formatFeatureList includes every feature description', () => {
-  const output = formatFeatureList(false);
-  for (const feature of allFeatures()) {
-    expect(output).toContain(feature.description);
+test('formatTargetList includes every target description', () => {
+  const output = formatTargetList(false);
+  for (const t of allTargets()) {
+    expect(output).toContain(t.description);
   }
 });
 
-test('formatFeatureList includes aliases when present', () => {
-  const output = formatFeatureList(false);
-  for (const feature of allFeatures()) {
-    for (const alias of feature.aliases) {
+test('formatTargetList includes aliases when present', () => {
+  const output = formatTargetList(false);
+  for (const t of allTargets()) {
+    for (const alias of t.aliases) {
       expect(output).toContain(alias);
     }
   }
 });
 
-test('formatFeatureList includes column headers', () => {
-  const output = formatFeatureList(false);
-  expect(output).toContain('FEATURE');
+test('formatTargetList includes column headers', () => {
+  const output = formatTargetList(false);
+  expect(output).toContain('TARGET');
   expect(output).toContain('TAGS');
   expect(output).toContain('DESCRIPTION');
 });
 
-test('formatFeatureList contains no ANSI codes when isTTY is false', () => {
-  const output = formatFeatureList(false);
+test('formatTargetList contains no ANSI codes when isTTY is false', () => {
+  const output = formatTargetList(false);
   expect(output).not.toContain('\x1b[');
 });
 
-test('formatFeatureList contains ANSI codes when isTTY is true', () => {
-  const output = formatFeatureList(true);
+test('formatTargetList contains ANSI codes when isTTY is true', () => {
+  const output = formatTargetList(true);
   expect(output).toContain('\x1b[');
 });
