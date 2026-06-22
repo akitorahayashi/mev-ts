@@ -1,0 +1,109 @@
+import { ProvisioningError } from '../../errors';
+import type { CommandRunner } from '../../resources/model';
+
+export interface Label {
+  readonly name: string;
+  readonly color: string;
+  readonly description: string;
+}
+
+function repoArgs(repo?: string): string[] {
+  return repo ? ['--repo', repo] : [];
+}
+
+export async function listLabelNames(
+  run: CommandRunner,
+  repo?: string,
+): Promise<string[]> {
+  const result = await run.run('gh', [
+    'label',
+    'list',
+    '--json',
+    'name',
+    '--limit',
+    '1000',
+    ...repoArgs(repo),
+  ]);
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      `gh label list failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch (error) {
+    throw new ProvisioningError(
+      `Failed to parse gh label list output: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new ProvisioningError(
+      'Failed to parse gh label list output: expected an array',
+    );
+  }
+  return parsed.map((l: { name: string }) => l.name);
+}
+
+export async function createLabel(
+  run: CommandRunner,
+  label: Label,
+  repo?: string,
+): Promise<void> {
+  const result = await run.run('gh', [
+    'label',
+    'create',
+    label.name,
+    '--color',
+    label.color,
+    '--description',
+    label.description,
+    ...repoArgs(repo),
+  ]);
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      `gh label create ${label.name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+    );
+  }
+}
+
+export async function editLabel(
+  run: CommandRunner,
+  label: Label,
+  repo?: string,
+): Promise<void> {
+  const result = await run.run('gh', [
+    'label',
+    'edit',
+    label.name,
+    '--color',
+    label.color,
+    '--description',
+    label.description,
+    ...repoArgs(repo),
+  ]);
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      `gh label edit ${label.name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+    );
+  }
+}
+
+export async function deleteLabel(
+  run: CommandRunner,
+  name: string,
+  repo?: string,
+): Promise<void> {
+  const result = await run.run('gh', [
+    'label',
+    'delete',
+    name,
+    '--yes',
+    ...repoArgs(repo),
+  ]);
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      `gh label delete ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+    );
+  }
+}

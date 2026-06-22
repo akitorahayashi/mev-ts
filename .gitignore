@@ -29,6 +29,9 @@ cache
 .tmp
 *.tsbuildinfo
 
+# generated
+src/mev/assets/registry.generated.ts
+
 # IntelliJ based IDEs
 .idea
 
