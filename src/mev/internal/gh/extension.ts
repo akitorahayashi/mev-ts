@@ -7,7 +7,9 @@ export async function extensionInstalled(
 ): Promise<boolean> {
   const result = await run.run('gh', ['extension', 'list']);
   if (result.code !== 0) return false;
-  return result.stdout.includes(name);
+  return result.stdout
+    .split('\n')
+    .some((line) => line.trim().split(/\s+/)[0] === name);
 }
 
 export async function extensionInstall(

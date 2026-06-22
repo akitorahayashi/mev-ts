@@ -30,10 +30,10 @@ test('extensionInstalled returns true when name appears in list output', async (
   expect(await extensionInstalled(run, 'github/gh-copilot')).toBe(true);
 });
 
-test('extensionInstalled returns false when name is absent', async () => {
+test('extensionInstalled returns false when name is absent or only a substring match', async () => {
   const run = runner({
     code: 0,
-    stdout: 'cli/gh-screensaver  v0.0.1\n',
+    stdout: 'github/gh-copilot-chat  v1.0.0\ncli/gh-screensaver  v0.0.1\n',
     stderr: '',
   });
   expect(await extensionInstalled(run, 'github/gh-copilot')).toBe(false);
