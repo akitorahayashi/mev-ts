@@ -18,7 +18,7 @@ macOS development environment provisioning CLI built with Bun and TypeScript.
 ## Development Rules
 
 - Keep dependencies minimal and clearly justified.
-- Use `cac` as the command-line boundary for the user-facing commands (`make`, `list`, `id`, `sw`). `cac` matches only single-word command names, so `id` takes an `<action>` positional rather than `id show`/`id set` subcommands. The `internal` subcommand uses hand-rolled dispatch (`cli/internal.ts`) because `cac` cannot handle multi-word commands with trailing variadic and `--` separators.
+- Use `cac` as the command-line boundary for the user-facing commands (`make`, `list`, `user`). `user` is registered as `user [scope]` with alias `us`; the optional positional routes to show (no arg), setup (`set`), or switch (scope alias). The `internal` subcommand uses hand-rolled dispatch (`cli/internal.ts`) because `cac` cannot handle multi-word commands with trailing variadic and `--` separators.
 - Keep the CLI surface small and explicit.
 - Keep the structure aligned to `cli/`, `app/`, and feature-owned modules under `src/mev/`.
 - Do not add silent fallback behavior.

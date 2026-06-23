@@ -1,9 +1,9 @@
 import { type CAC, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
-import { registerIdentityCommands } from './commands/identity';
 import { registerListCommand } from './commands/list';
 import { registerMakeCommand } from './commands/make';
+import { registerUserCommand } from './commands/user';
 import { runInternalCommandLine } from './internal';
 
 export interface CommandOutcome {
@@ -60,7 +60,7 @@ function createProgram(): CAC {
   program.usage('<command> [options]');
   registerMakeCommand(program);
   registerListCommand(program);
-  registerIdentityCommands(program);
+  registerUserCommand(program);
   program.help();
 
   return program;

@@ -54,7 +54,7 @@ export async function showIdentity(deps: IdentityDeps): Promise<IdentityView> {
   const path = identityFilePath(deps.home);
   if (!stateExists(path)) {
     throw new CommandLineError(
-      "No identity configuration found. Run 'mev id set' to configure.",
+      "No identity configuration found. Run 'mev user set' to configure.",
     );
   }
   const state = await loadState(path);
@@ -88,7 +88,7 @@ export async function switchIdentity(
   const path = identityFilePath(deps.home);
   if (!stateExists(path)) {
     throw new CommandLineError(
-      "No identity configuration found. Run 'mev id set' first to configure identities.",
+      "No identity configuration found. Run 'mev user set' first to configure identities.",
     );
   }
 
@@ -96,7 +96,7 @@ export async function switchIdentity(
   const identity = state[scope];
   if (!identity) {
     throw new CommandLineError(
-      `${scope} identity is not configured. Run 'mev id set' to configure.`,
+      `${scope} identity is not configured. Run 'mev user set' to configure.`,
     );
   }
 
