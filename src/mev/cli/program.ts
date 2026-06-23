@@ -1,10 +1,16 @@
-import { type CAC, cac } from 'cac';
+import { type CAC, type Command, cac } from 'cac';
 import packageMetadata from '../../../package.json';
 import { CommandLineError } from '../errors';
 import { registerListCommand } from './commands/list';
 import { registerMakeCommand } from './commands/make';
 import { registerUserCommand } from './commands/user';
 import { runInternalCommandLine } from './internal';
+import {
+  type CommandHelp,
+  type RootHelp,
+  renderCommandHelp,
+  renderRootHelp,
+} from './tty/help';
 
 export interface CommandOutcome {
   readonly failed: boolean;
@@ -16,7 +22,7 @@ export async function runCommandLine(
   const program = createProgram();
 
   if (args.length === 0 || isHelpRequest(args[0])) {
-    program.outputHelp();
+    writeOutput(renderRootHelp(rootHelp(program)));
     return 0;
   }
 
@@ -35,7 +41,17 @@ export async function runCommandLine(
     program.parse(['bun', packageMetadata.name, ...args], { run: false });
 
     if (!program.matchedCommand) {
-      throw new CommandLineError(`Unknown command '${program.args[0]}'.`);
+      throw new CommandLineError(`Unknown command '${args[0]}'.`);
+    }
+
+    if (containsHelpFlag(args)) {
+      writeOutput(
+        renderCommandHelp(
+          packageMetadata.name,
+          commandHelp(program.matchedCommand),
+        ),
+      );
+      return 0;
     }
 
     rejectUnexpectedPositionals(program);
@@ -47,7 +63,7 @@ export async function runCommandLine(
     writeError(message);
 
     if (isUsageError(error)) {
-      program.outputHelp();
+      writeOutput(renderRootHelp(rootHelp(program)));
     }
 
     return 1;
@@ -57,13 +73,31 @@ export async function runCommandLine(
 function createProgram(): CAC {
   const program = cac(packageMetadata.name);
 
-  program.usage('<command> [options]');
   registerMakeCommand(program);
   registerListCommand(program);
   registerUserCommand(program);
-  program.help();
 
   return program;
+}
+
+function rootHelp(program: CAC): RootHelp {
+  return {
+    bin: packageMetadata.name,
+    tagline: packageMetadata.description,
+    commands: program.commands.map(commandHelp),
+  };
+}
+
+function commandHelp(command: Command): CommandHelp {
+  return {
+    invocation: command.rawName,
+    aliases: command.aliasNames.filter((alias) => alias !== command.name),
+    description: command.description,
+    options: command.options.map((option) => ({
+      flags: option.rawName,
+      description: option.description,
+    })),
+  };
 }
 
 function isFailingOutcome(value: unknown): value is CommandOutcome {
@@ -91,6 +125,10 @@ function rejectUnsupportedTopLevelOptions(args: readonly string[]): void {
 
 function isHelpRequest(arg: string | undefined): boolean {
   return arg === '--help' || arg === '-h';
+}
+
+function containsHelpFlag(args: readonly string[]): boolean {
+  return args.includes('--help') || args.includes('-h');
 }
 
 function rejectUnexpectedPositionals(program: CAC): void {
