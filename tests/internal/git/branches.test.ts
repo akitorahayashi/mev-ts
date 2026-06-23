@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { CommandLineError, ProvisioningError } from '../../../src/mev/errors';
-import { deleteBranches } from '../../../src/mev/internal/git/branches';
+import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import { deleteBranches } from '../../../src/internal/git/branches';
 import type {
   CommandResult,
   CommandRunner,
-} from '../../../src/mev/resources/model';
+} from '../../../src/resources/model';
 
 interface Call {
   args: string[];

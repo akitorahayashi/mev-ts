@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { mkdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CommandLineError, ProvisioningError } from '../../../src/mev/errors';
-import { deleteSubmodule } from '../../../src/mev/internal/git/submodule';
+import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import { deleteSubmodule } from '../../../src/internal/git/submodule';
 import type {
   CommandResult,
   CommandRunner,
-} from '../../../src/mev/resources/model';
+} from '../../../src/resources/model';
 
 interface Call {
   args: string[];

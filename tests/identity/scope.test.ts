@@ -1,9 +1,5 @@
 import { expect, test } from 'bun:test';
-import {
-  aliasesOf,
-  allScopes,
-  resolveScope,
-} from '../../src/mev/identity/scope';
+import { aliasesOf, allScopes, resolveScope } from '../../src/identity/scope';
 
 test('allScopes lists personal and work in declaration order', () => {
   expect(allScopes()).toEqual(['personal', 'work']);

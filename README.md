@@ -36,10 +36,10 @@ bun run test
 ## Runtime
 
 The package is ESM via `type: "module"` in `package.json`.
-The CLI entrypoint is `src/mev/main.ts`.
-The command-line boundary lives under `src/mev/cli/` and uses `cac` for
+The CLI entrypoint is `src/main.ts`.
+The command-line boundary lives under `src/cli/` and uses `cac` for
 command declaration, help, option parsing, and required argument validation.
-The application layer lives under `src/mev/app/`.
+The application layer lives under `src/app/`.
 Tests live under `tests/`.
 `bun run build` compiles a standalone executable to `dist/mev`.
 Intermediate build files are isolated under `./.tmp/` and cleaned after the

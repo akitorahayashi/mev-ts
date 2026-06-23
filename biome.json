@@ -8,8 +8,8 @@
       "!coverage",
       "!.tmp",
       "!references",
-      "!src/mev/assets/files",
-      "!src/mev/assets/registry.generated.ts"
+      "!src/assets/files",
+      "!src/assets/registry.generated.ts"
     ]
   },
   "formatter": {

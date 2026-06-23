@@ -18,10 +18,11 @@ macOS development environment provisioning CLI built with Bun and TypeScript.
 ## Development Rules
 
 - Keep dependencies minimal and clearly justified.
-- Use `cac` as the command-line boundary for the user-facing commands (`make`, `list`, `user`). `user` is registered as `user [scope]` with alias `us`; the optional positional routes to show (no arg), setup (`set`), or switch (scope alias). The `internal` subcommand uses hand-rolled dispatch (`cli/internal.ts`) because `cac` cannot handle multi-word commands with trailing variadic and `--` separators.
-- Do not register `cac`'s `help()`; it outputs during `parse()` and double-renders. `program.ts` intercepts `--help`/`-h` and renders through `cli/tty/help.ts`, deriving the command list from `program.commands`.
+- Delegate the user-facing command-line boundary to `cli-kit`'s `runCli` (help rendering, routing, version, exit-code mapping). `program.ts` supplies metadata, registers `make`/`list`/`user`, and intercepts `internal` before delegating. Command files import `CAC` and `CommandOutcome` from `cli-kit`, not `cac`; cac is a transitive dependency.
+- `user` is registered as `user [scope]` with alias `us`; the optional positional routes to show (no arg), setup (`set`), or switch (scope alias). The `internal` subcommand uses hand-rolled dispatch (`cli/internal.ts`) because `cac` cannot handle multi-word commands with trailing variadic and `--` separators; it is intercepted in `program.ts` ahead of `runCli` rather than registered as a cac command.
+- Domain errors extend `AppError` from `cli-kit`; `errors.ts` re-exports the base classes and adds `ProvisioningError`.
 - Keep the CLI surface small and explicit.
-- Keep the structure aligned to `cli/`, `app/`, and feature-owned modules under `src/mev/`.
+- Keep the structure aligned to `cli/`, `app/`, and feature-owned modules under `src/`.
 - Do not add silent fallback behavior.
 - Keep tests focused on externally observable behavior.
 - Do not read `.mx/*.md` unless explicitly requested by the user.

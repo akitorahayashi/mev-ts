@@ -3,11 +3,11 @@ import {
   deployLabels,
   LABEL_CATALOG,
   resetLabels,
-} from '../../../src/mev/internal/gh/labels';
+} from '../../../src/internal/gh/labels';
 import type {
   CommandResult,
   CommandRunner,
-} from '../../../src/mev/resources/model';
+} from '../../../src/resources/model';
 
 interface Call {
   args: string[];

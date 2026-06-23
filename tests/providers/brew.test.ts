@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
-import { ProvisioningError } from '../../src/mev/errors';
-import { brew } from '../../src/mev/providers/brew';
-import type { CommandResult, Context } from '../../src/mev/resources/model';
+import { ProvisioningError } from '../../src/errors';
+import { brew } from '../../src/providers/brew';
+import type { CommandResult, Context } from '../../src/resources/model';
 
 interface RunnerScript {
   readonly code: number;

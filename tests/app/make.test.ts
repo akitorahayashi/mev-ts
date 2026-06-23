@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { runMake } from '../../src/mev/app/make';
-import { CommandLineError } from '../../src/mev/errors';
-import type { Context } from '../../src/mev/resources/model';
+import { runMake } from '../../src/app/make';
+import { CommandLineError } from '../../src/errors';
+import type { Context } from '../../src/resources/model';
 
 let counter = 0;
 let sandbox: string;

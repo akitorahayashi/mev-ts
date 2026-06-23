@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
-import { embeddedAssets } from '../../src/mev/assets/registry';
-import { allTargets, availableSelectors } from '../../src/mev/config/registry';
-import { buildGraph } from '../../src/mev/resources/graph';
+import { embeddedAssets } from '../../src/assets/registry';
+import { allTargets, availableSelectors } from '../../src/config/registry';
+import { buildGraph } from '../../src/resources/graph';
 
 // Target-agnostic invariants: every registered target must form a valid graph
 // and reference only embedded assets. Adding a target is covered automatically.

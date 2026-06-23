@@ -2,14 +2,14 @@ import { afterAll, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError } from '../../src/mev/errors';
+import { AppError } from '../../src/errors';
 import {
   identityFilePath,
   loadState,
   makeIdentity,
   saveState,
   stateExists,
-} from '../../src/mev/identity/store';
+} from '../../src/identity/store';
 
 const roots: string[] = [];
 

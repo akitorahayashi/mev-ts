@@ -5,18 +5,15 @@ import {
   setIdentity,
   showIdentity,
   switchIdentity,
-} from '../../src/mev/app/identity';
-import { CommandLineError } from '../../src/mev/errors';
+} from '../../src/app/identity';
+import { CommandLineError } from '../../src/errors';
 import {
   identityFilePath,
   loadState,
   makeIdentity,
   saveState,
-} from '../../src/mev/identity/store';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../src/mev/resources/model';
+} from '../../src/identity/store';
+import type { CommandResult, CommandRunner } from '../../src/resources/model';
 
 const roots: string[] = [];
 

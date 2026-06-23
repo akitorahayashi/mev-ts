@@ -1,4 +1,4 @@
-import type { CAC } from 'cac';
+import type { CAC } from 'cli-kit';
 import { renderTargetList } from '../tty/targetlist';
 
 export function registerListCommand(program: CAC): void {
