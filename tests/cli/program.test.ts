@@ -5,6 +5,10 @@ let stdout: ReturnType<typeof spyOn>;
 let stderr: ReturnType<typeof spyOn>;
 let log: ReturnType<typeof spyOn>;
 
+function written(spy: ReturnType<typeof spyOn>): string {
+  return spy.mock.calls.map((call: unknown[]) => String(call[0])).join('');
+}
+
 beforeEach(() => {
   stdout = spyOn(process.stdout, 'write').mockReturnValue(true);
   stderr = spyOn(process.stderr, 'write').mockReturnValue(true);
@@ -35,6 +39,22 @@ test('exits 0 for --version', async () => {
 test('exits 1 for unknown command', async () => {
   const exitCode = await runCommandLine(['unknown']);
   expect(exitCode).toBe(1);
+});
+
+test('exits 0 for per-command help and renders that command once', async () => {
+  const exitCode = await runCommandLine(['make', '--help']);
+  expect(exitCode).toBe(0);
+  const rendered = written(stdout);
+  expect(rendered).toContain('make <tags...>');
+});
+
+test('unknown command with --help renders help exactly once', async () => {
+  const exitCode = await runCommandLine(['id', '--help']);
+  expect(exitCode).toBe(1);
+  const stdoutText = written(stdout);
+  const stderrText = written(stderr);
+  expect(stderrText).toContain("Unknown command 'id'.");
+  expect(stdoutText.split('Commands').length - 1).toBe(1);
 });
 
 test('exits 1 for unknown top-level option', async () => {
