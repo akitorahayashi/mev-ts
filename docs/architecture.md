@@ -22,7 +22,7 @@ src/mev/
   errors.ts     typed error hierarchy
 ```
 
-`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), the `list` table (`targetlist.ts`), the `id show` table (`identities.ts`), and the interactive line prompter (`prompt.ts`). Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
+`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), the `list` table (`targetlist.ts`), the `user` identity table (`identities.ts`), and the interactive line prompter (`prompt.ts`). Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
 
 ## Core Contracts (resources/model.ts)
 
@@ -102,7 +102,7 @@ The main command surface uses `cac` and exposes the user-facing commands:
 
 `list` — formats and prints all registered targets in a three-column table (TARGET / TAGS / DESCRIPTION) via `cli/tty/targetlist.ts`, with ANSI colors from `cli/tty/style.ts`.
 
-`id <action>` and `sw <scope>` — the Git identity surface. `id show` prints the stored profiles and the active scope via `cli/tty/identities.ts`; `id set` collects name/email pairs through `cli/tty/prompt.ts` and persists them; `sw <personal|work>` (aliases `p`/`w`) applies a stored profile to the global Git config. `id` is registered with a single `<action>` positional rather than multi-word subcommands because cac matches only single-word command names. The commands delegate to `app/identity.ts`.
+`user [scope]` (alias `us`) — the Git identity surface. With no argument it prints the stored profiles and the active scope via `cli/tty/identities.ts`. `user set` collects name/email pairs through `cli/tty/prompt.ts` and persists them. `user <personal|work>` (aliases `p`/`w`) applies a stored profile to the global Git config. The command delegates to `app/identity.ts`.
 
 `internal` — routes to `cli/internal.ts` via hand-rolled string dispatch rather than cac, because cac cannot parse multi-word subcommands combined with trailing variadic arguments and `--` separators. Internal commands are not shown in `mev --help`. Git subcommands (`clone`, `delete-branches`, `delete-submodule`) delegate to `internal/git/`. GitHub subcommands (`gh labels deploy`, `gh labels reset`) build concurrent items via `internal/gh/labels.ts` and render them with `cli/tty/livelist.ts` (listr2).
 

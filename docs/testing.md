@@ -18,7 +18,7 @@ Tests assert externally observable behavior at the boundary that owns it. Intern
 | Identity scope resolution | `tests/identity/scope.test.ts` | Pure functions | None |
 | Identity store (load/save round-trip) | `tests/identity/store.test.ts` | Real temp home | `.tmp/identity-<rand>/` |
 | CLI (exit code, help, version, routing) | `tests/cli/program.test.ts` | String argv; spy on stdout/stderr | None |
-| Identity render (`id show` table) | `tests/cli/identity.test.ts` | `IdentityView` literals | None |
+| Identity render (`user` table) | `tests/cli/user.test.ts` | `IdentityView` literals | None |
 | Target registry invariants | `tests/config/registry.test.ts` | Iterates `allTargets()` | None |
 | Internal git (clone, delete-branches, delete-submodule) | `tests/internal/git/*.test.ts` | Fake `CommandRunner`; real temp dir for submodule | `.tmp/submodule-<pid>-<n>/` |
 | Internal gh (label, labels, api, auth, extension) | `tests/internal/gh/*.test.ts` | Fake `CommandRunner` | None |

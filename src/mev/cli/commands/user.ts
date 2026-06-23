@@ -12,44 +12,38 @@ import { resolveHome } from '../../runtime/context';
 import { renderIdentities } from '../tty/identities';
 import { withPrompter } from '../tty/prompt';
 
-export function registerIdentityCommands(program: CAC): void {
+export function registerUserCommand(program: CAC): void {
   program
-    .command('id <action>', 'Show or set Git identities (actions: show, set).')
-    .action(async (action: string) => {
+    .command('user [scope]', 'Manage Git identities (personal/p, work/w, set).')
+    .alias('us')
+    .action(async (scope: string | undefined) => {
       const home = resolveHome();
 
-      if (action === 'show') {
+      if (scope === undefined) {
         const view = await showIdentity({ run: bunCommandRunner, home });
         process.stdout.write(`${renderIdentities(view)}\n`);
         return;
       }
 
-      if (action === 'set') {
+      if (scope === 'set') {
         await runSet(home);
         return;
       }
 
-      throw new CommandLineError(
-        `Unknown id action '${action}'. Use: show, set.`,
-      );
-    });
-
-  program
-    .command('sw <scope>', 'Switch Git identity (personal/p, work/w).')
-    .action(async (scope: string) => {
       const resolved = resolveScope(scope);
-      if (!resolved) {
-        throw new CommandLineError(
-          `Invalid identity '${scope}'. Valid: personal (p), work (w).`,
+      if (resolved) {
+        const identity = await switchIdentity(
+          { run: bunCommandRunner, home },
+          resolved,
         );
+        process.stdout.write(
+          `Switched to ${resolved} identity\n  Name:  ${identity.name}\n  Email: ${identity.email}\n`,
+        );
+        return;
       }
 
-      const identity = await switchIdentity(
-        { run: bunCommandRunner, home: resolveHome() },
-        resolved,
-      );
-      process.stdout.write(
-        `Switched to ${resolved} identity\n  Name:  ${identity.name}\n  Email: ${identity.email}\n`,
+      throw new CommandLineError(
+        `Unknown argument '${scope}'. Use: personal (p), work (w), set.`,
       );
     });
 }
