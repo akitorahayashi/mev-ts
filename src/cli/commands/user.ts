@@ -12,24 +12,24 @@ export class UserCommand extends Command {
     description: "Show stored Git identities, or 'set' to configure them.",
   });
 
-  set = Option.String({ required: false });
+  action = Option.String({ name: 'set', required: false });
 
   async execute(): Promise<void> {
     const home = resolveHome();
 
-    if (this.set === undefined) {
+    if (this.action === undefined) {
       const view = await showIdentity({ run: bunCommandRunner, home });
       process.stdout.write(`${renderIdentities(view)}\n`);
       return;
     }
 
-    if (this.set === 'set') {
+    if (this.action === 'set') {
       await runSet(home);
       return;
     }
 
     throw new CommandLineError(
-      `Unknown argument '${this.set}'. Use: mev user (show) or mev user set.`,
+      `Unknown argument '${this.action}'. Use: mev user (show) or mev user set.`,
     );
   }
 }
