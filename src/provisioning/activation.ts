@@ -189,11 +189,9 @@ async function runTree(
     }
 
     for (const { link, target } of entries) {
-      await mkdir(dirname(link), { recursive: true });
-      await rm(link, { force: true, recursive: true });
-      await symlink(target, link);
+      await placeSymlink(link, target, context.overwrite);
     }
-    for (const link of await staleLinks(root, managedRoot, expected)) {
+    for (const link of stale) {
       await rm(link, { force: true });
     }
     return { ...base, status: 'changed' };
