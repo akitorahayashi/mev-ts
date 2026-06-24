@@ -10,7 +10,12 @@ import {
 } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { ProvisioningError } from '../errors';
-import { type AssetRef, deployedDir, deployedPath } from '../resources/asset';
+import {
+  type AssetRef,
+  deployedDir,
+  deployedPath,
+  deployedSymbolic,
+} from '../resources/asset';
 import type {
   ApplyResult,
   Context,
@@ -31,6 +36,7 @@ async function lstatOrNull(path: string) {
 function deployAsset(ref: AssetRef): Resource {
   return {
     id: `fs:asset:${ref.key}`,
+    display: deployedSymbolic(ref),
     dependencies: [],
     concurrencyGroup: 'filesystem',
     async inspect(context: Context): Promise<ResourceState> {
@@ -92,6 +98,7 @@ function directory(target: HostPath): Resource {
 function assetSymlink(source: AssetRef, dest: HostPath): Resource {
   return {
     id: `fs:symlink:${symbolic(dest)}`,
+    display: `${source.key}  →  ${symbolic(dest)}`,
     dependencies: [`fs:asset:${source.key}`],
     concurrencyGroup: 'filesystem',
     async inspect(context: Context): Promise<ResourceState> {
@@ -187,6 +194,7 @@ function linkTree(
 ): Resource {
   return {
     id: `fs:linktree:${symbolic(destDir)}`,
+    display: `${sourcePrefix}  →  ${symbolic(destDir)}`,
     dependencies: refs.map((ref) => `fs:asset:${ref.key}`),
     concurrencyGroup: 'filesystem',
     async inspect(context: Context): Promise<ResourceState> {

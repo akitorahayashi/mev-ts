@@ -13,7 +13,7 @@ export function registerMakeCommand(program: CAC): void {
     .command('make <tags...>', 'Apply provisioning for one or more tags.')
     .alias('mk')
     .option('--plan', 'Show what would change without applying.')
-    .option('--overwrite', 'Replace unmanaged files when linking configs.')
+    .option('-o, --overwrite', 'Replace unmanaged files when linking configs.')
     .action(async (...inputs: unknown[]): Promise<CommandOutcome> => {
       const options = (inputs.pop() ?? {}) as MakeOptions;
       const tags = inputs as string[];

@@ -53,6 +53,7 @@ export interface ApplyResult {
 
 export interface Resource {
   readonly id: string;
+  readonly display?: string;
   readonly dependencies: readonly string[];
   readonly concurrencyGroup: ConcurrencyGroup;
   inspect(context: Context): Promise<ResourceState>;
@@ -63,6 +64,7 @@ export type Outcome = 'unchanged' | 'changed' | 'failed' | 'blocked';
 
 export interface ResourceReport {
   readonly id: string;
+  readonly display?: string;
   readonly outcome: Outcome;
   readonly detail?: string;
   readonly error?: string;

@@ -1,8 +1,8 @@
 import { resolveTarget } from '../config/registry';
+import { createContext } from '../host/context';
 import { applyGraph, planGraph } from '../resources/executor';
 import { buildGraph } from '../resources/graph';
 import type { Context, Resource, ResourceReport } from '../resources/model';
-import { createContext } from '../runtime/context';
 
 export interface MakeRequest {
   readonly tags: readonly string[];

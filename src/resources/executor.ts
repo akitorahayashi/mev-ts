@@ -24,11 +24,16 @@ function errorMessage(error: unknown): string {
 }
 
 function make(
-  id: string,
+  resource: { id: string; display?: string },
   outcome: Outcome,
   extras: { detail?: string; error?: string } = {},
 ): ResourceReport {
-  return { id, outcome, ...extras };
+  return {
+    id: resource.id,
+    ...(resource.display !== undefined ? { display: resource.display } : {}),
+    outcome,
+    ...extras,
+  };
 }
 
 /** Inspect every resource and report what `apply` would change, without applying. */
@@ -42,11 +47,11 @@ export async function planGraph(
       try {
         const state = await resource.inspect(context);
         const outcome = state.kind === 'present' ? 'unchanged' : 'changed';
-        const report = make(resource.id, outcome, { detail: state.detail });
+        const report = make(resource, outcome, { detail: state.detail });
         onProgress?.(report);
         return report;
       } catch (error) {
-        const report = make(resource.id, 'failed', {
+        const report = make(resource, 'failed', {
           error: errorMessage(error),
         });
         onProgress?.(report);
@@ -86,7 +91,7 @@ export async function applyGraph(
     const promise = (async () => {
       const deps = await Promise.all(depPromises);
       if (deps.some((r) => r.outcome === 'failed' || r.outcome === 'blocked')) {
-        const report = make(resource.id, 'blocked');
+        const report = make(resource, 'blocked');
         onProgress?.(report);
         return report;
       }
@@ -94,20 +99,20 @@ export async function applyGraph(
         try {
           const state = await resource.inspect(context);
           if (state.kind === 'present') {
-            const report = make(resource.id, 'unchanged', {
+            const report = make(resource, 'unchanged', {
               detail: state.detail,
             });
             onProgress?.(report);
             return report;
           }
           const result = await resource.apply(context);
-          const report = make(resource.id, 'changed', {
+          const report = make(resource, 'changed', {
             detail: result.detail,
           });
           onProgress?.(report);
           return report;
         } catch (error) {
-          const report = make(resource.id, 'failed', {
+          const report = make(resource, 'failed', {
             error: errorMessage(error),
           });
           onProgress?.(report);
