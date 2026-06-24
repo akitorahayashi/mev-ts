@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../src/mev/errors';
-import { git } from '../../src/mev/providers/git';
-import type { CommandResult, Context } from '../../src/mev/resources/model';
-import { home } from '../../src/mev/resources/path';
+import { ProvisioningError } from '../../src/errors';
+import { git } from '../../src/providers/git';
+import type { CommandResult, Context } from '../../src/resources/model';
+import { home } from '../../src/resources/path';
 
 interface RunnerScript {
   readonly code: number;

@@ -1,13 +1,13 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../../src/mev/errors';
+import { ProvisioningError } from '../../../src/errors';
 import {
   extensionInstall,
   extensionInstalled,
-} from '../../../src/mev/internal/gh/extension';
+} from '../../../src/internal/gh/extension';
 import type {
   CommandResult,
   CommandRunner,
-} from '../../../src/mev/resources/model';
+} from '../../../src/resources/model';
 
 function runner(
   preset: CommandResult,

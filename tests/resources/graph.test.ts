@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../src/mev/errors';
-import { buildGraph } from '../../src/mev/resources/graph';
-import type { Resource } from '../../src/mev/resources/model';
+import { ProvisioningError } from '../../src/errors';
+import { buildGraph } from '../../src/resources/graph';
+import type { Resource } from '../../src/resources/model';
 
 function stub(id: string, dependencies: string[] = []): Resource {
   return {

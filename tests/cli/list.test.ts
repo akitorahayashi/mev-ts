@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { renderTargetList } from '../../src/mev/cli/tty/targetlist';
-import { allTargets } from '../../src/mev/config/registry';
+import { renderTargetList } from '../../src/cli/tty/targetlist';
+import { allTargets } from '../../src/config/registry';
 
 test('renderTargetList includes every registered target name', () => {
   const output = renderTargetList(false);

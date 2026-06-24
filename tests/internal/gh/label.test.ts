@@ -1,15 +1,15 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../../src/mev/errors';
+import { ProvisioningError } from '../../../src/errors';
 import {
   createLabel,
   deleteLabel,
   editLabel,
   listLabelNames,
-} from '../../../src/mev/internal/gh/label';
+} from '../../../src/internal/gh/label';
 import type {
   CommandResult,
   CommandRunner,
-} from '../../../src/mev/resources/model';
+} from '../../../src/resources/model';
 
 function runner(
   preset: CommandResult,

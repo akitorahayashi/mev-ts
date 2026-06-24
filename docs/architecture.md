@@ -9,7 +9,7 @@ The execution model is: tag resolution → target lookup → resource graph → 
 ## Layer Map
 
 ```
-src/mev/
+src/
   cli/          argv parsing, exit code mapping, terminal rendering  (cac + hand-rolled dispatch)
   app/          use-case orchestration                               (runMake)
   config/       target DSL, tag/alias registry
@@ -22,7 +22,7 @@ src/mev/
   errors.ts     typed error hierarchy
 ```
 
-`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), the `list` table (`targetlist.ts`), the `user` identity table (`identities.ts`), the `--help` renderer (`help.ts`), and the interactive line prompter (`prompt.ts`). Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
+`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), the `list` table (`targetlist.ts`), the `user` identity table (`identities.ts`), and the interactive line prompter (`prompt.ts`). Help rendering is owned by `cli-kit`, not `cli/tty/`. Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
 
 ## Core Contracts (resources/model.ts)
 
@@ -106,6 +106,6 @@ The main command surface uses `cac` and exposes the user-facing commands:
 
 `internal` — routes to `cli/internal.ts` via hand-rolled string dispatch rather than cac, because cac cannot parse multi-word subcommands combined with trailing variadic arguments and `--` separators. Internal commands are not shown in `mev --help`. Git subcommands (`clone`, `delete-branches`, `delete-submodule`) delegate to `internal/git/`. GitHub subcommands (`gh labels deploy`, `gh labels reset`) build concurrent items via `internal/gh/labels.ts` and render them with `cli/tty/livelist.ts` (listr2).
 
-Help is rendered by `cli/tty/help.ts`, not cac. `cac`'s built-in `help()` outputs during `parse()` (even with `run: false`) and unsets the matched command, which double-renders and fights the exit-code flow, so it is not registered. `program.ts` intercepts `--help`/`-h` itself: root help (no args or a leading help flag) renders the colored command table, and `<command> --help` renders that command's usage and options. Both views derive from cac's command registry (`program.commands`) mapped to a plain `CommandHelp` shape, so the command list has a single source and is never duplicated.
+Help, version, routing, and exit-code mapping for the user-facing commands are delegated to `cli-kit`'s `runCli`. `program.ts` intercepts `internal` first, then calls `runCli` with the program metadata and a `register` callback that declares `make`/`list`/`user` on the cac program. `cli-kit` intercepts `--help`/`-h` itself rather than registering cac's built-in `help()` (which outputs during `parse()` even with `run: false`, unsets the matched command, and double-renders): root help renders the colored command table, `<command> --help` renders that command's usage and options, and both derive from cac's command registry so the list has a single source and is never duplicated.
 
 `runMake` in `app/make.ts` is the testable use-case entry point. It returns `MakeResult` with a `reports: readonly ResourceReport[]` field and a `failed` boolean; rendering is the CLI layer's responsibility.

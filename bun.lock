@@ -5,7 +5,7 @@
     "": {
       "name": "bun-cli",
       "dependencies": {
-        "cac": "6.7.14",
+        "cli-kit": "github:akitorahayashi/cli-kit",
         "listr2": "^10.2.1",
         "p-limit": "^7.3.0",
       },
@@ -51,6 +51,8 @@
     "cac": ["cac@6.7.14", "", {}, "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ=="],
 
     "cli-cursor": ["cli-cursor@5.0.0", "", { "dependencies": { "restore-cursor": "^5.0.0" } }, "sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw=="],
+
+    "cli-kit": ["cli-kit@github:akitorahayashi/cli-kit#e8e0f7d", { "dependencies": { "cac": "6.7.14" } }, "akitorahayashi-cli-kit-e8e0f7d", "sha512-nURlwbOMbeCwGJkTMlpkeugPAG9kT0XiRdd9vCWmzH3/yMKNwnAR86ROi+VG160X1g7aAarwxn7BrycDskoGZA=="],
 
     "cli-truncate": ["cli-truncate@5.2.0", "", { "dependencies": { "slice-ansi": "^8.0.0", "string-width": "^8.2.0" } }, "sha512-xRwvIOMGrfOAnM1JYtqQImuaNtDEv9v6oIYAs4LIHwTiKee8uwvIi363igssOC0O5U04i4AlENs79LQLu9tEMw=="],
 

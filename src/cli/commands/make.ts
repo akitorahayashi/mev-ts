@@ -1,6 +1,5 @@
-import type { CAC } from 'cac';
+import type { CAC, CommandOutcome } from 'cli-kit';
 import { runMake } from '../../app/make';
-import type { CommandOutcome } from '../program';
 import { renderOutcomes } from '../tty/outcomes';
 import { createProgressBar } from '../tty/progress';
 

@@ -1,12 +1,12 @@
 import { expect, test } from 'bun:test';
-import { applyGraph, planGraph } from '../../src/mev/resources/executor';
-import { buildGraph } from '../../src/mev/resources/graph';
+import { applyGraph, planGraph } from '../../src/resources/executor';
+import { buildGraph } from '../../src/resources/graph';
 import type {
   ConcurrencyGroup,
   Context,
   Resource,
   StateKind,
-} from '../../src/mev/resources/model';
+} from '../../src/resources/model';
 
 const context: Context = {
   home: '/sandbox',

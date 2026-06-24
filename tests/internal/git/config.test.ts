@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../../src/mev/errors';
-import { configGet, configSet } from '../../../src/mev/internal/git/config';
+import { ProvisioningError } from '../../../src/errors';
+import { configGet, configSet } from '../../../src/internal/git/config';
 import type {
   CommandResult,
   CommandRunner,
-} from '../../../src/mev/resources/model';
+} from '../../../src/resources/model';
 
 function runner(
   preset: CommandResult,

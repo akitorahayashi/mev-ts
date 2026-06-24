@@ -8,15 +8,11 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ProvisioningError } from '../../src/mev/errors';
-import { fs } from '../../src/mev/providers/filesystem';
-import {
-  asset,
-  deployedDir,
-  deployedPath,
-} from '../../src/mev/resources/asset';
-import type { Context } from '../../src/mev/resources/model';
-import { home } from '../../src/mev/resources/path';
+import { ProvisioningError } from '../../src/errors';
+import { fs } from '../../src/providers/filesystem';
+import { asset, deployedDir, deployedPath } from '../../src/resources/asset';
+import type { Context } from '../../src/resources/model';
+import { home } from '../../src/resources/path';
 
 let counter = 0;
 let sandbox: string;

@@ -6,9 +6,9 @@
 
 The repository owns:
 
-- the CLI entrypoint in `src/mev/main.ts`
-- the CLI boundary in `src/mev/cli/`
-- the application layer in `src/mev/app/`
+- the CLI entrypoint in `src/main.ts`
+- the CLI boundary in `src/cli/`
+- the application layer in `src/app/`
 - the repository-owned tests in `tests/`
 - the validation surface in `package.json`
 - the GitHub Actions automation in `.github/workflows/`

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import type { IdentityView } from '../../src/mev/app/identity';
-import { renderIdentities } from '../../src/mev/cli/tty/identities';
+import type { IdentityView } from '../../src/app/identity';
+import { renderIdentities } from '../../src/cli/tty/identities';
 
 const baseView: IdentityView = {
   path: '/Users/test/.config/mev/identity.json',

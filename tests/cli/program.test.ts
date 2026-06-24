@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
-import { runCommandLine } from '../../src/mev/cli/program';
+import { runCommandLine } from '../../src/cli/program';
 
 let stdout: ReturnType<typeof spyOn>;
 let stderr: ReturnType<typeof spyOn>;
@@ -70,6 +70,24 @@ test('exits 0 for list', async () => {
 test('exits 0 for ls alias', async () => {
   const exitCode = await runCommandLine(['ls']);
   expect(exitCode).toBe(0);
+});
+
+test('user help advertises set as the only accepted argument', async () => {
+  const exitCode = await runCommandLine(['user', '--help']);
+  expect(exitCode).toBe(0);
+  expect(written(stdout)).toContain('user [set]');
+});
+
+test('switch help enumerates the identity scopes', async () => {
+  const exitCode = await runCommandLine(['switch', '--help']);
+  expect(exitCode).toBe(0);
+  expect(written(stdout)).toContain('switch <personal|work>');
+});
+
+test('switch rejects an unknown identity before touching git config', async () => {
+  const exitCode = await runCommandLine(['switch', 'bogus']);
+  expect(exitCode).toBe(1);
+  expect(written(stderr)).toContain("Unknown identity 'bogus'.");
 });
 
 test('routes internal subcommands without exposing them in main help', async () => {
