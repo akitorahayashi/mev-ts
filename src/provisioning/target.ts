@@ -12,7 +12,7 @@ export type Verb = 'copy' | 'link' | 'apply';
  * A single config materialization from the deploy store to a host path. A
  * `file` activation links one deployed asset; a `tree` activation mirrors every
  * asset under a prefix into a destination directory, preserving unmanaged files
- * already present there. A `defaults` activation applies every JSON config file
+ * already present there. A `defaults` activation applies every YAML config file
  * under a prefix as macOS `defaults write` entries.
  */
 export type Activation =

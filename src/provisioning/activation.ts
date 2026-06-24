@@ -240,15 +240,24 @@ async function readDefaultsEntries(
   const entries: DefaultsEntry[] = [];
   for (const name of names.filter((n) => n.endsWith('.yml')).sort()) {
     const raw = await readFile(join(dir, name), 'utf8');
-    const parsed = load(raw) as DefaultsEntry[];
-    entries.push(...parsed);
+    const parsed = load(raw);
+    if (!Array.isArray(parsed)) {
+      throw new ProvisioningError(
+        `Defaults config file must contain a YAML list: ${join(dir, name)}`,
+      );
+    }
+    entries.push(...(parsed as DefaultsEntry[]));
   }
   return entries;
 }
 
-function defaultsArg(type: string, value: boolean | number | string): string {
+function defaultsArg(
+  type: string,
+  value: boolean | number | string,
+  home: string,
+): string {
   if (type === 'bool') return value ? 'YES' : 'NO';
-  return String(value);
+  return String(value).replace('$HOME', home).replace(/^~/, home);
 }
 
 async function runDefaults(
@@ -268,7 +277,7 @@ async function runDefaults(
         entry.domain,
         entry.key,
         `-${entry.type}`,
-        defaultsArg(entry.type, entry.value),
+        defaultsArg(entry.type, entry.value, context.home),
       ]);
       if (result.code !== 0) {
         throw new ProvisioningError(
