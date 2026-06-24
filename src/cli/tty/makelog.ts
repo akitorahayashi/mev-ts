@@ -1,4 +1,7 @@
-import type { ActivationReport } from '../../provisioning/activation';
+import type {
+  ActivationReport,
+  DefaultsEntryReport,
+} from '../../provisioning/activation';
 import type { DeployResult } from '../../provisioning/deploy';
 import type { MakePlan } from '../../provisioning/plan';
 import type { ActivationGroupReport } from '../../provisioning/run';
@@ -57,13 +60,31 @@ export function renderGroups(
 
   const arrow = c.dim('→');
 
+  const renderEntries = (entries: readonly DefaultsEntryReport[]): string[] => {
+    const keyPad = entries.reduce((w, e) => Math.max(w, e.key.length), 0);
+    return entries.map((e) => {
+      const line = `      ${e.key.padEnd(keyPad)}  ${arrow}  ${e.value}`;
+      return e.status === 'failed' ? c.red(`${line}  (${e.error})`) : line;
+    });
+  };
+
   const renderActive = (reports: readonly ActivationReport[]): string[] => {
-    const srcPad = reports.reduce((w, r) => Math.max(w, r.source.length), 0);
-    return reports.map((r) => {
+    const plainReports = reports.filter((r) => !r.entries);
+    const srcPad = plainReports.reduce(
+      (w, r) => Math.max(w, r.source.length),
+      0,
+    );
+    return reports.flatMap((r) => {
+      if (r.entries) {
+        const header = `  ${verbCol(r)}  ${r.source}`;
+        const headerLine =
+          r.status === 'blocked' ? c.yellow(`${header}  (blocked)`) : header;
+        return [headerLine, ...renderEntries(r.entries)];
+      }
       const body = `  ${verbCol(r)}  ${r.source.padEnd(srcPad)}  ${arrow}  ${r.dest}`;
-      if (r.status === 'failed') return c.red(`${body}  (${r.error})`);
-      if (r.status === 'blocked') return c.yellow(`${body}  (blocked)`);
-      return body;
+      if (r.status === 'failed') return [c.red(`${body}  (${r.error})`)];
+      if (r.status === 'blocked') return [c.yellow(`${body}  (blocked)`)];
+      return [body];
     });
   };
 

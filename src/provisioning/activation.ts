@@ -7,12 +7,11 @@ import {
   rm,
   symlink,
 } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { basename, dirname, extname, join } from 'node:path';
 import {
   type AssetRef,
   asset,
   deployedDir,
-  deployedDirSymbolic,
   deployedPath,
   deployedSymbolic,
 } from '../assets/ref';
@@ -23,12 +22,20 @@ import type { Activation, Verb } from './target';
 
 export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
 
+export interface DefaultsEntryReport {
+  readonly key: string;
+  readonly value: string;
+  readonly status: 'changed' | 'failed';
+  readonly error?: string;
+}
+
 export interface ActivationReport {
   readonly verb: Verb;
   readonly source: string;
   readonly dest: string;
   readonly status: ActivationStatus;
   readonly error?: string;
+  readonly entries?: readonly DefaultsEntryReport[];
 }
 
 /** Stable, home-independent description of an activation's verb and endpoints. */
@@ -47,13 +54,13 @@ export function describeActivation(activation: Activation): {
   if (activation.kind === 'defaults') {
     return {
       verb: 'apply',
-      source: deployedDirSymbolic(activation.prefix),
+      source: basename(activation.configKey, extname(activation.configKey)),
       dest: 'macOS defaults',
     };
   }
   return {
     verb: activation.verb,
-    source: deployedDirSymbolic(activation.prefix),
+    source: deployedSymbolic({ key: activation.prefix }),
     dest: symbolic(activation.dest),
   };
 }
@@ -223,32 +230,26 @@ interface DefaultsEntry {
 }
 
 async function readDefaultsEntries(
-  prefix: string,
+  configKey: string,
   home: string,
 ): Promise<DefaultsEntry[]> {
   const { load } = await import('js-yaml');
-  const dir = deployedDir(prefix, home);
-  let names: string[];
+  const path = deployedPath({ key: configKey }, home);
+  let raw: string;
   try {
-    names = await readdir(dir);
+    raw = await readFile(path, 'utf8');
   } catch {
     throw new ProvisioningError(
-      `Defaults config directory not found: ${dir}. Run without --plan to deploy first.`,
+      `Defaults config file not found: ${path}. Run without --plan to deploy first.`,
     );
   }
-
-  const entries: DefaultsEntry[] = [];
-  for (const name of names.filter((n) => n.endsWith('.yml')).sort()) {
-    const raw = await readFile(join(dir, name), 'utf8');
-    const parsed = load(raw);
-    if (!Array.isArray(parsed)) {
-      throw new ProvisioningError(
-        `Defaults config file must contain a YAML list: ${join(dir, name)}`,
-      );
-    }
-    entries.push(...(parsed as DefaultsEntry[]));
+  const parsed = load(raw);
+  if (!Array.isArray(parsed)) {
+    throw new ProvisioningError(
+      `Defaults config file must contain a YAML list: ${path}`,
+    );
   }
-  return entries;
+  return parsed as DefaultsEntry[];
 }
 
 function defaultsArg(
@@ -267,25 +268,45 @@ async function runDefaults(
 ): Promise<ActivationReport> {
   const base = describeActivation(activation);
   try {
-    const entries = await readDefaultsEntries(activation.prefix, context.home);
+    const defaults = await readDefaultsEntries(
+      activation.configKey,
+      context.home,
+    );
     if (plan) {
       return { ...base, status: 'changed' };
     }
-    for (const entry of entries) {
+    const entries: DefaultsEntryReport[] = [];
+    let failed = false;
+    for (const entry of defaults) {
+      const displayValue = defaultsArg(entry.type, entry.value, context.home);
       const result = await context.commands.run('defaults', [
         'write',
         entry.domain,
         entry.key,
         `-${entry.type}`,
-        defaultsArg(entry.type, entry.value, context.home),
+        displayValue,
       ]);
       if (result.code !== 0) {
-        throw new ProvisioningError(
-          `defaults write ${entry.domain} ${entry.key} failed: ${result.stderr.trim()}`,
-        );
+        entries.push({
+          key: entry.key,
+          value: displayValue,
+          status: 'failed',
+          error: result.stderr.trim() || `exit code ${result.code}`,
+        });
+        failed = true;
+      } else {
+        entries.push({
+          key: entry.key,
+          value: displayValue,
+          status: 'changed',
+        });
       }
     }
-    return { ...base, status: 'changed' };
+    return {
+      ...base,
+      status: failed ? 'failed' : 'changed',
+      entries,
+    };
   } catch (error) {
     return { ...base, status: 'failed', error: errorMessage(error) };
   }

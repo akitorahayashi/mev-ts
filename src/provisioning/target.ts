@@ -30,7 +30,7 @@ export type Activation =
     }
   | {
       readonly kind: 'defaults';
-      readonly prefix: string;
+      readonly configKey: string;
     };
 
 export function link(source: AssetRef, dest: HostPath): Activation {
@@ -41,8 +41,8 @@ export function linkTree(prefix: string, dest: HostPath): Activation {
   return { kind: 'tree', verb: 'link', prefix, dest };
 }
 
-export function applyDefaults(prefix: string): Activation {
-  return { kind: 'defaults', prefix };
+export function applyDefaults(configKey: string): Activation {
+  return { kind: 'defaults', configKey };
 }
 
 /**
