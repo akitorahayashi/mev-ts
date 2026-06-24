@@ -54,12 +54,6 @@
   type: bool
   value: false
 
-# Disables the "Are you sure you want to open this?" dialog for downloaded applications.
-- key: LSQuarantine
-  domain: com.apple.LaunchServices
-  type: bool
-  value: false
-
 # Controls the crash reporter dialog. ("none", "basic", "developer")
 - key: DialogType
   domain: com.apple.CrashReporter
