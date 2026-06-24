@@ -49,6 +49,9 @@ jobs:
       - name: Setup Development Environment
         uses: ./.github/actions/setup
 
+      - name: Generate Assets
+        run: bun run codegen
+
       - name: Build mev
         run: bun build src/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
