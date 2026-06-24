@@ -23,7 +23,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "cli-kit": "github:akitorahayashi/cli-kit",
+    "clipanion": "^4.0.0-rc.4",
     "listr2": "^10.2.1",
     "p-limit": "^7.3.0"
   },

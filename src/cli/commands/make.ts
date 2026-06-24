@@ -1,4 +1,4 @@
-import type { CAC, CommandOutcome } from 'cli-kit';
+import { Command, Option } from 'clipanion';
 import { runMake } from '../../provisioning/run';
 import {
   renderDeployLine,
@@ -8,59 +8,60 @@ import {
 } from '../tty/makelog';
 import { createProgressBar } from '../tty/progress';
 
-interface MakeOptions {
-  plan?: boolean;
-  overwrite?: boolean;
-}
+export class MakeCommand extends Command {
+  static override paths = [['make'], ['mk']];
+  static override usage = Command.Usage({
+    description: 'Apply provisioning for one or more tags.',
+  });
 
-export function registerMakeCommand(program: CAC): void {
-  program
-    .command('make <tags...>', 'Apply provisioning for one or more tags.')
-    .alias('mk')
-    .option('--plan', 'Show what would change without applying.')
-    .option('-o, --overwrite', 'Replace unmanaged files when linking configs.')
-    .action(async (...inputs: unknown[]): Promise<CommandOutcome> => {
-      const options = (inputs.pop() ?? {}) as MakeOptions;
-      const tags = inputs as string[];
-      const plan = options.plan ?? false;
-      const isTTY = process.stdout.isTTY ?? false;
-      const out = (text: string) => process.stdout.write(text);
+  tags = Option.Rest({ required: 1 });
+  plan = Option.Boolean('--plan', false, {
+    description: 'Show what would change without applying.',
+  });
+  overwrite = Option.Boolean('-o,--overwrite', false, {
+    description: 'Replace unmanaged files when linking configs.',
+  });
 
-      let bar: ReturnType<typeof createProgressBar> | undefined;
+  async execute(): Promise<number> {
+    const { plan, overwrite } = this;
+    const isTTY = process.stdout.isTTY ?? false;
+    const out = (text: string) => process.stdout.write(text);
 
-      try {
-        const report = await runMake({
-          tags,
-          plan,
-          overwrite: options.overwrite ?? false,
-          onDeploy(result) {
-            const line = renderDeployLine(result, plan, isTTY);
-            if (line) out(`${line}\n`);
-          },
-          onHeader(selection) {
-            out(`${renderHeader(selection)}\n`);
-          },
-          onInstallStart(total) {
-            if (total > 0 && isTTY && !plan) {
-              out('\n');
-              bar = createProgressBar(total);
-            }
-          },
-          onInstallTick() {
-            bar?.tick();
-          },
-        });
+    let bar: ReturnType<typeof createProgressBar> | undefined;
 
-        bar?.stop();
-        out(`\n${renderGroups(report.groups, { plan, isTTY })}\n`);
-        if (!report.failed) {
-          out(`\n${renderSuccess(isTTY)}\n`);
-        }
-        return { failed: report.failed };
-      } finally {
-        // Guarantee the spinner interval is cleared even if runMake throws, so
-        // the event loop is not kept alive and the cursor is not left dirty.
-        bar?.stop();
+    try {
+      const report = await runMake({
+        tags: this.tags,
+        plan,
+        overwrite,
+        onDeploy(result) {
+          const line = renderDeployLine(result, plan, isTTY);
+          if (line) out(`${line}\n`);
+        },
+        onHeader(selection) {
+          out(`${renderHeader(selection)}\n`);
+        },
+        onInstallStart(total) {
+          if (total > 0 && isTTY && !plan) {
+            out('\n');
+            bar = createProgressBar(total);
+          }
+        },
+        onInstallTick() {
+          bar?.tick();
+        },
+      });
+
+      bar?.stop();
+      out(`\n${renderGroups(report.groups, { plan, isTTY })}\n`);
+      if (!report.failed) {
+        out(`\n${renderSuccess(isTTY)}\n`);
       }
-    });
+      return report.failed ? 1 : 0;
+    } finally {
+      // Guarantee the spinner interval is cleared even if runMake throws, so
+      // the event loop is not kept alive and the cursor is not left dirty.
+      bar?.stop();
+    }
+  }
 }

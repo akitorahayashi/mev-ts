@@ -1,5 +1,12 @@
-import { AppError, CommandLineError } from 'cli-kit';
+import { UsageError } from 'clipanion';
 
-export { AppError, CommandLineError };
+export { UsageError as CommandLineError };
+
+export class AppError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AppError';
+  }
+}
 
 export class ProvisioningError extends AppError {}

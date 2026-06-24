@@ -8,8 +8,8 @@
 
 ```
 src/
-  main.ts                     Entry point; builds and runs the CAC program
-  errors.ts                   Typed error classes (CommandLineError, ProvisioningError)
+  main.ts                     Entry point — Cli setup, command registration, runCommandLine()
+  errors.ts                   CommandLineError (= clipanion UsageError), AppError, ProvisioningError
   app/
     identity.ts               User identity resolution (git config + gh auth)
   assets/
@@ -20,9 +20,17 @@ src/
   brew/
     install.ts                Homebrew batch install via Brewfile; per-token hooks
   cli/
-    program.ts                CAC program construction
-    internal.ts               Internal-use command registration
-    commands/                 One file per subcommand (make, list, switch, user)
+    commands/
+      make.ts                 MakeCommand — apply provisioning for one or more tags
+      list.ts                 ListCommand — list available targets
+      switch.ts               SwitchCommand — switch active Git identity
+      user.ts                 UserCommand — show or configure Git identities
+      internal/               Internal-use commands, hidden from main help
+        git-clone.ts          InternalGitCloneCommand
+        git-delete-branches.ts InternalGitDeleteBranchesCommand
+        git-delete-submodule.ts InternalGitDeleteSubmoduleCommand
+        gh-labels-deploy.ts   InternalGhLabelsDeployCommand
+        gh-labels-reset.ts    InternalGhLabelsResetCommand
     tty/
       style.ts                makeStyle(isTTY) — ANSI color helpers
       progress.ts             Count-based progress bar with timer-driven spinner
@@ -56,6 +64,14 @@ tests/                        Mirror of src/ layout; one test file per module bo
 ```
 
 ## Architecture & Implementation Details
+
+### CLI
+
+`main.ts` owns the `Cli` instance (clipanion). It sets `binaryName`, `binaryVersion`, `binaryLabel` from `package.json`, registers `Builtins.HelpCommand`, `Builtins.VersionCommand`, and each command class, then exposes `runCommandLine()` which `createCli().run([...args])`.
+
+Each command is a class extending clipanion's `Command`. Declare `static override paths`, `static override usage` (omit for hidden internal commands), field options via `Option.String()`, `Option.Boolean()`, `Option.Rest()`, `Option.Proxy()`, and `async execute()`. `CommandLineError` (= `UsageError`) routes to stdout with usage display; `AppError`/`ProvisioningError` route to stderr.
+
+`Option.Rest({ required: 1 })` is used for variadic positional arguments (e.g. `make`'s `tags`). `Option.Proxy()` passes all remaining args through to domain functions that do their own parsing (e.g. `internal git clone` URL + `--` flags passthrough).
 
 ### 3-Phase Provisioning
 
