@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   setIdentity,
@@ -18,6 +18,7 @@ import {
 const roots: string[] = [];
 
 function tempHome(): string {
+  mkdirSync('.tmp', { recursive: true });
   const dir = mkdtempSync(join('.tmp', 'identity-app-'));
   roots.push(dir);
   return dir;

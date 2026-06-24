@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppError } from '../../src/errors';
@@ -14,6 +14,7 @@ import {
 const roots: string[] = [];
 
 function tempHome(): string {
+  mkdirSync('.tmp', { recursive: true });
   const dir = mkdtempSync(join('.tmp', 'identity-'));
   roots.push(dir);
   return dir;
