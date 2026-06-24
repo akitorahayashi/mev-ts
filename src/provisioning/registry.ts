@@ -3,9 +3,15 @@ import type { Target } from './target';
 import { ghTarget } from './targets/gh';
 import { gitTarget } from './targets/git';
 import { shellTarget } from './targets/shell';
+import { systemTarget } from './targets/system';
 
 /** Every target mev can provision. Tags, aliases, and packages derive from here. */
-const targets: readonly Target[] = [gitTarget, shellTarget, ghTarget];
+const targets: readonly Target[] = [
+  gitTarget,
+  shellTarget,
+  ghTarget,
+  systemTarget,
+];
 
 /** Resolve a tag or alias to its owning target. */
 export function resolveTarget(selector: string): Target {

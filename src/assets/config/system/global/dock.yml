@@ -1,0 +1,73 @@
+---
+# Sets the size of the icons in the Dock (in pixels).
+- key: tilesize
+  domain: com.apple.dock
+  type: int
+  value: 50
+  comment: "Dock"
+
+# Enables or disables the auto-hiding feature of the Dock.
+- key: autohide
+  domain: com.apple.dock
+  type: bool
+  value: true
+
+# Controls the speed of the Dock's auto-hide animation.
+- key: autohide-time-modifier
+  domain: com.apple.dock
+  type: float
+  value: 0.5
+
+# Sets the delay before the Dock appears when auto-hide is enabled.
+- key: autohide-delay
+  domain: com.apple.dock
+  type: float
+  value: 0
+
+# Shows or hides recent applications in the Dock.
+- key: show-recents
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# Sets the animation effect used when minimizing windows.
+- key: mineffect
+  domain: com.apple.dock
+  type: string
+  value: "genie"
+
+# When enabled, minimizes windows into their application icon in the Dock.
+- key: minimize-to-application
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# When enabled, prevents icons from being added or removed from the Dock.
+- key: static-only
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# Allows opening items in the Dock by scrolling over them.
+- key: scroll-to-open
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# Enables or disables the animation for launching applications from the Dock.
+- key: launchanim
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# Shows or hides hidden application icons in the Dock.
+- key: showhidden
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# Disables the bouncing animation of app icons in the Dock.
+- key: no-bouncing
+  domain: com.apple.dock
+  type: bool
+  value: false

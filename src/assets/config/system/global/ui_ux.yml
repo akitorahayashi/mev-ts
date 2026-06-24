@@ -1,0 +1,61 @@
+---
+# Hides the menu bar.
+- key: _HIHideMenuBar
+  domain: NSGlobalDomain
+  type: bool
+  value: false
+  comment: "UI/UX"
+
+# Sets the size of the sidebar icons. (1: Small, 2: Medium, 3: Large)
+- key: NSTableViewDefaultSizeMode
+  domain: NSGlobalDomain
+  type: int
+  value: 2
+
+# Sets the speed of window resizing. A smaller value means faster resizing.
+- key: NSWindowResizeTime
+  domain: NSGlobalDomain
+  type: float
+  value: 0.01
+
+# Enables or disables automatic capitalization.
+- key: NSAutomaticCapitalizationEnabled
+  domain: NSGlobalDomain
+  type: bool
+  value: false
+
+# Enables or disables smart dash substitution.
+- key: NSAutomaticDashSubstitutionEnabled
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Enables or disables smart period substitution.
+- key: NSAutomaticPeriodSubstitutionEnabled
+  domain: NSGlobalDomain
+  type: bool
+  value: false
+
+# Enables or disables smart quote substitution.
+- key: NSAutomaticQuoteSubstitutionEnabled
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Enables or disables automatic spelling correction.
+- key: NSAutomaticSpellingCorrectionEnabled
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Enables the WebKit developer extras in Safari for inspecting web views.
+- key: WebKitDeveloperExtras
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Enables or disables swipe navigation (e.g., two-finger swipe to go back/forward).
+- key: AppleEnableSwipeNavigateWithScrolls
+  domain: NSGlobalDomain
+  type: bool
+  value: false

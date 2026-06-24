@@ -1,10 +1,17 @@
-import { lstat, mkdir, readdir, readlink, rm, symlink } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  readlink,
+  rm,
+  symlink,
+} from 'node:fs/promises';
+import { basename, dirname, extname, join } from 'node:path';
 import {
   type AssetRef,
   asset,
   deployedDir,
-  deployedDirSymbolic,
   deployedPath,
   deployedSymbolic,
 } from '../assets/ref';
@@ -15,12 +22,20 @@ import type { Activation, Verb } from './target';
 
 export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
 
+export interface DefaultsEntryReport {
+  readonly key: string;
+  readonly value: string;
+  readonly status: 'changed' | 'failed';
+  readonly error?: string;
+}
+
 export interface ActivationReport {
   readonly verb: Verb;
   readonly source: string;
   readonly dest: string;
   readonly status: ActivationStatus;
   readonly error?: string;
+  readonly entries?: readonly DefaultsEntryReport[];
 }
 
 /** Stable, home-independent description of an activation's verb and endpoints. */
@@ -36,9 +51,16 @@ export function describeActivation(activation: Activation): {
       dest: symbolic(activation.dest),
     };
   }
+  if (activation.kind === 'defaults') {
+    return {
+      verb: 'apply',
+      source: basename(activation.configKey, extname(activation.configKey)),
+      dest: 'macOS defaults',
+    };
+  }
   return {
     verb: activation.verb,
-    source: deployedDirSymbolic(activation.prefix),
+    source: deployedSymbolic({ key: activation.prefix }),
     dest: symbolic(activation.dest),
   };
 }
@@ -200,6 +222,96 @@ async function runTree(
   }
 }
 
+interface DefaultsEntry {
+  readonly key: string;
+  readonly domain: string;
+  readonly type: 'bool' | 'int' | 'float' | 'string';
+  readonly value: boolean | number | string;
+}
+
+async function readDefaultsEntries(
+  configKey: string,
+  home: string,
+): Promise<DefaultsEntry[]> {
+  const { load } = await import('js-yaml');
+  const path = deployedPath({ key: configKey }, home);
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch {
+    throw new ProvisioningError(
+      `Defaults config file not found: ${path}. Run without --plan to deploy first.`,
+    );
+  }
+  const parsed = load(raw);
+  if (!Array.isArray(parsed)) {
+    throw new ProvisioningError(
+      `Defaults config file must contain a YAML list: ${path}`,
+    );
+  }
+  return parsed as DefaultsEntry[];
+}
+
+function defaultsArg(
+  type: string,
+  value: boolean | number | string,
+  home: string,
+): string {
+  if (type === 'bool') return value ? 'YES' : 'NO';
+  return String(value).replace('$HOME', home).replace(/^~/, home);
+}
+
+async function runDefaults(
+  activation: Extract<Activation, { kind: 'defaults' }>,
+  context: Context,
+  plan: boolean,
+): Promise<ActivationReport> {
+  const base = describeActivation(activation);
+  try {
+    const defaults = await readDefaultsEntries(
+      activation.configKey,
+      context.home,
+    );
+    if (plan) {
+      return { ...base, status: 'changed' };
+    }
+    const entries: DefaultsEntryReport[] = [];
+    let failed = false;
+    for (const entry of defaults) {
+      const displayValue = defaultsArg(entry.type, entry.value, context.home);
+      const result = await context.commands.run('defaults', [
+        'write',
+        entry.domain,
+        entry.key,
+        `-${entry.type}`,
+        displayValue,
+      ]);
+      if (result.code !== 0) {
+        entries.push({
+          key: entry.key,
+          value: displayValue,
+          status: 'failed',
+          error: result.stderr.trim() || `exit code ${result.code}`,
+        });
+        failed = true;
+      } else {
+        entries.push({
+          key: entry.key,
+          value: displayValue,
+          status: 'changed',
+        });
+      }
+    }
+    return {
+      ...base,
+      status: failed ? 'failed' : 'changed',
+      entries,
+    };
+  } catch (error) {
+    return { ...base, status: 'failed', error: errorMessage(error) };
+  }
+}
+
 /**
  * Inspect an activation and, unless `plan` is set, apply it. Returns a report
  * whose status drives both the exit code and the per-tag execution log.
@@ -209,7 +321,8 @@ export function runActivation(
   context: Context,
   plan: boolean,
 ): Promise<ActivationReport> {
-  return activation.kind === 'file'
-    ? runFile(activation, context, plan)
-    : runTree(activation, context, plan);
+  if (activation.kind === 'file') return runFile(activation, context, plan);
+  if (activation.kind === 'defaults')
+    return runDefaults(activation, context, plan);
+  return runTree(activation, context, plan);
 }

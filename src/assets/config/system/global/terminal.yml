@@ -1,0 +1,31 @@
+---
+# Default window settings for Terminal.
+- key: Default Window Settings
+  domain: com.apple.Terminal
+  type: string
+  value: Basic
+  comment: "Terminal"
+
+# Startup window settings for Terminal.
+- key: Startup Window Settings
+  domain: com.apple.Terminal
+  type: string
+  value: Basic
+
+# Enable secure keyboard entry in Terminal.
+- key: SecureKeyboardEntry
+  domain: com.apple.Terminal
+  type: bool
+  value: true
+
+# Show line marks in Terminal.
+- key: ShowLineMarks
+  domain: com.apple.Terminal
+  type: int
+  value: 0
+
+# Makes the window under the cursor active in Terminal.
+- key: FocusFollowsMouse
+  domain: com.apple.Terminal
+  type: bool
+  value: true

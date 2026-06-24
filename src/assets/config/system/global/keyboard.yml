@@ -1,0 +1,37 @@
+---
+# Sets the key repeat rate. A smaller value means a faster repeat rate.
+- key: KeyRepeat
+  domain: NSGlobalDomain
+  type: int
+  value: 6
+  comment: "Keyboard"
+
+# Sets the delay until key repeat begins. A smaller value means a shorter delay.
+- key: InitialKeyRepeat
+  domain: NSGlobalDomain
+  type: int
+  value: 25
+
+# Enables or disables the press-and-hold feature for accented characters.
+- key: ApplePressAndHoldEnabled
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Controls keyboard navigation access for UI controls. (1: Text boxes and lists only, 3: All controls)
+- key: AppleKeyboardUIMode
+  domain: NSGlobalDomain
+  type: int
+  value: 1
+
+# Toggles the behavior of the function keys. (true: Standard function keys, false: Special features)
+- key: com.apple.keyboard.fnState
+  domain: NSGlobalDomain
+  type: bool
+  value: false
+
+# Enables or disables "natural" scrolling.
+- key: com.apple.swipescrolldirection
+  domain: NSGlobalDomain
+  type: bool
+  value: true

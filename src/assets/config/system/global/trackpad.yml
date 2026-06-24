@@ -1,0 +1,49 @@
+---
+# Sets the trackpad tracking speed. A higher value means faster tracking.
+- key: com.apple.trackpad.scaling
+  domain: NSGlobalDomain
+  type: float
+  value: 1.5
+  comment: "Trackpad"
+
+# Enables or disables tap to click. (0: disabled, 1: enabled)
+- key: Clicking
+  domain: com.apple.AppleMultitouchTrackpad
+  type: int
+  value: 1
+
+# Enables or disables dragging. (0: disabled, 1: enabled)
+- key: Dragging
+  domain: com.apple.AppleMultitouchTrackpad
+  type: int
+  value: 0
+
+# Enables or disables three-finger drag.
+- key: TrackpadThreeFingerDrag
+  domain: com.apple.AppleMultitouchTrackpad
+  type: bool
+  value: false
+
+# Sets the force required for a click. (0: Light, 1: Medium, 2: Firm)
+- key: FirstClickThreshold
+  domain: com.apple.AppleMultitouchTrackpad
+  type: int
+  value: 1
+
+# Suppresses force click and haptic feedback.
+- key: ForceSuppressed
+  domain: com.apple.AppleMultitouchTrackpad
+  type: bool
+  value: true
+
+# Sets the action for a three-finger tap. (0: Off, 2: Look up & data detectors)
+- key: TrackpadThreeFingerTapGesture
+  domain: com.apple.AppleMultitouchTrackpad
+  type: int
+  value: 0
+
+# Enables or disables secondary click (right-click).
+- key: TrackpadRightClick
+  domain: com.apple.AppleMultitouchTrackpad
+  type: bool
+  value: true

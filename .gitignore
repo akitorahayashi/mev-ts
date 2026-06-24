@@ -30,7 +30,7 @@ cache
 *.tsbuildinfo
 
 # generated
-src/mev/assets/registry.generated.ts
+src/assets/registry.generated.ts
 
 # IntelliJ based IDEs
 .idea

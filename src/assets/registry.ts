@@ -16,7 +16,7 @@ export function assetKeysByPrefix(prefix: string): string[] {
 
 /**
  * Embedded configuration assets, keyed by their path under the deployed config
- * root. The map is generated from `src/assets/files/` by
+ * root. The map is generated from `src/assets/config/` by
  * `scripts/generate-assets.ts`, so the source tree is the single authority for
  * what ships in the binary.
  */

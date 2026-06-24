@@ -17,6 +17,10 @@ test('every activation references an asset that exists in the registry', async (
         await expect(
           embeddedAssets.read(activation.source.key),
         ).resolves.toBeString();
+      } else if (activation.kind === 'defaults') {
+        await expect(
+          embeddedAssets.read(activation.configKey),
+        ).resolves.toBeString();
       } else {
         expect(
           embeddedAssets.keysByPrefix(activation.prefix).length,
