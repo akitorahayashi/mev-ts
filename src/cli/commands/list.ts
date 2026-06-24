@@ -1,11 +1,13 @@
-import type { CAC } from 'cli-kit';
+import { Command } from 'clipanion';
 import { renderTargetList } from '../tty/targetlist';
 
-export function registerListCommand(program: CAC): void {
-  program
-    .command('list', 'List available targets.')
-    .alias('ls')
-    .action(() => {
-      process.stdout.write(renderTargetList());
-    });
+export class ListCommand extends Command {
+  static override paths = [['list'], ['ls']];
+  static override usage = Command.Usage({
+    description: 'List available targets.',
+  });
+
+  async execute(): Promise<void> {
+    process.stdout.write(renderTargetList());
+  }
 }

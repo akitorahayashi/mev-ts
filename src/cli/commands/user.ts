@@ -1,4 +1,4 @@
-import type { CAC } from 'cli-kit';
+import { Command, Option } from 'clipanion';
 import { loadIdentities, setIdentity, showIdentity } from '../../app/identity';
 import { CommandLineError } from '../../errors';
 import { bunCommandRunner } from '../../host/command';
@@ -6,31 +6,32 @@ import { resolveHome } from '../../host/context';
 import { renderIdentities } from '../tty/identities';
 import { withPrompter } from '../tty/prompt';
 
-export function registerUserCommand(program: CAC): void {
-  program
-    .command(
-      'user [set]',
-      "Show stored Git identities, or 'set' to configure them.",
-    )
-    .alias('us')
-    .action(async (action: string | undefined) => {
-      const home = resolveHome();
+export class UserCommand extends Command {
+  static override paths = [['user'], ['us']];
+  static override usage = Command.Usage({
+    description: "Show stored Git identities, or 'set' to configure them.",
+  });
 
-      if (action === undefined) {
-        const view = await showIdentity({ run: bunCommandRunner, home });
-        process.stdout.write(`${renderIdentities(view)}\n`);
-        return;
-      }
+  set = Option.String({ required: false });
 
-      if (action === 'set') {
-        await runSet(home);
-        return;
-      }
+  async execute(): Promise<void> {
+    const home = resolveHome();
 
-      throw new CommandLineError(
-        `Unknown argument '${action}'. Use: mev user (show) or mev user set.`,
-      );
-    });
+    if (this.set === undefined) {
+      const view = await showIdentity({ run: bunCommandRunner, home });
+      process.stdout.write(`${renderIdentities(view)}\n`);
+      return;
+    }
+
+    if (this.set === 'set') {
+      await runSet(home);
+      return;
+    }
+
+    throw new CommandLineError(
+      `Unknown argument '${this.set}'. Use: mev user (show) or mev user set.`,
+    );
+  }
 }
 
 async function runSet(home: string): Promise<void> {
