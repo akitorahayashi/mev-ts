@@ -7,13 +7,13 @@ import {
   switchIdentity,
 } from '../../src/app/identity';
 import { CommandLineError } from '../../src/errors';
+import type { CommandResult, CommandRunner } from '../../src/host/command';
 import {
   identityFilePath,
   loadState,
   makeIdentity,
   saveState,
 } from '../../src/identity/store';
-import type { CommandResult, CommandRunner } from '../../src/resources/model';
 
 const roots: string[] = [];
 

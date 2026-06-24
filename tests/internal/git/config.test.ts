@@ -1,10 +1,7 @@
 import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../../../src/errors';
-import { configGet, configSet } from '../../../src/internal/git/config';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
+import { configGet, configSetGlobal } from '../../../src/internal/git/config';
 
 function runner(
   preset: CommandResult,
@@ -48,27 +45,16 @@ test('configGet passes correct argv', async () => {
   ]);
 });
 
-test('configSet passes correct argv', async () => {
+test('configSetGlobal passes correct argv', async () => {
   const sink: { args?: string[] } = {};
   const run = runner({ code: 0, stdout: '', stderr: '' }, sink);
-  await configSet(
-    run,
-    '/home/test/.gitconfig',
-    'core.excludesfile',
-    '/home/test/.gitignore_global',
-  );
-  expect(sink.args).toEqual([
-    'config',
-    '--file',
-    '/home/test/.gitconfig',
-    'core.excludesfile',
-    '/home/test/.gitignore_global',
-  ]);
+  await configSetGlobal(run, 'user.name', 'Example');
+  expect(sink.args).toEqual(['config', '--global', 'user.name', 'Example']);
 });
 
-test('configSet throws ProvisioningError on non-zero exit', async () => {
+test('configSetGlobal throws ProvisioningError on non-zero exit', async () => {
   const run = runner({ code: 1, stdout: '', stderr: 'error' });
   await expect(
-    configSet(run, '/home/test/.gitconfig', 'core.excludesfile', 'value'),
+    configSetGlobal(run, 'user.name', 'Example'),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });

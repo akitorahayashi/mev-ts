@@ -1,15 +1,12 @@
 import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../../../src/errors';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import {
   createLabel,
   deleteLabel,
   editLabel,
   listLabelNames,
 } from '../../../src/internal/gh/label';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
 
 function runner(
   preset: CommandResult,

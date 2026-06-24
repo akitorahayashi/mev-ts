@@ -1,4 +1,4 @@
-import { allTargets } from '../../config/registry';
+import { allTargets } from '../../provisioning/registry';
 import { makeStyle } from './style';
 
 export function renderTargetList(

@@ -1,4 +1,4 @@
-import type { CommandRunner } from '../../resources/model';
+import type { CommandRunner } from '../../host/command';
 import {
   createLabel,
   deleteLabel,

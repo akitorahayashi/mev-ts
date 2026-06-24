@@ -1,13 +1,10 @@
 import { expect, test } from 'bun:test';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import {
   deployLabels,
   LABEL_CATALOG,
   resetLabels,
 } from '../../../src/internal/gh/labels';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
 
 interface Call {
   args: string[];

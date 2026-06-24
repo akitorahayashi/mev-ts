@@ -1,9 +1,6 @@
 import { expect, test } from 'bun:test';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { authStatus } from '../../../src/internal/gh/auth';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
 
 function runner(
   preset: CommandResult,

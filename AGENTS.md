@@ -1,28 +1,123 @@
-# Agent Guide
+# mev-ts
 
-## Purpose
+## Project Overview
 
-macOS development environment provisioning CLI built with Bun and TypeScript.
+`mev` is a macOS development environment provisioning CLI built with Bun and TypeScript. It deploys role-based configuration assets (dotfiles, tool configs) to a deploy store, installs required Homebrew packages, and activates them by creating symlinks into host paths. The CLI is distributed as a single compiled binary.
 
-## Runtime
+## Directory Structure
 
-- Use Bun commands only.
-- Keep the package as ESM with `type: "module"` in `package.json`.
-- Install dependencies with `bun install`.
-- Run the CLI with `bun run mev <command>`.
-- Build the standalone binary with `bun run build`.
-- Apply repository formatting with `bun run fix`.
-- Run static validation with `bun run check`.
-- Run tests with `bun run test`.
+```
+src/
+  main.ts                     Entry point; builds and runs the CAC program
+  errors.ts                   Typed error classes (CommandLineError, ProvisioningError)
+  app/
+    identity.ts               User identity resolution (git config + gh auth)
+  assets/
+    files/                    Embedded config assets, keyed as role/scope/filename
+    ref.ts                    AssetRef type + deploy store path helpers
+    registry.ts               AssetSource interface + embeddedAssets implementation
+    registry.generated.ts     Codegen output — asset key→content map (do not edit)
+  brew/
+    install.ts                Homebrew batch install via Brewfile; per-token hooks
+  cli/
+    program.ts                CAC program construction
+    internal.ts               Internal-use command registration
+    commands/                 One file per subcommand (make, list, switch, user)
+    tty/
+      style.ts                makeStyle(isTTY) — ANSI color helpers
+      progress.ts             Count-based progress bar with timer-driven spinner
+      makelog.ts              Render functions for the 3-phase make output
+      targetlist.ts           Target listing renderer
+      livelist.ts             Live-updating list renderer
+      identities.ts           Identity display renderer
+      prompt.ts               Interactive TTY prompt
+  host/
+    command.ts                CommandRunner interface + bunCommandRunner
+    context.ts                Context interface + createContext
+    path.ts                   HostPath type; home(), absolute(), symbolic(), resolveHostPath()
+  identity/
+    scope.ts                  Identity scope enum
+    store.ts                  Identity persistence (read/write via git config)
+  internal/
+    gh/                       GitHub CLI wrappers (api, auth, extension, label, labels)
+    git/                      Git wrappers (branches, clone, config, submodule)
+  provisioning/
+    target.ts                 Target interface, Activation union type, link(), linkTree(), target()
+    package.ts                PackageRequirement, mergePackages(), tokens(), PackageToken
+    plan.ts                   planMake() — resolves selectors to MakePlan with ActivationGroup[]
+    deploy.ts                 deployRole() / inspectRole() — materialize assets to deploy store
+    activation.ts             runActivation() — link/copy from deploy store to host paths
+    run.ts                    runMake() — 3-phase orchestrator (deploy -> install -> activate)
+    registry.ts               allTargets(), resolveTarget(), availableSelectors()
+    targets/                  One file per provisioning target (git, gh, shell)
+scripts/
+  generate-assets.ts          Codegen: reads src/assets/files/, writes registry.generated.ts
+tests/                        Mirror of src/ layout; one test file per module boundary
+```
 
-## Development Rules
+## Architecture & Implementation Details
 
-- Keep dependencies minimal and clearly justified.
-- Delegate the user-facing command-line boundary to `cli-kit`'s `runCli` (help rendering, routing, version, exit-code mapping). `program.ts` supplies metadata, registers `make`/`list`/`user`, and intercepts `internal` before delegating. Command files import `CAC` and `CommandOutcome` from `cli-kit`, not `cac`; cac is a transitive dependency.
-- `user` is registered as `user [scope]` with alias `us`; the optional positional routes to show (no arg), setup (`set`), or switch (scope alias). The `internal` subcommand uses hand-rolled dispatch (`cli/internal.ts`) because `cac` cannot handle multi-word commands with trailing variadic and `--` separators; it is intercepted in `program.ts` ahead of `runCli` rather than registered as a cac command.
-- Domain errors extend `AppError` from `cli-kit`; `errors.ts` re-exports the base classes and adds `ProvisioningError`.
-- Keep the CLI surface small and explicit.
-- Keep the structure aligned to `cli/`, `app/`, and feature-owned modules under `src/`.
-- Do not add silent fallback behavior.
-- Keep tests focused on externally observable behavior.
-- Do not read `.mx/*.md` unless explicitly requested by the user.
+### 3-Phase Provisioning
+
+`runMake()` drives three sequential phases:
+
+1. Deploy -- `deployRole()` materializes embedded assets into `~/.config/mev/roles/{role}/`. Skips if already present unless `overwrite` is set; with `overwrite`, prunes the role directory and rewrites it.
+2. Install -- `installPackages()` runs `brew bundle check` per token; installs only missing ones via `brew bundle install --no-upgrade`.
+3. Activate -- `runActivation()` creates symlinks from the deploy store to resolved host paths, at p-limit concurrency of 8.
+
+### Key Types
+
+- `AssetRef` -- `{ key: string }` where `key` is the embed path under `src/assets/files/` (e.g. `git/global/.gitconfig`). Doubles as the deploy store lookup.
+- `HostPath` -- symbolic path (e.g. `~/.config/git/config`) resolved against `context.home` at apply time.
+- `Activation` -- discriminated union `{ kind: 'file', verb, source: AssetRef, dest: HostPath }` | `{ kind: 'tree', verb, prefix: string, dest: HostPath }`. Verb space is `'copy' | 'link'`.
+- `Target` -- groups name, tags/aliases, role, `PackageRequirement`, and `Activation[]`.
+- `MakePlan` -- output of `planMake()`; carries deduplicated `tags`, `roles`, merged `packages`, and `ActivationGroup[]` preserving tag attribution through to output.
+- `Context` -- `{ home, overwrite, commands: CommandRunner, assets: AssetSource }`. Tests inject fake implementations.
+
+### Asset Codegen
+
+`scripts/generate-assets.ts` walks `src/assets/files/` and writes `registry.generated.ts` as a static `Record<string, string>` map. Runs automatically via `pretest` and `precheck` npm hooks.
+
+### Deploy Store Layout
+
+Assets land at `~/.config/mev/roles/{key}` (e.g. `~/.config/mev/roles/shell/global/.zshenv`). The constant `deployRoot = '.config/mev/roles'` is the sole authority.
+
+### git XDG Convention
+
+The git target links to `~/.config/git/config` and `~/.config/git/ignore`. Both are read by git automatically without any `core.excludesfile` configuration.
+
+### TTY Rendering
+
+`makeStyle(isTTY)` gates all ANSI codes. Color conventions:
+
+- Progress bar filled / spinner: cyan
+- Progress bar unfilled: dim
+- Deploy lines: dim
+- Tag headers: bold
+- `link`/`copy` verb and arrow: dim
+- Success message: green
+- Failed entries: red
+- Blocked entries: yellow
+- Unchanged counts: dim
+
+## Development Commands
+
+```sh
+bun run fix      # Biome autofix -- run before check
+bun run check    # codegen + biome lint + tsc --noEmit
+bun test         # Run all tests
+bun run build    # Compile to dist/mev binary
+```
+
+## Development Guidelines
+
+- `bun run fix` is always run before `bun run check`; never skip fix.
+- `registry.generated.ts` is generated; edit `src/assets/files/` to change embedded assets.
+- Adding a target: create `src/provisioning/targets/{name}.ts` and register it in `src/provisioning/registry.ts`. The registry test validates asset existence and selector uniqueness automatically.
+- Tests use sandboxed `HOME` directories under `.tmp/`. `Context` is injected with fake `commands` and `assets` to avoid touching the real filesystem or Homebrew.
+- Tests assert observable behavior at the module boundary. Internal file placement, wording, and composition choices are not part of the test contract.
+- Temporary files go under `./.tmp/`, never `/tmp/`.
+
+## Documentation Rules
+
+Documentation is written in a declarative style describing the current state of the system. Imperative or changelog-style descriptions are not used (e.g., do not write "Removed X and added Y" or reference version-specific changes).

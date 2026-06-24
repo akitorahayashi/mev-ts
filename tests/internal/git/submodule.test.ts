@@ -2,11 +2,8 @@ import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { mkdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { deleteSubmodule } from '../../../src/internal/git/submodule';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
 
 interface Call {
   args: string[];

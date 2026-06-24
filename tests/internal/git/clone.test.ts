@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { cloneRepositories } from '../../../src/internal/git/clone';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
 
 let stdout: ReturnType<typeof spyOn>;
 

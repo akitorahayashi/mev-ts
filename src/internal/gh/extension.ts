@@ -1,5 +1,5 @@
 import { ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../resources/model';
+import type { CommandRunner } from '../../host/command';
 
 export async function extensionInstalled(
   run: CommandRunner,

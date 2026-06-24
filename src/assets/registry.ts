@@ -1,6 +1,18 @@
 import { ProvisioningError } from '../errors';
-import type { AssetSource } from '../resources/model';
 import { assetContents } from './registry.generated';
+
+/** Read access to embedded assets, plus enumeration of a deploy role's files. */
+export interface AssetSource {
+  read(key: string): Promise<string>;
+  keysByPrefix(prefix: string): readonly string[];
+}
+
+/** All embedded asset keys whose path begins with the given prefix, sorted. */
+export function assetKeysByPrefix(prefix: string): string[] {
+  return Object.keys(assetContents)
+    .filter((key) => key.startsWith(prefix))
+    .sort();
+}
 
 /**
  * Embedded configuration assets, keyed by their path under the deployed config
@@ -16,11 +28,7 @@ export const embeddedAssets: AssetSource = {
     }
     return content;
   },
+  keysByPrefix(prefix): readonly string[] {
+    return assetKeysByPrefix(prefix);
+  },
 };
-
-/** All embedded asset keys whose path begins with the given prefix. */
-export function assetKeysByPrefix(prefix: string): string[] {
-  return Object.keys(assetContents)
-    .filter((key) => key.startsWith(prefix))
-    .sort();
-}

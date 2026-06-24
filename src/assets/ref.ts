@@ -13,7 +13,8 @@ export function asset(key: string): AssetRef {
   return { key };
 }
 
-const deployRoot = '.config/mev/roles';
+/** Root, relative to the user's home, where assets are materialized. */
+export const deployRoot = '.config/mev/roles';
 
 /** Concrete path where the asset is materialized before it is symlinked. */
 export function deployedPath(ref: AssetRef, homeDir: string): string {
@@ -28,4 +29,9 @@ export function deployedDir(prefix: string, homeDir: string): string {
 /** Stable, home-independent rendering of the deployed path. */
 export function deployedSymbolic(ref: AssetRef): string {
   return `~/${deployRoot}/${ref.key}`;
+}
+
+/** Stable, home-independent rendering of the deploy directory for a prefix. */
+export function deployedDirSymbolic(prefix: string): string {
+  return `~/${deployRoot}/${prefix}`;
 }
