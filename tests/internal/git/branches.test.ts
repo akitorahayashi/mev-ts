@@ -1,10 +1,7 @@
 import { expect, test } from 'bun:test';
 import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { deleteBranches } from '../../../src/internal/git/branches';
-import type {
-  CommandResult,
-  CommandRunner,
-} from '../../../src/resources/model';
 
 interface Call {
   args: string[];

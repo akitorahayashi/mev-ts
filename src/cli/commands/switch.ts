@@ -1,9 +1,9 @@
 import type { CAC } from 'cli-kit';
 import { switchIdentity } from '../../app/identity';
 import { CommandLineError } from '../../errors';
+import { bunCommandRunner } from '../../host/command';
+import { resolveHome } from '../../host/context';
 import { aliasesOf, allScopes, resolveScope } from '../../identity/scope';
-import { bunCommandRunner } from '../../runtime/command';
-import { resolveHome } from '../../runtime/context';
 
 /** Canonical names and aliases, e.g. "personal/p, work/w", from the scope registry. */
 function scopeHint(): string {

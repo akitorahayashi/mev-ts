@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   setIdentity,
@@ -7,17 +7,18 @@ import {
   switchIdentity,
 } from '../../src/app/identity';
 import { CommandLineError } from '../../src/errors';
+import type { CommandResult, CommandRunner } from '../../src/host/command';
 import {
   identityFilePath,
   loadState,
   makeIdentity,
   saveState,
 } from '../../src/identity/store';
-import type { CommandResult, CommandRunner } from '../../src/resources/model';
 
 const roots: string[] = [];
 
 function tempHome(): string {
+  mkdirSync('.tmp', { recursive: true });
   const dir = mkdtempSync(join('.tmp', 'identity-app-'));
   roots.push(dir);
   return dir;

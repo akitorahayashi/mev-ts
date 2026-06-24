@@ -1,5 +1,5 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../resources/model';
+import type { CommandRunner } from '../../host/command';
 
 export async function deleteBranches(
   run: CommandRunner,

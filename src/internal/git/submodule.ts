@@ -1,7 +1,7 @@
 import { rm, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { CommandLineError, ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../resources/model';
+import type { CommandRunner } from '../../host/command';
 
 /**
  * Delete a git submodule completely from the repository in the current working

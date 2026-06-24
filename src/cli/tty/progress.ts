@@ -1,18 +1,24 @@
+import { makeStyle } from './style';
+
 const BAR_WIDTH = 24;
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const SPINNER_INTERVAL_MS = 80;
 
-function renderLine(frame: string, completed: number, total: number): string {
-  // Clamp to the bar width so an unexpected completed > total never produces a
-  // negative repeat count, which would throw RangeError and crash the CLI.
+function renderLine(
+  frame: string,
+  completed: number,
+  total: number,
+  c: ReturnType<typeof makeStyle>,
+): string {
   const filled =
     total === 0
       ? BAR_WIDTH
       : Math.min(BAR_WIDTH, Math.round((completed / total) * BAR_WIDTH));
-  const bar = '━'.repeat(filled) + '─'.repeat(BAR_WIDTH - filled);
+  const bar =
+    c.cyan('━'.repeat(filled)) + c.dim('─'.repeat(BAR_WIDTH - filled));
   const totalStr = String(total);
   const count = `${String(completed).padStart(totalStr.length)}/${totalStr}`;
-  return `${frame} ${bar}  ${count}`;
+  return `${c.cyan(frame)} ${bar}  ${count}`;
 }
 
 export interface ProgressBar {
@@ -20,12 +26,6 @@ export interface ProgressBar {
   stop(): void;
 }
 
-/**
- * A count-based progress bar with a timer-driven spinner so the line keeps
- * animating during a long-running apply rather than appearing frozen between
- * completions. On a non-TTY stream it stays silent; the caller prints the final
- * outcome table instead.
- */
 export function createProgressBar(
   total: number,
   isTTY = process.stdout.isTTY ?? false,
@@ -36,10 +36,11 @@ export function createProgressBar(
     return { tick() {}, stop() {} };
   }
 
+  const c = makeStyle(true);
   let frameIndex = 0;
   const draw = () => {
     const frame = SPINNER_FRAMES[frameIndex] as string;
-    process.stdout.write(`\r${renderLine(frame, completed, total)}`);
+    process.stdout.write(`\r${renderLine(frame, completed, total, c)}`);
   };
 
   draw();
@@ -58,7 +59,7 @@ export function createProgressBar(
       if (stopped) return;
       stopped = true;
       clearInterval(timer);
-      process.stdout.write('\r\x1b[2K');
+      process.stdout.write(`\r${renderLine(' ', completed, total, c)}\n`);
     },
   };
 }

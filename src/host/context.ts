@@ -1,8 +1,15 @@
 import { homedir } from 'node:os';
-import { embeddedAssets } from '../assets/registry';
+import { type AssetSource, embeddedAssets } from '../assets/registry';
 import { ProvisioningError } from '../errors';
-import type { Context } from '../resources/model';
-import { bunCommandRunner } from './command';
+import { bunCommandRunner, type CommandRunner } from './command';
+
+/** Live execution context bound to the current user's environment. */
+export interface Context {
+  readonly home: string;
+  readonly overwrite: boolean;
+  readonly commands: CommandRunner;
+  readonly assets: AssetSource;
+}
 
 interface ContextOptions {
   readonly overwrite: boolean;

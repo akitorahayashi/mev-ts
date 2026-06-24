@@ -1,4 +1,12 @@
-import type { CommandResult, CommandRunner } from '../resources/model';
+export interface CommandResult {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+export interface CommandRunner {
+  run(command: string, args: readonly string[]): Promise<CommandResult>;
+}
 
 /** Runs external commands through Bun's process spawner. */
 export const bunCommandRunner: CommandRunner = {

@@ -1,0 +1,119 @@
+import { rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { ProvisioningError } from '../errors';
+import type { Context } from '../host/context';
+import {
+  type PackageRequirement,
+  type PackageToken,
+  tokens,
+} from '../provisioning/package';
+
+export type InstallStatus = 'installed' | 'present' | 'missing' | 'failed';
+
+export interface InstallReport {
+  readonly token: PackageToken;
+  readonly status: InstallStatus;
+  readonly error?: string;
+}
+
+export interface InstallHooks {
+  onStart?(total: number): void;
+  onTick?(token: PackageToken): void;
+}
+
+let brewfileCounter = 0;
+
+/**
+ * Writes a single-entry Brewfile to a temporary path and passes it to the given
+ * action. Homebrew Bundle treats already-installed entries as no-ops, so
+ * `check` reports desired state and `install` is idempotent.
+ */
+async function withBrewfile<T>(
+  line: string,
+  action: (file: string) => Promise<T>,
+): Promise<T> {
+  brewfileCounter += 1;
+  const file = join(tmpdir(), `mev-brewfile-${process.pid}-${brewfileCounter}`);
+  await writeFile(file, `${line}\n`);
+  try {
+    return await action(file);
+  } finally {
+    await rm(file, { force: true });
+  }
+}
+
+function brewfileLine(token: PackageToken): string {
+  if (token.kind === 'tap') return `tap "${token.name}"`;
+  if (token.kind === 'cask') return `cask "${token.name}"`;
+  return `brew "${token.name}"`;
+}
+
+function isPresent(context: Context, line: string): Promise<boolean> {
+  return withBrewfile(line, async (file) => {
+    const result = await context.commands.run('brew', [
+      'bundle',
+      'check',
+      `--file=${file}`,
+    ]);
+    return result.code === 0;
+  });
+}
+
+async function install(
+  context: Context,
+  line: string,
+  name: string,
+): Promise<void> {
+  await withBrewfile(line, async (file) => {
+    const result = await context.commands.run('brew', [
+      'bundle',
+      'install',
+      '--no-upgrade',
+      `--file=${file}`,
+    ]);
+    if (result.code !== 0) {
+      throw new ProvisioningError(
+        `brew bundle install failed for ${name} with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      );
+    }
+  });
+}
+
+/**
+ * Resolve every required package as a batch. In plan mode each token is only
+ * checked; otherwise missing tokens are installed. The hooks drive a progress
+ * bar that counts completed tokens.
+ */
+export async function installPackages(
+  req: PackageRequirement,
+  context: Context,
+  plan: boolean,
+  hooks: InstallHooks = {},
+): Promise<InstallReport[]> {
+  const list = tokens(req);
+  hooks.onStart?.(list.length);
+
+  const reports: InstallReport[] = [];
+  for (const token of list) {
+    const line = brewfileLine(token);
+    try {
+      if (await isPresent(context, line)) {
+        reports.push({ token, status: 'present' });
+      } else if (plan) {
+        reports.push({ token, status: 'missing' });
+      } else {
+        await install(context, line, token.name);
+        reports.push({ token, status: 'installed' });
+      }
+    } catch (error) {
+      reports.push({
+        token,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    hooks.onTick?.(token);
+  }
+  return reports;
+}

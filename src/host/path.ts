@@ -2,8 +2,8 @@ import { join } from 'node:path';
 
 /**
  * A destination path on the host, kept symbolic until execution so that
- * manifests stay pure and resource ids are stable regardless of the running
- * user's home directory.
+ * manifests stay pure and reports are stable regardless of the running user's
+ * home directory.
  */
 export type HostPath =
   | { readonly kind: 'home'; readonly rel: string }
@@ -17,7 +17,7 @@ export function absolute(path: string): HostPath {
   return { kind: 'absolute', path };
 }
 
-/** Stable, home-independent rendering used for resource ids and display. */
+/** Stable, home-independent rendering used for display. */
 export function symbolic(target: HostPath): string {
   return target.kind === 'home' ? `~/${target.rel}` : target.path;
 }

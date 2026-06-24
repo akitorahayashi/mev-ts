@@ -1,4 +1,5 @@
 import { CommandLineError } from '../errors';
+import type { CommandRunner } from '../host/command';
 import type { IdentityScope } from '../identity/scope';
 import {
   type Identity,
@@ -10,7 +11,6 @@ import {
   stateExists,
 } from '../identity/store';
 import { configGet, configSetGlobal } from '../internal/git/config';
-import type { CommandRunner } from '../resources/model';
 
 export interface IdentityDeps {
   readonly run: CommandRunner;

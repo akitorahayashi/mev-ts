@@ -1,5 +1,5 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../resources/model';
+import type { CommandRunner } from '../../host/command';
 
 /**
  * Clone each repository URL in order, stopping at the first failure.

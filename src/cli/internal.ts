@@ -1,9 +1,9 @@
 import { CommandLineError } from '../errors';
+import { bunCommandRunner } from '../host/command';
 import { buildDeployTasks, buildResetTasks } from '../internal/gh/labels';
 import { deleteBranches } from '../internal/git/branches';
 import { cloneRepositories } from '../internal/git/clone';
 import { deleteSubmodule } from '../internal/git/submodule';
-import { bunCommandRunner } from '../runtime/command';
 import { renderLiveList } from './tty/livelist';
 
 const USAGE = `mev internal <command>

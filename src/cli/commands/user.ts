@@ -1,8 +1,8 @@
 import type { CAC } from 'cli-kit';
 import { loadIdentities, setIdentity, showIdentity } from '../../app/identity';
 import { CommandLineError } from '../../errors';
-import { bunCommandRunner } from '../../runtime/command';
-import { resolveHome } from '../../runtime/context';
+import { bunCommandRunner } from '../../host/command';
+import { resolveHome } from '../../host/context';
 import { renderIdentities } from '../tty/identities';
 import { withPrompter } from '../tty/prompt';
 
