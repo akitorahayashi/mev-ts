@@ -50,7 +50,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build mev
-        run: bun build src/mev/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
+        run: bun build src/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
       - name: Upload Release Asset
         if: inputs.release_id != ''
