@@ -81,6 +81,10 @@ Each command is a class extending clipanion's `Command`. Declare `static overrid
 2. Install -- `installPackages()` runs `brew bundle check` per token; installs only missing ones via `brew bundle install --no-upgrade`.
 3. Activate -- `runActivation()` creates symlinks from the deploy store to resolved host paths, at p-limit concurrency of 8.
 
+### Provisioning Targets
+
+Each target is a file in `src/provisioning/targets/` registered in `src/provisioning/registry.ts`. The registry test validates asset existence and selector uniqueness automatically.
+
 ### Key Types
 
 - `AssetRef` -- `{ key: string }` where `key` is the embed path under `src/assets/files/` (e.g. `git/global/.gitconfig`). Doubles as the deploy store lookup.
@@ -116,24 +120,6 @@ The git target links to `~/.config/git/config` and `~/.config/git/ignore`. Both 
 - Blocked entries: yellow
 - Unchanged counts: dim
 
-## Development Commands
+## Test Infrastructure
 
-```sh
-bun run fix      # Biome autofix -- run before check
-bun run check    # codegen + biome lint + tsc --noEmit
-bun test         # Run all tests
-bun run build    # Compile to dist/mev binary
-```
-
-## Development Guidelines
-
-- `bun run fix` is always run before `bun run check`; never skip fix.
-- `registry.generated.ts` is generated; edit `src/assets/files/` to change embedded assets.
-- Adding a target: create `src/provisioning/targets/{name}.ts` and register it in `src/provisioning/registry.ts`. The registry test validates asset existence and selector uniqueness automatically.
-- Tests use sandboxed `HOME` directories under `.tmp/`. `Context` is injected with fake `commands` and `assets` to avoid touching the real filesystem or Homebrew.
-- Tests assert observable behavior at the module boundary. Internal file placement, wording, and composition choices are not part of the test contract.
-- Temporary files go under `./.tmp/`, never `/tmp/`.
-
-## Documentation Rules
-
-Documentation is written in a declarative style describing the current state of the system. Imperative or changelog-style descriptions are not used (e.g., do not write "Removed X and added Y" or reference version-specific changes).
+Tests use sandboxed `HOME` directories under `.tmp/`. `Context` is injected with fake `commands` and `assets` to avoid touching the real filesystem or Homebrew.

@@ -2,8 +2,6 @@
 
 ## Scope
 
-`mev` is a macOS development environment provisioning CLI built with Bun and TypeScript.
-
 The repository owns:
 
 - the CLI entrypoint in `src/main.ts`
