@@ -1,0 +1,37 @@
+---
+# Sets the default location for saving screenshots.
+- key: location
+  domain: com.apple.screencapture
+  type: string
+  value: "$HOME/Desktop"
+  comment: "Screenshots"
+
+# Disables the shadow effect for window screenshots.
+- key: disable-shadow
+  domain: com.apple.screencapture
+  type: bool
+  value: false
+
+# Includes the date in the screenshot filename.
+- key: include-date
+  domain: com.apple.screencapture
+  type: bool
+  value: false
+
+# Shows a thumbnail of the screenshot after taking it.
+- key: show-thumbnail
+  domain: com.apple.screencapture
+  type: bool
+  value: true
+
+# Sets how long screenshot thumbnails stay visible.
+- key: thumbnailExpiration
+  domain: com.apple.screencaptureui
+  type: float
+  value: 15
+
+# Sets the default file format for screenshots (e.g., png, jpg, gif, tiff, bmp).
+- key: type
+  domain: com.apple.screencapture
+  type: string
+  value: "png"

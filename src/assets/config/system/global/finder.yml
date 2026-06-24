@@ -1,0 +1,91 @@
+---
+# Shows or hides the path bar in Finder windows.
+- key: ShowPathbar
+  domain: com.apple.finder
+  type: bool
+  value: true
+  comment: "Finder"
+
+# Shows or hides the status bar in Finder windows.
+- key: ShowStatusBar
+  domain: com.apple.finder
+  type: bool
+  value: false
+
+# Shows or hides hidden files in Finder.
+- key: AppleShowAllFiles
+  domain: com.apple.finder
+  type: bool
+  value: true
+
+# Shows or hides all file extensions in Finder.
+- key: AppleShowAllExtensions
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Shows the full POSIX path in the Finder window's title bar.
+- key: _FXShowPosixPathInTitle
+  domain: com.apple.finder
+  type: bool
+  value: false
+
+# Sets the default view style for Finder windows. (e.g., "icnv" for icons, "clmv" for columns, "Nlsv" for list)
+- key: FXPreferredViewStyle
+  domain: com.apple.finder
+  type: string
+  value: "icnv"
+
+# Sorts folders before files in Finder windows.
+- key: _FXSortFoldersFirst
+  domain: com.apple.finder
+  type: bool
+  value: true
+
+# Sets the default search scope in Finder. ("SCev" for "Search This Mac", "SCcf" for "Search the Current Folder")
+- key: FXDefaultSearchScope
+  domain: com.apple.finder
+  type: string
+  value: "SCev"
+
+# Enables or disables the warning when changing a file's extension.
+- key: FXEnableExtensionChangeWarning
+  domain: com.apple.finder
+  type: bool
+  value: false
+
+# Enables or disables the warning before emptying the Trash.
+- key: WarnOnEmptyTrash
+  domain: com.apple.finder
+  type: bool
+  value: true
+
+# Automatically removes items from the Trash after 30 days.
+- key: FXRemoveOldTrashItems
+  domain: com.apple.finder
+  type: bool
+  value: true
+
+# Prevents the creation of .DS_Store files on network volumes.
+- key: DSDontWriteNetworkStores
+  domain: com.apple.desktopservices
+  type: bool
+  value: true
+
+# Shows or hides the "Quit Finder" menu item.
+- key: QuitMenuItem
+  domain: com.apple.finder
+  type: bool
+  value: false
+
+# Disables all animations in Finder.
+- key: DisableAllAnimations
+  domain: com.apple.finder
+  type: bool
+  value: false
+
+# Enables or disables spring-loaded folders.
+- key: com.apple.springing.enabled
+  domain: NSGlobalDomain
+  type: bool
+  value: false

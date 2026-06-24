@@ -1,0 +1,67 @@
+---
+# Sets the highlight color for selected text and UI elements.
+- key: AppleHighlightColor
+  domain: NSGlobalDomain
+  type: string
+  value: "0.709800 0.835300 1.000000"
+  comment: "System settings"
+
+# Controls when scroll bars are shown. ("Automatic", "WhenScrolling", "Always")
+- key: AppleShowScrollBars
+  domain: NSGlobalDomain
+  type: string
+  value: "Automatic"
+
+# Expands the save panel by default.
+- key: NSNavPanelExpandedStateForSaveMode
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Expands the save panel by default.
+- key: NSNavPanelExpandedStateForSaveMode2
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Expands the print dialog by default.
+- key: PMPrintingExpandedStateForPrint
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Expands the print dialog by default.
+- key: PMPrintingExpandedStateForPrint2
+  domain: NSGlobalDomain
+  type: bool
+  value: true
+
+# Saves new documents to iCloud by default.
+- key: NSDocumentSaveNewDocumentsToCloud
+  domain: NSGlobalDomain
+  type: bool
+  value: false
+
+# Keeps windows open when quitting an application.
+- key: NSQuitAlwaysKeepsWindows
+  domain: com.apple.systempreferences
+  type: bool
+  value: false
+
+# Disables automatic termination of applications.
+- key: NSDisableAutomaticTermination
+  domain: NSGlobalDomain
+  type: bool
+  value: false
+
+# Disables the "Are you sure you want to open this?" dialog for downloaded applications.
+- key: LSQuarantine
+  domain: com.apple.LaunchServices
+  type: bool
+  value: false
+
+# Controls the crash reporter dialog. ("none", "basic", "developer")
+- key: DialogType
+  domain: com.apple.CrashReporter
+  type: string
+  value: "none"

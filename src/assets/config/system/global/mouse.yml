@@ -1,0 +1,7 @@
+---
+# Sets the mouse tracking speed. A higher value means faster tracking.
+- key: com.apple.mouse.scaling
+  domain: .GlobalPreferences
+  type: float
+  value: 1
+  comment: "Mouse"

@@ -1,0 +1,25 @@
+---
+# Enables or disables user interface sound effects.
+- key: com.apple.sound.uiaudio.enabled
+  domain: com.apple.systemsound
+  type: int
+  value: 0
+  comment: "Sound"
+
+# Enables or disables feedback when volume is changed.
+- key: com.apple.sound.beep.feedback
+  domain: NSGlobalDomain
+  type: int
+  value: 0
+
+# Sets the path to the alert sound file.
+- key: com.apple.sound.beep.sound
+  domain: NSGlobalDomain
+  type: string
+  value: "/System/Library/Sounds/Boop.aiff"
+
+# Sets the minimum bitpool for Bluetooth audio, affecting quality and stability.
+- key: "Apple Bitpool Min (editable)"
+  domain: com.apple.BluetoothAudioAgent
+  type: int
+  value: 40

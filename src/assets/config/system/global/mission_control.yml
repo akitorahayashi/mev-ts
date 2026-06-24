@@ -1,0 +1,31 @@
+---
+# Controls the animation duration for Mission Control.
+- key: expose-animation-duration
+  domain: com.apple.dock
+  type: float
+  value: 0.2
+  comment: "Mission Control"
+
+# Automatically rearranges Spaces based on most recent use.
+- key: mru-spaces
+  domain: com.apple.dock
+  type: bool
+  value: true
+
+# Groups windows by application in Mission Control.
+- key: expose-group-by-app
+  domain: com.apple.dock
+  type: bool
+  value: true
+
+# Automatically switches to a Space with open windows for an application.
+- key: workspaces-auto-swoosh
+  domain: com.apple.dock
+  type: bool
+  value: false
+
+# When disabled, fullscreen windows will not create a new space and will instead share a space with other windows.
+- key: spans-displays
+  domain: com.apple.spaces
+  type: bool
+  value: false
