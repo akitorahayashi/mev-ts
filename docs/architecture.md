@@ -2,110 +2,100 @@
 
 ## Overview
 
-`mev` is a macOS provisioning CLI compiled to a standalone binary via `bun build --compile`. The binary embeds configuration assets (dotfiles) so no install-time file extraction is needed.
+`mev` is a macOS provisioning CLI compiled to a standalone binary via `bun build --compile`. The binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
 
-The execution model is: tag resolution → target lookup → resource graph → parallel inspect → selective apply → report.
+The execution model is three sequential phases: deploy role assets to the deploy store → install required Homebrew packages → activate each asset (symlink, defaults write, or host-command pipeline).
 
 ## Layer Map
 
 ```
 src/
-  cli/          argv parsing, exit code mapping, terminal rendering  (cac + hand-rolled dispatch)
-  app/          use-case orchestration                               (runMake)
-  config/       target DSL, tag/alias registry
-  resources/    core contracts, graph, executor
-  providers/    resource implementations per surface
-  identity/     Git identity scopes and on-disk identity store
-  assets/       embedded dotfiles, asset registry
-  runtime/      live context construction
+  cli/          argv parsing, exit code mapping, terminal rendering (clipanion)
+  app/          identity use-case orchestration
+  provisioning/ target DSL, activation engines, 3-phase orchestrator
+  brew/         Homebrew install
+  host/         CommandRunner, Context, HostPath
+  identity/     Git identity scopes and on-disk store
+  assets/       embedded config files and asset registry
   internal/     gh and git tool-boundary command implementations
   errors.ts     typed error hierarchy
 ```
 
-`cli/tty/` owns all terminal output, named for the TTY/non-TTY split that defines each component's behavior: ANSI style utilities (`style.ts`), outcome table (`outcomes.ts`), the `make` progress bar with a timer-driven spinner (`progress.ts`), the listr2-based concurrent live list (`livelist.ts`), the `list` table (`targetlist.ts`), the `user` identity table (`identities.ts`), and the interactive line prompter (`prompt.ts`). Help rendering is owned by `cli-kit`, not `cli/tty/`. Commands under `cli/commands/` hold no rendering logic; they wire cac and call into `cli/tty/`.
+## 3-Phase Provisioning (provisioning/run.ts)
 
-## Core Contracts (resources/model.ts)
+`runMake()` drives three sequential phases per make request:
 
-`Resource` is the central abstraction. Every provisionable unit implements two methods:
+1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.config/mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case the role directory is removed and rewritten so stale files never linger.
+2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. Runs `brew bundle check` per token and installs only missing ones.
+3. Activate — `runActivation()` applies each activation at p-limit concurrency of 8. Activations within a target that depend on prior deploy success are blocked if the deploy failed.
 
-- `inspect(context)` — read the live host, return `present | missing | diverged`
-- `apply(context)` — write to the host, idempotently
+## Activation DSL (provisioning/activation/)
 
-`Context` is injected at the call site and carries `home`, `overwrite`, a `CommandRunner`, and an `AssetSource`. This makes every provider testable without real I/O.
+The `activation/` module is the internal DSL for all provisioning operations. Targets declare what they want using factories exported from `activation/index.ts`; the runtime dispatches by `kind`.
 
-`ConcurrencyGroup` controls how many resources of the same surface may apply simultaneously:
+```
+activation/
+  contract.ts   Activation union, ActivationReport, StepReport, CommandScope, Verb — pure types
+  dispatch.ts   runActivation() switch, describeActivation(), blockedReport()
+  symlink.ts    'file' + 'tree' factories and runners
+  defaults.ts   'defaults' factory and runner
+  command.ts    'command' factory and step execution engine
+  index.ts      public barrel
+```
 
-| Group | Limit | Reason |
+Four activation kinds:
+
+| Kind | Factory | What it does |
 |---|---|---|
-| `homebrew` | 1 | Homebrew is not safe to drive in parallel |
-| `git` | 1 | `git config` locking |
-| `filesystem` | 8 | Independent paths; wide parallelism is safe |
+| `file` | `link(source, dest)` | Symlinks one deployed asset to a host path |
+| `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; prunes managed stale links |
+| `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
+| `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 
-## Graph (resources/graph.ts)
+### Command Pipeline
 
-`buildGraph(resources)` normalizes a flat resource list before execution:
+`runCommand` is the activation kind for operations that require running host commands. Its key concepts:
 
-1. Deduplicates by `id` — the same resource referenced from two targets runs once.
-2. Rejects missing dependencies — a declared `after` id that does not exist in the selected set fails fast at build time.
-3. Detects dependency cycles via DFS before any I/O begins.
+- `reads` — asset keys whose content is loaded into the scope before any step runs (e.g. `.ruby-version`).
+- `CommandScope` — `{ home, basePath, ref(name) }`. `ref` looks up a value by name (from `reads` or a prior `capture`) and throws `ProvisioningError` on a missing name so undefined arguments fail loudly.
+- `steps` — ordered. Each step can declare:
+  - `argv(scope)` — command to run
+  - `env(scope)` — environment override layered over the inherited environment
+  - `skipIf(scope)` — idempotency guard: `{ pathExists }` or `{ commandSucceeds }`. `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
+  - `capture` — register `stdout.trim()` into scope for later steps
+  - `changedWhen` — `'always' | 'never' | { stdoutContains }` — classify a successful run
 
-## Executor (resources/executor.ts)
+A failed step halts the pipeline. Skipped steps report `unchanged`. The overall status is `failed` if any step failed, `changed` if any step changed, otherwise `unchanged`.
 
-`planGraph` — inspects all resources in parallel, returns what would change without applying anything.
+## Provisioning Targets (provisioning/targets/)
 
-`applyGraph` — inspects all resources in parallel, then drives a dependency-ordered apply loop:
-- Resources whose dependencies are unsatisfied wait.
-- Resources whose dependencies failed or were blocked become `blocked` without being attempted.
-- Concurrency is capped per group via p-limit.
+Each target is a self-contained file registered in `provisioning/registry.ts`. A target owns:
+- `name` and display description
+- `tags` and `aliases` for selector resolution
+- `role` — the asset namespace under `src/assets/config/`
+- `packages` — Homebrew formulae, taps, and casks required before activation
+- `activations` — ordered list of `Activation` values
 
-Both functions accept an optional `onProgress(report)` callback that fires as each resource resolves. The CLI layer uses it to drive the progress bar.
-
-Outcomes: `unchanged | changed | failed | blocked`.
-
-## Target DSL (config/target.ts, config/targets/)
-
-A `Target` owns its name, tags, aliases, description, and the resources it contributes. The registry (`config/registry.ts`) is the single source of truth — tag/alias resolution, available-selector enumeration, and the `list` command all derive from it. Adding a target means registering it there; no parallel tables.
-
-## Providers
-
-Each provider creates `Resource` values from a higher-level description.
-
-`providers/filesystem.ts` — `deployAsset`, `directory`, `symlink`, `linkTree`. Symlink refuses to replace an unmanaged file at the destination unless `context.overwrite` is set. `linkTree` mirrors a set of deployed assets into a directory as symlinks preserving their relative layout, and owns that directory's managed-link state: links pointing into the deploy root that are no longer expected are pruned, while unrelated user files are left untouched.
-
-`providers/brew.ts` — `formula`. Groups formulae into a single Brewfile written to `tmpdir`, then drives `brew bundle check` (inspect) and `brew bundle install --no-upgrade` (apply) as one batch.
-
-`providers/git.ts` — `config(name, value)`. Reads via `git config --global --get` (follows the `~/.config/git/config` symlink chain to honor deployed config). Writes via `git config --file ~/.gitconfig` (pin to the literal file, not the symlink, so the deployed asset is not rewritten).
-
-## Identity (identity/)
-
-The identity domain owns Git identity switching, independent of the provisioning engine. `identity/scope.ts` is the authority for the switchable scopes (`personal`, `work`) and their input aliases (`p`, `w`); canonical names and aliases derive from one map. `identity/store.ts` persists a `personal`/`work` pair to `~/.config/mev/identity.json` via an atomic temp-write + rename, and parses defensively (unknown or malformed entries become `null` rather than throwing). `app/identity.ts` orchestrates the three use cases — `showIdentity` reports the stored profiles alongside the identity Git currently has applied globally (classified as `matched`/`unmanaged`/`unset`), `setIdentity` persists collected inputs, and `switchIdentity` writes the chosen profile to the global Git config. Identity reads/writes the global config through `internal/git/config.ts` (`configGet`, `configSetGlobal`), distinct from the provider path that pins `--file ~/.gitconfig`.
+The registry test (`tests/provisioning/registry.test.ts`) validates asset existence and selector uniqueness automatically for all registered targets. Adding a target does not require new test files.
 
 ## Asset Embedding (assets/)
 
-Raw asset files live under `assets/files/` with their real deployed names (including leading dots). `scripts/generate-assets.ts` walks that tree and inlines every file's content as a string keyed by its path relative to `files/`, emitting `assets/registry.generated.ts`. The content is therefore embedded in the compiled binary as plain data, with no per-file imports or filesystem access at runtime. The asset directory is the single authority for what ships; codegen runs before build, test, and check.
+Raw config files live under `src/assets/config/` keyed as `{role}/global/{filename}`. `scripts/generate-assets.ts` walks the tree and inlines every file's content as a string, emitting `assets/registry.generated.ts`. The content is embedded in the compiled binary; no per-file imports or filesystem access occur at runtime.
 
-`assets/registry.ts` wraps the generated map as `AssetSource` (an unknown key throws `ProvisioningError` rather than returning empty content) and exposes `assetKeysByPrefix` so targets derive their file lists from the embedded set rather than hand-enumerating them.
+`assets/registry.ts` wraps the generated map as `AssetSource`. An unknown key throws `ProvisioningError`. `keysByPrefix` lets targets derive their file lists from the embedded set rather than enumerating them by hand.
 
 `AssetRef` keys double as sub-paths under the deploy root (`~/.config/mev/roles/`), so the deployed filename preserves the original dotfile name without a separate mapping.
 
-## Runtime Context (runtime/)
+## Context (host/)
 
-`resolveHome` reads `HOME` from `process.env` (with `os.homedir()` as fallback) and is the single home-directory resolver, reused by both `createContext` and the identity commands. `createContext` assembles the live context from `resolveHome`, `bunCommandRunner`, and `embeddedAssets`. The `overwrite` flag flows from the CLI option.
+`Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource }` — is assembled by `createContext()` and injected through every provisioning call. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
-`bunCommandRunner` spawns processes via `Bun.spawn` and captures stdout/stderr/exit code.
+`CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`.
 
-## CLI (cli/)
+## Identity (identity/)
 
-The main command surface uses `cac` and exposes the user-facing commands:
+The identity domain owns Git identity switching independently of the provisioning engine. `identity/scope.ts` is the authority for switchable scopes and their aliases. `identity/store.ts` persists a profile pair to `~/.config/mev/identity.json` via atomic temp-write + rename. `app/identity.ts` orchestrates the show/set/switch use cases.
 
-`make <tags...>` — resolves tags, builds the resource graph, and applies or plans it. The action handler calls `runMake` in `app/make.ts`, passing `onStart(total)` and `onProgress(report)` callbacks that drive the `cli/tty/progress.ts` bar. The bar runs a timer-driven spinner so the line keeps animating during a long apply, and advances the count on each completion; it stays silent on a non-TTY stream. After completion, `cli/tty/outcomes.ts` renders the full outcome table with ANSI colors.
+## Deploy Store Layout
 
-`list` — formats and prints all registered targets in a three-column table (TARGET / TAGS / DESCRIPTION) via `cli/tty/targetlist.ts`, with ANSI colors from `cli/tty/style.ts`.
-
-`user [scope]` (alias `us`) — the Git identity surface. With no argument it prints the stored profiles and the active scope via `cli/tty/identities.ts`. `user set` collects name/email pairs through `cli/tty/prompt.ts` and persists them. `user <personal|work>` (aliases `p`/`w`) applies a stored profile to the global Git config. The command delegates to `app/identity.ts`.
-
-`internal` — routes to `cli/internal.ts` via hand-rolled string dispatch rather than cac, because cac cannot parse multi-word subcommands combined with trailing variadic arguments and `--` separators. Internal commands are not shown in `mev --help`. Git subcommands (`clone`, `delete-branches`, `delete-submodule`) delegate to `internal/git/`. GitHub subcommands (`gh labels deploy`, `gh labels reset`) build concurrent items via `internal/gh/labels.ts` and render them with `cli/tty/livelist.ts` (listr2).
-
-Help, version, routing, and exit-code mapping for the user-facing commands are delegated to `cli-kit`'s `runCli`. `program.ts` intercepts `internal` first, then calls `runCli` with the program metadata and a `register` callback that declares `make`/`list`/`user` on the cac program. `cli-kit` intercepts `--help`/`-h` itself rather than registering cac's built-in `help()` (which outputs during `parse()` even with `run: false`, unsets the matched command, and double-renders): root help renders the colored command table, `<command> --help` renders that command's usage and options, and both derive from cac's command registry so the list has a single source and is never duplicated.
-
-`runMake` in `app/make.ts` is the testable use-case entry point. It returns `MakeResult` with a `reports: readonly ResourceReport[]` field and a `failed` boolean; rendering is the CLI layer's responsibility.
+All deployed assets land at `~/.config/mev/roles/{key}`. The constant `deployRoot = '.config/mev/roles'` in `assets/ref.ts` is the sole authority for this path. Symlinks created by `file` and `tree` activations point into this store.
