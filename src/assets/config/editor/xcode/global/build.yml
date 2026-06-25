@@ -9,10 +9,4 @@
 - key: IDEIndexerActivityShowNumericProgress
   type: bool
   value: true
-  domain: com.apple.dt.xcode
-
-# Show detailed progress for indexing
-- key: IDEIndexerActivityShowNumericProgress
-  type: bool
-  value: true
   domain: com.apple.dt.Xcode

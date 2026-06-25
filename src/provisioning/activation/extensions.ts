@@ -39,7 +39,14 @@ async function readDesired(configKey: string, home: string): Promise<string[]> {
       `Extensions manifest not found: ${path}. Run without --plan to deploy first.`,
     );
   }
-  const parsed = JSON.parse(raw) as ExtensionsConfig;
+  let parsed: ExtensionsConfig;
+  try {
+    parsed = JSON.parse(raw) as ExtensionsConfig;
+  } catch (error) {
+    throw new ProvisioningError(
+      `Failed to parse extensions manifest as JSON: ${path}. ${errorMessage(error)}`,
+    );
+  }
   if (!parsed?.extensions || !Array.isArray(parsed.extensions)) {
     throw new ProvisioningError(
       `Extensions manifest must contain an extensions array: ${path}`,
