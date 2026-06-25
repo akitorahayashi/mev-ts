@@ -21,6 +21,10 @@ test('every activation references an asset that exists in the registry', async (
         await expect(
           embeddedAssets.read(activation.configKey),
         ).resolves.toBeString();
+      } else if (activation.kind === 'command') {
+        for (const key of Object.values(activation.reads ?? {})) {
+          await expect(embeddedAssets.read(key)).resolves.toBeString();
+        }
       } else {
         expect(
           embeddedAssets.keysByPrefix(activation.prefix).length,

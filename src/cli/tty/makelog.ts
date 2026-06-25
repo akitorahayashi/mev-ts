@@ -1,6 +1,6 @@
 import type {
   ActivationReport,
-  DefaultsEntryReport,
+  StepReport,
 } from '../../provisioning/activation';
 import type { DeployResult } from '../../provisioning/deploy';
 import type { MakePlan } from '../../provisioning/plan';
@@ -60,7 +60,7 @@ export function renderGroups(
 
   const arrow = c.dim('→');
 
-  const renderEntries = (entries: readonly DefaultsEntryReport[]): string[] => {
+  const renderEntries = (entries: readonly StepReport[]): string[] => {
     const keyPad = entries.reduce((w, e) => Math.max(w, e.key.length), 0);
     return entries.map((e) => {
       const line = `      ${e.key.padEnd(keyPad)}  ${arrow}  ${e.value}`;
