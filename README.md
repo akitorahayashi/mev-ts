@@ -18,7 +18,7 @@ bun run mev --help
 bun run mev --version
 ```
 
-A feature declares the resources it owns (Homebrew formulae, deployed config
-assets, symlinks, git config). `make` resolves the selected tags to features,
-normalizes their resources into a dependency graph, inspects the host in
-parallel, and applies only the resources that diverge from desired state.
+A target declares the Homebrew packages it requires and the activations it owns
+(symlinks, macOS defaults writes, host-command pipelines). `make` resolves the
+selected tags to targets, deploys their embedded config assets, installs missing
+packages, then runs each activation idempotently.
