@@ -1,0 +1,155 @@
+{
+  "theme": {
+    "mode": "system",
+    "light": "One Light",
+    "dark": "One Dark"
+  },
+  "base_keymap": "VSCode",
+  "format_on_save": "on",
+  "tab_size": 2,
+  "hard_tabs": false,
+  "minimap": {
+    "show": "never"
+  },
+  "soft_wrap": "editor_width",
+  "show_whitespaces": "all",
+  "ensure_final_newline_on_save": true,
+  "remove_trailing_whitespace_on_save": true,
+  "edit_predictions": {
+    "provider": "none"
+  },
+  "tabs": {
+    "file_icons": true,
+    "git_status": true,
+    "show_diagnostics": "errors"
+  },
+  "icon_theme": {
+    "mode": "system",
+    "light": "Zed (Default)",
+    "dark": "Zed (Default)"
+  },
+  "show_edit_predictions": false,
+  "diff_view_style": "split",
+  "ui_font_size": 15,
+  "buffer_font_family": "Menlo",
+  "buffer_font_size": 12,
+  "buffer_line_height": "standard",
+  "markdown_preview_font_family": "Hiragino Sans",
+  "markdown_preview_code_font_family": "Monaco",
+  "markdown_preview_theme": "One Light",
+  "terminal": {
+    "dock": "bottom",
+    "default_height": 280,
+    "font_family": "Menlo",
+    "font_size": 12,
+    "line_height": "standard",
+    "working_directory": "current_project_directory",
+    "path_hyperlink_timeout_ms": 1
+  },
+  "load_direnv": "direct",
+  "global_lsp_settings": {
+    "request_timeout": 120
+  },
+  "agent_ui_font_size": 13,
+  "agent_buffer_font_size": 12,
+  "project_panel": {
+    "button": true,
+    "dock": "left",
+    "default_width": 260,
+    "starts_open": true,
+    "entry_spacing": "standard",
+    "file_icons": true,
+    "folder_icons": true,
+    "git_status": true,
+    "auto_reveal_entries": true,
+    "auto_fold_dirs": true,
+    "auto_open": {
+      "on_create": true,
+      "on_paste": true,
+      "on_drop": true
+    },
+    "indent_size": 16,
+    "sort_mode": "directories_first",
+    "hide_hidden": false
+  },
+  "git_panel": {
+    "button": true,
+    "dock": "left",
+    "default_width": 360,
+    "starts_open": false,
+    "status_style": "icon",
+    "sort_by_path": false,
+    "collapse_untracked_diff": true,
+    "scrollbar": {
+      "show": "auto"
+    }
+  },
+  "agent": {
+    "button": true,
+    "dock": "right",
+    "default_width": 560,
+    "default_height": 320,
+    "commit_message_model": {
+      "provider": "copilot_chat",
+      "model": "gpt-5-mini"
+    }
+  },
+  "outline_panel": {
+    "button": true,
+    "dock": "left",
+    "default_width": 260,
+    "file_icons": true,
+    "folder_icons": true,
+    "git_status": true,
+    "indent_size": 16
+  },
+  "debugger": {
+    "dock": "bottom",
+    "button": true
+  },
+  "collaboration_panel": {
+    "button": false,
+    "dock": "left",
+    "default_width": 240
+  },
+  "auto_install_extensions": {
+    "html": true,
+    "toml": true,
+    "tombi": true,
+    "swift": true,
+    "kotlin": true,
+    "dockerfile": true,
+    "docker-compose": true
+  },
+  "languages": {
+    "Kotlin": {
+      "tab_size": 4
+    },
+    "Python": {
+      "language_servers": ["basedpyright", "ruff"]
+    },
+    "Swift": {
+      "tab_size": 4
+    }
+  },
+  "language_models": {
+    "openai_compatible": {
+      "MLX": {
+        "api_url": "http://127.0.0.1:8080/v1",
+        "available_models": [
+          {
+            "name": "mlx-community/Qwen2.5-Coder-3B-Instruct-4bit",
+            "display_name": "MLX Qwen2.5 Coder 3B",
+            "max_tokens": 32768,
+            "capabilities": {
+              "tools": false,
+              "images": false,
+              "parallel_tool_calls": false,
+              "prompt_cache_key": false
+            }
+          }
+        ]
+      }
+    }
+  }
+}

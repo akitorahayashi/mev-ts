@@ -14,5 +14,6 @@ export type {
 export { applyDefaults } from './defaults';
 export { blockedReport, describeActivation, runActivation } from './dispatch';
 export { applyDuti } from './duti';
+export { installExtensions } from './extensions';
 export { applyPipx } from './pipx';
 export { link, linkTree } from './symlink';

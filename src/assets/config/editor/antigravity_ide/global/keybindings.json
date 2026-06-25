@@ -1,0 +1,34 @@
+[
+  {
+    "key": "ctrl+r",
+    "command": "copyRelativeFilePath",
+    "when": "explorerViewletVisible && filesExplorerFocus"
+  },
+  {
+    "key": "ctrl+a",
+    "command": "copyFilePath",
+    "when": "explorerViewletVisible && filesExplorerFocus"
+  },
+  {
+    "key": "ctrl+w",
+    "command": "workbench.action.closeAllEditors"
+  },
+  {
+    "key": "shift+enter",
+    "command": "workbench.action.terminal.sendSequence",
+    "args": {
+      "text": "\\\r\n"
+    },
+    "when": "terminalFocus"
+  },
+  {
+    "key": "ctrl+cmd+n",
+    "command": "workbench.action.terminal.new",
+    "when": "terminalFocus"
+  },
+  {
+    "key": "ctrl+cmd+s",
+    "command": "workbench.action.terminal.split",
+    "when": "terminalFocus"
+  }
+]

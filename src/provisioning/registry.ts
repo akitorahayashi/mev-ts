@@ -1,5 +1,6 @@
 import { CommandLineError } from '../errors';
 import type { Target } from './target';
+import { antigravityIdeTarget } from './targets/antigravity-ide';
 import { bunTarget } from './targets/bun';
 import { coderTarget } from './targets/coder';
 import { dutiTarget } from './targets/duti';
@@ -14,6 +15,9 @@ import { pythonTarget } from './targets/python';
 import { rubyTarget } from './targets/ruby';
 import { shellTarget } from './targets/shell';
 import { systemTarget } from './targets/system';
+import { vscodeTarget } from './targets/vscode';
+import { xcodeTarget } from './targets/xcode';
+import { zedTarget } from './targets/zed';
 
 /** Every target mev can provision. Tags, aliases, and packages derive from here. */
 const targets: readonly Target[] = [
@@ -31,6 +35,10 @@ const targets: readonly Target[] = [
   ghosttyTarget,
   coderTarget,
   dutiTarget,
+  zedTarget,
+  vscodeTarget,
+  antigravityIdeTarget,
+  xcodeTarget,
 ];
 
 /** Resolve a tag or alias to its owning target. */

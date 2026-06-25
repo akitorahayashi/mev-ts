@@ -5,8 +5,10 @@ export type Verb = 'copy' | 'link' | 'apply' | 'run';
 
 /**
  * A single config materialization or host mutation. `file`/`tree` link deployed
- * assets into place; `defaults` applies a macOS `defaults write` list; `command`
- * runs an ordered, idempotent host-command pipeline that shares a derived scope.
+ * assets into place; `defaults` applies a macOS `defaults write` list;
+ * `editorExtensions` reconciles an editor's installed extensions against a
+ * manifest; `command` runs an ordered, idempotent host-command pipeline that
+ * shares a derived scope.
  * The union is the source of truth for the activation vocabulary — every kind is
  * dispatched exhaustively by `runActivation` and `describeActivation`.
  */
@@ -33,6 +35,11 @@ export type Activation =
     }
   | {
       readonly kind: 'pipx';
+      readonly configKey: string;
+    }
+  | {
+      readonly kind: 'editorExtensions';
+      readonly command: string;
       readonly configKey: string;
     }
   | {

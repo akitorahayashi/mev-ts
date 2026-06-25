@@ -9,6 +9,7 @@ import { describeCommand, runCommandActivation } from './command';
 import type { Activation, ActivationReport, Described } from './contract';
 import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
+import { describeExtensions, runExtensions } from './extensions';
 import { describePipx, runPipx } from './pipx';
 import { describeFile, describeTree, runFile, runTree } from './symlink';
 
@@ -25,6 +26,8 @@ export function describeActivation(activation: Activation): Described {
       return describeDuti(activation);
     case 'pipx':
       return describePipx(activation);
+    case 'editorExtensions':
+      return describeExtensions(activation);
     case 'coderAgents':
       return describeCoderAgents(activation);
     case 'coderSkills':
@@ -59,6 +62,8 @@ export function runActivation(
       return runDuti(activation, context, plan);
     case 'pipx':
       return runPipx(activation, context, plan);
+    case 'editorExtensions':
+      return runExtensions(activation, context, plan);
     case 'coderAgents':
       return runCoderAgents(activation, context, plan);
     case 'coderSkills':
