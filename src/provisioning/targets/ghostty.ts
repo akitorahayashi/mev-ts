@@ -10,8 +10,8 @@ export const ghosttyTarget = target('ghostty', {
   packages: { casks: ['ghostty'] },
   activations: [
     link(
-      asset('ghostty/global/config.ghostty'),
-      home('Library/Application Support/com.mitchellh.ghostty/config.ghostty'),
+      asset('ghostty/global/config'),
+      home('Library/Application Support/com.mitchellh.ghostty/config'),
     ),
   ],
 });

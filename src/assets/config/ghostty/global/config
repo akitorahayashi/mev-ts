@@ -8,14 +8,14 @@ window-width = 96
 window-height = 56
 
 cursor-opacity = 0.88
-cursor-color = 7FFFD4
+cursor-color = #7FFFD4
 minimum-contrast = 1.1
 mouse-hide-while-typing = true
 
 background-opacity = 0.88
 background-opacity-cells = true
 unfocused-split-opacity = 0.7
-split-divider-color = 2F3A4A
+split-divider-color = #2F3A4A
 background-blur = true
 
 window-padding-x = 6
@@ -25,7 +25,7 @@ window-save-state = default
 
 shell-integration-features = cursor,title
 
-scrollback-limit = 50000000
+scrollback-limit = 100000
 
 tab-inherit-working-directory = true
 split-inherit-working-directory = true
