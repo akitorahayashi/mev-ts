@@ -1,5 +1,6 @@
 import { CommandLineError } from '../errors';
 import type { Target } from './target';
+import { bunTarget } from './targets/bun';
 import { ghTarget } from './targets/gh';
 import { gitTarget } from './targets/git';
 import { nodejsTarget } from './targets/nodejs';
@@ -17,6 +18,7 @@ const targets: readonly Target[] = [
   rubyTarget,
   nodejsTarget,
   pnpmTarget,
+  bunTarget,
 ];
 
 /** Resolve a tag or alias to its owning target. */

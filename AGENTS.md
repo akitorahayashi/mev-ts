@@ -71,6 +71,7 @@ src/
       ruby.ts                 Ruby toolchain via rbenv with bundler
       nodejs.ts               Node.js via fnm
       pnpm.ts                 pnpm global packages
+      bun.ts                  Bun JavaScript runtime
 scripts/
   generate-assets.ts          Codegen: reads src/assets/config/, writes registry.generated.ts
 tests/                        Mirror of src/ layout; one test file per module boundary
