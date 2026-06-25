@@ -70,6 +70,7 @@ src/
       system.ts               macOS system defaults (Dock, Finder, keyboard, etc.)
       ruby.ts                 Ruby toolchain via rbenv with bundler
       nodejs.ts               Node.js via fnm
+      pnpm.ts                 pnpm global packages
 scripts/
   generate-assets.ts          Codegen: reads src/assets/config/, writes registry.generated.ts
 tests/                        Mirror of src/ layout; one test file per module boundary
