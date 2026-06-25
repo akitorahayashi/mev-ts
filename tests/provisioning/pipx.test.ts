@@ -105,10 +105,13 @@ function listJson(
   return JSON.stringify({ venvs: out });
 }
 
+const VENVS = '/opt/pipx/venvs';
+
 function baseResponder(listOutput: string) {
   return (cmd: string, args: readonly string[]): CommandResult => {
     if (cmd === 'brew' && args[0] === '--prefix') return ok(PREFIX);
     if (cmd === 'pipx' && args[0] === 'list') return ok(listOutput);
+    if (cmd === 'pipx' && args[0] === 'environment') return ok(VENVS);
     return ok('installed package');
   };
 }
@@ -156,9 +159,7 @@ test('fresh install runs install, inject, then post-install in order', async () 
     );
     expect(verbs).toEqual(['install', 'inject', 'post']);
     const post = calls.find((c) => c.command.endsWith('playwright'));
-    expect(post?.command).toBe(
-      join(dir, '.local', 'pipx', 'venvs', 'dcv', 'bin', 'playwright'),
-    );
+    expect(post?.command).toBe(join(VENVS, 'dcv', 'bin', 'playwright'));
     expect(post?.args).toEqual(['install', 'chromium']);
   });
 });

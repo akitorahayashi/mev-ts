@@ -185,11 +185,25 @@ async function brewEnv(context: Context): Promise<CommandOptions> {
   return { env: { PATH: [`${prefix}/bin`, base].filter(Boolean).join(':') } };
 }
 
-function venvsDir(home: string): string {
-  const override = process.env.PIPX_HOME;
-  const pipxHome =
-    override && override.length > 0 ? override : join(home, '.local', 'pipx');
-  return join(pipxHome, 'venvs');
+/**
+ * The directory pipx stores tool venvs under, queried from pipx itself so the
+ * PIPX_HOME/default resolution is owned by pipx rather than re-derived here.
+ */
+async function localVenvs(
+  context: Context,
+  options: CommandOptions,
+): Promise<string> {
+  const result = await context.commands.run(
+    'pipx',
+    ['environment', '--value', 'PIPX_LOCAL_VENVS'],
+    options,
+  );
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      `pipx environment failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+    );
+  }
+  return result.stdout.trim();
 }
 
 // --- per-tool reconciliation ------------------------------------------------
@@ -204,6 +218,7 @@ async function reconcileTool(
   installed: Installed | undefined,
   context: Context,
   options: CommandOptions,
+  venvs: string,
 ): Promise<ToolOutcome> {
   const actions: string[] = [];
   const fail = (error: string): ToolOutcome => ({
@@ -257,12 +272,7 @@ async function reconcileTool(
     tool.post_install &&
     shouldPostInstall(tool, justInstalled, justInjected)
   ) {
-    const bin = join(
-      venvsDir(context.home),
-      tool.package,
-      'bin',
-      tool.post_install.bin,
-    );
+    const bin = join(venvs, tool.package, 'bin', tool.post_install.bin);
     const r = await context.commands.run(
       bin,
       tool.post_install.args ?? [],
@@ -297,6 +307,9 @@ export async function runPipx(
     }
     const options = await brewEnv(context);
     const installed = await readInstalled(context, options);
+    const venvs = tools.some((tool) => tool.post_install)
+      ? await localVenvs(context, options)
+      : '';
 
     const reports: StepReport[] = [];
     let failed = false;
@@ -307,6 +320,7 @@ export async function runPipx(
         installed.get(tool.package),
         context,
         options,
+        venvs,
       );
       reports.push(outcome.report);
       if (outcome.failed) failed = true;
