@@ -57,7 +57,7 @@ src/
     activation/               Activation DSL and execution engines (see below)
       contract.ts             Activation union type, report types, CommandScope, Verb — pure types
       dispatch.ts             runActivation(), describeActivation(), blockedReport()
-      symlink.ts              'file'+'tree': link(), linkTree(), runFile, runTree
+      symlink.ts              'file' + 'tree': link(), linkTree(), runFile, runTree
       defaults.ts             'defaults': applyDefaults(), runDefaults
       command.ts              'command': runCommand(), step execution engine
       index.ts                Public barrel — all factories and runActivation
