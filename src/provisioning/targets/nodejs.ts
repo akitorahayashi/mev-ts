@@ -5,7 +5,7 @@ import { link, runCommand } from '../activation';
 import { target } from '../target';
 
 const brewPath = (s: CommandScope) => ({
-  PATH: `${s.ref('brewPrefix')}/bin:${s.basePath}`,
+  PATH: [`${s.ref('brewPrefix')}/bin`, s.basePath].filter(Boolean).join(':'),
 });
 
 export const nodejsTarget = target('nodejs', {
