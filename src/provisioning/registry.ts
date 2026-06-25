@@ -7,7 +7,9 @@ import { ghosttyTarget } from './targets/ghostty';
 import { gitTarget } from './targets/git';
 import { nodejsTarget } from './targets/nodejs';
 import { nvimTarget } from './targets/nvim';
+import { pipxTarget } from './targets/pipx';
 import { pnpmTarget } from './targets/pnpm';
+import { pythonTarget } from './targets/python';
 import { rubyTarget } from './targets/ruby';
 import { shellTarget } from './targets/shell';
 import { systemTarget } from './targets/system';
@@ -18,6 +20,8 @@ const targets: readonly Target[] = [
   shellTarget,
   ghTarget,
   systemTarget,
+  pythonTarget,
+  pipxTarget,
   rubyTarget,
   nodejsTarget,
   pnpmTarget,

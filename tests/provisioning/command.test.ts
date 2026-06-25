@@ -154,6 +154,42 @@ test('skipIf with a satisfied commandSucceeds guard runs with step env', async (
   expect(report.status).toBe('unchanged');
 });
 
+test('outputContains marks changed when phrase present in stderr', async () => {
+  const { context } = contextWith('/home/u', () =>
+    ok('', 'Installed Python 3.12.11 (cpython)'),
+  );
+  const activation = runCommand({
+    label: 'demo',
+    steps: [
+      {
+        argv: () => ['uv', 'python', 'install', '3.12.11'],
+        changedWhen: { outputContains: 'Installed Python' },
+      },
+    ],
+  });
+
+  const report = await runActivation(activation, context, false);
+
+  expect(report.status).toBe('changed');
+});
+
+test('outputContains marks unchanged when phrase absent from combined output', async () => {
+  const { context } = contextWith('/home/u', () => ok('', ''));
+  const activation = runCommand({
+    label: 'demo',
+    steps: [
+      {
+        argv: () => ['uv', 'python', 'install', '3.12.11'],
+        changedWhen: { outputContains: 'Installed Python' },
+      },
+    ],
+  });
+
+  const report = await runActivation(activation, context, false);
+
+  expect(report.status).toBe('unchanged');
+});
+
 test('outputNotContains checks stdout+stderr and marks unchanged when phrase present', async () => {
   const { context } = contextWith('/home/u', () =>
     ok('', 'already installed v22'),

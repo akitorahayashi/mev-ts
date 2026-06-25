@@ -1,0 +1,14 @@
+# Use Copy-on-Write for efficient and safe file linking on macOS.
+link-mode = "clone"
+
+# Prohibit installation of pre-release versions.
+prerelease = "disallow"
+
+# Use uv-managed Python installations instead of system interpreters.
+python-preference = "only-managed"
+
+# Always resolve to the highest compatible version of packages.
+resolution = "highest"
+
+# Set the number of concurrent downloads.
+concurrent-downloads = 50

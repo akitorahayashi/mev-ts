@@ -3,6 +3,7 @@ import { describeCommand, runCommandActivation } from './command';
 import type { Activation, ActivationReport, Described } from './contract';
 import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
+import { describePipx, runPipx } from './pipx';
 import { describeFile, describeTree, runFile, runTree } from './symlink';
 
 /** Stable, home-independent description of an activation's verb and endpoints. */
@@ -16,6 +17,8 @@ export function describeActivation(activation: Activation): Described {
       return describeDefaults(activation);
     case 'duti':
       return describeDuti(activation);
+    case 'pipx':
+      return describePipx(activation);
     case 'command':
       return describeCommand(activation);
   }
@@ -44,6 +47,8 @@ export function runActivation(
       return runDefaults(activation, context, plan);
     case 'duti':
       return runDuti(activation, context, plan);
+    case 'pipx':
+      return runPipx(activation, context, plan);
     case 'command':
       return runCommandActivation(activation, context, plan);
   }

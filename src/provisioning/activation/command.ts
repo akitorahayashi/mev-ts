@@ -62,6 +62,8 @@ function classifyChange(
 ): boolean {
   if (rule === undefined || rule === 'always') return true;
   if (rule === 'never') return false;
+  if ('outputContains' in rule)
+    return (stdout + stderr).includes(rule.outputContains);
   if ('outputNotContains' in rule)
     return !(stdout + stderr).includes(rule.outputNotContains);
   return stdout.includes(rule.stdoutContains);
