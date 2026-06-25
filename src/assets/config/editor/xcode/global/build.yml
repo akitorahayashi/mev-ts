@@ -1,0 +1,18 @@
+---
+# Show build duration in the toolbar after build completes
+- key: ShowBuildOperationDuration
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Show indexer progress as a numeric percentage
+- key: IDEIndexerActivityShowNumericProgress
+  type: bool
+  value: true
+  domain: com.apple.dt.xcode
+
+# Show detailed progress for indexing
+- key: IDEIndexerActivityShowNumericProgress
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode

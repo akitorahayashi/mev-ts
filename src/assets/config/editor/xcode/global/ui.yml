@@ -1,0 +1,18 @@
+---
+# Show build number on Dock icon for easy version identification
+- key: DVTEnableDockIconVersionNumber
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Show internal debug menu for access to cache clear and other functions
+- key: ShowDVTDebugMenu
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Always show file extensions in the project navigator
+- key: IDEFileExtensionDisplayMode
+  type: int
+  value: 1
+  domain: com.apple.dt.Xcode

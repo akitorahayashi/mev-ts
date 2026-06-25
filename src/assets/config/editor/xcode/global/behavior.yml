@@ -1,0 +1,18 @@
+---
+# Disable accent menu on key hold, enable key repeat
+- key: ApplePressAndHoldEnabled
+  type: bool
+  value: false
+  domain: com.apple.dt.Xcode
+
+# Enable multi-cursor editing like VS Code
+- key: PegasusMultipleCursorsEnabled
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Do not restore previous project/file state on Xcode restart (conflict avoidance)
+- key: ApplePersistenceIgnoreState
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode

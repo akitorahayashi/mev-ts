@@ -1,0 +1,10 @@
+{
+  "extensions": [
+    "bierner.markdown-mermaid",
+    "bradlc.vscode-tailwindcss",
+    "dsznajder.es7-react-js-snippets",
+    "nefrob.vscode-just-syntax",
+    "tomoki1207.pdf",
+    "wholroyd.jinja"
+  ]
+}

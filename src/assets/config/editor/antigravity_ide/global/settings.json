@@ -1,0 +1,36 @@
+{
+  "workbench.colorTheme": "Default Light+",
+  "workbench.preferredDarkColorTheme": "Default Dark+",
+
+  "telemetry.telemetryLevel": "off",
+  "chat.disableAIFeatures": true,
+  "editor.formatOnSave": true,
+  "explorer.confirmDragAndDrop": false,
+  "explorer.confirmDelete": false,
+  "explorer.confirmPasteNative": false,
+  "chat.editing.confirmEditRequestRemoval": false,
+  "diffEditor.ignoreTrimWhitespace": false,
+  "terminal.integrated.enableMultiLinePasteWarning": "never",
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "editor.minimap.enabled": false,
+  "git.enableSmartCommit": true,
+  "git.autofetch": true,
+  "workbench.settings.applyToAllProfiles": [],
+  "editor.tabSize": 2,
+  "editor.wordWrap": "on",
+  "terminal.integrated.allowedLinkSchemes": [
+    "file",
+    "http",
+    "https",
+    "mailto",
+    "vscode",
+    "vscode-insiders",
+    "docker-desktop"
+  ],
+  "chat.editing.confirmEditRequestRetry": false,
+  "editor.renderWhitespace": "all",
+  "git.confirmSync": false,
+  "git.replaceTagsWhenPull": true,
+  "python.languageServer": "Default",
+  "application.shellEnvironmentResolutionTimeout": 10
+}

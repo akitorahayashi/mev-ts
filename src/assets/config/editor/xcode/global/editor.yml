@@ -1,0 +1,60 @@
+---
+# Show line numbers to make code positions easier to grasp
+- key: DVTTextShowLineNumbers
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Use spaces instead of hard tabs for indentation
+- key: DVTTextIndentUsingTabs
+  type: bool
+  value: false
+  domain: com.apple.dt.Xcode
+
+# Set indent width to 2 spaces
+- key: DVTTextIndentWidth
+  type: int
+  value: 2
+  domain: com.apple.dt.Xcode
+
+# Set tab character display width to 2 spaces
+- key: DVTTextIndentTabWidth
+  type: int
+  value: 2
+  domain: com.apple.dt.Xcode
+
+# Automatically trim trailing whitespace on save
+- key: DVTTextEditorTrimTrailingWhitespace
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Also trim lines that contain only whitespace
+- key: DVTTextEditorTrimWhitespaceOnlyLines
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Show page guide as a reference for line length
+- key: DVTTextShowPageGuide
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Set page guide position at the 120th character
+- key: DVTTextPageGuideLocation
+  type: int
+  value: 120
+  domain: com.apple.dt.Xcode
+
+# Show folding sidebar for code folding
+- key: DVTTextShowFoldingSidebar
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+
+# Show invisible characters (spaces, tabs, newlines)
+- key: DVTTextShowInvisibleCharacters
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode

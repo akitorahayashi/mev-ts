@@ -29,6 +29,10 @@ test('every activation references an asset that exists in the registry', async (
         await expect(
           embeddedAssets.read(activation.configKey),
         ).resolves.toBeString();
+      } else if (activation.kind === 'editorExtensions') {
+        await expect(
+          embeddedAssets.read(activation.configKey),
+        ).resolves.toBeString();
       } else if (activation.kind === 'coderAgents') {
         expect(
           embeddedAssets.keysByPrefix(activation.sectionsPrefix).length,
