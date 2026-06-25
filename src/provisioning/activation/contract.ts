@@ -28,6 +28,10 @@ export type Activation =
       readonly configKey: string;
     }
   | {
+      readonly kind: 'duti';
+      readonly configKey: string;
+    }
+  | {
       readonly kind: 'command';
       readonly label: string;
       readonly reads?: Readonly<Record<string, string>>;

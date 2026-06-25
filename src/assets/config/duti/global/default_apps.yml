@@ -1,0 +1,20 @@
+---
+default_apps:
+  - bundle_id: dev.zed.Zed
+    extensions:
+      - md
+      - txt
+      - json
+      - yml
+      - yaml
+      - py
+      - sh
+      - js
+      - css
+  - bundle_id: com.apple.Preview
+    extensions:
+      - pdf
+      - png
+      - jpg
+      - jpeg
+      - gif
