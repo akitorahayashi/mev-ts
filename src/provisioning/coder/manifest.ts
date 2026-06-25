@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { ProvisioningError } from '../../errors';
 
 /**
@@ -67,4 +68,25 @@ export function resolve(
   }
   const unknownDisabled = disabled.filter((name) => !catalog.includes(name));
   return { enabled, disabled: disabledInCatalog, unknownDisabled };
+}
+
+/**
+ * Persist the disabled list to the manifest path. An empty list removes the
+ * file (absent manifest = all enabled). Creates parent directories as needed.
+ */
+export async function writeDisabled(
+  manifestPath: string,
+  disabled: readonly string[],
+): Promise<void> {
+  if (disabled.length === 0) {
+    try {
+      await unlink(manifestPath);
+    } catch {
+      // already absent
+    }
+    return;
+  }
+  await mkdir(dirname(manifestPath), { recursive: true });
+  const { dump } = await import('js-yaml');
+  await writeFile(manifestPath, dump({ disabled: [...disabled] }), 'utf8');
 }
