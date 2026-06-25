@@ -14,7 +14,11 @@ export const bunTarget = target('bun', {
       steps: [
         {
           label: 'install bun',
-          argv: () => ['sh', '-c', 'curl -fsSL https://bun.sh/install | bash'],
+          argv: () => [
+            'sh',
+            '-c',
+            'set -o pipefail; curl -fsSL https://bun.sh/install | bash',
+          ],
           skipIf: (s) => ({ pathExists: `${s.home}/.bun/bin/bun` }),
           changedWhen: 'always',
         },

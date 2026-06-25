@@ -72,6 +72,7 @@ src/
       nodejs.ts               Node.js via fnm
       pnpm.ts                 pnpm global packages
       bun.ts                  Bun JavaScript runtime
+      nvim.ts                 Neovim configuration
 scripts/
   generate-assets.ts          Codegen: reads src/assets/config/, writes registry.generated.ts
 tests/                        Mirror of src/ layout; one test file per module boundary

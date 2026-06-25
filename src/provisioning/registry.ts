@@ -4,6 +4,7 @@ import { bunTarget } from './targets/bun';
 import { ghTarget } from './targets/gh';
 import { gitTarget } from './targets/git';
 import { nodejsTarget } from './targets/nodejs';
+import { nvimTarget } from './targets/nvim';
 import { pnpmTarget } from './targets/pnpm';
 import { rubyTarget } from './targets/ruby';
 import { shellTarget } from './targets/shell';
@@ -19,6 +20,7 @@ const targets: readonly Target[] = [
   nodejsTarget,
   pnpmTarget,
   bunTarget,
+  nvimTarget,
 ];
 
 /** Resolve a tag or alias to its owning target. */
