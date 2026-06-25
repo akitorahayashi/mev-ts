@@ -10,7 +10,7 @@ const brewPath = (s: CommandScope) => ({
 
 export const nodejsTarget = target('nodejs', {
   description: 'Node.js via fnm',
-  aliases: ['node', 'js'],
+  aliases: ['nd'],
   role: 'nodejs',
   packages: { formulae: ['fnm'] },
   activations: [

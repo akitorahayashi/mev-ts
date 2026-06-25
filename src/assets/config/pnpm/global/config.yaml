@@ -1,0 +1,11 @@
+---
+# Reject packages published within the last day (minutes).
+minimumReleaseAge: 1440
+# Enforce minimumReleaseAge without fallback.
+minimumReleaseAgeStrict: true
+# Block exotic subdependencies (git/url/local) in transitive deps.
+blockExoticSubdeps: true
+# Require explicit allowlist for dependency build scripts.
+strictDepBuilds: true
+# Do not allow all build scripts by default.
+dangerouslyAllowAllBuilds: false
