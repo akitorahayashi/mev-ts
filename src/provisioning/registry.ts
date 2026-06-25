@@ -1,6 +1,7 @@
 import { CommandLineError } from '../errors';
 import type { Target } from './target';
 import { bunTarget } from './targets/bun';
+import { coderTarget } from './targets/coder';
 import { dutiTarget } from './targets/duti';
 import { ghTarget } from './targets/gh';
 import { ghosttyTarget } from './targets/ghostty';
@@ -28,6 +29,7 @@ const targets: readonly Target[] = [
   bunTarget,
   nvimTarget,
   ghosttyTarget,
+  coderTarget,
   dutiTarget,
 ];
 

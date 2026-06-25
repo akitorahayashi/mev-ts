@@ -1,3 +1,4 @@
+export { coderAgents, coderSkills } from './coder';
 export { runCommand } from './command';
 export type {
   Activation,

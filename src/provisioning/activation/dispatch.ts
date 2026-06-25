@@ -1,4 +1,10 @@
 import type { Context } from '../../host/context';
+import {
+  describeCoderAgents,
+  describeCoderSkills,
+  runCoderAgents,
+  runCoderSkills,
+} from './coder';
 import { describeCommand, runCommandActivation } from './command';
 import type { Activation, ActivationReport, Described } from './contract';
 import { describeDefaults, runDefaults } from './defaults';
@@ -19,6 +25,10 @@ export function describeActivation(activation: Activation): Described {
       return describeDuti(activation);
     case 'pipx':
       return describePipx(activation);
+    case 'coderAgents':
+      return describeCoderAgents(activation);
+    case 'coderSkills':
+      return describeCoderSkills(activation);
     case 'command':
       return describeCommand(activation);
   }
@@ -49,6 +59,10 @@ export function runActivation(
       return runDuti(activation, context, plan);
     case 'pipx':
       return runPipx(activation, context, plan);
+    case 'coderAgents':
+      return runCoderAgents(activation, context, plan);
+    case 'coderSkills':
+      return runCoderSkills(activation, context, plan);
     case 'command':
       return runCommandActivation(activation, context, plan);
   }
