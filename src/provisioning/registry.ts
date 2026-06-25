@@ -3,6 +3,7 @@ import type { Target } from './target';
 import { bunTarget } from './targets/bun';
 import { dutiTarget } from './targets/duti';
 import { ghTarget } from './targets/gh';
+import { ghosttyTarget } from './targets/ghostty';
 import { gitTarget } from './targets/git';
 import { nodejsTarget } from './targets/nodejs';
 import { nvimTarget } from './targets/nvim';
@@ -22,6 +23,7 @@ const targets: readonly Target[] = [
   pnpmTarget,
   bunTarget,
   nvimTarget,
+  ghosttyTarget,
   dutiTarget,
 ];
 
