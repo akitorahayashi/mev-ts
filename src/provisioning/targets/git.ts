@@ -1,6 +1,7 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { link, target } from '../target';
+import { link } from '../activation';
+import { target } from '../target';
 
 // `~/.config/git/ignore` is read automatically by git under the XDG default, so
 // linking the deployed gitignore there removes the need to set

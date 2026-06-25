@@ -1,49 +1,9 @@
-import type { AssetRef } from '../assets/ref';
-import type { HostPath } from '../host/path';
+import type { Activation } from './activation';
 import {
   type PackageInput,
   type PackageRequirement,
   packages,
 } from './package';
-
-export type Verb = 'copy' | 'link' | 'apply';
-
-/**
- * A single config materialization from the deploy store to a host path. A
- * `file` activation links one deployed asset; a `tree` activation mirrors every
- * asset under a prefix into a destination directory, preserving unmanaged files
- * already present there. A `defaults` activation applies every YAML config file
- * under a prefix as macOS `defaults write` entries.
- */
-export type Activation =
-  | {
-      readonly kind: 'file';
-      readonly verb: Verb;
-      readonly source: AssetRef;
-      readonly dest: HostPath;
-    }
-  | {
-      readonly kind: 'tree';
-      readonly verb: Verb;
-      readonly prefix: string;
-      readonly dest: HostPath;
-    }
-  | {
-      readonly kind: 'defaults';
-      readonly configKey: string;
-    };
-
-export function link(source: AssetRef, dest: HostPath): Activation {
-  return { kind: 'file', verb: 'link', source, dest };
-}
-
-export function linkTree(prefix: string, dest: HostPath): Activation {
-  return { kind: 'tree', verb: 'link', prefix, dest };
-}
-
-export function applyDefaults(configKey: string): Activation {
-  return { kind: 'defaults', configKey };
-}
 
 /**
  * A named unit of provisioning. A target owns the tags and aliases that select

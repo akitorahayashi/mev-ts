@@ -2,6 +2,7 @@ import { CommandLineError } from '../errors';
 import type { Target } from './target';
 import { ghTarget } from './targets/gh';
 import { gitTarget } from './targets/git';
+import { rubyTarget } from './targets/ruby';
 import { shellTarget } from './targets/shell';
 import { systemTarget } from './targets/system';
 
@@ -11,6 +12,7 @@ const targets: readonly Target[] = [
   shellTarget,
   ghTarget,
   systemTarget,
+  rubyTarget,
 ];
 
 /** Resolve a tag or alias to its owning target. */

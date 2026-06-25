@@ -12,8 +12,11 @@ import { asset, deployedDir, deployedPath } from '../../src/assets/ref';
 import type { AssetSource } from '../../src/assets/registry';
 import type { Context } from '../../src/host/context';
 import { home } from '../../src/host/path';
-import { runActivation } from '../../src/provisioning/activation';
-import { link, linkTree } from '../../src/provisioning/target';
+import {
+  link,
+  linkTree,
+  runActivation,
+} from '../../src/provisioning/activation';
 
 const aliasPrefix = 'shell/global/alias/';
 const ALIAS_KEYS = [`${aliasPrefix}a.zsh`, `${aliasPrefix}sub/b.zsh`];

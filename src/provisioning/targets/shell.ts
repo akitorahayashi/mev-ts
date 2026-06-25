@@ -1,6 +1,7 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { link, linkTree, target } from '../target';
+import { link, linkTree } from '../activation';
+import { target } from '../target';
 
 const dotfiles = ['.zshenv', '.zprofile', '.zshrc'];
 

@@ -1,6 +1,7 @@
+import type { Activation } from './activation';
 import { mergePackages, type PackageRequirement } from './package';
 import { resolveTarget } from './registry';
-import type { Activation, Target } from './target';
+import type { Target } from './target';
 
 /** Activations contributed by one selected target, kept attributed to its tag. */
 export interface ActivationGroup {
