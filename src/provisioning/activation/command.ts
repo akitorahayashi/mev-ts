@@ -1,5 +1,6 @@
 import { lstat } from 'node:fs/promises';
 import { ProvisioningError } from '../../errors';
+import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
 import {
   type Activation,
@@ -41,6 +42,7 @@ async function pathExists(path: string): Promise<boolean> {
 async function guardMatches(
   guard: StepGuard,
   context: Context,
+  options?: CommandOptions,
 ): Promise<boolean> {
   if ('pathExists' in guard) {
     return pathExists(guard.pathExists);
@@ -49,7 +51,7 @@ async function guardMatches(
   if (!command) {
     throw new ProvisioningError('commandSucceeds guard requires a command.');
   }
-  const result = await context.commands.run(command, args);
+  const result = await context.commands.run(command, args, options);
   return result.code === 0;
 }
 
@@ -82,7 +84,10 @@ function scopeFor(
 }
 
 function stepLabel(step: CommandStep, argv: readonly string[]): string {
-  return step.label ?? argv.slice(0, 2).join(' ');
+  return (
+    step.label ??
+    (argv.length > 0 ? argv.slice(0, 2).join(' ') : 'unnamed step')
+  );
 }
 
 /**
@@ -126,7 +131,12 @@ export async function runCommandActivation(
         );
       }
 
-      if (step.skipIf && (await guardMatches(step.skipIf(scope), context))) {
+      if (
+        step.skipIf &&
+        (await guardMatches(step.skipIf(scope), context, {
+          env: step.env?.(scope),
+        }))
+      ) {
         entries.push({ key: label, value: 'skipped', status: 'unchanged' });
         continue;
       }

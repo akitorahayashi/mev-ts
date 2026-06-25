@@ -67,6 +67,9 @@ export const rubyTarget = target('ruby', {
             '2.5.22',
             '--no-document',
           ],
+          skipIf: () => ({
+            commandSucceeds: ['gem', 'list', '-i', 'bundler', '-v', '2.5.22'],
+          }),
           env: (s) => ({
             PATH: `${s.home}/.rbenv/shims:${s.ref('brewPrefix')}/bin:${s.basePath}`,
           }),

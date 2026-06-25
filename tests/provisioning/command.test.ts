@@ -123,6 +123,33 @@ test('env thunk output reaches the command runner', async () => {
   expect(calls[0]?.options?.env).toEqual({ FOO: 'bar' });
 });
 
+test('skipIf with a satisfied commandSucceeds guard runs with step env', async () => {
+  const { context, calls } = contextWith('/home/u', (inv) => {
+    if (inv.command === 'check' && inv.options?.env?.FOO === 'bar') {
+      return ok();
+    }
+    return { code: 1, stdout: '', stderr: '' };
+  });
+  const activation = runCommand({
+    label: 'demo',
+    steps: [
+      {
+        label: 'install',
+        argv: () => ['install'],
+        skipIf: () => ({ commandSucceeds: ['check'] }),
+        env: () => ({ FOO: 'bar' }),
+      },
+    ],
+  });
+
+  const report = await runActivation(activation, context, false);
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0]?.command).toBe('check');
+  expect(report.entries?.[0]?.status).toBe('unchanged');
+  expect(report.status).toBe('unchanged');
+});
+
 test('plan mode reports changed without running any step', async () => {
   const { calls, context } = contextWith('/home/u', () => ok());
   const activation = runCommand({
