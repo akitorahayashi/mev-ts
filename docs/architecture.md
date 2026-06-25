@@ -63,7 +63,7 @@ Four activation kinds:
   - `env(scope)` — environment override layered over the inherited environment
   - `skipIf(scope)` — idempotency guard: `{ pathExists }` or `{ commandSucceeds }`. `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
   - `capture` — register `stdout.trim()` into scope for later steps
-  - `changedWhen` — `'always' | 'never' | { stdoutContains }` — classify a successful run
+  - `changedWhen` — `'always' | 'never' | { stdoutContains } | { outputNotContains }` — classify a successful run. `outputNotContains` matches against combined stdout+stderr.
 
 A failed step halts the pipeline. Skipped steps report `unchanged`. The overall status is `failed` if any step failed, `changed` if any step changed, otherwise `unchanged`.
 

@@ -58,9 +58,12 @@ async function guardMatches(
 function classifyChange(
   rule: ChangedWhen | undefined,
   stdout: string,
+  stderr: string,
 ): boolean {
   if (rule === undefined || rule === 'always') return true;
   if (rule === 'never') return false;
+  if ('outputNotContains' in rule)
+    return !(stdout + stderr).includes(rule.outputNotContains);
   return stdout.includes(rule.stdoutContains);
 }
 
@@ -160,7 +163,11 @@ export async function runCommandActivation(
       if (step.capture) {
         bindings.set(step.capture, captured);
       }
-      const didChange = classifyChange(step.changedWhen, result.stdout);
+      const didChange = classifyChange(
+        step.changedWhen,
+        result.stdout,
+        result.stderr,
+      );
       changed = changed || didChange;
       entries.push({
         key: label,
