@@ -41,7 +41,11 @@ function contextWith(
   return { context, calls };
 }
 
-const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });
+const ok = (stdout = '', stderr = ''): CommandResult => ({
+  code: 0,
+  stdout,
+  stderr,
+});
 
 test('reads inject asset values and captures feed later steps', async () => {
   const { context, calls } = contextWith('/home/u', (inv) =>
@@ -148,6 +152,42 @@ test('skipIf with a satisfied commandSucceeds guard runs with step env', async (
   expect(calls[0]?.command).toBe('check');
   expect(report.entries?.[0]?.status).toBe('unchanged');
   expect(report.status).toBe('unchanged');
+});
+
+test('outputNotContains checks stdout+stderr and marks unchanged when phrase present', async () => {
+  const { context } = contextWith('/home/u', () =>
+    ok('', 'already installed v22'),
+  );
+  const activation = runCommand({
+    label: 'demo',
+    steps: [
+      {
+        argv: () => ['fnm', 'install', '22'],
+        changedWhen: { outputNotContains: 'already installed' },
+      },
+    ],
+  });
+
+  const report = await runActivation(activation, context, false);
+
+  expect(report.status).toBe('unchanged');
+});
+
+test('outputNotContains marks changed when phrase absent from combined output', async () => {
+  const { context } = contextWith('/home/u', () => ok('Installed Node 22', ''));
+  const activation = runCommand({
+    label: 'demo',
+    steps: [
+      {
+        argv: () => ['fnm', 'install', '22'],
+        changedWhen: { outputNotContains: 'already installed' },
+      },
+    ],
+  });
+
+  const report = await runActivation(activation, context, false);
+
+  expect(report.status).toBe('changed');
 });
 
 test('plan mode reports changed without running any step', async () => {

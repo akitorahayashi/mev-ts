@@ -6,7 +6,7 @@ import { target } from '../target';
 // `brew --prefix` (universal) and `brew --prefix openssl@3` (keg) are captured
 // once, then fed into PATH and RUBY_CONFIGURE_OPTS for the install step.
 const brewPath = (s: CommandScope) => ({
-  PATH: `${s.ref('brewPrefix')}/bin:${s.basePath}`,
+  PATH: [`${s.ref('brewPrefix')}/bin`, s.basePath].filter(Boolean).join(':'),
 });
 
 export const rubyTarget = target('ruby', {
@@ -43,7 +43,9 @@ export const rubyTarget = target('ruby', {
             pathExists: `${s.home}/.rbenv/versions/${s.ref('version')}`,
           }),
           env: (s) => ({
-            PATH: `${s.ref('brewPrefix')}/bin:${s.basePath}`,
+            PATH: [`${s.ref('brewPrefix')}/bin`, s.basePath]
+              .filter(Boolean)
+              .join(':'),
             RUBY_CONFIGURE_OPTS: `--with-openssl-dir=${s.ref('opensslPrefix')}`,
           }),
         },
@@ -71,7 +73,13 @@ export const rubyTarget = target('ruby', {
             commandSucceeds: ['gem', 'list', '-i', 'bundler', '-v', '2.5.22'],
           }),
           env: (s) => ({
-            PATH: `${s.home}/.rbenv/shims:${s.ref('brewPrefix')}/bin:${s.basePath}`,
+            PATH: [
+              `${s.home}/.rbenv/shims`,
+              `${s.ref('brewPrefix')}/bin`,
+              s.basePath,
+            ]
+              .filter(Boolean)
+              .join(':'),
           }),
         },
       ],

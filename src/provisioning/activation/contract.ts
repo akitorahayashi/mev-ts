@@ -54,7 +54,8 @@ export type StepGuard =
 export type ChangedWhen =
   | 'always'
   | 'never'
-  | { readonly stdoutContains: string };
+  | { readonly stdoutContains: string }
+  | { readonly outputNotContains: string };
 
 /**
  * One step of a command pipeline. Thunks resolve against the live scope so the

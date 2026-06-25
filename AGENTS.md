@@ -69,6 +69,7 @@ src/
       gh.ts                   GitHub CLI configuration
       system.ts               macOS system defaults (Dock, Finder, keyboard, etc.)
       ruby.ts                 Ruby toolchain via rbenv with bundler
+      nodejs.ts               Node.js via fnm
 scripts/
   generate-assets.ts          Codegen: reads src/assets/config/, writes registry.generated.ts
 tests/                        Mirror of src/ layout; one test file per module boundary
@@ -99,7 +100,7 @@ Four activation kinds:
 - `file` — links one deployed asset to a host path via `link(source, dest)`.
 - `tree` — mirrors every asset under a prefix into a destination directory via `linkTree(prefix, dest)`. Prunes managed stale links; leaves unmanaged user files.
 - `defaults` — applies a YAML list of macOS `defaults write` entries via `applyDefaults(configKey)`. Reads and executes per-entry; continues on individual failure and surfaces failures in the step report.
-- `command` — runs an ordered, idempotent host-command pipeline via `runCommand({ label, reads?, steps })`. Steps share a `CommandScope` that carries `home`, `basePath`, and values from `reads` assets and prior `capture` outputs (accessed via `s.ref('name')`). Each step can declare `skipIf` (path exists or command succeeds guard), `env` (environment override), `capture` (register stdout for later steps), and `changedWhen` (classify success as changed/unchanged/always). `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
+- `command` — runs an ordered, idempotent host-command pipeline via `runCommand({ label, reads?, steps })`. Steps share a `CommandScope` that carries `home`, `basePath`, and values from `reads` assets and prior `capture` outputs (accessed via `s.ref('name')`). Each step can declare `skipIf` (path exists or command succeeds guard), `env` (environment override), `capture` (register stdout for later steps), and `changedWhen` (`'always' | 'never' | { stdoutContains } | { outputNotContains }`; `outputNotContains` matches stdout+stderr combined). `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
 
 ### Provisioning Targets
 
