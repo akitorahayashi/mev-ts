@@ -15,7 +15,7 @@ export const bunTarget = target('bun', {
         {
           label: 'install bun',
           argv: () => [
-            'sh',
+            'bash',
             '-c',
             'set -o pipefail; curl -fsSL https://bun.sh/install | bash',
           ],

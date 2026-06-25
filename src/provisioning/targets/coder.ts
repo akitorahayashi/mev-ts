@@ -38,7 +38,7 @@ export const coderTarget = target('coder', {
         {
           label: 'install claude',
           argv: () => [
-            'sh',
+            'bash',
             '-c',
             'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash',
           ],
@@ -54,7 +54,7 @@ export const coderTarget = target('coder', {
         {
           label: 'install codex',
           argv: () => [
-            'sh',
+            'bash',
             '-c',
             'set -o pipefail; curl -fsSL https://chatgpt.com/codex/install.sh | sh',
           ],
@@ -70,7 +70,7 @@ export const coderTarget = target('coder', {
         {
           label: 'install antigravity cli',
           argv: () => [
-            'sh',
+            'bash',
             '-c',
             'set -o pipefail; curl -fsSL https://antigravity.google/cli/install.sh | bash',
           ],
