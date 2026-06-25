@@ -81,8 +81,10 @@ export async function writeDisabled(
   if (disabled.length === 0) {
     try {
       await unlink(manifestPath);
-    } catch {
-      // already absent
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw err;
+      }
     }
     return;
   }
