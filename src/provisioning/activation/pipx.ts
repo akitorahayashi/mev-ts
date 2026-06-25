@@ -28,7 +28,7 @@ export function describePipx(activation: PipxActivation): Described {
 
 interface PostInstall {
   readonly bin: string;
-  readonly args: readonly string[];
+  readonly args?: readonly string[];
 }
 
 interface PipxTool {
@@ -113,6 +113,16 @@ async function readPipxTools(
     if (!tool?.package) {
       throw new ProvisioningError(
         `Invalid entry in pipx config: each tool must have a package name.`,
+      );
+    }
+    if (tool.inject && !Array.isArray(tool.inject)) {
+      throw new ProvisioningError(
+        `Invalid entry in pipx config for '${tool.package}': 'inject' must be a sequence of packages.`,
+      );
+    }
+    if (tool.post_install && !tool.post_install.bin) {
+      throw new ProvisioningError(
+        `Invalid entry in pipx config for '${tool.package}': 'post_install' must specify a 'bin' executable.`,
       );
     }
     return tool;
@@ -253,7 +263,11 @@ async function reconcileTool(
       'bin',
       tool.post_install.bin,
     );
-    const r = await context.commands.run(bin, tool.post_install.args, options);
+    const r = await context.commands.run(
+      bin,
+      tool.post_install.args ?? [],
+      options,
+    );
     if (r.code !== 0)
       return fail(r.stderr.trim() || `post_install exit ${r.code}`);
     actions.push('post-installed');
