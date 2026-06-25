@@ -10,7 +10,7 @@ const brewPath = (s: CommandScope) => ({
 
 const pnpmEnv = (s: CommandScope) => ({
   PNPM_HOME: `${s.home}/Library/pnpm`,
-  PATH: [`${s.ref('brewPrefix')}/bin`, `${s.home}/Library/pnpm/bin`, s.basePath]
+  PATH: [`${s.ref('brewPrefix')}/bin`, `${s.home}/Library/pnpm`, s.basePath]
     .filter(Boolean)
     .join(':'),
 });
@@ -59,6 +59,11 @@ export const pnpmTarget = target('pnpm', {
             const pkgArgs = Object.entries(all).map(([k, v]) =>
               v ? `${k}@${v}` : k,
             );
+            if (pkgArgs.length === 0) {
+              throw new Error(
+                'global-packages.json contains no packages to install.',
+              );
+            }
             return [
               'fnm',
               'exec',
