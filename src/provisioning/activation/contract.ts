@@ -32,6 +32,10 @@ export type Activation =
       readonly configKey: string;
     }
   | {
+      readonly kind: 'pipx';
+      readonly configKey: string;
+    }
+  | {
       readonly kind: 'command';
       readonly label: string;
       readonly reads?: Readonly<Record<string, string>>;
@@ -59,6 +63,7 @@ export type ChangedWhen =
   | 'always'
   | 'never'
   | { readonly stdoutContains: string }
+  | { readonly outputContains: string }
   | { readonly outputNotContains: string };
 
 /**
