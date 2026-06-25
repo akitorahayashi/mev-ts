@@ -59,12 +59,17 @@ async function readDutiEntries(
       `Duti config must contain a default_apps sequence: ${path}`,
     );
   }
-  return parsed.default_apps.flatMap((app: DutiApp) =>
-    app.extensions.map((extension: string) => ({
+  return parsed.default_apps.flatMap((app: DutiApp) => {
+    if (!app?.bundle_id || !Array.isArray(app?.extensions)) {
+      throw new ProvisioningError(
+        `Invalid entry in duti config: each app must have a bundle_id and an extensions array.`,
+      );
+    }
+    return app.extensions.map((extension: string) => ({
       bundleId: app.bundle_id,
       extension,
-    })),
-  );
+    }));
+  });
 }
 
 async function currentBundleId(
@@ -74,7 +79,8 @@ async function currentBundleId(
   const result = await context.commands.run('duti', ['-x', extension]);
   if (result.code !== 0) return null;
   const lines = result.stdout.trimEnd().split('\n');
-  return lines.at(-1)?.trim() ?? null;
+  const lastLine = lines.at(-1)?.trim();
+  return lastLine || null;
 }
 
 export async function runDuti(
