@@ -59,6 +59,7 @@ src/
       dispatch.ts             runActivation(), describeActivation(), blockedReport()
       symlink.ts              'file' + 'tree': link(), linkTree(), runFile, runTree
       defaults.ts             'defaults': applyDefaults(), runDefaults
+      duti.ts                 'duti': applyDuti(), runDuti — file association engine
       command.ts              'command': runCommand(), step execution engine
       index.ts                Public barrel — all factories and runActivation
     run.ts                    runMake() — 3-phase orchestrator (deploy → install → activate)
@@ -73,6 +74,7 @@ src/
       pnpm.ts                 pnpm global packages
       bun.ts                  Bun JavaScript runtime
       nvim.ts                 Neovim configuration
+      duti.ts                 macOS file association defaults via duti
 scripts/
   generate-assets.ts          Codegen: reads src/assets/config/, writes registry.generated.ts
 tests/                        Mirror of src/ layout; one test file per module boundary
@@ -98,11 +100,12 @@ Each command is a class extending clipanion's `Command`. Declare `static overrid
 
 The `activation/` module is the internal DSL for expressing provisioning work. Target files import factories from `activation/index.ts`; the runtime dispatches to the kind-specific engine.
 
-Four activation kinds:
+Five activation kinds:
 
 - `file` — links one deployed asset to a host path via `link(source, dest)`.
 - `tree` — mirrors every asset under a prefix into a destination directory via `linkTree(prefix, dest)`. Prunes managed stale links; leaves unmanaged user files.
 - `defaults` — applies a YAML list of macOS `defaults write` entries via `applyDefaults(configKey)`. Reads and executes per-entry; continues on individual failure and surfaces failures in the step report.
+- `duti` — applies macOS file associations from a YAML config via `applyDuti(configKey)`. For each `{bundle_id, extension}` pair: checks the current handler with `duti -x`; applies `duti -s` only when the handler differs or is unset. Reports per-extension status.
 - `command` — runs an ordered, idempotent host-command pipeline via `runCommand({ label, reads?, steps })`. Steps share a `CommandScope` that carries `home`, `basePath`, and values from `reads` assets and prior `capture` outputs (accessed via `s.ref('name')`). Each step can declare `skipIf` (path exists or command succeeds guard), `env` (environment override), `capture` (register stdout for later steps), and `changedWhen` (`'always' | 'never' | { stdoutContains } | { outputNotContains }`; `outputNotContains` matches stdout+stderr combined). `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
 
 ### Provisioning Targets

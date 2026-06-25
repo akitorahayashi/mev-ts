@@ -12,4 +12,5 @@ export type {
 } from './contract';
 export { applyDefaults } from './defaults';
 export { blockedReport, describeActivation, runActivation } from './dispatch';
+export { applyDuti } from './duti';
 export { link, linkTree } from './symlink';
