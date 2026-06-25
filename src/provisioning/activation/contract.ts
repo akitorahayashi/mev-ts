@@ -36,6 +36,16 @@ export type Activation =
       readonly configKey: string;
     }
   | {
+      readonly kind: 'coderAgents';
+      readonly sectionsPrefix: string;
+      readonly dests: readonly HostPath[];
+    }
+  | {
+      readonly kind: 'coderSkills';
+      readonly skillsPrefix: string;
+      readonly targetDirs: readonly HostPath[];
+    }
+  | {
       readonly kind: 'command';
       readonly label: string;
       readonly reads?: Readonly<Record<string, string>>;

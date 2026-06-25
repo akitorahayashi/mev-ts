@@ -1,0 +1,36 @@
+# Default model to use
+model = "gpt-5.5"
+model_provider = "openai"
+model_reasoning_effort = "medium"
+
+# Approval policy for executing commands, Options: "on-request"
+approval_policy = "on-request"
+
+# Options: "read-only", "workspace-write", "danger-full-access"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+
+[tui]
+notifications = false
+show_tooltips = false
+status_line = [
+  "model-with-reasoning",
+  "context-remaining",
+  "context-window-size",
+  "git-branch",
+  "branch-changes",
+  "five-hour-limit",
+  "weekly-limit",
+]
+status_line_use_colors = true
+
+[analytics]
+enabled = false
+
+[otel]
+exporter = "none"
+metrics_exporter = "none"
+trace_exporter = "none"
+log_user_prompt = false

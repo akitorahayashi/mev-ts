@@ -1,5 +1,5 @@
-import { lstat, mkdir, readdir, readlink, rm, symlink } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readdir, readlink, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   type AssetRef,
   asset,
@@ -7,9 +7,9 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
-import { ProvisioningError } from '../../errors';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
+import { isSymlinkTo, lstatOrNull, placeSymlink } from '../../host/symlink';
 import {
   type Activation,
   type ActivationReport,
@@ -42,43 +42,6 @@ export function describeTree(activation: TreeActivation): Described {
     source: deployedSymbolic({ key: activation.prefix }),
     dest: symbolic(activation.dest),
   };
-}
-
-async function lstatOrNull(path: string) {
-  try {
-    return await lstat(path);
-  } catch {
-    return null;
-  }
-}
-
-async function isSymlinkTo(link: string, target: string): Promise<boolean> {
-  const stats = await lstatOrNull(link);
-  if (!stats?.isSymbolicLink()) {
-    return false;
-  }
-  return (await readlink(link)) === target;
-}
-
-/**
- * Replace `link` with a symlink to `target`. A pre-existing symlink is
- * replaced; a pre-existing regular file or directory is preserved unless
- * `overwrite` is set, so unmanaged user files are never silently destroyed.
- */
-async function placeSymlink(
-  link: string,
-  target: string,
-  overwrite: boolean,
-): Promise<void> {
-  const stats = await lstatOrNull(link);
-  if (stats && !stats.isSymbolicLink() && !overwrite) {
-    throw new ProvisioningError(
-      `Refusing to replace unmanaged file at ${link}; re-run with --overwrite to replace it.`,
-    );
-  }
-  await mkdir(dirname(link), { recursive: true });
-  await rm(link, { force: true, recursive: true });
-  await symlink(target, link);
 }
 
 interface TreeEntry {
