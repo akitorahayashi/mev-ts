@@ -1,13 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "cleanupPeriodDays": 20,
-  "skipWebFetchPreflight": true,
   "env": {
     "DISABLE_TELEMETRY": "1",
     "DISABLE_ERROR_REPORTING": "1",
-
     "DISABLE_BUG_COMMAND": "1",
-
     "DISABLE_FEEDBACK_COMMAND": "1",
     "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
     "API_TIMEOUT_MS": "600000",
@@ -16,8 +13,14 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
+  "awaySummaryEnabled": false,
+  "theme": "auto",
+  "autoCompactEnabled": false,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
-    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(mv:*)",
       "Bash(mkdir:*)",
@@ -42,11 +45,8 @@
       "Bash(pip:*)",
       "Bash(pip3:*)"
     ],
-    "ask": ["Bash(rm:*)", "Bash(rmdir:*)", "Bash(rm -rf:*)", "Bash(rm -r:*)"]
-  },
-  "attribution": {
-    "commit": "",
-    "pr": ""
+    "ask": ["Bash(rm:*)", "Bash(rmdir:*)", "Bash(rm -rf:*)", "Bash(rm -r:*)"],
+    "defaultMode": "acceptEdits"
   },
   "hooks": {
     "PreToolUse": [
@@ -61,6 +61,7 @@
       }
     ]
   },
+  "workflowKeywordTriggerEnabled": false,
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
