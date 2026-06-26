@@ -11,6 +11,7 @@ import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
 import { describeExtensions, runExtensions } from './extensions';
 import { describePipx, runPipx } from './pipx';
+import { describeRelease, runRelease } from './release';
 import { describeFile, describeTree, runFile, runTree } from './symlink';
 
 /** Stable, home-independent description of an activation's verb and endpoints. */
@@ -34,6 +35,8 @@ export function describeActivation(activation: Activation): Described {
       return describeCoderSkills(activation);
     case 'command':
       return describeCommand(activation);
+    case 'release':
+      return describeRelease();
   }
 }
 
@@ -70,5 +73,7 @@ export function runActivation(
       return runCoderSkills(activation, context, plan);
     case 'command':
       return runCommandActivation(activation, context, plan);
+    case 'release':
+      return runRelease(activation, context, plan);
   }
 }

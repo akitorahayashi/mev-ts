@@ -1,4 +1,5 @@
 import type { AssetRef } from '../../assets/ref';
+import type { ReleaseBinary } from '../../github/release';
 import type { HostPath } from '../../host/path';
 
 export type Verb = 'copy' | 'link' | 'apply' | 'run';
@@ -57,6 +58,10 @@ export type Activation =
       readonly label: string;
       readonly reads?: Readonly<Record<string, string>>;
       readonly steps: readonly CommandStep[];
+    }
+  | {
+      readonly kind: 'release';
+      readonly binaries: readonly ReleaseBinary[];
     };
 
 /**

@@ -45,6 +45,8 @@ test('every activation references an asset that exists in the registry', async (
         for (const key of Object.values(activation.reads ?? {})) {
           await expect(embeddedAssets.read(key)).resolves.toBeString();
         }
+      } else if (activation.kind === 'release') {
+        // Release binaries are fetched from GitHub at run time, not embedded.
       } else {
         expect(
           embeddedAssets.keysByPrefix(activation.prefix).length,
@@ -54,14 +56,14 @@ test('every activation references an asset that exists in the registry', async (
   }
 });
 
-test('every target deploys assets or installs packages', () => {
+test('every target deploys assets, installs packages, or runs activations', () => {
   for (const t of allTargets()) {
     const assetCount = embeddedAssets.keysByPrefix(`${t.role}/`).length;
     const packageCount =
       t.packages.taps.length +
       t.packages.formulae.length +
       t.packages.casks.length;
-    expect(assetCount + packageCount).toBeGreaterThan(0);
+    expect(assetCount + packageCount + t.activations.length).toBeGreaterThan(0);
   }
 });
 
