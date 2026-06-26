@@ -15,10 +15,10 @@ export const shellTarget = target('shell', {
   // The interactive-shell toolset .zshrc sources or initializes at startup.
   packages: {
     formulae: [
-      'zsh-autosuggestions',
-      'zsh-syntax-highlighting',
       'fzf',
       'zoxide',
+      'zsh-autosuggestions',
+      'zsh-syntax-highlighting',
     ],
   },
   activations: [

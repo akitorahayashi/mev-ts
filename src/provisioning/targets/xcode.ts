@@ -7,7 +7,7 @@ export const xcodeTarget = target('xcode', {
   description: 'Xcode preferences via macOS defaults',
   aliases: ['xc'],
   role: 'editor/xcode',
-  packages: { formulae: ['xcodes', 'xcbeautify', 'mint'] },
+  packages: { formulae: ['mint', 'xcbeautify', 'xcodes'] },
   activations: [
     runCommand({
       label: 'quit Xcode before writing defaults',

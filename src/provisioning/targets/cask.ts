@@ -12,13 +12,13 @@ export const caskTarget = target('cask', {
   role: 'brew/cask',
   packages: {
     casks: [
-      'tailscale',
       'docker',
       'google-chrome',
-      'slack',
-      'obsidian',
       'iina',
       'ngrok',
+      'obsidian',
+      'slack',
+      'tailscale',
     ],
   },
   activations: [],
