@@ -1,14 +1,14 @@
 import { target } from '../target';
 
 /**
- * The baseline Homebrew CLI formulae not owned by a language or tool target.
- * Toolchain formulae (uv, rbenv, fnm, …) live on their own targets; these are
- * the standalone command-line tools wanted on every development machine.
+ * Baseline Homebrew formulae not owned by a dedicated tool target. Toolchain
+ * formulae (uv, rbenv, fnm, …) live on their own targets; these are the
+ * standalone command-line tools wanted on every development machine.
  */
-export const brewTarget = target('brew', {
-  description: 'Baseline Homebrew CLI tools',
-  aliases: ['br'],
-  role: 'brew',
+export const formulaeTarget = target('formulae', {
+  description: 'Baseline Homebrew formulae',
+  aliases: ['br-f'],
+  role: 'brew/formulae',
   packages: {
     formulae: [
       'mise',

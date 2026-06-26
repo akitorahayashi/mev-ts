@@ -1,15 +1,15 @@
 import { target } from '../target';
 
 /**
- * The baseline Homebrew Cask GUI apps not owned by a dedicated target. Apps with
- * their own configuration (Ghostty, Zed, VS Code, Antigravity IDE) carry their
- * cask on that target; these are the standalone applications. Selecting this tag
- * is the per-machine decision that the Ansible role expressed as a profile.
+ * Baseline Homebrew casks not owned by a dedicated tool target. Apps with their
+ * own configuration (Ghostty, Zed, VS Code, Antigravity IDE) carry their cask on
+ * that target; these are the standalone GUI applications. Machines that want no
+ * GUI apps simply do not select this tag.
  */
 export const caskTarget = target('cask', {
-  description: 'Baseline Homebrew Cask applications',
-  aliases: ['ca'],
-  role: 'cask',
+  description: 'Baseline Homebrew casks',
+  aliases: ['br-c'],
+  role: 'brew/cask',
   packages: {
     casks: [
       'tailscale',
