@@ -1,6 +1,6 @@
 # mev
 
-`mev` is a macOS development environment provisioning CLI built with Bun and TypeScript.
+`mev` is Local IaC for macOS, built with Bun and TypeScript.
 
 ## Install
 

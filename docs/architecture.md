@@ -2,7 +2,7 @@
 
 ## Overview
 
-`mev` is a macOS provisioning CLI compiled to a standalone binary via `bun build --compile`. The binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
+`mev` is Local IaC for macOS, compiled to a standalone binary via `bun build --compile`. The binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
 
 The execution model is three sequential phases: deploy role assets to the deploy store → install required Homebrew packages → activate each asset (symlink, defaults write, or host-command pipeline).
 
