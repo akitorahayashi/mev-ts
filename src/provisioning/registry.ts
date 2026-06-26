@@ -15,6 +15,8 @@ import { pipxTarget } from './targets/pipx';
 import { pnpmTarget } from './targets/pnpm';
 import { pythonTarget } from './targets/python';
 import { rubyTarget } from './targets/ruby';
+import { rustTarget } from './targets/rust';
+import { rustCliTarget } from './targets/rust-cli';
 import { shellTarget } from './targets/shell';
 import { systemTarget } from './targets/system';
 import { vscodeTarget } from './targets/vscode';
@@ -35,6 +37,8 @@ const targets: readonly Target[] = [
   nodejsTarget,
   pnpmTarget,
   bunTarget,
+  rustTarget,
+  rustCliTarget,
   nvimTarget,
   ghosttyTarget,
   coderTarget,
