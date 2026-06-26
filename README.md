@@ -19,15 +19,39 @@ bun install
 
 ## Usage
 
+### Provisioning
+
 ```bash
-bun run mev make git           # Provision the git feature
-bun run mev make git shell      # Provision multiple features at once
-bun run mev make shell --plan   # Show what would change without applying
-bun run mev --help
-bun run mev --version
+mev make git                   # Provision the git target
+mev make git shell              # Provision multiple targets at once
+mev make shell --plan           # Preview what would change without applying
+mev make shell -o               # Replace existing unmanaged files when linking
 ```
 
-A target declares the Homebrew packages it requires and the activations it owns
-(symlinks, macOS defaults writes, host-command pipelines). `make` resolves the
-selected tags to targets, deploys their embedded config assets, installs missing
-packages, then runs each activation idempotently.
+`make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.config/mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. Activations report `changed`, `unchanged`, or `failed` per item.
+
+### Listing targets
+
+```bash
+mev list                        # Show all available provisioning targets
+```
+
+### Git identity
+
+```bash
+mev user                        # Show stored Git identities (personal + work)
+mev user set                    # Configure identities interactively
+mev switch personal             # Switch active Git identity (alias: mev sw)
+mev switch work
+```
+
+Identities are stored in `~/.config/mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
+
+### Global flags
+
+```
+--plan         Preview activations without applying them
+-o, --overwrite  Replace existing unmanaged files when linking configs
+--help         Show command help
+--version      Print the binary version
+```

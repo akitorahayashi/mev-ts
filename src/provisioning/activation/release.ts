@@ -12,8 +12,8 @@ import {
   type ActivationReport,
   type Described,
   errorMessage,
-  type StepReport,
 } from './contract';
+import { type ReconcileStep, reconcile } from './reconcile';
 
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
 
@@ -27,83 +27,54 @@ export function describeRelease(): Described {
   return { verb: 'apply', source: 'release binaries', dest: '~/.cargo/bin' };
 }
 
-interface BinaryOutcome {
-  readonly report: StepReport;
-  readonly failed: boolean;
-}
-
-async function reconcileBinary(
+function releaseStep(
   binary: ReleaseBinary,
   arch: string,
   binDir: string,
   context: Context,
-): Promise<BinaryOutcome> {
+): ReconcileStep {
   const dest = join(binDir, binary.name);
-  if (await installedMatches(dest, binary.tag, context)) {
-    return {
-      report: { key: binary.name, value: 'up to date', status: 'unchanged' },
-      failed: false,
-    };
-  }
-  try {
-    await fetchReleaseBinary(binary, arch, dest, context);
-  } catch (error) {
-    return {
-      report: {
+  return {
+    async run() {
+      if (await installedMatches(dest, binary.tag, context)) {
+        return { key: binary.name, value: 'up to date', status: 'unchanged' };
+      }
+      await fetchReleaseBinary(binary, arch, dest, context);
+      return {
+        key: binary.name,
+        value: `installed ${binary.tag}`,
+        status: 'changed',
+      };
+    },
+    onError(error) {
+      return {
         key: binary.name,
         value: binary.tag,
         status: 'failed',
         error: errorMessage(error),
-      },
-      failed: true,
-    };
-  }
-  return {
-    report: {
-      key: binary.name,
-      value: `installed ${binary.tag}`,
-      status: 'changed',
+      };
     },
-    failed: false,
   };
 }
 
-export async function runRelease(
+export function runRelease(
   activation: ReleaseActivation,
   context: Context,
   plan: boolean,
 ): Promise<ActivationReport> {
-  const base = describeRelease();
-  try {
-    if (plan) {
-      return { ...base, status: 'changed' };
-    }
-    const arch = await detectArch(context);
-    const binDir = join(context.home, '.cargo', 'bin');
-    await mkdir(binDir, { recursive: true });
-
+  return reconcile(describeRelease(), plan, {
+    declare: async () => activation.binaries,
     // Each binary is independent and writes to a unique path, so the
-    // network-bound reconciliations run concurrently. reconcileBinary records
-    // its own failure rather than throwing, so one failure neither rejects the
-    // batch nor aborts the others; report order follows declaration order.
-    const outcomes = await Promise.all(
-      activation.binaries.map((binary) =>
-        reconcileBinary(binary, arch, binDir, context),
-      ),
-    );
-
-    const reports: StepReport[] = [];
-    let failed = false;
-    let changed = false;
-    for (const outcome of outcomes) {
-      reports.push(outcome.report);
-      if (outcome.failed) failed = true;
-      else if (outcome.report.status === 'changed') changed = true;
-    }
-
-    const status = failed ? 'failed' : changed ? 'changed' : 'unchanged';
-    return { ...base, status, entries: reports };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+    // network-bound reconciliations run concurrently; the envelope isolates a
+    // single binary's failure and preserves declaration order.
+    concurrent: true,
+    steps: async (binaries) => {
+      const arch = await detectArch(context);
+      const binDir = join(context.home, '.cargo', 'bin');
+      await mkdir(binDir, { recursive: true });
+      return binaries.map((binary) =>
+        releaseStep(binary, arch, binDir, context),
+      );
+    },
+  });
 }

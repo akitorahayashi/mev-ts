@@ -10,6 +10,14 @@ Tests assert externally observable behavior at the boundary that owns it. Intern
 |---|---|---|---|
 | Activation (symlink, tree) | `tests/provisioning/activation.test.ts` | Real temp dir under `.tmp/` | `.tmp/activate-<pid>-<n>/` |
 | Activation (command pipeline) | `tests/provisioning/command.test.ts` | Fake `CommandRunner`; real temp dir for `pathExists` guard | `.tmp/cmd-<pid>/` |
+| Activation (defaults) | `tests/provisioning/defaults.test.ts` | Fake `CommandRunner`; real temp dir | `.tmp/` |
+| Activation (duti) | `tests/provisioning/duti.test.ts` | Fake `CommandRunner`; real temp dir | `.tmp/` |
+| Activation (editorExtensions) | `tests/provisioning/extensions.test.ts` | Fake `CommandRunner`; real temp dir | `.tmp/` |
+| Activation (pipx) | `tests/provisioning/pipx.test.ts` | Fake `CommandRunner`; real temp dir | `.tmp/` |
+| Activation (release) | `tests/provisioning/release.test.ts` | Fake `CommandRunner`; real temp dir for chmod target | `.tmp/` |
+| Activation (coderAgents, coderSkills) | `tests/provisioning/coder.test.ts` | Real temp dir | `.tmp/` |
+| Reconcile envelope | `tests/provisioning/reconcile.test.ts` | Inline fake `ReconcileSpec` | None |
+| Manifest loader | `tests/provisioning/manifest.test.ts` | Real temp dir for ENOENT/EISDIR | `.tmp/` |
 | Deploy (role materialization) | `tests/provisioning/deploy.test.ts` | Real temp dir | `.tmp/` |
 | Run (3-phase orchestrator) | `tests/provisioning/run.test.ts` | Injected fake `Context` | None |
 | Registry invariants | `tests/provisioning/registry.test.ts` | Iterates `allTargets()` | None |
@@ -55,10 +63,11 @@ Target-level end-to-end tests (provision a full target against a fake home) are 
 ## Adding a New Activation Kind
 
 1. Add the variant to the `Activation` union in `activation/contract.ts`.
-2. Create a `<kind>.ts` module in `activation/` owning the factory and runner.
-3. Add a `case` to both switches in `activation/dispatch.ts`.
-4. Export the factory from `activation/index.ts`.
-5. Add tests in `tests/provisioning/` covering the observable behavior at the activation boundary: changed/unchanged/failed status, idempotency, and plan mode.
+2. If the kind calls an external tool, create a capability module in `src/<tool>/` owning the protocol, output format, and state probes. Capability modules import no activation types.
+3. Create a `<kind>.ts` module in `activation/` owning the factory and runner. Use `reconcile()` from `reconcile.ts` for multi-item kinds.
+4. Add a `case` to both switches in `activation/dispatch.ts`.
+5. Export the factory from `activation/index.ts`.
+6. Add tests in `tests/provisioning/` covering the observable behavior at the activation boundary: changed/unchanged/failed status, idempotency, plan mode, and per-item isolation if the kind uses `reconcile()`.
 
 ## Adding a New Target
 

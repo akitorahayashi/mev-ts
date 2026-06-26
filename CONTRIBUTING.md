@@ -23,7 +23,7 @@ The repository-owned tasks are:
 - `bun run check`
 - `bun run test`
 
-`bun run fix` applies Biome formatting and safe lint fixes.
+`bun run fix` applies Biome formatting and safe lint fixes. Run it before `check`; `check` is read-only and fails on unformatted code.
 `bun run build` compiles a standalone executable with `bun build --compile`
 without leaving intermediate files in the repository root.
 `bun run check` runs Biome validation and TypeScript typechecking.
