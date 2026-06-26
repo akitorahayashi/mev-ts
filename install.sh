@@ -40,6 +40,7 @@ else
 fi
 
 tmp_file="$(mktemp "${TMPDIR:-/tmp}/mev.XXXXXX")"
+trap 'rm -f "$tmp_file"' EXIT
 checksum_file="$(mktemp "${TMPDIR:-/tmp}/mev-sha256.XXXXXX")"
 trap 'rm -f "$tmp_file" "$checksum_file"' EXIT
 
