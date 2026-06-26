@@ -45,6 +45,9 @@ function contextWith(
       keysByPrefix() {
         return [];
       },
+      isExecutable() {
+        return false;
+      },
     },
     commands: {
       async run(command, args) {

@@ -47,6 +47,9 @@ function contextWith(homeDir: string): Context {
       keysByPrefix() {
         return [];
       },
+      isExecutable() {
+        return false;
+      },
     },
     commands: {
       async run() {

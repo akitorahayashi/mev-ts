@@ -29,6 +29,9 @@ const assets: AssetSource = {
   keysByPrefix(prefix) {
     return ALL_KEYS.filter((key) => key.startsWith(prefix));
   },
+  isExecutable() {
+    return false;
+  },
 };
 
 let counter = 0;

@@ -25,6 +25,9 @@ function contextWith(
     keysByPrefix() {
       return [];
     },
+    isExecutable() {
+      return false;
+    },
   };
   const context: Context = {
     home,

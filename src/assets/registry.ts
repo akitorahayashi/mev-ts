@@ -1,11 +1,15 @@
 import { ProvisioningError } from '../errors';
-import { assetContents } from './registry.generated';
+import { assetContents, executableAssets } from './registry.generated';
 
 /** Read access to embedded assets, plus enumeration of a deploy role's files. */
 export interface AssetSource {
   read(key: string): Promise<string>;
   keysByPrefix(prefix: string): readonly string[];
+  /** Whether the asset's source carried the owner-execute bit. */
+  isExecutable(key: string): boolean;
 }
+
+const executableKeys = new Set(executableAssets);
 
 /** All embedded asset keys whose path begins with the given prefix, sorted. */
 export function assetKeysByPrefix(prefix: string): string[] {
@@ -30,5 +34,8 @@ export const embeddedAssets: AssetSource = {
   },
   keysByPrefix(prefix): readonly string[] {
     return assetKeysByPrefix(prefix);
+  },
+  isExecutable(key): boolean {
+    return executableKeys.has(key);
   },
 };
