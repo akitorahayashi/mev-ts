@@ -71,3 +71,12 @@ export function availableSelectors(): string[] {
 export function allTargets(): readonly Target[] {
   return targets;
 }
+
+/**
+ * The targets a full-environment `create` provisions: every registered target
+ * except the optional ones, in declaration order. The set is derived from the
+ * registry so a new target joins a `create` without a separate curated list.
+ */
+export function fullSetupTargets(): readonly Target[] {
+  return targets.filter((t) => !t.optional);
+}

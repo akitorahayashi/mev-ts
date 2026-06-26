@@ -30,6 +30,14 @@ mev make shell -o               # Replace existing unmanaged files when linking
 
 `make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.config/mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. Activations report `changed`, `unchanged`, or `failed` per item.
 
+```bash
+mev create mbk                  # Provision a full MacBook environment
+mev create mac-mini             # Profiles: macbook/mbk, mac-mini/mmn
+mev create mmn --plan           # Preview the full environment without applying
+```
+
+`create` (alias `cr`) provisions a full environment for a hardware profile by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`.
+
 ### Listing targets
 
 ```bash
