@@ -1,14 +1,17 @@
-import { readFile } from 'node:fs/promises';
-import { deployedPath } from '../../assets/ref';
-import { ProvisioningError } from '../../errors';
+import {
+  installExtension,
+  listInstalled,
+  parseExtensions,
+} from '../../editor/extension';
 import type { Context } from '../../host/context';
 import {
   type Activation,
   type ActivationReport,
   type Described,
   errorMessage,
-  type StepReport,
 } from './contract';
+import { readDeployedManifest } from './manifest';
+import { type ReconcileStep, reconcile } from './reconcile';
 
 type ExtensionsActivation = Extract<Activation, { kind: 'editorExtensions' }>;
 
@@ -25,100 +28,49 @@ export function describeExtensions(
   return { verb: 'apply', source: activation.command, dest: 'extensions' };
 }
 
-interface ExtensionsConfig {
-  readonly extensions: readonly string[];
-}
-
-async function readDesired(configKey: string, home: string): Promise<string[]> {
-  const path = deployedPath({ key: configKey }, home);
-  let raw: string;
-  try {
-    raw = await readFile(path, 'utf8');
-  } catch {
-    throw new ProvisioningError(
-      `Extensions manifest not found: ${path}. Run without --plan to deploy first.`,
-    );
-  }
-  let parsed: ExtensionsConfig;
-  try {
-    parsed = JSON.parse(raw) as ExtensionsConfig;
-  } catch (error) {
-    throw new ProvisioningError(
-      `Failed to parse extensions manifest as JSON: ${path}. ${errorMessage(error)}`,
-    );
-  }
-  if (!parsed?.extensions || !Array.isArray(parsed.extensions)) {
-    throw new ProvisioningError(
-      `Extensions manifest must contain an extensions array: ${path}`,
-    );
-  }
-  return [...parsed.extensions];
-}
-
-async function readInstalled(
+function extensionStep(
+  extension: string,
+  installed: ReadonlySet<string>,
   command: string,
   context: Context,
-): Promise<Set<string>> {
-  const result = await context.commands.run(command, ['--list-extensions']);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      `${command} --list-extensions failed: ${result.stderr.trim() || `exit code ${result.code}`}. Is ${command} installed and on PATH?`,
-    );
-  }
-  return new Set(
-    result.stdout
-      .split('\n')
-      .map((line) => line.trim().toLowerCase())
-      .filter(Boolean),
-  );
+): ReconcileStep {
+  return {
+    async run() {
+      if (installed.has(extension.toLowerCase())) {
+        return { key: extension, value: 'up to date', status: 'unchanged' };
+      }
+      await installExtension(command, extension, context);
+      return { key: extension, value: 'installed', status: 'changed' };
+    },
+    onError(error) {
+      return {
+        key: extension,
+        value: 'install',
+        status: 'failed',
+        error: errorMessage(error),
+      };
+    },
+  };
 }
 
-export async function runExtensions(
+export function runExtensions(
   activation: ExtensionsActivation,
   context: Context,
   plan: boolean,
 ): Promise<ActivationReport> {
-  const base = describeExtensions(activation);
-  try {
-    const desired = await readDesired(activation.configKey, context.home);
-    if (plan) {
-      return { ...base, status: 'changed' };
-    }
-    const installed = await readInstalled(activation.command, context);
-
-    const entries: StepReport[] = [];
-    let failed = false;
-    let changed = false;
-    for (const extension of desired) {
-      if (installed.has(extension.toLowerCase())) {
-        entries.push({
-          key: extension,
-          value: 'up to date',
-          status: 'unchanged',
-        });
-        continue;
-      }
-      const result = await context.commands.run(activation.command, [
-        '--install-extension',
-        extension,
-      ]);
-      if (result.code !== 0) {
-        entries.push({
-          key: extension,
-          value: 'install',
-          status: 'failed',
-          error: result.stderr.trim() || `exit code ${result.code}`,
-        });
-        failed = true;
-        continue;
-      }
-      changed = true;
-      entries.push({ key: extension, value: 'installed', status: 'changed' });
-    }
-
-    const status = failed ? 'failed' : changed ? 'changed' : 'unchanged';
-    return { ...base, status, entries };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  return reconcile(describeExtensions(activation), plan, {
+    declare: () =>
+      readDeployedManifest(
+        activation.configKey,
+        context.home,
+        parseExtensions,
+        'Extensions manifest',
+      ),
+    steps: async (desired) => {
+      const installed = await listInstalled(activation.command, context);
+      return desired.map((extension) =>
+        extensionStep(extension, installed, activation.command, context),
+      );
+    },
+  });
 }
