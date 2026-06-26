@@ -1,4 +1,4 @@
-import { lstat, mkdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { deployedDir, deployRoot } from '../assets/ref';
 import type { Context } from '../host/context';
@@ -58,6 +58,9 @@ export async function deployRole(
     const dest = join(context.home, deployRoot, key);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, await context.assets.read(key));
+    if (context.assets.isExecutable(key)) {
+      await chmod(dest, 0o755);
+    }
   }
   return { role, deployed: true, files: topLevelFiles(role, keys) };
 }

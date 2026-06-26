@@ -44,6 +44,9 @@ function contextWith(
       keysByPrefix() {
         return [];
       },
+      isExecutable() {
+        return false;
+      },
     },
     commands: {
       // A successful download writes the destination file, so the subsequent

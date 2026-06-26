@@ -34,6 +34,9 @@ function contextWith(code: number, sink: Sink = {}): Context {
       keysByPrefix() {
         return [];
       },
+      isExecutable() {
+        return false;
+      },
     },
   };
 }
