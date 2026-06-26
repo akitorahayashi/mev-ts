@@ -1,3 +1,7 @@
+// Semantic color conventions across the renderers: cyan for the filled progress
+// bar and spinner; bold for tag headers; green for the success message; red for
+// failed entries; yellow for blocked entries; dim for the unfilled bar, deploy
+// lines, verb/arrow, and unchanged counts.
 function ansi(code: string, s: string): string {
   return `\x1b[${code}m${s}\x1b[0m`;
 }

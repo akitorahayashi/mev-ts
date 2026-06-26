@@ -37,20 +37,44 @@ The `activation/` module is the internal DSL for all provisioning operations. Ta
 activation/
   contract.ts   Activation union, ActivationReport, StepReport, CommandScope, Verb — pure types
   dispatch.ts   runActivation() switch, describeActivation(), blockedReport()
+  reconcile.ts  ReconcileSpec/ReconcileStep envelope; reconcile() drives declare→steps→report
+  manifest.ts   readDeployedManifest() with ENOENT-only not-found translation
   symlink.ts    'file' + 'tree' factories and runners
   defaults.ts   'defaults' factory and runner
+  duti.ts       'duti' factory and runner
+  pipx.ts       'pipx' factory and runner
+  extensions.ts 'editorExtensions' factory and runner
+  coder.ts      'coderAgents' + 'coderSkills' factories and runners
   command.ts    'command' factory and step execution engine
+  release.ts    'release' factory and runner
   index.ts      public barrel
 ```
 
-Four activation kinds:
+Ten activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
 | `file` | `link(source, dest)` | Symlinks one deployed asset to a host path |
 | `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; prunes managed stale links |
 | `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
+| `duti` | `applyDuti(configKey)` | Reads a YAML list of `{bundle_id, extension}` pairs; applies `duti -s` for each that differs |
+| `pipx` | `applyPipx(configKey)` | Reconciles pipx-managed tools against a YAML manifest; installs, injects, and post-installs |
+| `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
+| `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
+| `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
+| `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips if installed version matches |
+
+### Reconcile Envelope
+
+`reconcile.ts` provides the shared execution envelope used by all multi-item activation kinds (`defaults`, `duti`, `pipx`, `editorExtensions`, `coderAgents`, `coderSkills`, `release`). It enforces a structural error boundary at the per-item level rather than leaving it to each implementation:
+
+- `declare()` — yields the set of items to process. A failure here aborts the whole activation. In plan mode, `reconcile` returns `changed` after `declare` without building or running steps.
+- `steps(declared)` — builds one `ReconcileStep` per item. This phase runs shared probes (e.g. listing installed tools or extensions) before returning the per-item work. A failure here also aborts the whole activation.
+- Per-item isolation — `executeStep` wraps each step's `run()` in a try/catch; a throwing step calls its `onError()` handler and yields a per-item `failed` report without interrupting siblings.
+- Status aggregation — `failed` outranks `changed`; an empty declaration reports `unchanged`.
+
+`manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause.
 
 ### Command Pipeline
 
@@ -91,6 +115,17 @@ Raw config files live under `src/assets/config/` keyed as `{role}/global/{filena
 `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource }` — is assembled by `createContext()` and injected through every provisioning call. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
 `CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`.
+
+## Capability Modules
+
+Several activation kinds delegate external-tool protocol and state detection to capability modules rather than implementing them inline. Capability modules own the external tool's protocol, output format, and platform-specific state probes. They accept a `Context` and import no activation types (`Activation`, `ActivationReport`, `StepReport`). Activation modules may import from capabilities; capabilities never import from `provisioning/activation/`.
+
+| Directory | Capability |
+|---|---|
+| `pipx/` | `pipx list --json` parse; install, inject, and post-install operations |
+| `duti/` | `duti -x` output parse; `duti -s` apply |
+| `editor/` | `--list-extensions` parse; `--install-extension` |
+| `github/` | GitHub release download via `curl` (public) or `gh release download` (private) |
 
 ## Identity (identity/)
 
