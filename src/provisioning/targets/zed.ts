@@ -7,6 +7,7 @@ export const zedTarget = target('zed', {
   description: 'Zed editor configuration',
   aliases: ['zd'],
   role: 'editor/zed',
+  packages: { casks: ['zed'] },
   activations: [
     link(
       asset('editor/zed/global/settings.json'),

@@ -2,8 +2,10 @@ import { CommandLineError } from '../errors';
 import type { Target } from './target';
 import { antigravityIdeTarget } from './targets/antigravity-ide';
 import { bunTarget } from './targets/bun';
+import { caskTarget } from './targets/cask';
 import { coderTarget } from './targets/coder';
 import { dutiTarget } from './targets/duti';
+import { formulaeTarget } from './targets/formulae';
 import { ghTarget } from './targets/gh';
 import { ghosttyTarget } from './targets/ghostty';
 import { gitTarget } from './targets/git';
@@ -21,6 +23,8 @@ import { zedTarget } from './targets/zed';
 
 /** Every target mev can provision. Tags, aliases, and packages derive from here. */
 const targets: readonly Target[] = [
+  formulaeTarget,
+  caskTarget,
   gitTarget,
   shellTarget,
   ghTarget,
