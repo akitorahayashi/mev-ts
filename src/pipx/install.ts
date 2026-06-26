@@ -146,7 +146,15 @@ export async function listInstalled(
       `pipx list --json failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
     );
   }
-  const data = JSON.parse(result.stdout) as PipxListJson;
+  let data: PipxListJson;
+  try {
+    data = JSON.parse(result.stdout) as PipxListJson;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new ProvisioningError(
+      `Failed to parse pipx list --json output as JSON: ${detail}`,
+    );
+  }
   const map = new Map<string, Installed>();
   for (const venv of Object.values(data.venvs ?? {})) {
     const main = venv.metadata?.main_package;

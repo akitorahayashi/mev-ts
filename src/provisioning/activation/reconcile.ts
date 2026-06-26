@@ -52,8 +52,9 @@ async function runSeries(
  * per-item error boundary, so one item's failure becomes a `failed` `StepReport`
  * that neither rejects the batch nor aborts its siblings rather than relying on
  * each kind to place that boundary by convention. Concurrent runs report in
- * declaration order because `Promise.all` preserves it. A failure from `declare`
- * or from `steps` before it returns the list is a whole-activation error.
+ * declaration order because `Promise.all` preserves it. An empty declaration is
+ * `unchanged` in both run and plan mode—there is nothing to apply. A failure from
+ * `declare` or from `steps` before it returns the list is a whole-activation error.
  */
 export async function reconcile<D>(
   base: Described,
@@ -62,6 +63,9 @@ export async function reconcile<D>(
 ): Promise<ActivationReport> {
   try {
     const declared = await spec.declare();
+    if (declared.length === 0) {
+      return { ...base, status: 'unchanged', entries: [] };
+    }
     if (plan) {
       return { ...base, status: 'changed' };
     }

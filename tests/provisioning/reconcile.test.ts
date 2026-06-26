@@ -137,3 +137,13 @@ test('an empty declaration reports unchanged with no entries', async () => {
   expect(report.status).toBe('unchanged');
   expect(report.entries).toEqual([]);
 });
+
+test('an empty declaration reports unchanged in plan mode too', async () => {
+  const report = await reconcile(base, true, {
+    declare: async () => [],
+    steps: async () => [],
+  });
+
+  expect(report.status).toBe('unchanged');
+  expect(report.entries).toEqual([]);
+});
