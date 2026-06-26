@@ -9,6 +9,7 @@ export const vscodeTarget = target('vscode', {
   description: 'Visual Studio Code configuration and extensions',
   aliases: ['co'],
   role: 'editor/vscode',
+  packages: { casks: ['visual-studio-code'] },
   activations: [
     link(
       asset('editor/vscode/global/settings.json'),

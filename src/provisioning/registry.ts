@@ -1,7 +1,9 @@
 import { CommandLineError } from '../errors';
 import type { Target } from './target';
 import { antigravityIdeTarget } from './targets/antigravity-ide';
+import { brewTarget } from './targets/brew';
 import { bunTarget } from './targets/bun';
+import { caskTarget } from './targets/cask';
 import { coderTarget } from './targets/coder';
 import { dutiTarget } from './targets/duti';
 import { ghTarget } from './targets/gh';
@@ -21,6 +23,8 @@ import { zedTarget } from './targets/zed';
 
 /** Every target mev can provision. Tags, aliases, and packages derive from here. */
 const targets: readonly Target[] = [
+  brewTarget,
+  caskTarget,
   gitTarget,
   shellTarget,
   ghTarget,

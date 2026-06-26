@@ -9,6 +9,7 @@ export const antigravityIdeTarget = target('antigravity_ide', {
   description: 'Antigravity IDE configuration and extensions',
   aliases: ['antigravity-ide', 'agi'],
   role: 'editor/antigravity_ide',
+  packages: { casks: ['antigravity-ide'] },
   activations: [
     link(
       asset('editor/antigravity_ide/global/settings.json'),

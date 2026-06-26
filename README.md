@@ -4,6 +4,15 @@
 
 ## Setup
 
+Homebrew is a prerequisite; `mev` installs packages through it but does not
+bootstrap it. Install it first:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Then install dependencies:
+
 ```bash
 bun install
 ```

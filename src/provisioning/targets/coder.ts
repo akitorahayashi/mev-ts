@@ -31,6 +31,7 @@ export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
   aliases: ['cdr'],
   role: 'coder',
+  packages: { formulae: ['rtk'] },
   activations: [
     runCommand({
       label: 'coder CLIs',

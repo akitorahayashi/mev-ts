@@ -54,9 +54,14 @@ test('every activation references an asset that exists in the registry', async (
   }
 });
 
-test('every target deploys a role with at least one embedded asset', () => {
+test('every target deploys assets or installs packages', () => {
   for (const t of allTargets()) {
-    expect(embeddedAssets.keysByPrefix(`${t.role}/`).length).toBeGreaterThan(0);
+    const assetCount = embeddedAssets.keysByPrefix(`${t.role}/`).length;
+    const packageCount =
+      t.packages.taps.length +
+      t.packages.formulae.length +
+      t.packages.casks.length;
+    expect(assetCount + packageCount).toBeGreaterThan(0);
   }
 });
 
