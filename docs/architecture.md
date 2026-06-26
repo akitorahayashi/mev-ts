@@ -99,6 +99,9 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 - `role` — the asset namespace under `src/assets/config/`
 - `packages` — Homebrew formulae, taps, and casks required before activation
 - `activations` — ordered list of `Activation` values
+- `optional` — when set, the target is selectable by tag but excluded from a full-environment `create`
+
+`make` resolves explicit selectors; `create <profile>` resolves a hardware profile (`macbook`/`mbk`, `mac-mini`/`mmn`) and provisions `fullSetupTargets()` — every registered target except the optional ones, in declaration order — through the same three phases. The set derives from the registry, so a new target joins `create` without a separate list. The profile gates the command to a hardware machine; it does not change the selection.
 
 The registry test (`tests/provisioning/registry.test.ts`) validates asset existence and selector uniqueness automatically for all registered targets. Adding a target does not require new test files.
 

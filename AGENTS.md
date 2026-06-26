@@ -14,7 +14,7 @@ src/
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
   cli/
-    commands/    MakeCommand, ListCommand, SwitchCommand, UserCommand; internal commands hidden from help
+    commands/    MakeCommand, CreateCommand, ListCommand, SwitchCommand, UserCommand; internal commands hidden from help
     tty/         ANSI styling, progress bar, TTY renderers
   duti/          duti file-association state probes and apply operations
   editor/        Editor extension list and install operations

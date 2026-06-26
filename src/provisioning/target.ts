@@ -8,7 +8,8 @@ import {
 /**
  * A named unit of provisioning. A target owns the tags and aliases that select
  * it, the role whose assets it deploys, the packages it requires, and the
- * activations that link those assets into place.
+ * activations that link those assets into place. `optional` targets are still
+ * selectable by tag but excluded from a full-environment `create`.
  */
 export interface Target {
   readonly name: string;
@@ -18,6 +19,7 @@ export interface Target {
   readonly role: string;
   readonly packages: PackageRequirement;
   readonly activations: readonly Activation[];
+  readonly optional: boolean;
 }
 
 interface TargetDefinition {
@@ -27,6 +29,7 @@ interface TargetDefinition {
   readonly role: string;
   readonly packages?: PackageInput;
   readonly activations: readonly Activation[];
+  readonly optional?: boolean;
 }
 
 export function target(name: string, definition: TargetDefinition): Target {
@@ -38,5 +41,6 @@ export function target(name: string, definition: TargetDefinition): Target {
     role: definition.role,
     packages: packages(definition.packages),
     activations: definition.activations,
+    optional: definition.optional ?? false,
   };
 }

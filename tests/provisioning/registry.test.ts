@@ -3,6 +3,7 @@ import { embeddedAssets } from '../../src/assets/registry';
 import {
   allTargets,
   availableSelectors,
+  fullSetupTargets,
   resolveTarget,
 } from '../../src/provisioning/registry';
 
@@ -74,4 +75,11 @@ test('no tag or alias is shared between targets', () => {
 
 test('an alias resolves to its owning target', () => {
   expect(resolveTarget('sh')).toBe(resolveTarget('shell'));
+});
+
+test('the full-setup selection is every non-optional target', () => {
+  const full = fullSetupTargets();
+  expect(full).toEqual(allTargets().filter((t) => !t.optional));
+  expect(full.every((t) => !t.optional)).toBe(true);
+  expect(full).not.toContain(resolveTarget('cask'));
 });

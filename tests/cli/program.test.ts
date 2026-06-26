@@ -70,6 +70,18 @@ test('exits 0 for ls alias', async () => {
   expect(exitCode).toBe(0);
 });
 
+test('create help advertises the profile argument', async () => {
+  const exitCode = await runCommandLine(['create', '--help']);
+  expect(exitCode).toBe(0);
+  expect(written(stdout)).toContain('create <profile>');
+});
+
+test('create rejects an unknown profile before provisioning', async () => {
+  const exitCode = await runCommandLine(['create', 'glb']);
+  expect(exitCode).toBe(1);
+  expect(written(stdout)).toContain("Unknown profile 'glb'.");
+});
+
 test('user help advertises set as the only accepted argument', async () => {
   const exitCode = await runCommandLine(['user', '--help']);
   expect(exitCode).toBe(0);
