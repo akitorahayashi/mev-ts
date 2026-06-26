@@ -14,7 +14,7 @@ import {
 export interface Target {
   readonly name: string;
   readonly description: string;
-  readonly tags: readonly string[];
+  readonly tags: readonly [string, ...string[]];
   readonly aliases: readonly string[];
   readonly role: string;
   readonly packages: PackageRequirement;
@@ -24,7 +24,7 @@ export interface Target {
 
 interface TargetDefinition {
   readonly description: string;
-  readonly tags?: readonly string[];
+  readonly tags?: readonly [string, ...string[]];
   readonly aliases?: readonly string[];
   readonly role: string;
   readonly packages?: PackageInput;

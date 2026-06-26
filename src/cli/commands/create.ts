@@ -30,7 +30,7 @@ export class CreateCommand extends Command {
     const isTTY = process.stdout.isTTY ?? false;
     const out = (text: string) => process.stdout.write(text);
 
-    const tags = fullSetupTargets().map((t) => t.name);
+    const tags = fullSetupTargets().map((t) => t.tags[0]);
     out(`mev: Creating ${profile} environment\n`);
 
     let bar: ReturnType<typeof createProgressBar> | undefined;
