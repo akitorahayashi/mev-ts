@@ -55,6 +55,9 @@ jobs:
       - name: Build mev
         run: bun build src/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
+      - name: Checksum mev
+        run: sha256sum ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256
+
       - name: Upload Release Asset
         if: inputs.release_id != ''
         uses: akitorahayashi/gh-release@v1
@@ -62,5 +65,7 @@ jobs:
           mode: upload
           token: ${{ github.token }}
           release_id: ${{ inputs.release_id }}
-          files: ${{ matrix.artifact }}
+          files: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
           overwrite: true

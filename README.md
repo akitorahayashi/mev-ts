@@ -2,19 +2,33 @@
 
 `mev` is a macOS development environment provisioning CLI built with Bun and TypeScript.
 
-## Setup
+## Install
 
-Homebrew is a prerequisite; `mev` installs packages through it but does not
-bootstrap it. Install it first:
+`mev` ships as a single compiled binary for macOS on Apple Silicon and Intel:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/akitorahayashi/mev-ts/main/install.sh)"
+```
+
+The script downloads the release binary for the host architecture, verifies its SHA256 checksum, and installs it to `~/.local/bin/mev`. `MEV_INSTALL_DIR` overrides the destination and `MEV_VERSION=vX.Y.Z` pins a release instead of the latest. Ensure the install directory is on `PATH`, then verify:
+
+```bash
+mev --version
+```
+
+Homebrew is a prerequisite; `mev` installs packages through it but does not bootstrap it:
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Then install dependencies:
+## Development
+
+From a clone, install dependencies and run from source:
 
 ```bash
 bun install
+bun run mev --version
 ```
 
 ## Usage
