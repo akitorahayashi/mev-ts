@@ -82,13 +82,20 @@ export async function runRelease(
     const binDir = join(context.home, '.cargo', 'bin');
     await mkdir(binDir, { recursive: true });
 
+    // Each binary is independent and writes to a unique path, so the
+    // network-bound reconciliations run concurrently. reconcileBinary records
+    // its own failure rather than throwing, so one failure neither rejects the
+    // batch nor aborts the others; report order follows declaration order.
+    const outcomes = await Promise.all(
+      activation.binaries.map((binary) =>
+        reconcileBinary(binary, arch, binDir, context),
+      ),
+    );
+
     const reports: StepReport[] = [];
     let failed = false;
     let changed = false;
-    // Each binary is independent: a failure is recorded and surfaced, but the
-    // remaining binaries are still attempted rather than aborting the batch.
-    for (const binary of activation.binaries) {
-      const outcome = await reconcileBinary(binary, arch, binDir, context);
+    for (const outcome of outcomes) {
       reports.push(outcome.report);
       if (outcome.failed) failed = true;
       else if (outcome.report.status === 'changed') changed = true;

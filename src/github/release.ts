@@ -44,14 +44,21 @@ export async function detectArch(context: Context): Promise<string> {
 /**
  * Whether the binary already at `dest` reports `tag` from `--version`, the
  * idempotency signal that skips a re-download. Matched on a word boundary so a
- * tag of `0.6.0` does not satisfy an installed `10.6.0`.
+ * tag of `0.6.0` does not satisfy an installed `10.6.0`. A missing binary (the
+ * common first-run case, where spawning the absent path throws ENOENT) or one
+ * that cannot report its version counts as not installed.
  */
 export async function installedMatches(
   dest: string,
   tag: string,
   context: Context,
 ): Promise<boolean> {
-  const result = await context.commands.run(dest, ['--version']);
+  let result: Awaited<ReturnType<typeof context.commands.run>>;
+  try {
+    result = await context.commands.run(dest, ['--version']);
+  } catch {
+    return false;
+  }
   if (result.code !== 0) return false;
   const expected = tag.replace(/^v/, '');
   const escaped = expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
