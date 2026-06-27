@@ -20,7 +20,8 @@ export class ConfigSelectCommand extends Command {
     ['cf', 'sl'],
   ];
   static override usage = Command.Usage({
-    description: 'Interactively select enabled AGENTS.md sections or skills. [aliases: cf sl]',
+    description:
+      'Interactively select enabled AGENTS.md sections or skills. [aliases: cf sl]',
   });
 
   object = Option.String({ required: true });

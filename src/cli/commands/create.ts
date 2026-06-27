@@ -13,7 +13,8 @@ import { createProgressBar } from '../tty/progress';
 export class CreateCommand extends Command {
   static override paths = [['create'], ['cr']];
   static override usage = Command.Usage({
-    description: 'Provision a full environment for a hardware profile. [aliases: cr]',
+    description:
+      'Provision a full environment for a hardware profile. [aliases: cr]',
   });
 
   profile = Option.String();
