@@ -28,7 +28,7 @@ From a clone, install dependencies and run from source:
 
 ```bash
 bun install
-bun run mev --version
+bun e --version
 ```
 
 ## Usage

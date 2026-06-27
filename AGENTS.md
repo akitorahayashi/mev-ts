@@ -56,8 +56,6 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 `main.ts` owns the clipanion `Cli`. Each command subclasses `Command`. Error routing is the one non-obvious rule: `CommandLineError` (= `UsageError`) goes to stdout with usage; `AppError`/`ProvisioningError` go to stderr.
 
-Human-facing command surfaces stay synchronized across public `src/cli/**` `static paths` and `package.json` `scripts`. When a public command path or alias is added, removed, or renamed, the matching `bun <script>` and `bun run <script>` entry is updated in the same change unless Bun reserves that name. Multi-segment public command paths are exposed through a flat script name that preserves the path order. Internal commands stay off the package script surface unless a repository-specific contract says otherwise.
-
 ### Key Types
 
 - `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource }`, injected through every provisioning call. Tests supply fakes.
