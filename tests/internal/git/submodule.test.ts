@@ -7,6 +7,8 @@ import { deleteSubmodule } from '../../../src/internal/git/submodule';
 
 interface Call {
   args: string[];
+  stdout?: 'pipe' | 'inherit';
+  stderr?: 'pipe' | 'inherit';
 }
 
 function sequenceRunner(
@@ -15,8 +17,12 @@ function sequenceRunner(
 ): CommandRunner {
   let index = 0;
   return {
-    async run(_command, args): Promise<CommandResult> {
-      calls.push({ args: [...args] });
+    async run(_command, args, options): Promise<CommandResult> {
+      calls.push({
+        args: [...args],
+        stdout: options?.stdout,
+        stderr: options?.stderr,
+      });
       return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
     },
   };
@@ -52,11 +58,27 @@ test('runs deinit, rm, and config removal in order', async () => {
 
   await deleteSubmodule(run, ['vendor/dep']);
 
-  expect(calls.map((c) => c.args)).toEqual([
-    ['submodule', 'deinit', '-f', 'vendor/dep'],
-    ['rm', '-f', '-r', 'vendor/dep'],
-    ['rev-parse', '--git-dir'],
-    ['config', '--remove-section', 'submodule.vendor/dep'],
+  expect(calls).toEqual([
+    {
+      args: ['submodule', 'deinit', '-f', 'vendor/dep'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+    {
+      args: ['rm', '-f', '-r', 'vendor/dep'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+    {
+      args: ['rev-parse', '--git-dir'],
+      stdout: undefined,
+      stderr: undefined,
+    },
+    {
+      args: ['config', '--remove-section', 'submodule.vendor/dep'],
+      stdout: undefined,
+      stderr: undefined,
+    },
   ]);
 });
 

@@ -15,6 +15,8 @@ afterEach(() => {
 
 interface Call {
   args: string[];
+  stdout?: 'pipe' | 'inherit';
+  stderr?: 'pipe' | 'inherit';
 }
 
 function sequenceRunner(
@@ -23,8 +25,12 @@ function sequenceRunner(
 ): CommandRunner {
   let index = 0;
   return {
-    async run(_command, args): Promise<CommandResult> {
-      calls.push({ args: [...args] });
+    async run(_command, args, options): Promise<CommandResult> {
+      calls.push({
+        args: [...args],
+        stdout: options?.stdout,
+        stderr: options?.stderr,
+      });
       return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
     },
   };
@@ -37,8 +43,8 @@ test('clones each url in order', async () => {
   await cloneRepositories(run, ['urlA', 'urlB']);
 
   expect(calls).toEqual([
-    { args: ['clone', 'urlA'] },
-    { args: ['clone', 'urlB'] },
+    { args: ['clone', 'urlA'], stdout: 'inherit', stderr: 'inherit' },
+    { args: ['clone', 'urlB'], stdout: 'inherit', stderr: 'inherit' },
   ]);
 });
 
@@ -49,8 +55,16 @@ test('applies flags after the separator to every clone', async () => {
   await cloneRepositories(run, ['urlA', 'urlB', '--', '--depth', '1']);
 
   expect(calls).toEqual([
-    { args: ['clone', '--depth', '1', 'urlA'] },
-    { args: ['clone', '--depth', '1', 'urlB'] },
+    {
+      args: ['clone', '--depth', '1', 'urlA'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+    {
+      args: ['clone', '--depth', '1', 'urlB'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
   ]);
 });
 

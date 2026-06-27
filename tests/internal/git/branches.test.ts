@@ -5,6 +5,8 @@ import { deleteBranches } from '../../../src/internal/git/branches';
 
 interface Call {
   args: string[];
+  stdout?: 'pipe' | 'inherit';
+  stderr?: 'pipe' | 'inherit';
 }
 
 function sequenceRunner(
@@ -13,8 +15,12 @@ function sequenceRunner(
 ): CommandRunner {
   let index = 0;
   return {
-    async run(_command, args): Promise<CommandResult> {
-      calls.push({ args: [...args] });
+    async run(_command, args, options): Promise<CommandResult> {
+      calls.push({
+        args: [...args],
+        stdout: options?.stdout,
+        stderr: options?.stderr,
+      });
       return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
     },
   };
@@ -32,11 +38,27 @@ test('deletes branches and prunes without checkout when not on a deleted branch'
 
   await deleteBranches(run, ['feature/a', 'feature/b']);
 
-  expect(calls.map((c) => c.args)).toEqual([
-    ['rev-parse', '--abbrev-ref', 'HEAD'],
-    ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
-    ['branch', '-D', '--', 'feature/a', 'feature/b'],
-    ['remote', 'prune', 'origin'],
+  expect(calls).toEqual([
+    {
+      args: ['rev-parse', '--abbrev-ref', 'HEAD'],
+      stdout: undefined,
+      stderr: undefined,
+    },
+    {
+      args: ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
+      stdout: undefined,
+      stderr: undefined,
+    },
+    {
+      args: ['branch', '-D', '--', 'feature/a', 'feature/b'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+    {
+      args: ['remote', 'prune', 'origin'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
   ]);
 });
 

@@ -98,7 +98,10 @@ async function runStep(
   run: CommandRunner,
   args: readonly string[],
 ): Promise<void> {
-  const result = await run.run('git', args);
+  const result = await run.run('git', args, {
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
   if (result.code !== 0) {
     throw new ProvisioningError(
       `git ${args.join(' ')} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,

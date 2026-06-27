@@ -21,7 +21,10 @@ export async function cloneRepositories(
 
   for (const url of urls) {
     process.stdout.write(`Cloning ${url}...\n`);
-    const result = await run.run('git', ['clone', ...flags, url]);
+    const result = await run.run('git', ['clone', ...flags, url], {
+      stdout: 'inherit',
+      stderr: 'inherit',
+    });
     if (result.code !== 0) {
       throw new ProvisioningError(
         `git clone ${url} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
