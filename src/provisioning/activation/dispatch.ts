@@ -40,9 +40,16 @@ export function describeActivation(activation: Activation): Described {
   }
 }
 
-/** Report for an activation whose role deploy failed and so cannot proceed. */
-export function blockedReport(activation: Activation): ActivationReport {
-  return { ...describeActivation(activation), status: 'blocked' };
+/** Report for an activation whose prerequisites failed and so cannot proceed. */
+export function blockedReport(
+  activation: Activation,
+  reason?: string,
+): ActivationReport {
+  return {
+    ...describeActivation(activation),
+    status: 'blocked',
+    error: reason,
+  };
 }
 
 /**

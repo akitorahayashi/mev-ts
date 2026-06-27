@@ -43,6 +43,7 @@ mev make shell -o               # Replace existing unmanaged files when linking
 ```
 
 `make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.config/mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. Activations report `changed`, `unchanged`, or `failed` per item.
+Each run ends with a report that summarizes required action, phase counts, changed targets, and retry tags.
 
 ```bash
 mev create mbk                  # Provision a full MacBook environment

@@ -80,6 +80,8 @@ test('plan mode reports missing without installing', async () => {
 });
 
 test('hooks report the total and tick per token', async () => {
+  const started: string[] = [];
+  const done: string[] = [];
   const ticked: PackageToken[] = [];
   let total = -1;
   await installPackages(
@@ -90,9 +92,38 @@ test('hooks report the total and tick per token', async () => {
       onStart: (n) => {
         total = n;
       },
+      onTokenStart: (token, stage) => {
+        started.push(`${stage} ${token.kind} ${token.name}`);
+      },
+      onTokenDone: (report) => {
+        done.push(`${report.status} ${report.token.name}`);
+      },
       onTick: (token) => ticked.push(token),
     },
   );
   expect(total).toBe(3);
+  expect(started).toEqual([
+    'checking tap a/b',
+    'checking formula git',
+    'checking formula gh',
+  ]);
+  expect(done).toEqual(['present a/b', 'present git', 'present gh']);
   expect(ticked.map((t) => t.name)).toEqual(['a/b', 'git', 'gh']);
+});
+
+test('hooks report installing stage for missing packages', async () => {
+  const started: string[] = [];
+  const done: string[] = [];
+
+  await installPackages(oneFormula, contextWith(1), false, {
+    onTokenStart: (token, stage) => {
+      started.push(`${stage} ${token.kind} ${token.name}`);
+    },
+    onTokenDone: (report) => {
+      done.push(`${report.status} ${report.token.name}`);
+    },
+  });
+
+  expect(started).toEqual(['checking formula git', 'installing formula git']);
+  expect(done).toEqual(['failed git']);
 });

@@ -6,7 +6,7 @@ import {
   renderDeployLine,
   renderGroups,
   renderHeader,
-  renderSuccess,
+  renderMakeReport,
 } from '../tty/makelog';
 import { createProgressBar } from '../tty/progress';
 
@@ -30,6 +30,7 @@ export class CreateCommand extends Command {
     const { plan, overwrite } = this;
     const isTTY = process.stdout.isTTY ?? false;
     const out = (text: string) => process.stdout.write(text);
+    const startedAt = Date.now();
 
     const tags = fullSetupTargets().map((t) => t.tags[0]);
     out(`mev: Creating ${profile} environment\n`);
@@ -54,6 +55,9 @@ export class CreateCommand extends Command {
             bar = createProgressBar(total);
           }
         },
+        onInstallTokenStart(token, stage) {
+          bar?.setLabel(`${stage} ${token.kind} ${token.name}`);
+        },
         onInstallTick() {
           bar?.tick();
         },
@@ -61,10 +65,16 @@ export class CreateCommand extends Command {
 
       bar?.stop();
       out(`\n${renderGroups(report.groups, { plan, isTTY })}\n`);
-      if (!report.failed) {
-        out(`\n${renderSuccess(isTTY)}\n`);
-        out('\nOptional GUI applications:  mev make br-c\n');
-      }
+      out(
+        `\n${renderMakeReport(report, {
+          plan,
+          isTTY,
+          durationMs: Date.now() - startedAt,
+          footer: report.failed
+            ? undefined
+            : ['Optional', 'GUI applications: mev make br-c'],
+        })}\n`,
+      );
       return report.failed ? 1 : 0;
     } finally {
       // Guarantee the spinner interval is cleared even if runMake throws, so
