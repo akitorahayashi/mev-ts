@@ -17,10 +17,11 @@ const SELECTABLES: Record<string, CoderSelectable> = {
 export class ConfigSelectCommand extends Command {
   static override paths = [
     ['config', 'select'],
-    ['cfg', 'select'],
+    ['cf', 'sl'],
   ];
   static override usage = Command.Usage({
-    description: 'Interactively select enabled AGENTS.md sections or skills.',
+    description:
+      'Interactively select enabled AGENTS.md sections or skills. [aliases: cf sl]',
   });
 
   object = Option.String({ required: true });
