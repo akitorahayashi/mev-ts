@@ -9,7 +9,7 @@ import { withPrompter } from '../tty/prompt';
 export class UserCommand extends Command {
   static override paths = [['user'], ['us']];
   static override usage = Command.Usage({
-    description: "Show stored Git identities, or 'set' to configure them.",
+    description: "Show stored Git identities, or 'set' to configure them. [aliases: us]",
   });
 
   action = Option.String({ name: 'set', required: false });

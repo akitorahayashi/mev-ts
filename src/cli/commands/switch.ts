@@ -14,7 +14,7 @@ function scopeHint(): string {
 export class SwitchCommand extends Command {
   static override paths = [['switch'], ['sw']];
   static override usage = Command.Usage({
-    description: `Switch the active Git identity (${scopeHint()}).`,
+    description: `Switch the active Git identity (${scopeHint()}). [aliases: sw]`,
     details: `Available scopes: ${allScopes().join(', ')}.`,
   });
 
