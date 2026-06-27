@@ -101,3 +101,55 @@ test('onDeploy fires for each role and onInstallStart reports formula count', as
   expect(deployed).toEqual(['git']);
   expect(installTotal).toBe(1);
 });
+
+test('a failed package blocks dependent activations', async () => {
+  const commands: string[] = [];
+  const context: Context = {
+    ...contextFor(sandbox),
+    commands: {
+      async run(command, args) {
+        commands.push([command, ...args].join(' '));
+        if (command !== 'brew') {
+          return { code: 0, stdout: '', stderr: '' };
+        }
+        const fileArg = args.find((arg) => arg.startsWith('--file='));
+        const brewfile = fileArg
+          ? await Bun.file(fileArg.slice('--file='.length)).text()
+          : '';
+        if (args.includes('check')) {
+          return brewfile.includes('brew "uv"')
+            ? { code: 1, stdout: '', stderr: '' }
+            : { code: 0, stdout: '', stderr: '' };
+        }
+        if (args.includes('install') && brewfile.includes('brew "uv"')) {
+          return { code: 1, stdout: '', stderr: 'uv unavailable' };
+        }
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+
+  const report = await runMake(
+    { tags: ['python'], plan: false, overwrite: false },
+    context,
+  );
+  const group = report.groups.find((entry) => entry.tag === 'python');
+
+  expect(report.failed).toBe(true);
+  expect(report.install).toContainEqual({
+    token: { kind: 'formula', name: 'uv' },
+    status: 'failed',
+    error: 'brew bundle install failed for uv with code 1: uv unavailable',
+  });
+  expect(group?.blockers).toEqual([
+    {
+      kind: 'package',
+      token: { kind: 'formula', name: 'uv' },
+      error: 'brew bundle install failed for uv with code 1: uv unavailable',
+    },
+  ]);
+  expect(group?.reports.every((entry) => entry.status === 'blocked')).toBe(
+    true,
+  );
+  expect(commands.some((command) => command === 'brew --prefix')).toBe(false);
+});

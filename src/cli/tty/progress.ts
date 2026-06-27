@@ -8,6 +8,7 @@ function renderLine(
   frame: string,
   completed: number,
   total: number,
+  label: string,
   c: ReturnType<typeof makeStyle>,
 ): string {
   const filled =
@@ -18,10 +19,12 @@ function renderLine(
     c.cyan('━'.repeat(filled)) + c.dim('─'.repeat(BAR_WIDTH - filled));
   const totalStr = String(total);
   const count = `${String(completed).padStart(totalStr.length)}/${totalStr}`;
-  return `${c.cyan(frame)} ${bar}  ${count}`;
+  const prefix = `${c.cyan(frame)} ${bar}  ${count}`;
+  return label ? `${prefix}  ${c.dim(label)}` : prefix;
 }
 
 export interface ProgressBar {
+  setLabel(label: string): void;
   tick(): void;
   stop(): void;
 }
@@ -31,16 +34,19 @@ export function createProgressBar(
   isTTY = process.stdout.isTTY ?? false,
 ): ProgressBar {
   let completed = 0;
+  let label = '';
 
   if (!isTTY) {
-    return { tick() {}, stop() {} };
+    return { setLabel() {}, tick() {}, stop() {} };
   }
 
   const c = makeStyle(true);
   let frameIndex = 0;
   const draw = () => {
     const frame = SPINNER_FRAMES[frameIndex] as string;
-    process.stdout.write(`\r${renderLine(frame, completed, total, c)}`);
+    process.stdout.write(
+      `\x1b[2K\r${renderLine(frame, completed, total, label, c)}`,
+    );
   };
 
   draw();
@@ -51,6 +57,10 @@ export function createProgressBar(
 
   let stopped = false;
   return {
+    setLabel(nextLabel) {
+      label = nextLabel;
+      draw();
+    },
     tick() {
       completed += 1;
       draw();
@@ -59,7 +69,9 @@ export function createProgressBar(
       if (stopped) return;
       stopped = true;
       clearInterval(timer);
-      process.stdout.write(`\r${renderLine(' ', completed, total, c)}\n`);
+      process.stdout.write(
+        `\x1b[2K\r${renderLine(' ', completed, total, '', c)}\n`,
+      );
     },
   };
 }

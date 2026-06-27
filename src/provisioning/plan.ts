@@ -7,6 +7,7 @@ import type { Target } from './target';
 export interface ActivationGroup {
   readonly tag: string;
   readonly role: string;
+  readonly packages: PackageRequirement;
   readonly activations: readonly Activation[];
 }
 
@@ -50,6 +51,7 @@ export function planMake(selectors: readonly string[]): MakePlan {
     groups: chosen.map((t) => ({
       tag: t.name,
       role: t.role,
+      packages: t.packages,
       activations: t.activations,
     })),
   };

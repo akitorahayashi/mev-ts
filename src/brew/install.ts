@@ -10,6 +10,7 @@ import {
 } from '../provisioning/package';
 
 export type InstallStatus = 'installed' | 'present' | 'missing' | 'failed';
+export type InstallStage = 'checking' | 'installing';
 
 export interface InstallReport {
   readonly token: PackageToken;
@@ -19,6 +20,8 @@ export interface InstallReport {
 
 export interface InstallHooks {
   onStart?(total: number): void;
+  onTokenStart?(token: PackageToken, stage: InstallStage): void;
+  onTokenDone?(report: InstallReport): void;
   onTick?(token: PackageToken): void;
 }
 
@@ -82,8 +85,8 @@ async function install(
 
 /**
  * Resolve every required package as a batch. In plan mode each token is only
- * checked; otherwise missing tokens are installed. The hooks drive a progress
- * bar that counts completed tokens.
+ * checked; otherwise missing tokens are installed. The hooks drive live
+ * progress labels and count completed tokens.
  */
 export async function installPackages(
   req: PackageRequirement,
@@ -97,22 +100,27 @@ export async function installPackages(
   const reports: InstallReport[] = [];
   for (const token of list) {
     const line = brewfileLine(token);
+    let report: InstallReport;
     try {
+      hooks.onTokenStart?.(token, 'checking');
       if (await isPresent(context, line)) {
-        reports.push({ token, status: 'present' });
+        report = { token, status: 'present' };
       } else if (plan) {
-        reports.push({ token, status: 'missing' });
+        report = { token, status: 'missing' };
       } else {
+        hooks.onTokenStart?.(token, 'installing');
         await install(context, line, token.name);
-        reports.push({ token, status: 'installed' });
+        report = { token, status: 'installed' };
       }
     } catch (error) {
-      reports.push({
+      report = {
         token,
         status: 'failed',
         error: error instanceof Error ? error.message : String(error),
-      });
+      };
     }
+    reports.push(report);
+    hooks.onTokenDone?.(report);
     hooks.onTick?.(token);
   }
   return reports;

@@ -4,7 +4,7 @@ import {
   renderDeployLine,
   renderGroups,
   renderHeader,
-  renderSuccess,
+  renderMakeReport,
 } from '../tty/makelog';
 import { createProgressBar } from '../tty/progress';
 
@@ -26,6 +26,7 @@ export class MakeCommand extends Command {
     const { plan, overwrite } = this;
     const isTTY = process.stdout.isTTY ?? false;
     const out = (text: string) => process.stdout.write(text);
+    const startedAt = Date.now();
 
     let bar: ReturnType<typeof createProgressBar> | undefined;
 
@@ -47,6 +48,9 @@ export class MakeCommand extends Command {
             bar = createProgressBar(total);
           }
         },
+        onInstallTokenStart(token, stage) {
+          bar?.setLabel(`${stage} ${token.kind} ${token.name}`);
+        },
         onInstallTick() {
           bar?.tick();
         },
@@ -54,9 +58,13 @@ export class MakeCommand extends Command {
 
       bar?.stop();
       out(`\n${renderGroups(report.groups, { plan, isTTY })}\n`);
-      if (!report.failed) {
-        out(`\n${renderSuccess(isTTY)}\n`);
-      }
+      out(
+        `\n${renderMakeReport(report, {
+          plan,
+          isTTY,
+          durationMs: Date.now() - startedAt,
+        })}\n`,
+      );
       return report.failed ? 1 : 0;
     } finally {
       // Guarantee the spinner interval is cleared even if runMake throws, so

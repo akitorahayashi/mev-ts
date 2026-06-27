@@ -1,5 +1,9 @@
 import pLimit from 'p-limit';
-import { type InstallReport, installPackages } from '../brew/install';
+import {
+  type InstallReport,
+  type InstallStage,
+  installPackages,
+} from '../brew/install';
 import { type Context, createContext } from '../host/context';
 import {
   type ActivationReport,
@@ -7,14 +11,26 @@ import {
   runActivation,
 } from './activation';
 import { type DeployResult, deployRole, inspectRole } from './deploy';
-import type { PackageToken } from './package';
+import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
 
 const ACTIVATION_CONCURRENCY = 8;
 
+export type ActivationBlocker =
+  | {
+      readonly kind: 'deploy';
+      readonly role: string;
+      readonly error: string;
+    }
+  | {
+      readonly kind: 'package';
+      readonly token: PackageToken;
+      readonly error: string;
+    };
+
 export interface ActivationGroupReport {
   readonly tag: string;
-  readonly blocked: boolean;
+  readonly blockers: readonly ActivationBlocker[];
   readonly reports: readonly ActivationReport[];
 }
 
@@ -33,7 +49,25 @@ export interface MakeRequest {
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
+  readonly onInstallTokenStart?: (
+    token: PackageToken,
+    stage: InstallStage,
+  ) => void;
   readonly onInstallTick?: (token: PackageToken) => void;
+}
+
+function sameToken(a: PackageToken, b: PackageToken): boolean {
+  return a.kind === b.kind && a.name === b.name;
+}
+
+function blockerReason(blockers: readonly ActivationBlocker[]): string {
+  return blockers
+    .map((blocker) =>
+      blocker.kind === 'deploy'
+        ? `deploy role ${blocker.role}: ${blocker.error}`
+        : `${blocker.token.kind} ${blocker.token.name}: ${blocker.error}`,
+    )
+    .join('; ');
 }
 
 /**
@@ -50,7 +84,7 @@ export async function runMake(
 
   // Phase 1: deploy configs for each role.
   const deploys: DeployResult[] = [];
-  const failedRoles = new Set<string>();
+  const failedRoles = new Map<string, string>();
   for (const role of selection.roles) {
     const result = request.plan
       ? await inspectRole(role, context)
@@ -61,7 +95,7 @@ export async function runMake(
           error: error instanceof Error ? error.message : String(error),
         }));
     if (result.error) {
-      failedRoles.add(role);
+      failedRoles.set(role, result.error);
     }
     deploys.push(result);
     request.onDeploy?.(result);
@@ -76,19 +110,46 @@ export async function runMake(
     request.plan,
     {
       onStart: request.onInstallStart,
+      onTokenStart: request.onInstallTokenStart,
       onTick: request.onInstallTick,
     },
   );
+  const failedPackages = install.filter((r) => r.status === 'failed');
 
   // Phase 3: activate deployed assets, grouped and attributed by tag.
   const limit = pLimit(ACTIVATION_CONCURRENCY);
   const groups: ActivationGroupReport[] = [];
   for (const group of selection.groups) {
-    if (failedRoles.has(group.role)) {
+    const blockers: ActivationBlocker[] = [];
+    const deployError = failedRoles.get(group.role);
+    if (deployError) {
+      blockers.push({
+        kind: 'deploy',
+        role: group.role,
+        error: deployError,
+      });
+    }
+    const requiredPackages = tokens(group.packages);
+    for (const failedPackage of failedPackages) {
+      if (
+        requiredPackages.some((token) => sameToken(token, failedPackage.token))
+      ) {
+        blockers.push({
+          kind: 'package',
+          token: failedPackage.token,
+          error: failedPackage.error ?? 'unknown error',
+        });
+      }
+    }
+
+    if (blockers.length > 0) {
+      const reason = blockerReason(blockers);
       groups.push({
         tag: group.tag,
-        blocked: true,
-        reports: group.activations.map(blockedReport),
+        blockers,
+        reports: group.activations.map((activation) =>
+          blockedReport(activation, reason),
+        ),
       });
       continue;
     }
@@ -97,14 +158,15 @@ export async function runMake(
         limit(() => runActivation(activation, context, request.plan)),
       ),
     );
-    groups.push({ tag: group.tag, blocked: false, reports });
+    groups.push({ tag: group.tag, blockers, reports });
   }
 
   const failed =
     failedRoles.size > 0 ||
     install.some((r) => r.status === 'failed') ||
     groups.some(
-      (g) => g.blocked || g.reports.some((r) => r.status === 'failed'),
+      (g) =>
+        g.blockers.length > 0 || g.reports.some((r) => r.status === 'failed'),
     );
 
   return { selection, deploys, install, groups, failed };
