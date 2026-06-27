@@ -14,7 +14,7 @@
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   },
   "awaySummaryEnabled": false,
-  "theme": "auto",
+  "theme": "light",
   "autoCompactEnabled": false,
   "attribution": {
     "commit": "",

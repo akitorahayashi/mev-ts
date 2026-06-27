@@ -13,6 +13,7 @@ sandbox_mode = "workspace-write"
 network_access = true
 
 [tui]
+theme = "catppuccin-latte"
 notifications = false
 show_tooltips = false
 status_line = [
