@@ -8,6 +8,37 @@
     }
   },
   {
+    "context": "Pane",
+    "use_key_equivalents": true,
+    "bindings": {
+      "cmd-w": [
+        "pane::CloseActiveItem",
+        {
+          "close_pinned": false
+        }
+      ],
+      "ctrl-alt-o": [
+        "pane::CloseOtherItems",
+        {
+          "close_pinned": false
+        }
+      ],
+      "ctrl-alt-c": [
+        "pane::CloseCleanItems",
+        {
+          "close_pinned": false
+        }
+      ],
+      "ctrl-alt-a": [
+        "pane::CloseAllItems",
+        {
+          "close_pinned": false
+        }
+      ],
+      "ctrl-alt-p": "pane::TogglePinTab"
+    }
+  },
+  {
     "context": "Workspace",
     "use_key_equivalents": true,
     "bindings": {
@@ -18,7 +49,6 @@
     "context": "Editor && mode == full",
     "use_key_equivalents": true,
     "bindings": {
-      "ctrl-w": ["pane::CloseAllItems", { "close_pinned": true }],
       "cmd-i": "agent::ToggleFocus"
     }
   },
