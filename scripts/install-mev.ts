@@ -1,4 +1,5 @@
 import { chmod, copyFile, mkdir } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 async function run(command: string, args: readonly string[]): Promise<void> {
@@ -15,13 +16,9 @@ async function run(command: string, args: readonly string[]): Promise<void> {
   }
 }
 
-await run('bun', ['run', 'build']);
+await run(Bun.argv[0], ['run', 'build']);
 
-const home = Bun.env.HOME;
-if (!home) {
-  throw new Error('HOME is required to install mev');
-}
-const installDir = join(home, '.local', 'bin');
+const installDir = join(homedir(), '.local', 'bin');
 
 await mkdir(installDir, { recursive: true });
 await copyFile('dist/mev', join(installDir, 'mev'));
