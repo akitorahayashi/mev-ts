@@ -78,6 +78,15 @@ test('stops at the first failure', async () => {
   expect(calls).toHaveLength(1);
 });
 
+test('reports inherited clone failures without pretending output was captured', async () => {
+  const calls: Call[] = [];
+  const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], calls);
+
+  await expect(cloneRepositories(run, ['urlA'])).rejects.toThrow(
+    'git clone urlA failed with code 1: see command output above',
+  );
+});
+
 test('rejects an empty url list', async () => {
   const calls: Call[] = [];
   const run = sequenceRunner([], calls);

@@ -27,7 +27,7 @@ export async function cloneRepositories(
     });
     if (result.code !== 0) {
       throw new ProvisioningError(
-        `git clone ${url} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+        `git clone ${url} failed with code ${result.code}: ${result.stderr || result.stdout || 'see command output above'}`,
       );
     }
   }

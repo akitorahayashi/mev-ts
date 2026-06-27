@@ -66,7 +66,7 @@ async function runStep(
   });
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `git ${args.join(' ')} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      `git ${args.join(' ')} failed with code ${result.code}: ${result.stderr || result.stdout || 'see command output above'}`,
     );
   }
 }

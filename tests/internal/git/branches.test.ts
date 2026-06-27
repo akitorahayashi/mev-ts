@@ -161,3 +161,20 @@ test('stops before delete when pull fails', async () => {
     ['pull'],
   ]);
 });
+
+test('reports inherited command failures without pretending output was captured', async () => {
+  const calls: Call[] = [];
+  const run = sequenceRunner(
+    [
+      { code: 0, stdout: 'feature/a\n', stderr: '' },
+      { code: 0, stdout: 'origin/main\n', stderr: '' },
+      { code: 0, stdout: '', stderr: '' },
+      { code: 1, stdout: '', stderr: '' },
+    ],
+    calls,
+  );
+
+  await expect(deleteBranches(run, ['feature/a'])).rejects.toThrow(
+    'git pull failed with code 1: see command output above',
+  );
+});

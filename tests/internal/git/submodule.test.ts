@@ -143,6 +143,14 @@ test('throws when deinit fails', async () => {
   );
 });
 
+test('reports inherited submodule failures without pretending output was captured', async () => {
+  const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], []);
+
+  await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toThrow(
+    'git submodule deinit -f vendor/dep failed with code 1: see command output above',
+  );
+});
+
 test('rejects an absolute path', async () => {
   const run = sequenceRunner([], []);
   await expect(deleteSubmodule(run, ['/abs/path'])).rejects.toBeInstanceOf(
