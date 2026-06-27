@@ -10,8 +10,8 @@
     "mev": "./src/main.ts"
   },
   "scripts": {
-    "premev": "bun run codegen",
-    "mev": "bun src/main.ts",
+    "pree": "bun run codegen",
+    "e": "bun src/main.ts",
     "up": "bun scripts/install-mev.ts",
     "codegen": "bun scripts/generate-assets.ts",
     "prebuild": "mkdir -p dist && bun run codegen",
