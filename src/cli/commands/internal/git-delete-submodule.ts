@@ -8,6 +8,10 @@ export class InternalGitDeleteSubmoduleCommand extends Command {
   submodulePath = Option.String({ required: true });
 
   async execute(): Promise<void> {
-    await deleteSubmodule(bunCommandRunner, [this.submodulePath]);
+    await deleteSubmodule(
+      bunCommandRunner,
+      [this.submodulePath],
+      process.stdout.write.bind(process.stdout),
+    );
   }
 }
