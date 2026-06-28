@@ -164,13 +164,13 @@ test('plan mode reports changed without running any command', async () => {
   });
 });
 
-test('failed when the extension manifest contains non-string entries', async () => {
+test('failed when the extension manifest contains invalid entries', async () => {
   await withSandbox(async (dir) => {
     const roleDir = join(dir, '.config/mev/roles/editor/vscode/global');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'extensions.json'),
-      JSON.stringify({ extensions: ['publisher.alpha', 42] }),
+      JSON.stringify({ extensions: ['publisher.alpha', '  '] }),
     );
     const { context, calls } = contextWith(dir, () => ok());
 
@@ -181,7 +181,7 @@ test('failed when the extension manifest contains non-string entries', async () 
     );
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain('extensions array of strings');
+    expect(report.error).toContain('extensions array of non-empty strings');
     expect(calls).toHaveLength(0);
   });
 });

@@ -1,9 +1,6 @@
 import { expect, test } from 'bun:test';
-import {
-  executeProvisioningRun,
-  type ProvisioningRun,
-} from '../../src/cli/commands/provisioning';
-import type { MakeReport, MakeRequest } from '../../src/provisioning/run';
+import type { MakeReport, MakeRequest } from '../../provisioning/run';
+import { executeProvisioningRun, type ProvisioningRun } from './provisioning';
 
 const emptyPackages = { taps: [], formulae: [], casks: [] };
 

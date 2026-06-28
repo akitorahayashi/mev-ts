@@ -1,6 +1,18 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
 import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
+function displayCloneUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.username && !parsed.password) return url;
+    parsed.username = 'REDACTED';
+    parsed.password = '';
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 /**
  * Clone each repository URL in order, stopping at the first failure.
  *
@@ -21,7 +33,8 @@ export async function cloneRepositories(
   }
 
   for (const url of urls) {
-    write(`Cloning ${url}...\n`);
+    const displayUrl = displayCloneUrl(url);
+    write(`Cloning ${displayUrl}...\n`);
     const result = await run.run('git', ['clone', ...flags, url], {
       stdout: 'inherit',
       stderr: 'inherit',
@@ -29,7 +42,7 @@ export async function cloneRepositories(
     if (result.code !== 0) {
       throw new ProvisioningError(
         formatCommandFailure(
-          `git clone ${url} failed`,
+          `git clone ${displayUrl} failed`,
           result,
           'see command output above',
         ),

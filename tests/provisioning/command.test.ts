@@ -148,6 +148,24 @@ test('a non-zero step fails the activation and halts the pipeline', async () => 
   expect(calls.map((c) => c.command)).toEqual(['boom']);
 });
 
+test('a non-zero step does not copy stdout into the error field', async () => {
+  const { context } = contextWith('/home/u', () => ({
+    code: 1,
+    stdout: 'secret-token',
+    stderr: '',
+  }));
+  const activation = runCommand({
+    label: 'demo',
+    steps: [{ label: 'boom', argv: () => ['boom'] }],
+  });
+
+  const report = await runActivation(activation, context, false);
+
+  expect(report.status).toBe('failed');
+  expect(report.entries?.[0]?.error).toBe('exit code 1');
+  expect(report.entries?.[0]?.error).not.toContain('secret-token');
+});
+
 test('env thunk output reaches the command runner', async () => {
   const { calls, context } = contextWith('/home/u', () => ok());
   const activation = runCommand({

@@ -269,3 +269,16 @@ test('failed when pipx list JSON omits required package fields', async () => {
     expect(report.error).toContain('pipx list --json');
   });
 });
+
+test('failed when pipx list JSON contains malformed venv entries', async () => {
+  await withSandbox(async (dir) => {
+    await deployConfig(dir);
+    const malformed = JSON.stringify({ venvs: { dcv: 'not an object' } });
+    const { context } = contextWith(dir, baseResponder(malformed));
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain("venv 'dcv' must be an object");
+  });
+});

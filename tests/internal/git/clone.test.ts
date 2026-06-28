@@ -76,3 +76,21 @@ test('reports inherited clone failures without pretending output was captured', 
     'git clone urlA failed with code 1: see command output above',
   );
 });
+
+test('redacts clone URL credentials from progress and failure output', async () => {
+  const calls: Call[] = [];
+  const messages: string[] = [];
+  const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], calls);
+  const url = 'https://user:secret@example.com/owner/repo.git';
+
+  await expect(
+    cloneRepositories(run, [url], (message) => messages.push(message)),
+  ).rejects.toThrow(
+    'git clone https://REDACTED@example.com/owner/repo.git failed with code 1: see command output above',
+  );
+
+  expect(messages).toEqual([
+    'Cloning https://REDACTED@example.com/owner/repo.git...\n',
+  ]);
+  expect(calls[0]?.args).toEqual(['clone', url]);
+});

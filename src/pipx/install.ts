@@ -208,7 +208,11 @@ export async function listInstalled(
   }
   const map = new Map<string, Installed>();
   for (const [name, venv] of Object.entries(data.venvs ?? {})) {
-    if (!isRecord(venv)) continue;
+    if (!isRecord(venv)) {
+      throw new ProvisioningError(
+        `Invalid pipx list --json output: venv '${name}' must be an object.`,
+      );
+    }
     const metadata = venv.metadata;
     if (metadata !== undefined && !isRecord(metadata)) {
       throw new ProvisioningError(

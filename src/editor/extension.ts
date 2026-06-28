@@ -21,9 +21,14 @@ export function parseExtensions(raw: string, path: string): string[] {
       `Extensions manifest must contain an extensions array: ${path}`,
     );
   }
-  if (!parsed.extensions.every((extension) => typeof extension === 'string')) {
+  if (
+    !parsed.extensions.every(
+      (extension) =>
+        typeof extension === 'string' && extension.trim().length > 0,
+    )
+  ) {
     throw new ProvisioningError(
-      `Extensions manifest must contain an extensions array of strings: ${path}`,
+      `Extensions manifest must contain an extensions array of non-empty strings: ${path}`,
     );
   }
   return [...parsed.extensions];
