@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
-import { embeddedAssets } from '../../src/assets/registry';
+import { embeddedAssets } from '../assets/registry';
 import {
   allTargets,
   availableSelectors,
   fullSetupTargets,
   resolveTarget,
-} from '../../src/provisioning/registry';
+} from './registry';
 
 // Target-agnostic invariants: every registered target must reference only
 // embedded assets and own a distinct set of selectors. Adding a target is

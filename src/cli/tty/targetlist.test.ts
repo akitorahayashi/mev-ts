@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { renderTargetList } from '../../src/cli/tty/targetlist';
-import { allTargets } from '../../src/provisioning/registry';
+import { allTargets } from '../../provisioning/registry';
+import { renderTargetList } from './targetlist';
 
 test('renderTargetList includes every registered target name', () => {
   const output = renderTargetList(false);

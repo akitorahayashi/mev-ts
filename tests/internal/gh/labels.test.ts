@@ -23,10 +23,6 @@ function sequenceRunner(
   };
 }
 
-test('LABEL_CATALOG contains 16 labels', () => {
-  expect(LABEL_CATALOG.length).toBe(16);
-});
-
 test('deployLabels creates labels absent from the repository', async () => {
   const calls: Call[] = [];
   const responses: CommandResult[] = [

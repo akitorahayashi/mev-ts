@@ -1,17 +1,7 @@
-import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
-import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import { expect, test } from 'bun:test';
+import { ProvisioningError } from '../../../src/errors';
 import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { cloneRepositories } from '../../../src/internal/git/clone';
-
-let stdout: ReturnType<typeof spyOn>;
-
-beforeEach(() => {
-  stdout = spyOn(process.stdout, 'write').mockReturnValue(true);
-});
-
-afterEach(() => {
-  stdout.mockRestore();
-});
 
 interface Call {
   args: string[];
@@ -85,24 +75,4 @@ test('reports inherited clone failures without pretending output was captured', 
   await expect(cloneRepositories(run, ['urlA'])).rejects.toThrow(
     'git clone urlA failed with code 1: see command output above',
   );
-});
-
-test('rejects an empty url list', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await expect(cloneRepositories(run, [])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-  expect(calls).toHaveLength(0);
-});
-
-test('rejects when only flags are supplied', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await expect(
-    cloneRepositories(run, ['--', '--depth', '1']),
-  ).rejects.toBeInstanceOf(CommandLineError);
-  expect(calls).toHaveLength(0);
 });

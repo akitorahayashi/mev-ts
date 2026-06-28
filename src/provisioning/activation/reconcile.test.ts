@@ -1,13 +1,7 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../src/errors';
-import type {
-  Described,
-  StepReport,
-} from '../../src/provisioning/activation/contract';
-import {
-  type ReconcileStep,
-  reconcile,
-} from '../../src/provisioning/activation/reconcile';
+import { ProvisioningError } from '../../errors';
+import type { Described, StepReport } from './contract';
+import { type ReconcileStep, reconcile } from './reconcile';
 
 const base: Described = { verb: 'apply', source: 'src', dest: 'dst' };
 

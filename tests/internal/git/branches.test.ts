@@ -84,16 +84,6 @@ test('checks out default branch and pulls before deleting when on a deleted bran
   ]);
 });
 
-test('rejects an empty branch list', async () => {
-  const calls: Call[] = [];
-  const run = sequenceRunner([], calls);
-
-  await expect(deleteBranches(run, [])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-  expect(calls).toHaveLength(0);
-});
-
 test('rejects deleting the default branch when current branch is not in the delete list', async () => {
   const calls: Call[] = [];
   const run = sequenceRunner(

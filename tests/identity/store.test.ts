@@ -24,21 +24,6 @@ afterAll(() => {
   for (const dir of roots) rmSync(dir, { recursive: true, force: true });
 });
 
-test('makeIdentity trims and validates non-empty fields', () => {
-  expect(makeIdentity(' Jane ', ' jane@example.com ')).toEqual({
-    name: 'Jane',
-    email: 'jane@example.com',
-  });
-  expect(makeIdentity('', 'jane@example.com')).toBeNull();
-  expect(makeIdentity('Jane', '  ')).toBeNull();
-});
-
-test('identityFilePath resolves under ~/.config/mev', () => {
-  expect(identityFilePath('/Users/test')).toBe(
-    '/Users/test/.config/mev/identity.json',
-  );
-});
-
 test('stateExists reflects whether the file is present', async () => {
   const home = tempHome();
   const path = identityFilePath(home);

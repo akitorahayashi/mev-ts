@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
+import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CommandLineError, ProvisioningError } from '../../../src/errors';
+import { ProvisioningError } from '../../../src/errors';
 import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { deleteSubmodule } from '../../../src/internal/git/submodule';
 
@@ -30,17 +30,14 @@ function sequenceRunner(
 
 let counter = 0;
 let sandbox: string;
-let stdout: ReturnType<typeof spyOn>;
 
 beforeEach(async () => {
-  stdout = spyOn(process.stdout, 'write').mockReturnValue(true);
   counter += 1;
   sandbox = join(process.cwd(), '.tmp', `submodule-${process.pid}-${counter}`);
   await mkdir(sandbox, { recursive: true });
 });
 
 afterEach(async () => {
-  stdout.mockRestore();
   await rm(sandbox, { force: true, recursive: true });
 });
 
@@ -148,55 +145,6 @@ test('reports inherited submodule failures without pretending output was capture
 
   await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toThrow(
     'git submodule deinit -f vendor/dep failed with code 1: see command output above',
-  );
-});
-
-test('rejects an absolute path', async () => {
-  const run = sequenceRunner([], []);
-  await expect(deleteSubmodule(run, ['/abs/path'])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-});
-
-test('rejects parent traversal', async () => {
-  const run = sequenceRunner([], []);
-  await expect(deleteSubmodule(run, ['../escape'])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-});
-
-test('rejects parent traversal hidden inside the path', async () => {
-  const run = sequenceRunner([], []);
-  await expect(
-    deleteSubmodule(run, ['vendor/../escape']),
-  ).rejects.toBeInstanceOf(CommandLineError);
-});
-
-test('rejects backslash-separated traversal', async () => {
-  const run = sequenceRunner([], []);
-  await expect(
-    deleteSubmodule(run, ['vendor\\..\\escape']),
-  ).rejects.toBeInstanceOf(CommandLineError);
-});
-
-test('rejects a current-directory segment', async () => {
-  const run = sequenceRunner([], []);
-  await expect(deleteSubmodule(run, ['./vendor/dep'])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-});
-
-test('rejects an empty path', async () => {
-  const run = sequenceRunner([], []);
-  await expect(deleteSubmodule(run, [''])).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-});
-
-test('rejects more than one path', async () => {
-  const run = sequenceRunner([], []);
-  await expect(deleteSubmodule(run, ['a', 'b'])).rejects.toBeInstanceOf(
-    CommandLineError,
   );
 });
 

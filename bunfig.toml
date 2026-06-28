@@ -1,5 +1,9 @@
 [test]
-root = "./tests"
+pathIgnorePatterns = [
+  "references/**",
+  "docs/**",
+  ".tmp/**",
+]
 
 [test.reporter]
 dots = true

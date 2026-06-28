@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { CommandLineError } from '../../src/errors';
-import { resolveProfile } from '../../src/provisioning/profile';
+import { CommandLineError } from '../errors';
+import { resolveProfile } from './profile';
 
 test('a canonical identifier resolves to itself', () => {
   expect(resolveProfile('macbook')).toBe('macbook');
