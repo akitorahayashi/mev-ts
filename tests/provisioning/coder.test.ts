@@ -16,8 +16,6 @@ import {
   coderSkills,
   runActivation,
 } from '../../src/provisioning/activation';
-import { reconcileSections } from '../../src/provisioning/coder/catalog';
-import { resolve } from '../../src/provisioning/coder/manifest';
 
 const SECTIONS_PREFIX = 'coder/global/agents-sections';
 const SKILLS_PREFIX = 'coder/global/skills';
@@ -89,26 +87,6 @@ async function deploySkills(
 
 const AGENTS_DEST = home('.claude/CLAUDE.md');
 const SKILLS_TARGET = home('.claude/skills');
-
-test('reconcileSections preserves catalog order and rejects skew', () => {
-  expect(reconcileSections(['a', 'b'], ['b', 'a'])).toEqual(['a', 'b']);
-  expect(() => reconcileSections(['a', 'missing'], ['a'])).toThrow();
-  expect(() => reconcileSections(['a'], ['a', 'stray'])).toThrow();
-  expect(() => reconcileSections(['a', 'a'], ['a'])).toThrow();
-});
-
-test('resolve enables everything absent from disabled, in catalog order', () => {
-  const selection = resolve(['a', 'b', 'c'], ['b']);
-  expect(selection.enabled).toEqual(['a', 'c']);
-  expect(selection.disabled).toEqual(['b']);
-  expect(selection.unknownDisabled).toEqual([]);
-});
-
-test('resolve reports disabled names absent from the catalog as skew', () => {
-  const selection = resolve(['a'], ['gone']);
-  expect(selection.enabled).toEqual(['a']);
-  expect(selection.unknownDisabled).toEqual(['gone']);
-});
 
 test('coderAgents concatenates enabled sections and symlinks the result', async () => {
   await withSandbox(async (dir) => {

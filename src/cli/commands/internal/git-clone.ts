@@ -8,6 +8,10 @@ export class InternalGitCloneCommand extends Command {
   args = Option.Proxy();
 
   async execute(): Promise<void> {
-    await cloneRepositories(bunCommandRunner, this.args);
+    await cloneRepositories(
+      bunCommandRunner,
+      this.args,
+      process.stdout.write.bind(process.stdout),
+    );
   }
 }

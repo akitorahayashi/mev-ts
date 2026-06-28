@@ -30,8 +30,14 @@ src/
     targets/     One file per provisioning target
 scripts/
   generate-assets.ts  Asset codegen: walks src/assets/config/, emits registry.generated.ts
-tests/               Mirror of src/ layout; one test file per module boundary
+tests/                Integration tests for CLI, filesystem, subprocess, and network behavior
 ```
+
+## Test Guidelines
+
+- Unit tests live next to source files under `src/` and test pure transformations.
+- Integration/E2E tests live under `tests/` and verify the full CLI lifecycle, filesystem mutations, subprocess execution, and network interactions.
+- All new features require matching tests; ensure `tests/` contains coverage for provisioning target registration.
 
 ## Core Concepts
 
@@ -50,7 +56,7 @@ See docs/architecture.md for the per-kind table and the reconcile/manifest mecha
 
 ### Provisioning Targets
 
-Each target is a file in `provisioning/targets/` registered in `provisioning/registry.ts`. The registry test validates asset existence and selector uniqueness for every registered target, so adding a target needs no new test file.
+Each target is a file in `provisioning/targets/` registered in `provisioning/registry.ts`. The registry test (`src/provisioning/registry.test.ts`) validates asset existence and selector uniqueness for every registered target, so adding a target needs no new test file.
 
 ### CLI
 
@@ -66,7 +72,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Asset Codegen
 
-`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `premev`/`prebuild`/`pretest`/`precheck` hooks.
+`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `pree`/`prebuild`/`pretest`/`pretest:unit`/`pretest:integration`/`precheck` hooks.
 
 ## Documentation Responsibilities
 

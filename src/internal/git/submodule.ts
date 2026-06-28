@@ -11,15 +11,16 @@ import type { CommandRunner } from '../../host/command';
 export async function deleteSubmodule(
   run: CommandRunner,
   tokens: readonly string[],
+  write: (msg: string) => void = () => {},
 ): Promise<void> {
   const submodulePath = parsePath(tokens);
 
-  process.stdout.write(`Deleting submodule ${submodulePath}...\n`);
+  write(`Deleting submodule ${submodulePath}...\n`);
   await runStep(run, ['submodule', 'deinit', '-f', submodulePath]);
   await runStep(run, ['rm', '-f', '-r', submodulePath]);
   await removeModuleDir(run, submodulePath);
   await removeConfigSection(run, submodulePath);
-  process.stdout.write(`Submodule ${submodulePath} deleted successfully.\n`);
+  write(`Submodule ${submodulePath} deleted successfully.\n`);
 }
 
 function parsePath(tokens: readonly string[]): string {

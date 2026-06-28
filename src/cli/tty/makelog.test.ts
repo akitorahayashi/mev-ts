@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
-import { renderGroups, renderMakeReport } from '../../src/cli/tty/makelog';
-import type { MakeReport } from '../../src/provisioning/run';
+import type { MakeReport } from '../../provisioning/run';
+import { renderGroups, renderMakeReport } from './makelog';
 
 const emptyPackages = { taps: [], formulae: [], casks: [] };
 

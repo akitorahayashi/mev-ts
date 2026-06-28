@@ -12,8 +12,13 @@ permissions:
 
 jobs:
   run-tests:
-    name: Run Tests
+    name: Run ${{ matrix.type }} tests
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        type: [unit, integration]
 
     steps:
       - name: Checkout Repository
@@ -22,5 +27,5 @@ jobs:
       - name: Setup Development Environment
         uses: ./.github/actions/setup
 
-      - name: Run Bun Tests
-        run: bun run test
+      - name: Run ${{ matrix.type }} tests
+        run: bun run test:${{ matrix.type }}

@@ -10,6 +10,7 @@ import type { CommandRunner } from '../../host/command';
 export async function cloneRepositories(
   run: CommandRunner,
   tokens: readonly string[],
+  write: (msg: string) => void = () => {},
 ): Promise<void> {
   const separator = tokens.indexOf('--');
   const urls = separator === -1 ? tokens : tokens.slice(0, separator);
@@ -20,7 +21,7 @@ export async function cloneRepositories(
   }
 
   for (const url of urls) {
-    process.stdout.write(`Cloning ${url}...\n`);
+    write(`Cloning ${url}...\n`);
     const result = await run.run('git', ['clone', ...flags, url], {
       stdout: 'inherit',
       stderr: 'inherit',
