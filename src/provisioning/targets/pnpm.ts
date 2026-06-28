@@ -1,4 +1,5 @@
 import { asset } from '../../assets/ref';
+import { ProvisioningError } from '../../errors';
 import { home } from '../../host/path';
 import type { CommandScope } from '../activation';
 import { link, runCommand } from '../activation';
@@ -14,6 +15,61 @@ const pnpmEnv = (s: CommandScope) => ({
     .filter(Boolean)
     .join(':'),
 });
+
+function isPackageMap(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((version) => typeof version === 'string')
+  );
+}
+
+export function globalPackageArgs(raw: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new ProvisioningError(
+      `Failed to parse pnpm global packages manifest as JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new ProvisioningError(
+      'pnpm global packages manifest must be an object.',
+    );
+  }
+  const manifest = parsed as {
+    readonly dependencies?: unknown;
+    readonly globalPackages?: unknown;
+  };
+  if (
+    manifest.dependencies !== undefined &&
+    !isPackageMap(manifest.dependencies)
+  ) {
+    throw new ProvisioningError(
+      'pnpm global packages manifest dependencies must be an object of string versions.',
+    );
+  }
+  if (
+    manifest.globalPackages !== undefined &&
+    !isPackageMap(manifest.globalPackages)
+  ) {
+    throw new ProvisioningError(
+      'pnpm global packages manifest globalPackages must be an object of string versions.',
+    );
+  }
+  const all = { ...manifest.dependencies, ...manifest.globalPackages };
+  const pkgArgs = Object.entries(all).map(([name, version]) =>
+    version ? `${name}@${version}` : name,
+  );
+  if (pkgArgs.length === 0) {
+    throw new ProvisioningError(
+      'pnpm global packages manifest contains no packages to install.',
+    );
+  }
+  return pkgArgs;
+}
 
 export const pnpmTarget = target('pnpm', {
   description: 'pnpm global packages',
@@ -51,19 +107,7 @@ export const pnpmTarget = target('pnpm', {
         {
           label: 'pnpm add -g',
           argv: (s) => {
-            const cfg = JSON.parse(s.ref('globalPackages')) as {
-              dependencies?: Record<string, string>;
-              globalPackages?: Record<string, string>;
-            };
-            const all = { ...cfg.dependencies, ...cfg.globalPackages };
-            const pkgArgs = Object.entries(all).map(([k, v]) =>
-              v ? `${k}@${v}` : k,
-            );
-            if (pkgArgs.length === 0) {
-              throw new Error(
-                'global-packages.json contains no packages to install.',
-              );
-            }
+            const pkgArgs = globalPackageArgs(s.ref('globalPackages'));
             return [
               'fnm',
               'exec',

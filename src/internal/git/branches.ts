@@ -1,5 +1,9 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../host/command';
+import {
+  type CommandRunner,
+  commandFailureDetail,
+  formatCommandFailure,
+} from '../../host/command';
 
 export async function deleteBranches(
   run: CommandRunner,
@@ -29,7 +33,7 @@ async function resolveCurrentBranch(run: CommandRunner): Promise<string> {
   const result = await run.run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `Failed to resolve current branch: ${result.stderr || result.stdout || 'unknown error'}`,
+      `Failed to resolve current branch: ${commandFailureDetail(result)}`,
     );
   }
   return result.stdout.trim();
@@ -66,7 +70,11 @@ async function runStep(
   });
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `git ${args.join(' ')} failed with code ${result.code}: ${result.stderr || result.stdout || 'see command output above'}`,
+      formatCommandFailure(
+        `git ${args.join(' ')} failed`,
+        result,
+        'see command output above',
+      ),
     );
   }
 }

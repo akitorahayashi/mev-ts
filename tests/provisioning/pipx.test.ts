@@ -230,3 +230,42 @@ test('plan mode reports changed without running any command', async () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+test('failed when the pipx manifest contains non-string package names', async () => {
+  await withSandbox(async (dir) => {
+    const roleDir = join(dir, '.config', 'mev', 'roles', 'pipx', 'global');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(join(roleDir, 'tools.yml'), 'tools:\n  - package: 42\n');
+    const { context, calls } = contextWith(dir, () => ok());
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('package name');
+    expect(calls).toHaveLength(0);
+  });
+});
+
+test('failed when pipx list JSON omits required package fields', async () => {
+  await withSandbox(async (dir) => {
+    await deployConfig(dir);
+    const malformed = JSON.stringify({
+      venvs: {
+        dcv: {
+          metadata: {
+            main_package: {
+              package: 'dcv',
+              package_or_url: 'dcv',
+            },
+          },
+        },
+      },
+    });
+    const { context } = contextWith(dir, baseResponder(malformed));
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('pipx list --json');
+  });
+});

@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
-import type { CommandOptions } from '../host/command';
+import { type CommandOptions, commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
 
 export interface PostInstall {
@@ -14,10 +14,6 @@ export interface PipxTool {
   readonly install_spec?: string;
   readonly inject?: readonly string[];
   readonly post_install?: PostInstall;
-}
-
-interface PipxConfig {
-  readonly tools: readonly PipxTool[];
 }
 
 export interface Installed {
@@ -42,6 +38,10 @@ interface PipxListJson {
   >;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 // --- manifest schema --------------------------------------------------------
 
 export async function parseTools(
@@ -49,29 +49,70 @@ export async function parseTools(
   path: string,
 ): Promise<PipxTool[]> {
   const { load } = await import('js-yaml');
-  const parsed = load(raw) as PipxConfig;
+  const parsed = load(raw) as { tools?: unknown };
   if (!parsed?.tools || !Array.isArray(parsed.tools)) {
     throw new ProvisioningError(
       `Pipx config must contain a tools sequence: ${path}`,
     );
   }
-  return parsed.tools.map((tool: PipxTool) => {
-    if (!tool?.package) {
+  return parsed.tools.map((entry: unknown) => {
+    if (!isRecord(entry)) {
+      throw new ProvisioningError(
+        `Invalid entry in pipx config: each tool must be a mapping.`,
+      );
+    }
+    if (typeof entry.package !== 'string' || entry.package.length === 0) {
       throw new ProvisioningError(
         `Invalid entry in pipx config: each tool must have a package name.`,
       );
     }
-    if (tool.inject && !Array.isArray(tool.inject)) {
+    if (entry.version !== undefined && typeof entry.version !== 'string') {
       throw new ProvisioningError(
-        `Invalid entry in pipx config for '${tool.package}': 'inject' must be a sequence of packages.`,
+        `Invalid entry in pipx config for '${entry.package}': 'version' must be a string.`,
       );
     }
-    if (tool.post_install && !tool.post_install.bin) {
+    if (
+      entry.install_spec !== undefined &&
+      typeof entry.install_spec !== 'string'
+    ) {
       throw new ProvisioningError(
-        `Invalid entry in pipx config for '${tool.package}': 'post_install' must specify a 'bin' executable.`,
+        `Invalid entry in pipx config for '${entry.package}': 'install_spec' must be a string.`,
       );
     }
-    return tool;
+    if (
+      entry.inject !== undefined &&
+      (!Array.isArray(entry.inject) ||
+        !entry.inject.every((dep) => typeof dep === 'string'))
+    ) {
+      throw new ProvisioningError(
+        `Invalid entry in pipx config for '${entry.package}': 'inject' must be a sequence of packages.`,
+      );
+    }
+    if (entry.post_install !== undefined) {
+      if (!isRecord(entry.post_install)) {
+        throw new ProvisioningError(
+          `Invalid entry in pipx config for '${entry.package}': 'post_install' must be a mapping.`,
+        );
+      }
+      if (
+        typeof entry.post_install.bin !== 'string' ||
+        entry.post_install.bin.length === 0
+      ) {
+        throw new ProvisioningError(
+          `Invalid entry in pipx config for '${entry.package}': 'post_install' must specify a 'bin' executable.`,
+        );
+      }
+      if (
+        entry.post_install.args !== undefined &&
+        (!Array.isArray(entry.post_install.args) ||
+          !entry.post_install.args.every((arg) => typeof arg === 'string'))
+      ) {
+        throw new ProvisioningError(
+          `Invalid entry in pipx config for '${entry.package}': 'post_install.args' must be a sequence of strings.`,
+        );
+      }
+    }
+    return entry as unknown as PipxTool;
   });
 }
 
@@ -124,7 +165,7 @@ export async function brewEnv(context: Context): Promise<CommandOptions> {
   const result = await context.commands.run('brew', ['--prefix']);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `brew --prefix failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+      `brew --prefix failed: ${commandFailureDetail(result, `exit code ${result.code}`)}`,
     );
   }
   const prefix = result.stdout.trim();
@@ -143,7 +184,7 @@ export async function listInstalled(
   );
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `pipx list --json failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+      `pipx list --json failed: ${commandFailureDetail(result, `exit code ${result.code}`)}`,
     );
   }
   let data: PipxListJson;
@@ -155,14 +196,51 @@ export async function listInstalled(
       `Failed to parse pipx list --json output as JSON: ${detail}`,
     );
   }
+  if (!isRecord(data)) {
+    throw new ProvisioningError(
+      'Invalid pipx list --json output: expected an object.',
+    );
+  }
+  if (data.venvs !== undefined && !isRecord(data.venvs)) {
+    throw new ProvisioningError(
+      'Invalid pipx list --json output: venvs must be an object.',
+    );
+  }
   const map = new Map<string, Installed>();
-  for (const venv of Object.values(data.venvs ?? {})) {
-    const main = venv.metadata?.main_package;
+  for (const [name, venv] of Object.entries(data.venvs ?? {})) {
+    if (!isRecord(venv)) continue;
+    const metadata = venv.metadata;
+    if (metadata !== undefined && !isRecord(metadata)) {
+      throw new ProvisioningError(
+        `Invalid pipx list --json output: metadata for '${name}' must be an object.`,
+      );
+    }
+    const main = metadata?.main_package;
     if (!main) continue;
+    if (!isRecord(main)) {
+      throw new ProvisioningError(
+        `Invalid pipx list --json output: main_package for '${name}' must be an object.`,
+      );
+    }
+    if (
+      typeof main.package !== 'string' ||
+      typeof main.package_or_url !== 'string' ||
+      typeof main.package_version !== 'string'
+    ) {
+      throw new ProvisioningError(
+        `Invalid pipx list --json output: main_package for '${name}' must contain string package, package_or_url, and package_version.`,
+      );
+    }
+    const deps = main.app_paths_of_dependencies;
+    if (deps !== undefined && !isRecord(deps)) {
+      throw new ProvisioningError(
+        `Invalid pipx list --json output: app_paths_of_dependencies for '${name}' must be an object.`,
+      );
+    }
     map.set(main.package, {
       packageOrUrl: main.package_or_url,
       version: main.package_version,
-      dependencies: Object.keys(main.app_paths_of_dependencies ?? {}),
+      dependencies: Object.keys(deps ?? {}),
     });
   }
   return map;
@@ -183,7 +261,7 @@ export async function localVenvs(
   );
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `pipx environment failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+      `pipx environment failed: ${commandFailureDetail(result, `exit code ${result.code}`)}`,
     );
   }
   return result.stdout.trim();
@@ -198,7 +276,9 @@ export async function uninstall(
 ): Promise<void> {
   const r = await context.commands.run('pipx', ['uninstall', pkg], options);
   if (r.code !== 0) {
-    throw new ProvisioningError(r.stderr.trim() || `uninstall exit ${r.code}`);
+    throw new ProvisioningError(
+      commandFailureDetail(r, `uninstall exit ${r.code}`),
+    );
   }
 }
 
@@ -209,7 +289,9 @@ export async function install(
 ): Promise<void> {
   const r = await context.commands.run('pipx', ['install', spec], options);
   if (r.code !== 0) {
-    throw new ProvisioningError(r.stderr.trim() || `install exit ${r.code}`);
+    throw new ProvisioningError(
+      commandFailureDetail(r, `install exit ${r.code}`),
+    );
   }
 }
 
@@ -225,7 +307,9 @@ export async function inject(
     options,
   );
   if (r.code !== 0) {
-    throw new ProvisioningError(r.stderr.trim() || `inject exit ${r.code}`);
+    throw new ProvisioningError(
+      commandFailureDetail(r, `inject exit ${r.code}`),
+    );
   }
 }
 
@@ -240,7 +324,7 @@ export async function postInstall(
   const r = await context.commands.run(bin, post.args ?? [], options);
   if (r.code !== 0) {
     throw new ProvisioningError(
-      r.stderr.trim() || `post_install exit ${r.code}`,
+      commandFailureDetail(r, `post_install exit ${r.code}`),
     );
   }
 }

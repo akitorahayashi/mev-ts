@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import { commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
 
 interface ExtensionsConfig {
@@ -20,6 +21,11 @@ export function parseExtensions(raw: string, path: string): string[] {
       `Extensions manifest must contain an extensions array: ${path}`,
     );
   }
+  if (!parsed.extensions.every((extension) => typeof extension === 'string')) {
+    throw new ProvisioningError(
+      `Extensions manifest must contain an extensions array of strings: ${path}`,
+    );
+  }
   return [...parsed.extensions];
 }
 
@@ -34,8 +40,9 @@ export async function listInstalled(
 ): Promise<Set<string>> {
   const result = await context.commands.run(command, ['--list-extensions']);
   if (result.code !== 0) {
+    const detail = commandFailureDetail(result, `exit code ${result.code}`);
     throw new ProvisioningError(
-      `${command} --list-extensions failed: ${result.stderr.trim() || `exit code ${result.code}`}. Is ${command} installed and on PATH?`,
+      `${command} --list-extensions failed: ${detail}. Is ${command} installed and on PATH?`,
     );
   }
   return new Set(
@@ -58,7 +65,7 @@ export async function installExtension(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      result.stderr.trim() || `exit code ${result.code}`,
+      commandFailureDetail(result, `exit code ${result.code}`),
     );
   }
 }

@@ -1,5 +1,5 @@
 import { ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../host/command';
+import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
 export async function configGet(
   run: CommandRunner,
@@ -18,7 +18,7 @@ export async function configSetGlobal(
   const result = await run.run('git', ['config', '--global', name, value]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `git config --global ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure(`git config --global ${name} failed`, result),
     );
   }
 }

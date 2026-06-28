@@ -1,5 +1,6 @@
 import { basename, extname } from 'node:path';
 import { ProvisioningError } from '../../errors';
+import { commandFailureDetail } from '../../host/command';
 import type { Context } from '../../host/context';
 import {
   type Activation,
@@ -68,7 +69,7 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
           key: entry.key,
           value: displayValue,
           status: 'failed',
-          error: result.stderr.trim() || `exit code ${result.code}`,
+          error: commandFailureDetail(result, `exit code ${result.code}`),
         };
       }
       return { key: entry.key, value: displayValue, status: 'changed' };

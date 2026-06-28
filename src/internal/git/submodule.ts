@@ -1,7 +1,7 @@
 import { rm, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { CommandLineError, ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../host/command';
+import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
 /**
  * Delete a git submodule completely from the repository in the current working
@@ -61,7 +61,7 @@ async function removeModuleDir(
   const result = await run.run('git', ['rev-parse', '--git-dir']);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `git rev-parse --git-dir failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure('git rev-parse --git-dir failed', result),
     );
   }
   const gitDir = result.stdout.trim();
@@ -90,7 +90,10 @@ async function removeConfigSection(
   // is an acceptable terminal state rather than a failure.
   if (result.code !== 0 && !/No such section/.test(result.stderr)) {
     throw new ProvisioningError(
-      `git config --remove-section submodule.${submodulePath} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure(
+        `git config --remove-section submodule.${submodulePath} failed`,
+        result,
+      ),
     );
   }
 }
@@ -105,7 +108,11 @@ async function runStep(
   });
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `git ${args.join(' ')} failed with code ${result.code}: ${result.stderr || result.stdout || 'see command output above'}`,
+      formatCommandFailure(
+        `git ${args.join(' ')} failed`,
+        result,
+        'see command output above',
+      ),
     );
   }
 }

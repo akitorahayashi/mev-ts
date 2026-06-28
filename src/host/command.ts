@@ -20,6 +20,25 @@ export interface CommandRunner {
   ): Promise<CommandResult>;
 }
 
+export function commandFailureDetail(
+  result: CommandResult,
+  fallback = 'unknown error',
+): string {
+  const stderr = result.stderr.trim();
+  if (stderr) return stderr;
+  const stdout = result.stdout.trim();
+  if (stdout) return stdout;
+  return fallback;
+}
+
+export function formatCommandFailure(
+  failure: string,
+  result: CommandResult,
+  fallback = 'unknown error',
+): string {
+  return `${failure} with code ${result.code}: ${commandFailureDetail(result, fallback)}`;
+}
+
 /** Runs external commands through Bun's process spawner. */
 export const bunCommandRunner: CommandRunner = {
   async run(command, args, options): Promise<CommandResult> {

@@ -1,5 +1,5 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../host/command';
+import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
 /**
  * Clone each repository URL in order, stopping at the first failure.
@@ -28,7 +28,11 @@ export async function cloneRepositories(
     });
     if (result.code !== 0) {
       throw new ProvisioningError(
-        `git clone ${url} failed with code ${result.code}: ${result.stderr || result.stdout || 'see command output above'}`,
+        formatCommandFailure(
+          `git clone ${url} failed`,
+          result,
+          'see command output above',
+        ),
       );
     }
   }

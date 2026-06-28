@@ -1,6 +1,6 @@
 import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
-import type { CommandOptions } from '../../host/command';
+import { type CommandOptions, commandFailureDetail } from '../../host/command';
 import type { Context } from '../../host/context';
 import {
   type Activation,
@@ -150,7 +150,7 @@ export async function runCommandActivation(
           key: label,
           value: argv.join(' '),
           status: 'failed',
-          error: result.stderr.trim() || `exit code ${result.code}`,
+          error: commandFailureDetail(result, `exit code ${result.code}`),
         });
         failed = true;
         break;

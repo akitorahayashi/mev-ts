@@ -188,6 +188,21 @@ test('coderAgents surfaces deployed catalog filesystem errors', async () => {
   });
 });
 
+test('coderAgents rejects non-string catalog sections', async () => {
+  await withSandbox(async (dir) => {
+    await deploySections(dir, 'sections:\n  - 42\n', {});
+
+    const report = await runActivation(
+      coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
+      contextWith(dir),
+      false,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('sections sequence of strings');
+  });
+});
+
 test('coderAgents surfaces generated file read errors', async () => {
   await withSandbox(async (dir) => {
     await deploySections(dir, 'sections:\n  - alpha\n', {
