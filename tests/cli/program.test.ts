@@ -8,6 +8,11 @@ interface RunResult {
   readonly stderr: string;
 }
 
+function stripAnsi(text: string): string {
+  const esc = String.fromCharCode(27);
+  return text.replace(new RegExp(`${esc}\\[[0-9;]*m`, 'g'), '');
+}
+
 async function capture(args: readonly string[]): Promise<RunResult> {
   let stdout = '';
   let stderr = '';
@@ -60,10 +65,11 @@ test('version prints to stdout and exits successfully', async () => {
 
 test('help prints command usage to stdout', async () => {
   const result = await capture(['--help']);
+  const stdout = stripAnsi(result.stdout);
 
   expect(result.code).toBe(0);
-  expect(result.stdout).toContain('$ mev <command>');
-  expect(result.stdout).toContain('make');
+  expect(stdout).toContain('$ mev <command>');
+  expect(stdout).toContain('make');
   expect(result.stderr).toBe('');
 });
 
