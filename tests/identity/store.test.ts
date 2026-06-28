@@ -57,7 +57,7 @@ test('saveState omits null profiles from the serialized file', async () => {
   });
 });
 
-test('saveState does not leave the former fixed temp file behind', async () => {
+test('saveState does not leave atomic temp files behind', async () => {
   const path = identityFilePath(tempHome());
   await saveState(path, {
     personal: makeIdentity('Personal', 'p@example.com'),
@@ -65,7 +65,11 @@ test('saveState does not leave the former fixed temp file behind', async () => {
   });
 
   const names = await readdir(join(path, '..'));
-  expect(names).not.toContain('.identity.json.tmp');
+  expect(
+    names.filter((name) =>
+      /^\.identity\.json\.\d+\.[0-9a-f-]+\.tmp$/.test(name),
+    ),
+  ).toEqual([]);
 });
 
 test('loadState throws when the file does not exist', async () => {

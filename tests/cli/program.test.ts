@@ -9,8 +9,7 @@ interface RunResult {
 }
 
 function stripAnsi(text: string): string {
-  const esc = String.fromCharCode(27);
-  return text.replace(new RegExp(`${esc}\\[[0-9;]*m`, 'g'), '');
+  return Bun.stripANSI(text);
 }
 
 async function capture(args: readonly string[]): Promise<RunResult> {

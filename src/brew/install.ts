@@ -36,8 +36,8 @@ async function withBrewfile<T>(
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'mev-brewfile-'));
   const file = join(dir, 'Brewfile');
-  await writeFile(file, `${line}\n`);
   try {
+    await writeFile(file, `${line}\n`);
     return await action(file);
   } finally {
     await rm(dir, { force: true, recursive: true });
