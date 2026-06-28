@@ -12,7 +12,6 @@ import type {
 import { makeStyle } from './style';
 
 interface RenderOptions {
-  readonly plan: boolean;
   readonly isTTY?: boolean;
 }
 
@@ -23,16 +22,14 @@ interface ReportOptions extends RenderOptions {
 
 export function renderDeployLine(
   result: DeployResult,
-  plan: boolean,
   isTTY = process.stdout.isTTY ?? false,
 ): string | null {
   if (!result.deployed) {
     return null;
   }
   const c = makeStyle(isTTY);
-  const verb = plan ? 'Would deploy config for' : 'Deployed config for';
   const suffix = result.files.length > 0 ? `  ${result.files.join('  ')}` : '';
-  return c.dim(`  ${verb} ${result.role}${suffix}`);
+  return c.dim(`  Deployed config for ${result.role}${suffix}`);
 }
 
 /** The `Running tags` / `Required …` header block. */
@@ -187,13 +184,8 @@ export function renderMakeReport(
 ): string {
   const isTTY = options.isTTY ?? process.stdout.isTTY ?? false;
   const c = makeStyle(isTTY);
-  const result = options.plan ? 'plan' : report.failed ? 'failed' : 'success';
-  const resultText =
-    result === 'failed'
-      ? c.red(result)
-      : result === 'success'
-        ? c.green(result)
-        : c.yellow(result);
+  const result = report.failed ? 'failed' : 'success';
+  const resultText = result === 'failed' ? c.red(result) : c.green(result);
 
   const blockedTargets = report.groups.filter(isBlocked);
   const failedTargets = report.groups.filter(
@@ -207,10 +199,8 @@ export function renderMakeReport(
   const lines = ['mev report', `Result: ${resultText}`];
   const duration = formatDuration(options.durationMs);
   if (duration) lines.push(`Duration: ${duration}`);
-  lines.push(`Mode: ${options.plan ? 'preview' : 'apply'}`);
-  if (options.plan) {
-    lines.push(`Targets: ${report.groups.length} selected`);
-  } else if (report.failed) {
+  lines.push('Mode: apply');
+  if (report.failed) {
     lines.push(
       `Targets: ${report.groups.length} selected, ${completedTargets} completed, ${failedTargets.length} failed, ${blockedTargets.length} blocked`,
     );
@@ -263,9 +253,6 @@ export function renderMakeReport(
   const brewPresent = report.install.filter(
     (install) => install.status === 'present',
   ).length;
-  const brewMissing = report.install.filter(
-    (install) => install.status === 'missing',
-  ).length;
   const brewFailed = report.install.filter(
     (install) => install.status === 'failed',
   ).length;
@@ -277,23 +264,17 @@ export function renderMakeReport(
   const blocked = countStatus(activations, 'blocked');
 
   const activationParts: string[] = [];
-  appendCount(
-    activationParts,
-    changed,
-    options.plan ? 'would change' : 'changed',
-  );
+  appendCount(activationParts, changed, 'changed');
   appendCount(activationParts, unchanged, 'unchanged');
   appendCount(activationParts, failed, 'failed');
   appendCount(activationParts, blocked, 'blocked');
 
   lines.push('', 'Summary');
   lines.push(
-    `Deploy: ${deployed} ${options.plan ? 'would deploy' : 'deployed'}, ${deployPresent} already present, ${deployFailed} failed`,
+    `Deploy: ${deployed} deployed, ${deployPresent} already present, ${deployFailed} failed`,
   );
   lines.push(
-    options.plan
-      ? `Brew: ${brewMissing} missing, ${brewPresent} present, ${brewFailed} failed`
-      : `Brew: ${brewInstalled} installed, ${brewPresent} already present, ${brewFailed} failed`,
+    `Brew: ${brewInstalled} installed, ${brewPresent} already present, ${brewFailed} failed`,
   );
   lines.push(
     `Activation: ${activationParts.length > 0 ? activationParts.join(', ') : 'none'}`,
@@ -305,26 +286,7 @@ export function renderMakeReport(
     )
     .map((group) => group.tag);
   if (changedTargets.length > 0) {
-    lines.push(
-      '',
-      options.plan ? 'Would change targets' : 'Changed targets',
-      changedTargets.join(', '),
-    );
-  }
-
-  if (options.plan) {
-    const missing = report.install.filter(
-      (install) => install.status === 'missing',
-    );
-    if (missing.length > 0) {
-      lines.push(
-        '',
-        'Missing packages',
-        ...missing.map(
-          (install) => `${install.token.kind} ${install.token.name}`,
-        ),
-      );
-    }
+    lines.push('', 'Changed targets', changedTargets.join(', '));
   }
 
   const retryTags = report.groups

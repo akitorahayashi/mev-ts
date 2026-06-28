@@ -67,11 +67,7 @@ test('an empty defaults list reports unchanged', async () => {
     await deploy(dir, '[]\n');
     const { context, calls } = contextWith(dir, () => ok());
 
-    const report = await runActivation(
-      applyDefaults(CONFIG_KEY),
-      context,
-      false,
-    );
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
 
     expect(report.status).toBe('unchanged');
     expect(report.entries).toEqual([]);
@@ -93,11 +89,7 @@ test('each successful write is reported changed', async () => {
     );
     const { context, calls } = contextWith(dir, () => ok());
 
-    const report = await runActivation(
-      applyDefaults(CONFIG_KEY),
-      context,
-      false,
-    );
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
     expect(calls[0]?.args).toEqual([
@@ -124,11 +116,7 @@ test('a failed write marks the activation failed', async () => {
     );
     const { context } = contextWith(dir, () => fail('not permitted'));
 
-    const report = await runActivation(
-      applyDefaults(CONFIG_KEY),
-      context,
-      false,
-    );
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.entries?.[0]?.error).toBe('not permitted');

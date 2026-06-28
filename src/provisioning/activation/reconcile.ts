@@ -17,10 +17,9 @@ export interface ReconcileStep {
 
 /**
  * The kind-specific half of a reconciliation. `declare` parses what the target
- * asked for and runs in plan mode too, for early validation. `steps` runs the
- * shared probes and builds the per-item steps, only outside plan mode; anything
- * it throws before returning the list is a whole-activation failure. `concurrent`
- * selects `Promise.all` over a sequential loop.
+ * asked for. `steps` runs the shared probes and builds the per-item steps;
+ * anything it throws before returning the list is a whole-activation failure.
+ * `concurrent` selects `Promise.all` over a sequential loop.
  */
 export interface ReconcileSpec<D> {
   declare(): Promise<readonly D[]>;
@@ -47,27 +46,23 @@ async function runSeries(
 }
 
 /**
- * The reconcile envelope shared by the list-into-report kinds. It owns plan
- * handling, the per-item loop, status derivation, and—through `executeStep`—the
- * per-item error boundary, so one item's failure becomes a `failed` `StepReport`
- * that neither rejects the batch nor aborts its siblings rather than relying on
- * each kind to place that boundary by convention. Concurrent runs report in
- * declaration order because `Promise.all` preserves it. An empty declaration is
- * `unchanged` in both run and plan mode—there is nothing to apply. A failure from
- * `declare` or from `steps` before it returns the list is a whole-activation error.
+ * The reconcile envelope shared by the list-into-report kinds. It owns the
+ * per-item loop, status derivation, and—through `executeStep`—the per-item error
+ * boundary, so one item's failure becomes a `failed` `StepReport` that neither
+ * rejects the batch nor aborts its siblings rather than relying on each kind to
+ * place that boundary by convention. Concurrent runs report in declaration
+ * order because `Promise.all` preserves it. An empty declaration is `unchanged`
+ * because there is nothing to apply. A failure from `declare` or from `steps`
+ * before it returns the list is a whole-activation error.
  */
 export async function reconcile<D>(
   base: Described,
-  plan: boolean,
   spec: ReconcileSpec<D>,
 ): Promise<ActivationReport> {
   try {
     const declared = await spec.declare();
     if (declared.length === 0) {
       return { ...base, status: 'unchanged', entries: [] };
-    }
-    if (plan) {
-      return { ...base, status: 'changed' };
     }
     const steps = await spec.steps(declared);
     const entries = spec.concurrent

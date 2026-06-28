@@ -88,9 +88,8 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
 export function runDefaults(
   activation: DefaultsActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
-  return reconcile(describeDefaults(activation), plan, {
+  return reconcile(describeDefaults(activation), {
     declare: () =>
       readDeployedManifest(
         activation.configKey,

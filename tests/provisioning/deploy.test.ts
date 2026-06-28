@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { deployedDir, deployedPath } from '../../src/assets/ref';
 import type { AssetSource } from '../../src/assets/registry';
 import type { Context } from '../../src/host/context';
-import { deployRole, inspectRole } from '../../src/provisioning/deploy';
+import { deployRole } from '../../src/provisioning/deploy';
 
 const ALL_KEYS = ['git/global/.gitconfig', 'git/global/.gitignore_global'];
 const EXECUTABLE_KEY = 'git/global/post-commit.sh';
@@ -87,18 +87,4 @@ test('deployRole prunes stale files when overwrite is set', async () => {
 
   expect(result.deployed).toBe(true);
   await expect(lstat(stale)).rejects.toThrow();
-});
-
-test('inspectRole reports would-deploy without writing', async () => {
-  const result = await inspectRole('git', contextFor(sandbox));
-  expect(result.deployed).toBe(true);
-  await expect(lstat(deployedDir('git', sandbox))).rejects.toThrow();
-});
-
-test('inspectRole surfaces filesystem errors other than missing paths', async () => {
-  await writeFile(join(sandbox, '.config'), 'not a directory');
-
-  await expect(inspectRole('git', contextFor(sandbox))).rejects.toThrow(
-    /not a directory/i,
-  );
 });

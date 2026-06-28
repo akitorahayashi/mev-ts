@@ -60,9 +60,8 @@ function releaseStep(
 export function runRelease(
   activation: ReleaseActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
-  return reconcile(describeRelease(), plan, {
+  return reconcile(describeRelease(), {
     declare: async () => activation.binaries,
     // Each binary is independent and writes to a unique path, so the
     // network-bound reconciliations run concurrently; the envelope isolates a

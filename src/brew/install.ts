@@ -10,7 +10,7 @@ import {
   tokens,
 } from '../provisioning/package';
 
-export type InstallStatus = 'installed' | 'present' | 'missing' | 'failed';
+export type InstallStatus = 'installed' | 'present' | 'failed';
 export type InstallStage = 'checking' | 'installing';
 
 export interface InstallReport {
@@ -83,14 +83,13 @@ async function install(
 }
 
 /**
- * Resolve every required package as a batch. In plan mode each token is only
- * checked; otherwise missing tokens are installed. The hooks drive live
+ * Resolve every required package as a batch. Missing tokens are installed and
+ * already-installed entries are reported as present. The hooks drive live
  * progress labels and count completed tokens.
  */
 export async function installPackages(
   req: PackageRequirement,
   context: Context,
-  plan: boolean,
   hooks: InstallHooks = {},
 ): Promise<InstallReport[]> {
   const list = tokens(req);
@@ -104,8 +103,6 @@ export async function installPackages(
       hooks.onTokenStart?.(token, 'checking');
       if (await isPresent(context, line)) {
         report = { token, status: 'present' };
-      } else if (plan) {
-        report = { token, status: 'missing' };
       } else {
         hooks.onTokenStart?.(token, 'installing');
         await install(context, line, token.name);

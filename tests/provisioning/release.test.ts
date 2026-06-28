@@ -92,7 +92,7 @@ test('first run: an absent binary is fetched and installed, not aborted', async 
       return fail();
     });
 
-    const report = await runActivation(releaseBinaries(PUBLIC), context, false);
+    const report = await runActivation(releaseBinaries(PUBLIC), context);
 
     expect(report.status).toBe('changed');
     expect(report.entries?.map((e) => e.status)).toEqual([
@@ -119,7 +119,7 @@ test('one binary failing still processes its siblings', async () => {
       return fail();
     });
 
-    const report = await runActivation(releaseBinaries(PUBLIC), context, false);
+    const report = await runActivation(releaseBinaries(PUBLIC), context);
 
     expect(report.status).toBe('failed');
     expect(report.entries?.find((e) => e.key === 'kpv')?.status).toBe(
@@ -142,7 +142,7 @@ test('an up-to-date binary is left unchanged and not re-fetched', async () => {
       return fail();
     });
 
-    const report = await runActivation(releaseBinaries(PUBLIC), context, false);
+    const report = await runActivation(releaseBinaries(PUBLIC), context);
 
     expect(report.status).toBe('unchanged');
     expect(report.entries?.every((e) => e.status === 'unchanged')).toBe(true);
@@ -169,7 +169,6 @@ test('a private binary is fetched with an authenticated gh download', async () =
         },
       ]),
       context,
-      false,
     );
 
     expect(report.status).toBe('changed');
@@ -214,22 +213,10 @@ test('a failed download keeps the existing binary and removes temp files', async
         { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.6.0' },
       ]),
       context,
-      false,
     );
 
     expect(report.status).toBe('failed');
     expect(await readFile(existing, 'utf8')).toBe('old');
     expect(await readdir(join(home, '.cargo', 'bin'))).toEqual(['kpv']);
-  });
-});
-
-test('plan mode reports changed without probing or fetching', async () => {
-  await withSandbox(async (home) => {
-    const { context, calls } = contextWith(home, () => ok());
-
-    const report = await runActivation(releaseBinaries(PUBLIC), context, true);
-
-    expect(report.status).toBe('changed');
-    expect(calls).toHaveLength(0);
   });
 });

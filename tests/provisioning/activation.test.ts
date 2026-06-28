@@ -72,14 +72,14 @@ test('link creates a symlink to the deployed asset and is idempotent', async () 
   await deploy(context, ref.key);
   const activation = link(ref, home('.config/git/config'));
 
-  const first = await runActivation(activation, context, false);
+  const first = await runActivation(activation, context);
   expect(first.status).toBe('changed');
   expect(first.verb).toBe('link');
   expect(await readlink(join(sandbox, '.config/git/config'))).toBe(
     deployedPath(ref, sandbox),
   );
 
-  const second = await runActivation(activation, context, false);
+  const second = await runActivation(activation, context);
   expect(second.status).toBe('unchanged');
 });
 
@@ -92,7 +92,6 @@ test('link refuses to replace an unmanaged file without overwrite', async () => 
   const report = await runActivation(
     link(ref, home('.config-target')),
     context,
-    false,
   );
   expect(report.status).toBe('failed');
   expect(report.error).toContain('--overwrite');
@@ -108,27 +107,12 @@ test('link replaces an unmanaged file when overwrite is set', async () => {
   const report = await runActivation(
     link(ref, home('.config-target')),
     context,
-    false,
   );
   expect(report.status).toBe('changed');
   expect(await readlink(dest)).toBe(deployedPath(ref, sandbox));
 });
 
-test('plan mode reports changed without writing', async () => {
-  const context = contextFor(sandbox);
-  const ref = asset('git/global/.gitconfig');
-  await deploy(context, ref.key);
-
-  const report = await runActivation(
-    link(ref, home('.config/git/config')),
-    context,
-    true,
-  );
-  expect(report.status).toBe('changed');
-  await expect(lstat(join(sandbox, '.config/git/config'))).rejects.toThrow();
-});
-
-test('plan mode surfaces filesystem errors while probing links', async () => {
+test('link surfaces filesystem errors while probing links', async () => {
   const context = contextFor(sandbox);
   const ref = asset('git/global/.gitconfig');
   await deploy(context, ref.key);
@@ -137,7 +121,6 @@ test('plan mode surfaces filesystem errors while probing links', async () => {
   const report = await runActivation(
     link(ref, home('.blocked/git/config')),
     context,
-    true,
   );
 
   expect(report.status).toBe('failed');
@@ -149,7 +132,7 @@ test('linkTree mirrors deployed assets as symlinks and is idempotent', async () 
   for (const key of ALIAS_KEYS) await deploy(context, key);
   const activation = linkTree(aliasPrefix, home('.mev/alias'));
 
-  const first = await runActivation(activation, context, false);
+  const first = await runActivation(activation, context);
   expect(first.status).toBe('changed');
   expect(await readlink(join(sandbox, '.mev/alias/a.zsh'))).toBe(
     deployedPath(asset(`${aliasPrefix}a.zsh`), sandbox),
@@ -158,7 +141,7 @@ test('linkTree mirrors deployed assets as symlinks and is idempotent', async () 
     deployedPath(asset(`${aliasPrefix}sub/b.zsh`), sandbox),
   );
 
-  const second = await runActivation(activation, context, false);
+  const second = await runActivation(activation, context);
   expect(second.status).toBe('unchanged');
 });
 
@@ -166,14 +149,12 @@ test('linkTree prunes a managed link that is no longer expected', async () => {
   const context = contextFor(sandbox);
   for (const key of ALIAS_KEYS) await deploy(context, key);
   const activation = linkTree(aliasPrefix, home('.mev/alias'));
-  await runActivation(activation, context, false);
+  await runActivation(activation, context);
 
   const stale = join(sandbox, '.mev/alias/removed.zsh');
   await symlink(join(deployedDir(aliasPrefix, sandbox), 'removed.zsh'), stale);
 
-  expect((await runActivation(activation, context, false)).status).toBe(
-    'changed',
-  );
+  expect((await runActivation(activation, context)).status).toBe('changed');
   await expect(lstat(stale)).rejects.toThrow();
 });
 
@@ -181,14 +162,14 @@ test('linkTree leaves unmanaged files and foreign links untouched', async () => 
   const context = contextFor(sandbox);
   for (const key of ALIAS_KEYS) await deploy(context, key);
   const activation = linkTree(aliasPrefix, home('.mev/alias'));
-  await runActivation(activation, context, false);
+  await runActivation(activation, context);
 
   const userFile = join(sandbox, '.mev/alias/custom.zsh');
   await writeFile(userFile, 'user content');
   const foreignLink = join(sandbox, '.mev/alias/foreign.zsh');
   await symlink(join(sandbox, 'elsewhere/x.zsh'), foreignLink);
 
-  await runActivation(activation, context, false);
+  await runActivation(activation, context);
 
   expect(await Bun.file(userFile).text()).toBe('user content');
   expect(await readlink(foreignLink)).toBe(join(sandbox, 'elsewhere/x.zsh'));
@@ -198,7 +179,7 @@ test('linkTree only replaces expected links that drifted', async () => {
   const context = contextFor(sandbox);
   for (const key of ALIAS_KEYS) await deploy(context, key);
   const activation = linkTree(aliasPrefix, home('.mev/alias'));
-  await runActivation(activation, context, false);
+  await runActivation(activation, context);
 
   const correct = join(sandbox, '.mev/alias/a.zsh');
   const drifted = join(sandbox, '.mev/alias/sub/b.zsh');
@@ -206,7 +187,7 @@ test('linkTree only replaces expected links that drifted', async () => {
   await rm(drifted);
   await symlink(join(sandbox, 'wrong-target'), drifted);
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('changed');
   expect((await lstat(correct)).ino).toBe(before.ino);

@@ -24,7 +24,7 @@ function throwingStep(key: string, error: unknown): ReconcileStep {
 }
 
 test('a throwing step fails only itself; its siblings still run', async () => {
-  const report = await reconcile(base, false, {
+  const report = await reconcile(base, {
     declare: async () => [0, 1, 2],
     steps: async () => [
       step({ key: 'a', value: 'a', status: 'changed' }),
@@ -56,7 +56,7 @@ test('concurrent runs report in declaration order, not completion order', async 
     status: 'unchanged',
   });
 
-  const report = await reconcile(base, false, {
+  const report = await reconcile(base, {
     declare: async () => [0, 1],
     concurrent: true,
     steps: async () => [slowFirst, fastSecond],
@@ -66,7 +66,7 @@ test('concurrent runs report in declaration order, not completion order', async 
 });
 
 test('failed outranks changed in the aggregated status', async () => {
-  const report = await reconcile(base, false, {
+  const report = await reconcile(base, {
     declare: async () => [0, 1],
     steps: async () => [
       step({ key: 'a', value: 'a', status: 'changed' }),
@@ -76,28 +76,8 @@ test('failed outranks changed in the aggregated status', async () => {
   expect(report.status).toBe('failed');
 });
 
-test('plan mode runs declare only; no step is built or run', async () => {
-  let declared = 0;
-  let built = 0;
-  const report = await reconcile(base, true, {
-    declare: async () => {
-      declared += 1;
-      return [0];
-    },
-    steps: async () => {
-      built += 1;
-      return [];
-    },
-  });
-
-  expect(report.status).toBe('changed');
-  expect(report.entries).toBeUndefined();
-  expect(declared).toBe(1);
-  expect(built).toBe(0);
-});
-
 test('a failure from declare is a whole-activation error', async () => {
-  const report = await reconcile(base, false, {
+  const report = await reconcile(base, {
     declare: async () => {
       throw new ProvisioningError('manifest missing');
     },
@@ -110,7 +90,7 @@ test('a failure from declare is a whole-activation error', async () => {
 });
 
 test('a shared-probe failure raised in steps is a whole-activation error', async () => {
-  const report = await reconcile(base, false, {
+  const report = await reconcile(base, {
     declare: async () => [0, 1],
     steps: async () => {
       throw new ProvisioningError('probe failed');
@@ -123,17 +103,7 @@ test('a shared-probe failure raised in steps is a whole-activation error', async
 });
 
 test('an empty declaration reports unchanged with no entries', async () => {
-  const report = await reconcile(base, false, {
-    declare: async () => [],
-    steps: async () => [],
-  });
-
-  expect(report.status).toBe('unchanged');
-  expect(report.entries).toEqual([]);
-});
-
-test('an empty declaration reports unchanged in plan mode too', async () => {
-  const report = await reconcile(base, true, {
+  const report = await reconcile(base, {
     declare: async () => [],
     steps: async () => [],
   });

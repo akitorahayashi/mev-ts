@@ -93,7 +93,6 @@ async function staleLinks(
 export async function runFile(
   activation: FileActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
   const base = describeFile(activation);
   try {
@@ -101,9 +100,6 @@ export async function runFile(
     const target = deployedPath(activation.source, context.home);
     if (await isSymlinkTo(link, target)) {
       return { ...base, status: 'unchanged' };
-    }
-    if (plan) {
-      return { ...base, status: 'changed' };
     }
     await placeSymlink(link, target, context.overwrite);
     return { ...base, status: 'changed' };
@@ -115,7 +111,6 @@ export async function runFile(
 export async function runTree(
   activation: TreeActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
   const base = describeTree(activation);
   try {
@@ -138,9 +133,6 @@ export async function runTree(
 
     if (drifted.length === 0 && stale.length === 0) {
       return { ...base, status: 'unchanged' };
-    }
-    if (plan) {
-      return { ...base, status: 'changed' };
     }
 
     for (const { link, target } of drifted) {

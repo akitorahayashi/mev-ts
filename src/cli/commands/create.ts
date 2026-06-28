@@ -11,9 +11,6 @@ export class CreateCommand extends Command {
   });
 
   profile = Option.String();
-  plan = Option.Boolean('--plan', false, {
-    description: 'Show what would change without applying.',
-  });
   overwrite = Option.Boolean('-o,--overwrite', false, {
     description: 'Replace unmanaged files when linking configs.',
   });
@@ -24,7 +21,6 @@ export class CreateCommand extends Command {
 
     return executeProvisioningRun({
       tags,
-      plan: this.plan,
       overwrite: this.overwrite,
       intro: `mev: Creating ${profile} environment`,
       footer: (report) =>

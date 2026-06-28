@@ -75,7 +75,6 @@ const failedReport: MakeReport = {
 
 test('renderGroups collapses blocked groups with the blocker reason', () => {
   const rendered = renderGroups(failedReport.groups, {
-    plan: false,
     isTTY: false,
   });
 
@@ -87,7 +86,6 @@ test('renderGroups collapses blocked groups with the blocker reason', () => {
 
 test('renderMakeReport summarizes failed and blocked targets', () => {
   const rendered = renderMakeReport(failedReport, {
-    plan: false,
     isTTY: false,
     durationMs: 123_000,
   });
@@ -141,7 +139,6 @@ test('renderMakeReport renders concise successful summaries', () => {
   };
 
   const rendered = renderMakeReport(report, {
-    plan: false,
     isTTY: false,
     durationMs: 999,
   });

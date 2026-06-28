@@ -80,7 +80,6 @@ test('unchanged when every desired extension is already installed', async () => 
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
-      false,
     );
 
     expect(report.status).toBe('unchanged');
@@ -101,7 +100,6 @@ test('installs only the missing extensions', async () => {
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
-      false,
     );
 
     expect(report.status).toBe('changed');
@@ -125,7 +123,6 @@ test('failed when an install command returns non-zero', async () => {
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
-      false,
     );
 
     expect(report.status).toBe('failed');
@@ -141,26 +138,9 @@ test('failed when the editor CLI is unavailable', async () => {
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
-      false,
     );
 
     expect(report.status).toBe('failed');
-  });
-});
-
-test('plan mode reports changed without running any command', async () => {
-  await withSandbox(async (dir) => {
-    await deployManifest(dir);
-    const { context, calls } = contextWith(dir, () => ok());
-
-    const report = await runActivation(
-      installExtensions('code', CONFIG_KEY),
-      context,
-      true,
-    );
-
-    expect(report.status).toBe('changed');
-    expect(calls).toHaveLength(0);
   });
 });
 
@@ -177,7 +157,6 @@ test('failed when the extension manifest contains invalid entries', async () => 
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
-      false,
     );
 
     expect(report.status).toBe('failed');
