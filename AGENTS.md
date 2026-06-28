@@ -43,7 +43,7 @@ tests/                Integration tests for CLI, filesystem, subprocess, and net
 
 ### 3-Phase Provisioning
 
-`runMake()` drives three sequential phases: deploy embedded assets into `~/.config/mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply each activation concurrently (`runActivation()`). `overwrite` re-deploys a role from scratch; otherwise existing deploys are skipped.
+`runMake()` drives three sequential phases: deploy embedded assets into `~/.config/mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply each activation concurrently (`runActivation()`). `overwrite` stages a replacement role before removing the old deploy, with best-effort rollback for in-process failures; otherwise existing deploys are skipped.
 
 ### Activation DSL
 
