@@ -72,7 +72,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Asset Codegen
 
-`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `premev`/`prebuild`/`pretest`/`pretest:unit`/`pretest:integration`/`pretest:e2e`/`precheck` hooks.
+`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `pree`/`prebuild`/`pretest`/`pretest:unit`/`pretest:integration`/`precheck` hooks.
 
 ## Documentation Responsibilities
 
