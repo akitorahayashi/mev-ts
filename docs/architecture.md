@@ -69,7 +69,7 @@ Ten activation kinds:
 
 `reconcile.ts` provides the shared execution envelope used by all multi-item activation kinds (`defaults`, `duti`, `pipx`, `editorExtensions`, `coderAgents`, `coderSkills`, `release`). It enforces a structural error boundary at the per-item level rather than leaving it to each implementation:
 
-- `declare()` — yields the set of items to process. A failure here aborts the whole activation. In plan mode, `reconcile` returns `changed` after `declare` without building or running steps.
+- `declare()` — yields the set of items to process. A failure here aborts the whole activation.
 - `steps(declared)` — builds one `ReconcileStep` per item. This phase runs shared probes (e.g. listing installed tools or extensions) before returning the per-item work. A failure here also aborts the whole activation.
 - Per-item isolation — `executeStep` wraps each step's `run()` in a try/catch; a throwing step calls its `onError()` handler and yields a per-item `failed` report without interrupting siblings.
 - Status aggregation — `failed` outranks `changed`; an empty declaration reports `unchanged`.

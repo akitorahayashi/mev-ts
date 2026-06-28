@@ -23,7 +23,7 @@ export async function readDeployedManifest<T>(
   } catch (error) {
     if (isNotFound(error)) {
       throw new ProvisioningError(
-        `${label} not found: ${path}. Run without --plan to deploy first.`,
+        `${label} not found: ${path}. Run provisioning to deploy it first.`,
       );
     }
     throw error;

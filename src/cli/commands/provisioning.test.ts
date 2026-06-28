@@ -102,7 +102,6 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   const result = await capture(() =>
     executeProvisioningRun({
       tags: ['shell'],
-      plan: false,
       overwrite: true,
       intro: 'mev: Creating personal environment',
       footer: () => ['Optional', 'GUI applications: mev make br-c'],
@@ -112,7 +111,6 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
 
   expect(result.code).toBe(0);
   expect(requests[0]?.tags).toEqual(['shell']);
-  expect(requests[0]?.plan).toBe(false);
   expect(requests[0]?.overwrite).toBe(true);
   expect(result.stdout).toContain('mev: Creating personal environment');
   expect(result.stdout).toContain('Deployed config for shell  .zshenv');
@@ -129,7 +127,6 @@ test('executeProvisioningRun renders failed runs without success footer', async 
   const result = await capture(() =>
     executeProvisioningRun({
       tags: ['shell'],
-      plan: false,
       overwrite: false,
       footer: (report) =>
         report.failed

@@ -15,7 +15,6 @@ export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 
 interface ProvisioningRunOptions {
   readonly tags: readonly string[];
-  readonly plan: boolean;
   readonly overwrite: boolean;
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
@@ -39,17 +38,16 @@ export async function executeProvisioningRun(
   try {
     const report = await run({
       tags: options.tags,
-      plan: options.plan,
       overwrite: options.overwrite,
       onDeploy(result) {
-        const line = renderDeployLine(result, options.plan, isTTY);
+        const line = renderDeployLine(result, isTTY);
         if (line) out(`${line}\n`);
       },
       onHeader(selection) {
         out(`${renderHeader(selection)}\n`);
       },
       onInstallStart(total) {
-        if (total > 0 && isTTY && !options.plan) {
+        if (total > 0 && isTTY) {
           out('\n');
           bar = createProgressBar({
             total,
@@ -68,10 +66,9 @@ export async function executeProvisioningRun(
 
     bar?.finish();
     bar = undefined;
-    out(`\n${renderGroups(report.groups, { plan: options.plan, isTTY })}\n`);
+    out(`\n${renderGroups(report.groups, { isTTY })}\n`);
     out(
       `\n${renderMakeReport(report, {
-        plan: options.plan,
         isTTY,
         durationMs: Date.now() - startedAt,
         footer: options.footer?.(report),

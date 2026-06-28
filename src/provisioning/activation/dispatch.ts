@@ -52,35 +52,31 @@ export function blockedReport(
   };
 }
 
-/**
- * Inspect an activation and, unless `plan` is set, apply it. Returns a report
- * whose status drives both the exit code and the per-tag execution log.
- */
+/** Apply an activation and return the report that drives the execution log. */
 export function runActivation(
   activation: Activation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
   switch (activation.kind) {
     case 'file':
-      return runFile(activation, context, plan);
+      return runFile(activation, context);
     case 'tree':
-      return runTree(activation, context, plan);
+      return runTree(activation, context);
     case 'defaults':
-      return runDefaults(activation, context, plan);
+      return runDefaults(activation, context);
     case 'duti':
-      return runDuti(activation, context, plan);
+      return runDuti(activation, context);
     case 'pipx':
-      return runPipx(activation, context, plan);
+      return runPipx(activation, context);
     case 'editorExtensions':
-      return runExtensions(activation, context, plan);
+      return runExtensions(activation, context);
     case 'coderAgents':
-      return runCoderAgents(activation, context, plan);
+      return runCoderAgents(activation, context);
     case 'coderSkills':
-      return runCoderSkills(activation, context, plan);
+      return runCoderSkills(activation, context);
     case 'command':
-      return runCommandActivation(activation, context, plan);
+      return runCommandActivation(activation, context);
     case 'release':
-      return runRelease(activation, context, plan);
+      return runRelease(activation, context);
   }
 }

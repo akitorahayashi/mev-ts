@@ -62,7 +62,9 @@ test('a missing file becomes the labeled deploy-first guidance', async () => {
   await withSandbox(async (home) => {
     await expect(
       readDeployedManifest(CONFIG_KEY, home, () => null, 'Sample manifest'),
-    ).rejects.toThrow(/Sample manifest not found:.*Run without --plan/s);
+    ).rejects.toThrow(
+      /Sample manifest not found:.*Run provisioning to deploy it first/s,
+    );
   });
 });
 

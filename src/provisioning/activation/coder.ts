@@ -129,7 +129,6 @@ async function fanoutSkills(
 export async function runCoderAgents(
   activation: CoderAgentsActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
   const base = describeCoderAgents(activation);
   try {
@@ -137,9 +136,6 @@ export async function runCoderAgents(
     const catalog = await readSections(sourceDir);
     const disabled = await readDisabled(agentsManifest(context.home));
     const { enabled } = resolve(catalog, disabled);
-    if (plan) {
-      return { ...base, status: 'changed' };
-    }
     const output = agentsFile(context.home);
     const built = await buildAgents(sourceDir, enabled, output);
     const linked = await fanoutFile(activation.dests, output, context);
@@ -152,7 +148,6 @@ export async function runCoderAgents(
 export async function runCoderSkills(
   activation: CoderSkillsActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
   const base = describeCoderSkills(activation);
   try {
@@ -160,9 +155,6 @@ export async function runCoderSkills(
     const catalog = await readSkills(sourceDir);
     const disabled = await readDisabled(skillsManifest(context.home));
     const { enabled } = resolve(catalog, disabled);
-    if (plan) {
-      return { ...base, status: 'changed' };
-    }
     const intermediate = skillsDir(context.home);
     const built = await buildSkills(sourceDir, enabled, intermediate);
     const linked = await fanoutSkills(

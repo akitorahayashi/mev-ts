@@ -99,7 +99,6 @@ test('coderAgents concatenates enabled sections and symlinks the result', async 
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('changed');
@@ -128,7 +127,6 @@ test('coderAgents excludes sections disabled in the manifest', async () => {
     await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
       contextWith(dir),
-      false,
     );
 
     const built = await readFile(join(manifestDir, 'AGENTS.md'), 'utf8');
@@ -145,8 +143,8 @@ test('coderAgents reports unchanged on a second run', async () => {
     const activation = coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]);
     const context = contextWith(dir);
 
-    await runActivation(activation, context, false);
-    const second = await runActivation(activation, context, false);
+    await runActivation(activation, context);
+    const second = await runActivation(activation, context);
 
     expect(second.status).toBe('unchanged');
   });
@@ -163,7 +161,6 @@ test('coderAgents surfaces manifest filesystem errors', async () => {
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('failed');
@@ -180,7 +177,6 @@ test('coderAgents surfaces deployed catalog filesystem errors', async () => {
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('failed');
@@ -195,7 +191,6 @@ test('coderAgents rejects non-string catalog sections', async () => {
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('failed');
@@ -215,7 +210,6 @@ test('coderAgents surfaces generated file read errors', async () => {
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('failed');
@@ -230,7 +224,6 @@ test('coderSkills links each enabled skill into the target via the intermediate'
     const report = await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('changed');
@@ -258,7 +251,6 @@ test('coderSkills removes a target link when its skill is disabled', async () =>
     await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
       contextWith(dir),
-      false,
     );
 
     const targetLink = join(dir, '.claude', 'skills', 'toon');
@@ -279,7 +271,6 @@ test('coderSkills leaves an unmanaged target entry untouched', async () => {
     await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
       contextWith(dir),
-      false,
     );
 
     expect(await readlink(join(targetDir, 'mine'))).toBe(foreign);
@@ -294,7 +285,6 @@ test('coderSkills surfaces target directory filesystem errors', async () => {
     const report = await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
       contextWith(dir),
-      false,
     );
 
     expect(report.status).toBe('failed');

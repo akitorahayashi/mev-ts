@@ -100,9 +100,8 @@ function pipxStep(
 export function runPipx(
   activation: PipxActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
-  return reconcile(describePipx(activation), plan, {
+  return reconcile(describePipx(activation), {
     declare: () =>
       readDeployedManifest(
         activation.configKey,

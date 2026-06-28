@@ -83,7 +83,7 @@ test('unchanged when duti -x returns the correct bundle_id', async () => {
       return fail();
     });
 
-    const report = await runActivation(applyDuti(CONFIG_KEY), context, false);
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
 
     expect(report.status).toBe('unchanged');
     expect(calls.every((c) => c.args[0] === '-x')).toBe(true);
@@ -100,7 +100,7 @@ test('changed when duti -x returns a different bundle_id', async () => {
       return fail();
     });
 
-    const report = await runActivation(applyDuti(CONFIG_KEY), context, false);
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
     const sets = calls.filter((c) => c.args[0] === '-s');
@@ -118,7 +118,7 @@ test('applies when duti -x fails (extension not yet registered)', async () => {
       return fail();
     });
 
-    const report = await runActivation(applyDuti(CONFIG_KEY), context, false);
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
   });
@@ -134,7 +134,7 @@ test('failed when a duti config extension is not a string', async () => {
     );
     const { context, calls } = contextWith(dir, () => ok());
 
-    const report = await runActivation(applyDuti(CONFIG_KEY), context, false);
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain('extensions array of strings');
@@ -151,21 +151,9 @@ test('failed when duti -s returns non-zero', async () => {
       return fail();
     });
 
-    const report = await runActivation(applyDuti(CONFIG_KEY), context, false);
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.entries?.[0]?.error).toBe('permission denied');
-  });
-});
-
-test('plan mode reports changed without running any command', async () => {
-  await withSandbox(async (dir) => {
-    await deployConfig(dir);
-    const { context, calls } = contextWith(dir, () => ok());
-
-    const report = await runActivation(applyDuti(CONFIG_KEY), context, true);
-
-    expect(report.status).toBe('changed');
-    expect(calls).toHaveLength(0);
   });
 });

@@ -44,11 +44,7 @@ const oneFormula = packages({ formulae: ['git'] });
 
 test('reports present when brew bundle check succeeds', async () => {
   const sink: Sink = {};
-  const reports = await installPackages(
-    oneFormula,
-    contextWith(0, sink),
-    false,
-  );
+  const reports = await installPackages(oneFormula, contextWith(0, sink));
 
   expect(reports[0]?.status).toBe('present');
   expect(sink.brewfile).toBe('brew "git"\n');
@@ -59,11 +55,7 @@ test('reports present when brew bundle check succeeds', async () => {
 test('attempts install with --no-upgrade for a missing formula', async () => {
   const sink: Sink = {};
   // check fails (missing) on every call, so install runs.
-  const reports = await installPackages(
-    oneFormula,
-    contextWith(1, sink),
-    false,
-  );
+  const reports = await installPackages(oneFormula, contextWith(1, sink));
 
   expect(reports[0]?.status).toBe('failed');
   // The last brew invocation is the install attempt.
@@ -75,11 +67,6 @@ test('attempts install with --no-upgrade for a missing formula', async () => {
   ]);
 });
 
-test('plan mode reports missing without installing', async () => {
-  const reports = await installPackages(oneFormula, contextWith(1), true);
-  expect(reports[0]?.status).toBe('missing');
-});
-
 test('hooks report the total and tick per token', async () => {
   const started: string[] = [];
   const done: string[] = [];
@@ -88,7 +75,6 @@ test('hooks report the total and tick per token', async () => {
   await installPackages(
     packages({ taps: ['a/b'], formulae: ['git', 'gh'] }),
     contextWith(0),
-    false,
     {
       onStart: (n) => {
         total = n;
@@ -116,7 +102,7 @@ test('hooks report installing stage for missing packages', async () => {
   const started: string[] = [];
   const done: string[] = [];
 
-  await installPackages(oneFormula, contextWith(1), false, {
+  await installPackages(oneFormula, contextWith(1), {
     onTokenStart: (token, stage) => {
       started.push(`${stage} ${token.kind} ${token.name}`);
     },

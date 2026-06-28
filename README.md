@@ -38,7 +38,6 @@ bun e --version
 ```bash
 mev make git                   # Provision the git target
 mev make git shell              # Provision multiple targets at once
-mev make shell --plan           # Preview what would change without applying
 mev make shell -o               # Replace existing unmanaged files when linking
 ```
 
@@ -48,7 +47,6 @@ Each run ends with a report that summarizes required action, phase counts, chang
 ```bash
 mev create mbk                  # Provision a full MacBook environment
 mev create mac-mini             # Profiles: macbook/mbk, mac-mini/mmn
-mev create mmn --plan           # Preview the full environment without applying
 ```
 
 `create` (alias `cr`) provisions a full environment for a hardware profile by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`.
@@ -73,7 +71,6 @@ Identities are stored in `~/.config/mev/identity.json`. `switch` writes the sele
 ### Global flags
 
 ```
---plan         Preview activations without applying them
 -o, --overwrite  Replace existing unmanaged files when linking configs
 --help         Show command help
 --version      Print the binary version

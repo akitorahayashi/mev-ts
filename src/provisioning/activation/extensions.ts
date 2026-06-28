@@ -56,9 +56,8 @@ function extensionStep(
 export function runExtensions(
   activation: ExtensionsActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
-  return reconcile(describeExtensions(activation), plan, {
+  return reconcile(describeExtensions(activation), {
     declare: () =>
       readDeployedManifest(
         activation.configKey,

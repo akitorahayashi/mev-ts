@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { deployedDir } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { CommandLineError } from '../../src/errors';
 import type { Context } from '../../src/host/context';
@@ -41,30 +40,13 @@ afterEach(async () => {
 
 test('an unknown tag is rejected', async () => {
   await expect(
-    runMake(
-      { tags: ['nope'], plan: true, overwrite: false },
-      contextFor(sandbox),
-    ),
+    runMake({ tags: ['nope'], overwrite: false }, contextFor(sandbox)),
   ).rejects.toBeInstanceOf(CommandLineError);
-});
-
-test('plan reports would-change without writing to the store', async () => {
-  const report = await runMake(
-    { tags: ['git'], plan: true, overwrite: false },
-    contextFor(sandbox),
-  );
-
-  expect(report.failed).toBe(false);
-  expect(report.selection.packages.formulae).toContain('git');
-  expect(gitGroup(report)?.reports.every((r) => r.status === 'changed')).toBe(
-    true,
-  );
-  await expect(Bun.file(deployedDir('git', sandbox)).stat()).rejects.toThrow();
 });
 
 test('apply deploys and links the git target', async () => {
   const report = await runMake(
-    { tags: ['git'], plan: false, overwrite: false },
+    { tags: ['git'], overwrite: false },
     contextFor(sandbox),
   );
 
@@ -77,7 +59,7 @@ test('apply deploys and links the git target', async () => {
 
 test('an alias and its tag select the same target once', async () => {
   const report = await runMake(
-    { tags: ['sh', 'shell'], plan: true, overwrite: false },
+    { tags: ['sh', 'shell'], overwrite: false },
     contextFor(sandbox),
   );
   expect(report.selection.tags).toEqual(['shell']);
@@ -89,7 +71,6 @@ test('onDeploy fires for each role and onInstallStart reports formula count', as
   await runMake(
     {
       tags: ['git'],
-      plan: false,
       overwrite: false,
       onDeploy: (r) => deployed.push(r.role),
       onInstallStart: (n) => {
@@ -129,10 +110,7 @@ test('a failed package blocks dependent activations', async () => {
     },
   };
 
-  const report = await runMake(
-    { tags: ['python'], plan: false, overwrite: false },
-    context,
-  );
+  const report = await runMake({ tags: ['python'], overwrite: false }, context);
   const group = report.groups.find((entry) => entry.tag === 'python');
 
   expect(report.failed).toBe(true);

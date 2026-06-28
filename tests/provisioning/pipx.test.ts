@@ -137,7 +137,7 @@ test('all tools current: no install/inject/post-install runs', async () => {
     });
     const { context, calls } = contextWith(dir, baseResponder(listed));
 
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('unchanged');
     expect(calls.some((c) => c.args[0] === 'install')).toBe(false);
@@ -150,7 +150,7 @@ test('fresh install runs install, inject, then post-install in order', async () 
     await deployConfig(dir);
     const { context, calls } = contextWith(dir, baseResponder(listJson({})));
 
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
     const dcvCalls = calls.filter(
@@ -185,7 +185,7 @@ test('version mismatch triggers uninstall before install', async () => {
     });
     const { context, calls } = contextWith(dir, baseResponder(listed));
 
-    await runActivation(applyPipx(CONFIG_KEY), context, false);
+    await runActivation(applyPipx(CONFIG_KEY), context);
 
     const dcv = calls.filter((c) => c.args.some((a) => a.includes('dcv')));
     expect(dcv.map((c) => c.args[0])).toEqual([
@@ -207,7 +207,7 @@ test('a failed install marks the tool failed but continues others', async () => 
       return ok('installed package');
     });
 
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     const ytdlp = report.entries?.find((e) => e.key === 'yt-dlp');
@@ -219,18 +219,6 @@ test('a failed install marks the tool failed but continues others', async () => 
   });
 });
 
-test('plan mode reports changed without running any command', async () => {
-  await withSandbox(async (dir) => {
-    await deployConfig(dir);
-    const { context, calls } = contextWith(dir, () => ok());
-
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, true);
-
-    expect(report.status).toBe('changed');
-    expect(calls).toHaveLength(0);
-  });
-});
-
 test('failed when the pipx manifest contains non-string package names', async () => {
   await withSandbox(async (dir) => {
     const roleDir = join(dir, '.config', 'mev', 'roles', 'pipx', 'global');
@@ -238,7 +226,7 @@ test('failed when the pipx manifest contains non-string package names', async ()
     await writeFile(join(roleDir, 'tools.yml'), 'tools:\n  - package: 42\n');
     const { context, calls } = contextWith(dir, () => ok());
 
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain('package name');
@@ -263,7 +251,7 @@ test('failed when pipx list JSON omits required package fields', async () => {
     });
     const { context } = contextWith(dir, baseResponder(malformed));
 
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain('pipx list --json');
@@ -276,7 +264,7 @@ test('failed when pipx list JSON contains malformed venv entries', async () => {
     const malformed = JSON.stringify({ venvs: { dcv: 'not an object' } });
     const { context } = contextWith(dir, baseResponder(malformed));
 
-    const report = await runActivation(applyPipx(CONFIG_KEY), context, false);
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain("venv 'dcv' must be an object");

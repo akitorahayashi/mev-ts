@@ -67,7 +67,7 @@ test('reads inject asset values and captures feed later steps', async () => {
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('changed');
   expect(calls[1]?.args).toEqual(['3.3.3', '/opt/homebrew']);
@@ -89,7 +89,7 @@ test('skipIf with a satisfied pathExists guard marks the step unchanged', async 
       ],
     });
 
-    const report = await runActivation(activation, context, false);
+    const report = await runActivation(activation, context);
 
     expect(calls).toHaveLength(0);
     expect(report.entries?.[0]?.status).toBe('unchanged');
@@ -119,7 +119,7 @@ test('skipIf pathExists surfaces filesystem errors instead of running', async ()
       ],
     });
 
-    const report = await runActivation(activation, context, false);
+    const report = await runActivation(activation, context);
 
     expect(calls).toHaveLength(0);
     expect(report.status).toBe('failed');
@@ -141,7 +141,7 @@ test('a non-zero step fails the activation and halts the pipeline', async () => 
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('failed');
   expect(report.entries?.[0]?.error).toBe('nope');
@@ -159,7 +159,7 @@ test('a non-zero step does not copy stdout into the error field', async () => {
     steps: [{ label: 'boom', argv: () => ['boom'] }],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('failed');
   expect(report.entries?.[0]?.error).toBe('exit code 1');
@@ -173,7 +173,7 @@ test('env thunk output reaches the command runner', async () => {
     steps: [{ argv: () => ['x'], env: () => ({ FOO: 'bar' }) }],
   });
 
-  await runActivation(activation, context, false);
+  await runActivation(activation, context);
 
   expect(calls[0]?.options?.env).toEqual({ FOO: 'bar' });
 });
@@ -197,7 +197,7 @@ test('skipIf with a satisfied commandSucceeds guard runs with step env', async (
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(calls).toHaveLength(1);
   expect(calls[0]?.command).toBe('check');
@@ -219,7 +219,7 @@ test('outputContains marks changed when phrase present in stderr', async () => {
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('changed');
 });
@@ -236,7 +236,7 @@ test('outputContains marks unchanged when phrase absent from combined output', a
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('unchanged');
 });
@@ -255,7 +255,7 @@ test('outputNotContains checks stdout+stderr and marks unchanged when phrase pre
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('unchanged');
 });
@@ -272,20 +272,7 @@ test('outputNotContains marks changed when phrase absent from combined output', 
     ],
   });
 
-  const report = await runActivation(activation, context, false);
+  const report = await runActivation(activation, context);
 
   expect(report.status).toBe('changed');
-});
-
-test('plan mode reports changed without running any step', async () => {
-  const { calls, context } = contextWith('/home/u', () => ok());
-  const activation = runCommand({
-    label: 'demo',
-    steps: [{ argv: () => ['x'] }],
-  });
-
-  const report = await runActivation(activation, context, true);
-
-  expect(report.status).toBe('changed');
-  expect(calls).toHaveLength(0);
 });

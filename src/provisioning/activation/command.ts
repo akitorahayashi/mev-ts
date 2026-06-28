@@ -108,13 +108,9 @@ async function readBindings(
 export async function runCommandActivation(
   activation: CommandActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
   const base = describeCommand(activation);
   try {
-    if (plan) {
-      return { ...base, status: 'changed' };
-    }
     const bindings = await readBindings(activation.reads ?? {}, context);
     const entries: StepReport[] = [];
     let failed = false;

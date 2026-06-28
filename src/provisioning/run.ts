@@ -10,7 +10,7 @@ import {
   blockedReport,
   runActivation,
 } from './activation';
-import { type DeployResult, deployRole, inspectRole } from './deploy';
+import { type DeployResult, deployRole } from './deploy';
 import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
 
@@ -44,7 +44,6 @@ export interface MakeReport {
 
 export interface MakeRequest {
   readonly tags: readonly string[];
-  readonly plan: boolean;
   readonly overwrite: boolean;
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
@@ -86,14 +85,12 @@ export async function runMake(
   const deploys: DeployResult[] = [];
   const failedRoles = new Map<string, string>();
   for (const role of selection.roles) {
-    const result = request.plan
-      ? await inspectRole(role, context)
-      : await deployRole(role, context).catch((error) => ({
-          role,
-          deployed: false,
-          files: [] as readonly string[],
-          error: error instanceof Error ? error.message : String(error),
-        }));
+    const result = await deployRole(role, context).catch((error) => ({
+      role,
+      deployed: false,
+      files: [] as readonly string[],
+      error: error instanceof Error ? error.message : String(error),
+    }));
     if (result.error) {
       failedRoles.set(role, result.error);
     }
@@ -104,16 +101,11 @@ export async function runMake(
   request.onHeader?.(selection);
 
   // Phase 2: resolve required packages as a batch with a progress bar.
-  const install = await installPackages(
-    selection.packages,
-    context,
-    request.plan,
-    {
-      onStart: request.onInstallStart,
-      onTokenStart: request.onInstallTokenStart,
-      onTick: request.onInstallTick,
-    },
-  );
+  const install = await installPackages(selection.packages, context, {
+    onStart: request.onInstallStart,
+    onTokenStart: request.onInstallTokenStart,
+    onTick: request.onInstallTick,
+  });
   const failedPackages = install.filter((r) => r.status === 'failed');
 
   // Phase 3: activate deployed assets, grouped and attributed by tag.
@@ -155,7 +147,7 @@ export async function runMake(
     }
     const reports = await Promise.all(
       group.activations.map((activation) =>
-        limit(() => runActivation(activation, context, request.plan)),
+        limit(() => runActivation(activation, context)),
       ),
     );
     groups.push({ tag: group.tag, blockers, reports });

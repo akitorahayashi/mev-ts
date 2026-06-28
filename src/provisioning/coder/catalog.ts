@@ -56,7 +56,7 @@ export async function readSections(sourceDir: string): Promise<string[]> {
   const raw = await readTextIfPresent(catalogPath);
   if (raw === null) {
     throw new ProvisioningError(
-      `AGENTS.md section catalog not found: ${catalogPath}. Run without --plan to deploy first.`,
+      `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
     );
   }
   const parsed = load(raw) as SectionsCatalogFile;
@@ -74,7 +74,7 @@ export async function readSections(sourceDir: string): Promise<string[]> {
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
     throw new ProvisioningError(
-      `AGENTS.md section catalog not found: ${catalogPath}. Run without --plan to deploy first.`,
+      `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
     );
   }
   const presentStems = entries
@@ -88,7 +88,7 @@ export async function readSkills(sourceDir: string): Promise<string[]> {
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
     throw new ProvisioningError(
-      `Skills source directory is missing: ${sourceDir}. Run without --plan to deploy first.`,
+      `Skills source directory is missing: ${sourceDir}. Run provisioning to deploy it first.`,
     );
   }
   return entries

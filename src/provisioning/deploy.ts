@@ -60,17 +60,3 @@ export async function deployRole(
   }
   return { role, deployed: true, files: topLevelFiles(role, keys) };
 }
-
-/** Report whether the role would be deployed, without writing anything. */
-export async function inspectRole(
-  role: string,
-  context: Context,
-): Promise<DeployResult> {
-  const present = await exists(deployedDir(role, context.home));
-  const keys = context.assets.keysByPrefix(`${role}/`);
-  return {
-    role,
-    deployed: !present || context.overwrite,
-    files: topLevelFiles(role, keys),
-  };
-}

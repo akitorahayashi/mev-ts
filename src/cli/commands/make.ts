@@ -8,9 +8,6 @@ export class MakeCommand extends Command {
   });
 
   tags = Option.Rest({ required: 1 });
-  plan = Option.Boolean('--plan', false, {
-    description: 'Show what would change without applying.',
-  });
   overwrite = Option.Boolean('-o,--overwrite', false, {
     description: 'Replace unmanaged files when linking configs.',
   });
@@ -18,7 +15,6 @@ export class MakeCommand extends Command {
   async execute(): Promise<number> {
     return executeProvisioningRun({
       tags: this.tags,
-      plan: this.plan,
       overwrite: this.overwrite,
     });
   }

@@ -96,7 +96,7 @@ Our run-tests.yml Action runs a parallel matrix job for unit and integration sui
 - Create a tool wrapper capability under src/ if calling external binaries.
 - Implement the activation runner under src/provisioning/activation/.
 - Route it in src/provisioning/activation/dispatch.ts.
-- Create an integration test under tests/provisioning/ to verify changed, unchanged, and failed statuses, command executions, and plan mode.
+- Create an integration test under tests/provisioning/ to verify changed, unchanged, and failed statuses plus command executions.
 
 ### Adding a New Target
 - Add the target file under src/provisioning/targets/ and register it in src/provisioning/registry.ts.

@@ -55,9 +55,8 @@ function dutiStep(
 export function runDuti(
   activation: DutiActivation,
   context: Context,
-  plan: boolean,
 ): Promise<ActivationReport> {
-  return reconcile(describeDuti(activation), plan, {
+  return reconcile(describeDuti(activation), {
     declare: () =>
       readDeployedManifest(
         activation.configKey,
