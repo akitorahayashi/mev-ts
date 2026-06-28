@@ -68,6 +68,7 @@ export class CreateCommand extends Command {
       });
 
       bar?.finish();
+      bar = undefined;
       out(`\n${renderGroups(report.groups, { plan, isTTY })}\n`);
       out(
         `\n${renderMakeReport(report, {
