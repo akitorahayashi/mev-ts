@@ -1,8 +1,9 @@
-import { chmod, mkdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { deployedDir, deployRoot } from '../assets/ref';
+import { deployedDir } from '../assets/ref';
 import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
+import { replaceDirectoryAfterBuild } from '../host/directory-replacement';
 
 export interface DeployResult {
   readonly role: string;
@@ -33,9 +34,10 @@ function topLevelFiles(
 }
 
 /**
- * Materialize every embedded asset under a role into the deploy store. A
- * present role is left untouched unless `overwrite` is set, in which case it is
- * removed and rewritten so stale files never linger.
+ * Materialize every embedded asset under a role into the deploy store. A present
+ * role is left untouched unless `overwrite` is set, in which case replacement
+ * is staged before the old directory is removed so build failures keep the
+ * previous deploy intact.
  */
 export async function deployRole(
   role: string,
@@ -46,17 +48,19 @@ export async function deployRole(
   if (present && !context.overwrite) {
     return { role, deployed: false, files: [] };
   }
-  if (present) {
-    await rm(destDir, { recursive: true, force: true });
-  }
   const keys = context.assets.keysByPrefix(`${role}/`);
-  for (const key of keys) {
-    const dest = join(context.home, deployRoot, key);
-    await mkdir(dirname(dest), { recursive: true });
-    await writeFile(dest, await context.assets.read(key));
-    if (context.assets.isExecutable(key)) {
-      await chmod(dest, 0o755);
+
+  await replaceDirectoryAfterBuild(destDir, async (tmp) => {
+    for (const key of keys) {
+      const relative = key.slice(`${role}/`.length);
+      const dest = join(tmp, relative);
+      await mkdir(dirname(dest), { recursive: true });
+      await writeFile(dest, await context.assets.read(key));
+      if (context.assets.isExecutable(key)) {
+        await chmod(dest, 0o755);
+      }
     }
-  }
+  });
+
   return { role, deployed: true, files: topLevelFiles(role, keys) };
 }

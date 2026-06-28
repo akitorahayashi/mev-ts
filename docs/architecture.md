@@ -25,7 +25,7 @@ src/
 
 `runMake()` drives three sequential phases per make request:
 
-1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.config/mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case the role directory is removed and rewritten so stale files never linger.
+1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.config/mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case replacement is built in a sibling staging directory before the old role is moved aside and removed.
 2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. Runs `brew bundle check` per token and installs only missing ones. Its hooks expose the current token and stage so the CLI can render live `checking` and `installing` progress labels.
 3. Activate — `runActivation()` applies activations at p-limit concurrency of 8 within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install.
 

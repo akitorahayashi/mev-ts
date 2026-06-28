@@ -88,3 +88,33 @@ test('deployRole prunes stale files when overwrite is set', async () => {
   expect(result.deployed).toBe(true);
   await expect(lstat(stale)).rejects.toThrow();
 });
+
+test('deployRole keeps the previous role when overwrite staging fails', async () => {
+  await deployRole('git', contextFor(sandbox));
+  const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
+  await writeFile(stale, 'leftover');
+
+  const failingAssets: AssetSource = {
+    ...assets,
+    async read(key) {
+      if (key === 'git/global/.gitignore_global') {
+        throw new Error('asset unavailable');
+      }
+      return assets.read(key);
+    },
+  };
+
+  await expect(
+    deployRole('git', {
+      ...contextFor(sandbox, true),
+      assets: failingAssets,
+    }),
+  ).rejects.toThrow('asset unavailable');
+
+  expect(
+    await Bun.file(
+      deployedPath({ key: 'git/global/.gitconfig' }, sandbox),
+    ).text(),
+  ).toBe('content of git/global/.gitconfig\n');
+  expect(await Bun.file(stale).text()).toBe('leftover');
+});
