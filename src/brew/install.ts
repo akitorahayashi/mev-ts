@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
+import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 import {
   type PackageRequirement,
@@ -75,7 +76,7 @@ async function install(
     ]);
     if (result.code !== 0) {
       throw new ProvisioningError(
-        `brew bundle install failed for ${name} with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+        formatCommandFailure(`brew bundle install failed for ${name}`, result),
       );
     }
   });

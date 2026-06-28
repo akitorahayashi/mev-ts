@@ -9,10 +9,10 @@ command -v rtk >/dev/null 2>&1 || exit 10
 
 # Preserve native command behavior when RTK rewrite is not compatible.
 case "$command_input" in
-rg | rg\ *)
+rg | rg[[:space:]]* | command[[:space:]]rg | command[[:space:]]rg[[:space:]]*)
 	exit 10
 	;;
-find | find\ *)
+find | find[[:space:]]* | command[[:space:]]find | command[[:space:]]find[[:space:]]*)
 	exit 10
 	;;
 esac

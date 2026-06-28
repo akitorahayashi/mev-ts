@@ -1,6 +1,7 @@
 import { chmod } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
+import { commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
 
 /**
@@ -29,7 +30,7 @@ export async function detectArch(context: Context): Promise<string> {
   const result = await context.commands.run('uname', ['-m']);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `uname -m failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+      `uname -m failed: ${commandFailureDetail(result, `exit code ${result.code}`)}`,
     );
   }
   const machine = result.stdout.trim();
@@ -95,14 +96,16 @@ export async function fetchReleaseBinary(
       ]);
       if (r.code !== 0) {
         throw new ProvisioningError(
-          r.stderr.trim() || `gh release download exit ${r.code}`,
+          commandFailureDetail(r, `gh release download exit ${r.code}`),
         );
       }
     } else {
       const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
       const r = await context.commands.run('curl', ['-fsSL', url, '-o', tmp]);
       if (r.code !== 0) {
-        throw new ProvisioningError(r.stderr.trim() || `curl exit ${r.code}`);
+        throw new ProvisioningError(
+          commandFailureDetail(r, `curl exit ${r.code}`),
+        );
       }
     }
     await chmod(tmp, 0o755);

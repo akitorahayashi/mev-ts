@@ -65,7 +65,12 @@ export async function readSections(sourceDir: string): Promise<string[]> {
       `AGENTS.md section catalog must contain a sections sequence: ${catalogPath}.`,
     );
   }
-  const listed = parsed.sections as string[];
+  if (!parsed.sections.every((entry) => typeof entry === 'string')) {
+    throw new ProvisioningError(
+      `AGENTS.md section catalog must contain a sections sequence of strings: ${catalogPath}.`,
+    );
+  }
+  const listed = parsed.sections;
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
     throw new ProvisioningError(

@@ -1,10 +1,19 @@
 import { ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../host/command';
+import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
 export interface Label {
   readonly name: string;
   readonly color: string;
   readonly description: string;
+}
+
+function isLabelName(value: unknown): value is { readonly name: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as { readonly name?: unknown }).name === 'string'
+  );
 }
 
 function repoArgs(repo?: string): string[] {
@@ -26,7 +35,7 @@ export async function listLabelNames(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `gh label list failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure('gh label list failed', result),
     );
   }
   let parsed: unknown;
@@ -42,7 +51,12 @@ export async function listLabelNames(
       'Failed to parse gh label list output: expected an array',
     );
   }
-  return parsed.map((l: { name: string }) => l.name);
+  if (!parsed.every(isLabelName)) {
+    throw new ProvisioningError(
+      'Failed to parse gh label list output: every entry must contain a string name',
+    );
+  }
+  return parsed.map((label) => label.name);
 }
 
 export async function createLabel(
@@ -62,7 +76,7 @@ export async function createLabel(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `gh label create ${label.name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure(`gh label create ${label.name} failed`, result),
     );
   }
 }
@@ -84,7 +98,7 @@ export async function editLabel(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `gh label edit ${label.name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure(`gh label edit ${label.name} failed`, result),
     );
   }
 }
@@ -103,7 +117,7 @@ export async function deleteLabel(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `gh label delete ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure(`gh label delete ${name} failed`, result),
     );
   }
 }

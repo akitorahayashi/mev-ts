@@ -163,3 +163,25 @@ test('plan mode reports changed without running any command', async () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+test('failed when the extension manifest contains invalid entries', async () => {
+  await withSandbox(async (dir) => {
+    const roleDir = join(dir, '.config/mev/roles/editor/vscode/global');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(
+      join(roleDir, 'extensions.json'),
+      JSON.stringify({ extensions: ['publisher.alpha', '  '] }),
+    );
+    const { context, calls } = contextWith(dir, () => ok());
+
+    const report = await runActivation(
+      installExtensions('code', CONFIG_KEY),
+      context,
+      false,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('extensions array of non-empty strings');
+    expect(calls).toHaveLength(0);
+  });
+});

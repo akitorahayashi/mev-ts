@@ -124,6 +124,24 @@ test('applies when duti -x fails (extension not yet registered)', async () => {
   });
 });
 
+test('failed when a duti config extension is not a string', async () => {
+  await withSandbox(async (dir) => {
+    const roleDir = join(dir, '.config', 'mev', 'roles', 'duti', 'global');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(
+      join(roleDir, 'default_apps.yml'),
+      'default_apps:\n  - bundle_id: dev.zed.Zed\n    extensions: [md, 42]\n',
+    );
+    const { context, calls } = contextWith(dir, () => ok());
+
+    const report = await runActivation(applyDuti(CONFIG_KEY), context, false);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('extensions array of strings');
+    expect(calls).toHaveLength(0);
+  });
+});
+
 test('failed when duti -s returns non-zero', async () => {
   await withSandbox(async (dir) => {
     await deployConfig(dir);

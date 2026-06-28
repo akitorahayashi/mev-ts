@@ -39,3 +39,8 @@ test('get throws ProvisioningError on non-zero exit', async () => {
     ProvisioningError,
   );
 });
+
+test('get throws ProvisioningError on invalid JSON output', async () => {
+  const run = runner({ code: 0, stdout: 'not json', stderr: '' });
+  await expect(get(run, '/user')).rejects.toBeInstanceOf(ProvisioningError);
+});

@@ -43,7 +43,12 @@ export async function readDisabled(manifestPath: string): Promise<string[]> {
       `Invalid selection manifest ${manifestPath}: 'disabled' must be a sequence.`,
     );
   }
-  return parsed.disabled as string[];
+  if (!parsed.disabled.every((entry) => typeof entry === 'string')) {
+    throw new ProvisioningError(
+      `Invalid selection manifest ${manifestPath}: 'disabled' must be a sequence of strings.`,
+    );
+  }
+  return parsed.disabled;
 }
 
 /**

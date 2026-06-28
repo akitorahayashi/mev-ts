@@ -1,5 +1,5 @@
 import { ProvisioningError } from '../../errors';
-import type { CommandRunner } from '../../host/command';
+import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
 export async function extensionInstalled(
   run: CommandRunner,
@@ -19,7 +19,7 @@ export async function extensionInstall(
   const result = await run.run('gh', ['extension', 'install', name]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `gh extension install ${name} failed with code ${result.code}: ${result.stderr || result.stdout || 'unknown error'}`,
+      formatCommandFailure(`gh extension install ${name} failed`, result),
     );
   }
 }

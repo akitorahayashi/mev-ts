@@ -85,6 +85,11 @@ test('listLabelNames throws ProvisioningError when JSON is not an array', async 
   await expect(listLabelNames(run)).rejects.toBeInstanceOf(ProvisioningError);
 });
 
+test('listLabelNames throws ProvisioningError when an entry has no string name', async () => {
+  const run = runner({ code: 0, stdout: '[{"name":42}]', stderr: '' });
+  await expect(listLabelNames(run)).rejects.toBeInstanceOf(ProvisioningError);
+});
+
 test('createLabel passes correct argv without repo', async () => {
   const sink: { args?: string[] } = {};
   const run = runner({ code: 0, stdout: '', stderr: '' }, sink);

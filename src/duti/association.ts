@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import { commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
 
 interface DutiApp {
@@ -27,12 +28,22 @@ export async function parseAssociations(
     );
   }
   return parsed.default_apps.flatMap((app: DutiApp) => {
-    if (!app?.bundle_id || !Array.isArray(app?.extensions)) {
+    if (typeof app?.bundle_id !== 'string' || app.bundle_id.length === 0) {
       throw new ProvisioningError(
-        `Invalid entry in duti config: each app must have a bundle_id and an extensions array.`,
+        `Invalid entry in duti config: each app must have a string bundle_id.`,
       );
     }
-    return app.extensions.map((extension: string) => ({
+    if (!Array.isArray(app.extensions)) {
+      throw new ProvisioningError(
+        `Invalid entry in duti config: each app must have an extensions array.`,
+      );
+    }
+    if (!app.extensions.every((extension) => typeof extension === 'string')) {
+      throw new ProvisioningError(
+        `Invalid entry in duti config: each app must have an extensions array of strings.`,
+      );
+    }
+    return app.extensions.map((extension) => ({
       bundleId: app.bundle_id,
       extension,
     }));
@@ -69,7 +80,7 @@ export async function setApp(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      result.stderr.trim() || `exit code ${result.code}`,
+      commandFailureDetail(result, `exit code ${result.code}`),
     );
   }
 }
