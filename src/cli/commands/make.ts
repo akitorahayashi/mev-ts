@@ -1,4 +1,5 @@
 import { Command, Option } from 'clipanion';
+import { createProgressBar } from 'tty-prog';
 import { runMake } from '../../provisioning/run';
 import {
   renderDeployLine,
@@ -6,7 +7,6 @@ import {
   renderHeader,
   renderMakeReport,
 } from '../tty/makelog';
-import { createProgressBar } from '../tty/progress';
 
 export class MakeCommand extends Command {
   static override paths = [['make'], ['mk']];
@@ -45,18 +45,23 @@ export class MakeCommand extends Command {
         onInstallStart(total) {
           if (total > 0 && isTTY && !plan) {
             out('\n');
-            bar = createProgressBar(total);
+            bar = createProgressBar({
+              total,
+              isTty: isTTY,
+              stream: process.stdout,
+            });
           }
         },
         onInstallTokenStart(token, stage) {
           bar?.setLabel(`${stage} ${token.kind} ${token.name}`);
         },
         onInstallTick() {
-          bar?.tick();
+          bar?.advance();
         },
       });
 
-      bar?.stop();
+      bar?.finish();
+      bar = undefined;
       out(`\n${renderGroups(report.groups, { plan, isTTY })}\n`);
       out(
         `\n${renderMakeReport(report, {
@@ -69,7 +74,7 @@ export class MakeCommand extends Command {
     } finally {
       // Guarantee the spinner interval is cleared even if runMake throws, so
       // the event loop is not kept alive and the cursor is not left dirty.
-      bar?.stop();
+      bar?.finish();
     }
   }
 }
