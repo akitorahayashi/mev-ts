@@ -51,10 +51,15 @@ export async function deployRole(
   const keys = context.assets.keysByPrefix(`${role}/`);
 
   await replaceDirectoryAfterBuild(destDir, async (tmp) => {
+    const createdDirs = new Set<string>();
     for (const key of keys) {
       const relative = key.slice(`${role}/`.length);
       const dest = join(tmp, relative);
-      await mkdir(dirname(dest), { recursive: true });
+      const destParent = dirname(dest);
+      if (!createdDirs.has(destParent)) {
+        await mkdir(destParent, { recursive: true });
+        createdDirs.add(destParent);
+      }
       await writeFile(dest, await context.assets.read(key));
       if (context.assets.isExecutable(key)) {
         await chmod(dest, 0o755);

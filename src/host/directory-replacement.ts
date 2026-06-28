@@ -10,6 +10,15 @@ function siblingPath(path: string, suffix: string): string {
   );
 }
 
+/**
+ * Replaces a directory after its successor has been fully built in a sibling
+ * staging directory.
+ *
+ * The final swap uses rename calls with best-effort rollback for in-process
+ * failures. It is not crash-safe: a process or host crash between moving the
+ * old directory aside and moving the new directory into place can leave the
+ * target path absent with the backup sibling still present.
+ */
 export async function replaceDirectoryAfterBuild(
   path: string,
   buildDirectory: (tmp: string) => Promise<void>,
