@@ -1,4 +1,4 @@
-import { readdir, readlink, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   type AssetRef,
@@ -7,6 +7,7 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
+import { readDirectoryIfPresent, readlinkIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, lstatOrNull, placeSymlink } from '../../host/symlink';
@@ -66,10 +67,8 @@ async function staleLinks(
   managedRoot: string,
   expected: ReadonlySet<string>,
 ): Promise<string[]> {
-  let names: string[];
-  try {
-    names = await readdir(root, { recursive: true });
-  } catch {
+  const names = await readDirectoryIfPresent(root);
+  if (names === null) {
     return [];
   }
   const base = managedRoot.endsWith('/') ? managedRoot : `${managedRoot}/`;
@@ -83,8 +82,8 @@ async function staleLinks(
     if (!stats?.isSymbolicLink()) {
       continue;
     }
-    const target = await readlink(path).catch(() => '');
-    if (target.startsWith(base)) {
+    const target = await readlinkIfPresent(path);
+    if (target?.startsWith(base)) {
       stale.push(path);
     }
   }
@@ -127,23 +126,24 @@ export async function runTree(
     const managedRoot = deployedDir(activation.prefix, context.home);
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
-    let present = 0;
+    const drifted: TreeEntry[] = [];
     for (const { link, target } of entries) {
       if (await isSymlinkTo(link, target)) {
-        present += 1;
+        continue;
       }
+      drifted.push({ link, target });
     }
     const expected = new Set(entries.map((entry) => entry.link));
     const stale = await staleLinks(root, managedRoot, expected);
 
-    if (present === entries.length && stale.length === 0) {
+    if (drifted.length === 0 && stale.length === 0) {
       return { ...base, status: 'unchanged' };
     }
     if (plan) {
       return { ...base, status: 'changed' };
     }
 
-    for (const { link, target } of entries) {
+    for (const { link, target } of drifted) {
       await placeSymlink(link, target, context.overwrite);
     }
     for (const link of stale) {

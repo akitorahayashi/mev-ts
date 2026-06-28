@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppError } from '../../src/errors';
 import {
@@ -55,6 +55,17 @@ test('saveState omits null profiles from the serialized file', async () => {
   expect(json).toEqual({
     personal: { name: 'Only Personal', email: 'p@example.com' },
   });
+});
+
+test('saveState does not leave the former fixed temp file behind', async () => {
+  const path = identityFilePath(tempHome());
+  await saveState(path, {
+    personal: makeIdentity('Personal', 'p@example.com'),
+    work: null,
+  });
+
+  const names = await readdir(join(path, '..'));
+  expect(names).not.toContain('.identity.json.tmp');
 });
 
 test('loadState throws when the file does not exist', async () => {

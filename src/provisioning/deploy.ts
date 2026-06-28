@@ -1,6 +1,7 @@
-import { chmod, lstat, mkdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { deployedDir, deployRoot } from '../assets/ref';
+import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 
 export interface DeployResult {
@@ -13,12 +14,7 @@ export interface DeployResult {
 }
 
 async function exists(path: string): Promise<boolean> {
-  try {
-    await lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await lstatIfPresent(path)) !== null;
 }
 
 function topLevelFiles(

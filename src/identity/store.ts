@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { AppError } from '../errors';
+import { writeFileAtomically } from '../host/atomic-file';
 
 /** A name/email pair applied to global Git configuration. */
 export interface Identity {
@@ -65,13 +66,8 @@ export async function saveState(
   path: string,
   state: IdentityState,
 ): Promise<void> {
-  const dir = dirname(path);
-  await mkdir(dir, { recursive: true });
-
-  const tmp = join(dir, '.identity.json.tmp');
   const content = `${JSON.stringify(serialize(state), null, 2)}\n`;
-  await writeFile(tmp, content);
-  await rename(tmp, path);
+  await writeFileAtomically(path, content);
 }
 
 function readIdentity(raw: unknown, key: 'personal' | 'work'): Identity | null {

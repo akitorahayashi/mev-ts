@@ -1,5 +1,7 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { readTextIfPresent } from '../../host/absence';
+import { writeFileAtomically } from '../../host/atomic-file';
 
 /** Title that precedes the concatenated sections. */
 const TITLE = '# Rules';
@@ -32,11 +34,10 @@ export async function buildAgents(
   outputPath: string,
 ): Promise<boolean> {
   const document = await renderAgents(sourceDir, enabled);
-  const existing = await readFile(outputPath, 'utf8').catch(() => null);
+  const existing = await readTextIfPresent(outputPath);
   if (existing === document) {
     return false;
   }
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, document);
+  await writeFileAtomically(outputPath, document);
   return true;
 }

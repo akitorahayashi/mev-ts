@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
@@ -57,7 +57,7 @@ function contextWith(
         if (result.code === 0 && (command === 'curl' || command === 'gh')) {
           const flag = command === 'curl' ? '-o' : '--output';
           const i = args.indexOf(flag);
-          if (i >= 0) await writeFile(args[i + 1] as string, '');
+          if (i >= 0) await writeFile(args[i + 1] as string, command);
         }
         return result;
       },
@@ -100,6 +100,9 @@ test('first run: an absent binary is fetched and installed, not aborted', async 
       'changed',
     ]);
     expect(calls.filter((c) => c.command === 'curl')).toHaveLength(2);
+    expect(await readFile(join(home, '.cargo', 'bin', 'kpv'), 'utf8')).toBe(
+      'curl',
+    );
   });
 });
 
@@ -172,6 +175,10 @@ test('a private binary is fetched with an authenticated gh download', async () =
     expect(report.status).toBe('changed');
     expect(calls.some((c) => c.command === 'curl')).toBe(false);
     const gh = calls.find((c) => c.command === 'gh');
+    expect(gh).toBeDefined();
+    const output = gh?.args[gh.args.indexOf('--output') + 1] as string;
+    expect(output).toEqual(expect.stringContaining('/.astm.'));
+    expect(output).toEqual(expect.stringContaining('.tmp'));
     expect(gh?.args).toEqual([
       'release',
       'download',
@@ -181,9 +188,38 @@ test('a private binary is fetched with an authenticated gh download', async () =
       '--pattern',
       'astm-darwin-aarch64',
       '--output',
-      join(home, '.cargo', 'bin', 'astm'),
+      output,
       '--clobber',
     ]);
+    expect(await readFile(join(home, '.cargo', 'bin', 'astm'), 'utf8')).toBe(
+      'gh',
+    );
+  });
+});
+
+test('a failed download keeps the existing binary and removes temp files', async () => {
+  await withSandbox(async (home) => {
+    const existing = join(home, '.cargo', 'bin', 'kpv');
+    await mkdir(join(existing, '..'), { recursive: true });
+    await writeFile(existing, 'old');
+    const { context } = contextWith(home, (command, args) => {
+      if (command === 'uname') return ok('arm64');
+      if (args[0] === '--version') return fail();
+      if (command === 'curl') return fail('network down');
+      return fail();
+    });
+
+    const report = await runActivation(
+      releaseBinaries([
+        { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.6.0' },
+      ]),
+      context,
+      false,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(await readFile(existing, 'utf8')).toBe('old');
+    expect(await readdir(join(home, '.cargo', 'bin'))).toEqual(['kpv']);
   });
 });
 

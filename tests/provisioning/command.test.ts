@@ -99,6 +99,36 @@ test('skipIf with a satisfied pathExists guard marks the step unchanged', async 
   }
 });
 
+test('skipIf pathExists surfaces filesystem errors instead of running', async () => {
+  const sandbox = join(process.cwd(), '.tmp', `cmd-error-${process.pid}`);
+  await mkdir(sandbox, { recursive: true });
+  try {
+    const blockedParent = join(sandbox, 'file-parent');
+    await Bun.write(blockedParent, 'not a directory');
+    const { context, calls } = contextWith(sandbox, () => ok());
+    const activation = runCommand({
+      label: 'demo',
+      steps: [
+        {
+          label: 'install',
+          argv: () => ['install'],
+          skipIf: () => ({
+            pathExists: join(blockedParent, 'tool'),
+          }),
+        },
+      ],
+    });
+
+    const report = await runActivation(activation, context, false);
+
+    expect(calls).toHaveLength(0);
+    expect(report.status).toBe('failed');
+    expect(report.error).toMatch(/not a directory/i);
+  } finally {
+    await rm(sandbox, { force: true, recursive: true });
+  }
+});
+
 test('a non-zero step fails the activation and halts the pipeline', async () => {
   const { context, calls } = contextWith('/home/u', (inv) =>
     inv.command === 'boom' ? { code: 1, stdout: '', stderr: 'nope' } : ok(),

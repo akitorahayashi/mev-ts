@@ -5,16 +5,15 @@ import {
   writeDisabled,
 } from '../provisioning/coder/manifest';
 import {
+  AGENTS_SECTIONS_PREFIX,
   agentsManifest,
   deployedSource,
+  SKILLS_PREFIX,
   skillsManifest,
 } from '../provisioning/coder/paths';
 import { toggle } from '../provisioning/coder/tui';
 
 export type CoderSelectable = 'agents' | 'skills';
-
-const SECTIONS_PREFIX = 'coder/global/agents-sections';
-const SKILLS_PREFIX = 'coder/global/skills';
 
 function catalogReader(kind: CoderSelectable) {
   return kind === 'agents' ? readSections : readSkills;
@@ -26,7 +25,7 @@ function manifestPath(kind: CoderSelectable, home: string): string {
 
 function sourceDir(kind: CoderSelectable, home: string): string {
   return deployedSource(
-    kind === 'agents' ? SECTIONS_PREFIX : SKILLS_PREFIX,
+    kind === 'agents' ? AGENTS_SECTIONS_PREFIX : SKILLS_PREFIX,
     home,
   );
 }

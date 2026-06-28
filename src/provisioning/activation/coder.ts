@@ -1,6 +1,7 @@
-import { readdir, readlink, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDirSymbolic } from '../../assets/ref';
+import { readDirentsIfPresent, readlinkIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
@@ -100,16 +101,14 @@ async function fanoutSkills(
   let changed = false;
   for (const dir of targetDirs) {
     const root = resolveHostPath(dir, context.home);
-    const entries = await readdir(root, { withFileTypes: true }).catch(
-      () => [],
-    );
+    const entries = (await readDirentsIfPresent(root)) ?? [];
     for (const entry of entries) {
       if (!entry.isSymbolicLink() || enabled.includes(entry.name)) {
         continue;
       }
       const path = join(root, entry.name);
-      const linkTarget = await readlink(path).catch(() => '');
-      if (linkTarget.startsWith(managedPrefix)) {
+      const linkTarget = await readlinkIfPresent(path);
+      if (linkTarget?.startsWith(managedPrefix)) {
         await rm(path, { force: true });
         changed = true;
       }

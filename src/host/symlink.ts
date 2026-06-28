@@ -1,14 +1,11 @@
-import { lstat, mkdir, readlink, rm, symlink } from 'node:fs/promises';
+import { mkdir, readlink, rm, symlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ProvisioningError } from '../errors';
+import { lstatIfPresent } from './absence';
 
 /** `lstat` a path, returning null when it does not exist. */
 export async function lstatOrNull(path: string) {
-  try {
-    return await lstat(path);
-  } catch {
-    return null;
-  }
+  return lstatIfPresent(path);
 }
 
 /** Whether `link` is a symlink whose target is exactly `target`. */
