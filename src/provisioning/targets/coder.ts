@@ -1,10 +1,8 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
 import { coderAgents, coderSkills, link, runCommand } from '../activation';
+import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../coder/paths';
 import { target } from '../target';
-
-const SECTIONS_PREFIX = 'coder/global/agents-sections';
-const SKILLS_PREFIX = 'coder/global/skills';
 
 /** Agent tools whose instruction file is the generated AGENTS.md. */
 const AGENTS_DESTS = [
@@ -121,7 +119,7 @@ export const coderTarget = target('coder', {
       asset('coder/global/hooks/codex/pre-tool-use.sh'),
       home('.mev/hooks/codex/pre-tool-use.sh'),
     ),
-    coderAgents(SECTIONS_PREFIX, AGENTS_DESTS),
+    coderAgents(AGENTS_SECTIONS_PREFIX, AGENTS_DESTS),
     coderSkills(SKILLS_PREFIX, SKILLS_TARGETS),
   ],
 });

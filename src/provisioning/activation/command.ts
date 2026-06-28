@@ -1,5 +1,5 @@
-import { lstat } from 'node:fs/promises';
 import { ProvisioningError } from '../../errors';
+import { lstatIfPresent } from '../../host/absence';
 import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
 import {
@@ -31,12 +31,7 @@ export function describeCommand(activation: CommandActivation): Described {
 }
 
 async function pathExists(path: string): Promise<boolean> {
-  try {
-    await lstat(path);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await lstatIfPresent(path)) !== null;
 }
 
 async function guardMatches(

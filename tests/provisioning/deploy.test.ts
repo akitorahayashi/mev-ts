@@ -94,3 +94,11 @@ test('inspectRole reports would-deploy without writing', async () => {
   expect(result.deployed).toBe(true);
   await expect(lstat(deployedDir('git', sandbox))).rejects.toThrow();
 });
+
+test('inspectRole surfaces filesystem errors other than missing paths', async () => {
+  await writeFile(join(sandbox, '.config'), 'not a directory');
+
+  await expect(inspectRole('git', contextFor(sandbox))).rejects.toThrow(
+    /not a directory/i,
+  );
+});

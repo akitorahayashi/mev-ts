@@ -1,10 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { deployedPath } from '../../assets/ref';
 import { ProvisioningError } from '../../errors';
-
-function isNotFound(error: unknown): boolean {
-  return (error as NodeJS.ErrnoException)?.code === 'ENOENT';
-}
+import { isNotFound } from '../../host/absence';
 
 /**
  * Read a deployed manifest and hand its contents to `parse`. Only a missing

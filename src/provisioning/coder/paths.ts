@@ -1,6 +1,9 @@
 import { join } from 'node:path';
 import { deployedDir } from '../../assets/ref';
 
+export const AGENTS_SECTIONS_PREFIX = 'coder/global/agents-sections';
+export const SKILLS_PREFIX = 'coder/global/skills';
+
 /**
  * The coder intermediate-entity root `~/.config/mev/coder/`, a sibling of the
  * deploy store `~/.config/mev/roles/`. It holds generated entities — the

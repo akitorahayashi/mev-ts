@@ -1,4 +1,4 @@
-import { rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
@@ -25,8 +25,6 @@ export interface InstallHooks {
   onTick?(token: PackageToken): void;
 }
 
-let brewfileCounter = 0;
-
 /**
  * Writes a single-entry Brewfile to a temporary path and passes it to the given
  * action. Homebrew Bundle treats already-installed entries as no-ops, so
@@ -36,13 +34,13 @@ async function withBrewfile<T>(
   line: string,
   action: (file: string) => Promise<T>,
 ): Promise<T> {
-  brewfileCounter += 1;
-  const file = join(tmpdir(), `mev-brewfile-${process.pid}-${brewfileCounter}`);
-  await writeFile(file, `${line}\n`);
+  const dir = await mkdtemp(join(tmpdir(), 'mev-brewfile-'));
+  const file = join(dir, 'Brewfile');
   try {
+    await writeFile(file, `${line}\n`);
     return await action(file);
   } finally {
-    await rm(file, { force: true });
+    await rm(dir, { force: true, recursive: true });
   }
 }
 

@@ -7,6 +7,7 @@ import { type PackageToken, packages } from '../../src/provisioning/package';
 
 interface Sink {
   brewfile?: string;
+  brewfilePath?: string;
   args?: string[];
 }
 
@@ -19,10 +20,8 @@ function contextWith(code: number, sink: Sink = {}): Context {
         sink.args = [...args];
         const fileArg = args.find((arg) => arg.startsWith('--file='));
         if (fileArg) {
-          sink.brewfile = await readFile(
-            fileArg.slice('--file='.length),
-            'utf8',
-          );
+          sink.brewfilePath = fileArg.slice('--file='.length);
+          sink.brewfile = await readFile(sink.brewfilePath, 'utf8');
         }
         return { code, stdout: '', stderr: '' };
       },
@@ -53,6 +52,8 @@ test('reports present when brew bundle check succeeds', async () => {
 
   expect(reports[0]?.status).toBe('present');
   expect(sink.brewfile).toBe('brew "git"\n');
+  expect(sink.brewfilePath).toMatch(/Brewfile$/);
+  expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
 test('attempts install with --no-upgrade for a missing formula', async () => {

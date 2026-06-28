@@ -1,6 +1,6 @@
-import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
+import { readDirentsIfPresent, readTextIfPresent } from '../../host/absence';
 
 /**
  * The catalog of coder selectables. It is the authority for which entries exist
@@ -53,10 +53,8 @@ export function reconcileSections(
 export async function readSections(sourceDir: string): Promise<string[]> {
   const { load } = await import('js-yaml');
   const catalogPath = join(sourceDir, 'catalog.yml');
-  let raw: string;
-  try {
-    raw = await readFile(catalogPath, 'utf8');
-  } catch {
+  const raw = await readTextIfPresent(catalogPath);
+  if (raw === null) {
     throw new ProvisioningError(
       `AGENTS.md section catalog not found: ${catalogPath}. Run without --plan to deploy first.`,
     );
@@ -68,7 +66,12 @@ export async function readSections(sourceDir: string): Promise<string[]> {
     );
   }
   const listed = parsed.sections as string[];
-  const entries = await readdir(sourceDir, { withFileTypes: true });
+  const entries = await readDirentsIfPresent(sourceDir);
+  if (entries === null) {
+    throw new ProvisioningError(
+      `AGENTS.md section catalog not found: ${catalogPath}. Run without --plan to deploy first.`,
+    );
+  }
   const presentStems = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => entry.name.slice(0, -'.md'.length));
@@ -77,10 +80,8 @@ export async function readSections(sourceDir: string): Promise<string[]> {
 
 /** Read the skills catalog by scanning the deployed skills source directory. */
 export async function readSkills(sourceDir: string): Promise<string[]> {
-  let entries: import('node:fs').Dirent[];
-  try {
-    entries = await readdir(sourceDir, { withFileTypes: true });
-  } catch {
+  const entries = await readDirentsIfPresent(sourceDir);
+  if (entries === null) {
     throw new ProvisioningError(
       `Skills source directory is missing: ${sourceDir}. Run without --plan to deploy first.`,
     );

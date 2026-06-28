@@ -1,6 +1,7 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { unlink } from 'node:fs/promises';
 import { ProvisioningError } from '../../errors';
+import { isNotFound, readTextIfPresent } from '../../host/absence';
+import { writeFileAtomically } from '../../host/atomic-file';
 
 /**
  * The selection manifest records only what the user turned off. The catalog is
@@ -28,10 +29,8 @@ export interface Selection {
  * nothing is disabled.
  */
 export async function readDisabled(manifestPath: string): Promise<string[]> {
-  let raw: string;
-  try {
-    raw = await readFile(manifestPath, 'utf8');
-  } catch {
+  const raw = await readTextIfPresent(manifestPath);
+  if (raw === null) {
     return [];
   }
   const { load } = await import('js-yaml');
@@ -82,13 +81,12 @@ export async function writeDisabled(
     try {
       await unlink(manifestPath);
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      if (!isNotFound(err)) {
         throw err;
       }
     }
     return;
   }
-  await mkdir(dirname(manifestPath), { recursive: true });
   const { dump } = await import('js-yaml');
-  await writeFile(manifestPath, dump({ disabled: [...disabled] }), 'utf8');
+  await writeFileAtomically(manifestPath, dump({ disabled: [...disabled] }));
 }

@@ -1,5 +1,6 @@
 import { chmod } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
+import { replaceFileAtomically } from '../host/atomic-file';
 import type { Context } from '../host/context';
 
 /**
@@ -78,30 +79,32 @@ export async function fetchReleaseBinary(
   context: Context,
 ): Promise<void> {
   const asset = `${binary.name}-${OS}-${arch}`;
-  if (binary.private) {
-    const r = await context.commands.run('gh', [
-      'release',
-      'download',
-      binary.tag,
-      '--repo',
-      binary.repo,
-      '--pattern',
-      asset,
-      '--output',
-      dest,
-      '--clobber',
-    ]);
-    if (r.code !== 0) {
-      throw new ProvisioningError(
-        r.stderr.trim() || `gh release download exit ${r.code}`,
-      );
+  await replaceFileAtomically(dest, async (tmp) => {
+    if (binary.private) {
+      const r = await context.commands.run('gh', [
+        'release',
+        'download',
+        binary.tag,
+        '--repo',
+        binary.repo,
+        '--pattern',
+        asset,
+        '--output',
+        tmp,
+        '--clobber',
+      ]);
+      if (r.code !== 0) {
+        throw new ProvisioningError(
+          r.stderr.trim() || `gh release download exit ${r.code}`,
+        );
+      }
+    } else {
+      const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
+      const r = await context.commands.run('curl', ['-fsSL', url, '-o', tmp]);
+      if (r.code !== 0) {
+        throw new ProvisioningError(r.stderr.trim() || `curl exit ${r.code}`);
+      }
     }
-  } else {
-    const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
-    const r = await context.commands.run('curl', ['-fsSL', url, '-o', dest]);
-    if (r.code !== 0) {
-      throw new ProvisioningError(r.stderr.trim() || `curl exit ${r.code}`);
-    }
-  }
-  await chmod(dest, 0o755);
+    await chmod(tmp, 0o755);
+  });
 }
