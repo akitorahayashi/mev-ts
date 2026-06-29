@@ -11,7 +11,23 @@
   },
   {
     "key": "ctrl+w",
+    "command": "workbench.action.closeActiveEditor"
+  },
+  {
+    "key": "ctrl+alt+o",
+    "command": "workbench.action.closeOtherEditors"
+  },
+  {
+    "key": "ctrl+alt+c",
+    "command": "workbench.action.closeUnmodifiedEditors"
+  },
+  {
+    "key": "ctrl+alt+a",
     "command": "workbench.action.closeAllEditors"
+  },
+  {
+    "key": "ctrl+alt+p",
+    "command": "workbench.action.pinEditor"
   },
   {
     "key": "shift+enter",

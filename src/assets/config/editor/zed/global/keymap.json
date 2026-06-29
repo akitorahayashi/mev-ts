@@ -39,27 +39,12 @@
     }
   },
   {
-    "context": "Workspace",
-    "use_key_equivalents": true,
-    "bindings": {
-      "cmd-i": "agent::ToggleFocus"
-    }
-  },
-  {
-    "context": "Editor && mode == full",
-    "use_key_equivalents": true,
-    "bindings": {
-      "cmd-i": "agent::ToggleFocus"
-    }
-  },
-  {
     "context": "Terminal",
     "use_key_equivalents": true,
     "bindings": {
       "shift-enter": ["terminal::SendText", "\n"],
       "ctrl-cmd-n": "workspace::NewTerminal",
-      "ctrl-cmd-s": "pane::SplitRight",
-      "cmd-i": "agent::ToggleFocus"
+      "ctrl-cmd-s": "pane::SplitRight"
     }
   }
 ]
