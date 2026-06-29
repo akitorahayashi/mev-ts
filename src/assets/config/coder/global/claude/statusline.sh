@@ -33,6 +33,7 @@ ctx_remaining="$(jq_get '.context_window.remaining_percentage')"
 ctx_used="$(jq_get '.context_window.used_percentage')"
 duration_ms="$(jq_get '.cost.total_duration_ms')"
 five_h="$(jq_get '.rate_limits.five_hour.used_percentage')"
+five_h_reset="$(jq_get '.rate_limits.five_hour.resets_at')"
 week="$(jq_get '.rate_limits.seven_day.used_percentage')"
 effort="$(jq_get '.effort.level')"
 thinking="$(jq_get '.thinking.enabled')"
@@ -57,21 +58,28 @@ mins=0
 
 ctx_text="--"
 if [ -n "$ctx_remaining" ]; then
-	ctx_text="${ctx_remaining%.*}% left"
+	ctx_text="${ctx_remaining%.*}%"
 elif [ -n "$ctx_used" ]; then
-	ctx_text="${ctx_used%.*}% used"
+	ctx_text="$((100 - ${ctx_used%.*}))%"
 fi
 
 limit_segment() {
-	local label="$1" pct="$2" col
-	[ -z "$pct" ] && return 1
-	pct="$(printf '%.0f' "$pct" 2>/dev/null)" || return 1
-	col="$(color_used "$pct")" || col="$RED"
-	printf '%s%s %s%%%s' "$col" "$label" "$pct" "$RESET"
+	local label="$1" used="$2" remaining col
+	[ -z "$used" ] && return 1
+	used="$(printf '%.0f' "$used" 2>/dev/null)" || return 1
+	remaining=$((100 - used))
+	col="$(color_used "$used")" || col="$RED"
+	printf '%s%s %s%%%s' "$col" "$label" "$remaining" "$RESET"
 }
 
+five_h_reset_text=""
+if [ -n "$five_h_reset" ]; then
+	reset_time="$(date -r "$five_h_reset" '+%H:%M' 2>/dev/null)"
+	[ -n "$reset_time" ] && five_h_reset_text=" →${reset_time}"
+fi
+
 limit_text=""
-seg="$(limit_segment 5h "$five_h")" && limit_text="$seg"
+seg="$(limit_segment 5h "$five_h")" && limit_text="${seg}${five_h_reset_text}"
 seg="$(limit_segment 7d "$week")" && limit_text="${limit_text:+$limit_text / }$seg"
 [ -z "$limit_text" ] && limit_text="${RED}limit --${RESET}"
 
