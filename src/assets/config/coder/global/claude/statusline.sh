@@ -74,7 +74,7 @@ limit_segment() {
 
 five_h_reset_text=""
 if [ -n "$five_h_reset" ]; then
-	reset_time="$(date -r "$five_h_reset" '+%H:%M' 2>/dev/null)"
+	reset_time="$(date -d "@$five_h_reset" '+%H:%M' 2>/dev/null || date -r "$five_h_reset" '+%H:%M' 2>/dev/null)"
 	[ -n "$reset_time" ] && five_h_reset_text=" →${reset_time}"
 fi
 
