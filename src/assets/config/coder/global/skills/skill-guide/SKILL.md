@@ -38,8 +38,8 @@ A skill may include optional supporting files:
 └── assets/      # Files used as input or output materials, such as templates, images, or data
 ```
 
-These directories and file formats are not required. Include only the files needed by the skill, and refer to them from `SKILL.md` using relative paths.
+These directories and file formats are not required. Include only the files needed by the skill, and refer to them from `SKILL.md` using relative paths (which must be resolved relative to the skill's directory, e.g., `.agents/skills/<skill-name>/`).
 
-When asked to organize something as a skill, place the reusable knowledge or procedure in `.agents/skills/<skill-name>/SKILL.md`.
+When asked to organize something as a skill, create the directory `.agents/skills/<skill-name>/` and place the reusable knowledge or procedure in `SKILL.md` inside it.
 
 The skill must be understandable without the original conversation.
