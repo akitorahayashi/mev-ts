@@ -34,11 +34,11 @@ scripts/
 tests/                Integration tests for CLI, filesystem, subprocess, and network behavior
 ```
 
-## Test Guidelines
+A module is promoted from `app/` into its own `src/<domain>/` directory only when a second use case needs it, or when it wraps an external dependency (a tool's protocol, wire format, or persisted file format) — see `identity/`, `pipx/`, `duti/`, `editor/`, `github/` for the latter.
 
-- Unit tests live next to source files under `src/` and test pure transformations.
-- Integration/E2E tests live under `tests/` and verify the full CLI lifecycle, filesystem mutations, subprocess execution, and network interactions.
-- All new features require matching tests; ensure `tests/` contains coverage for provisioning target registration.
+## Testing
+
+Unit tests are colocated `*.test.ts` files next to source under `src/`; they verify pure logic with no filesystem, process, or network access. Integration tests live under `tests/`; they verify filesystem, CLI routing, subprocess, or network behavior. Sandbox conventions, fake-injection rules, and CI layout are in docs/testing.md.
 
 ## Core Concepts
 
@@ -61,7 +61,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### CLI
 
-`main.ts` owns the clipanion `Cli`. Each command subclasses `Command`. Error routing is the one non-obvious rule: `CommandLineError` (= `UsageError`) goes to stdout with usage; `AppError`/`ProvisioningError` go to stderr.
+`main.ts` owns the clipanion `Cli`. Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage; an uncaught `AppError`/`ProvisioningError` also goes to stdout, as the error's name, message, and stack, without a usage synopsis. No command currently catches a domain error to route it to stderr.
 
 ### Key Types
 
