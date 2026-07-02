@@ -42,6 +42,10 @@ test('every activation references an asset that exists in the registry', async (
         expect(
           embeddedAssets.keysByPrefix(activation.skillsPrefix).length,
         ).toBeGreaterThan(0);
+      } else if (activation.kind === 'zedSettings') {
+        await expect(
+          embeddedAssets.read(activation.base.key),
+        ).resolves.toBeString();
       } else if (activation.kind === 'command') {
         for (const key of Object.values(activation.reads ?? {})) {
           await expect(embeddedAssets.read(key)).resolves.toBeString();

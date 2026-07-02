@@ -18,3 +18,4 @@ export { installExtensions } from './extensions';
 export { applyPipx } from './pipx';
 export { releaseBinaries } from './release';
 export { link, linkTree } from './symlink';
+export { zedSettings } from './zed';

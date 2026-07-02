@@ -54,6 +54,12 @@ export type Activation =
       readonly targetDirs: readonly HostPath[];
     }
   | {
+      readonly kind: 'zedSettings';
+      readonly base: AssetRef;
+      readonly overridesPrefix: string;
+      readonly dest: HostPath;
+    }
+  | {
       readonly kind: 'command';
       readonly label: string;
       readonly reads?: Readonly<Record<string, string>>;

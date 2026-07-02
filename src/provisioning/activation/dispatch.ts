@@ -13,6 +13,7 @@ import { describeExtensions, runExtensions } from './extensions';
 import { describePipx, runPipx } from './pipx';
 import { describeRelease, runRelease } from './release';
 import { describeFile, describeTree, runFile, runTree } from './symlink';
+import { describeZedSettings, runZedSettings } from './zed';
 
 /** Stable, home-independent description of an activation's verb and endpoints. */
 export function describeActivation(activation: Activation): Described {
@@ -33,6 +34,8 @@ export function describeActivation(activation: Activation): Described {
       return describeCoderAgents(activation);
     case 'coderSkills':
       return describeCoderSkills(activation);
+    case 'zedSettings':
+      return describeZedSettings(activation);
     case 'command':
       return describeCommand(activation);
     case 'release':
@@ -74,6 +77,8 @@ export function runActivation(
       return runCoderAgents(activation, context);
     case 'coderSkills':
       return runCoderSkills(activation, context);
+    case 'zedSettings':
+      return runZedSettings(activation, context);
     case 'command':
       return runCommandActivation(activation, context);
     case 'release':

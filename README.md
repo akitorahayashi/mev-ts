@@ -57,6 +57,17 @@ mev create mac-mini             # Profiles: macbook/mbk, mac-mini/mmn
 mev list                        # Show all available provisioning targets
 ```
 
+### Config
+
+```bash
+mev config agents               # Toggle enabled AGENTS.md sections (alias: mev cf ag)
+mev config skills                # Toggle enabled skills (alias: mev cf sk)
+mev config zed                   # Toggle enabled Zed settings overrides (alias: mev cf zd)
+mev config zed --clear           # Disable all Zed settings overrides
+```
+
+`config` (alias `cf`) groups interactive selection commands. `config zed` merges the enabled override fragments in `src/assets/config/editor/zed/global/overrides/` onto the base `settings.json`, failing loudly if two enabled overrides set the same key; adding a new override is a matter of dropping another `<name>.json` file into that directory.
+
 ### Git identity
 
 ```bash

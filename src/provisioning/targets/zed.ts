@@ -1,7 +1,8 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { link } from '../activation';
+import { link, zedSettings } from '../activation';
 import { target } from '../target';
+import { OVERRIDES_PREFIX } from '../zed/paths';
 
 export const zedTarget = target('zed', {
   description: 'Zed editor configuration',
@@ -9,8 +10,9 @@ export const zedTarget = target('zed', {
   role: 'editor/zed',
   packages: { casks: ['zed'] },
   activations: [
-    link(
+    zedSettings(
       asset('editor/zed/global/settings.json'),
+      OVERRIDES_PREFIX,
       home('.config/zed/settings.json'),
     ),
     link(
