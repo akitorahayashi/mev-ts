@@ -86,7 +86,8 @@ test('config prints its subcommands', async () => {
 
   expect(result.code).toBe(0);
   expect(result.stdout).toContain('mev config <command>');
-  expect(result.stdout).toContain('mev config select');
+  expect(result.stdout).toContain('mev config agents');
+  expect(result.stdout).toContain('mev config skills');
   expect(result.stderr).toBe('');
 });
 
@@ -95,7 +96,8 @@ test('config alias routes to the same subcommand listing', async () => {
 
   expect(result.code).toBe(0);
   expect(result.stdout).toContain('mev cf <command>');
-  expect(result.stdout).toContain('mev config select');
+  expect(result.stdout).toContain('mev config agents');
+  expect(result.stdout).toContain('mev config skills');
   expect(result.stderr).toBe('');
 });
 
@@ -127,11 +129,11 @@ test('list --help still shows detailed usage for a leaf command', async () => {
 });
 
 test('usage errors print guidance to stdout', async () => {
-  const result = await capture(['config', 'select', 'unknown']);
+  const result = await capture(['config', 'agents', 'unexpected']);
 
   expect(result.code).toBe(1);
-  expect(result.stdout).toContain("Unknown selectable 'unknown'");
-  expect(result.stdout).toContain('Usage');
+  expect(result.stdout).toContain('Extraneous positional argument');
+  expect(result.stdout).toContain('mev config agents');
   expect(result.stderr).toBe('');
 });
 

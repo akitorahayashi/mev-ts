@@ -15,7 +15,7 @@ src/
   brew/          Homebrew batch install via Brewfile
   cli/
     commands/    MakeCommand, CreateCommand, ListCommand, SwitchCommand, UserCommand; internal commands hidden from help
-      config/    ConfigHelpCommand, ConfigSelectCommand (aliased `cf`)
+      config/    ConfigHelpCommand, ConfigAgentsCommand, ConfigSkillsCommand (aliased `cf`)
     tty/         ANSI styling and TTY renderers
   duti/          duti file-association state probes and apply operations
   editor/        Editor extension list and install operations
