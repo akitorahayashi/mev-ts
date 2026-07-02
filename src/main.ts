@@ -5,6 +5,7 @@ import packageMetadata from '../package.json';
 import { ConfigAgentsCommand } from './cli/commands/config/agents';
 import { ConfigHelpCommand } from './cli/commands/config/help';
 import { ConfigSkillsCommand } from './cli/commands/config/skills';
+import { ConfigZedCommand } from './cli/commands/config/zed';
 import { CreateCommand } from './cli/commands/create';
 import { InternalGhLabelsDeployCommand } from './cli/commands/internal/gh-labels-deploy';
 import { InternalGhLabelsResetCommand } from './cli/commands/internal/gh-labels-reset';
@@ -30,6 +31,7 @@ function createCli(): Cli {
   cli.register(ConfigHelpCommand);
   cli.register(ConfigAgentsCommand);
   cli.register(ConfigSkillsCommand);
+  cli.register(ConfigZedCommand);
   cli.register(ListCommand);
   cli.register(SwitchCommand);
   cli.register(UserCommand);

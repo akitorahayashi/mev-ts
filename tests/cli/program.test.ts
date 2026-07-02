@@ -88,6 +88,7 @@ test('config prints its subcommands', async () => {
   expect(result.stdout).toContain('mev config <command>');
   expect(result.stdout).toContain('mev config agents');
   expect(result.stdout).toContain('mev config skills');
+  expect(result.stdout).toContain('mev config zed');
   expect(result.stderr).toBe('');
 });
 
@@ -98,6 +99,7 @@ test('config alias routes to the same subcommand listing', async () => {
   expect(result.stdout).toContain('mev cf <command>');
   expect(result.stdout).toContain('mev config agents');
   expect(result.stdout).toContain('mev config skills');
+  expect(result.stdout).toContain('mev config zed');
   expect(result.stderr).toBe('');
 });
 
@@ -173,6 +175,24 @@ test('config agents and skills commands resolve via all alias permutations', asy
     const result = await capture([...perm, '--help']);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('Interactively select enabled skills.');
+    expect(result.stderr).toBe('');
+  }
+});
+
+test('config zed command resolves via all alias permutations', async () => {
+  const zedPermutations = [
+    ['config', 'zed'],
+    ['config', 'zd'],
+    ['cf', 'zed'],
+    ['cf', 'zd'],
+  ];
+
+  for (const perm of zedPermutations) {
+    const result = await capture([...perm, '--help']);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain(
+      'Interactively select enabled Zed setting overrides.',
+    );
     expect(result.stderr).toBe('');
   }
 });

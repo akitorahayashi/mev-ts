@@ -1,3 +1,4 @@
+import { toggle } from '../cli/tty/toggle';
 import { readSections, readSkills } from '../provisioning/coder/catalog';
 import {
   readDisabled,
@@ -11,7 +12,6 @@ import {
   SKILLS_PREFIX,
   skillsManifest,
 } from '../provisioning/coder/paths';
-import { toggle } from '../provisioning/coder/tui';
 
 export type CoderSelectable = 'agents' | 'skills';
 

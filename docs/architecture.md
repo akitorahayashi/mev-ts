@@ -45,12 +45,13 @@ activation/
   pipx.ts       'pipx' factory and runner
   extensions.ts 'editorExtensions' factory and runner
   coder.ts      'coderAgents' + 'coderSkills' factories and runners
+  zed.ts        'zedSettings' factory and runner
   command.ts    'command' factory and step execution engine
   release.ts    'release' factory and runner
   index.ts      public barrel
 ```
 
-Ten activation kinds:
+Eleven activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
@@ -62,12 +63,13 @@ Ten activation kinds:
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
+| `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips if installed version matches |
 
 ### Reconcile Envelope
 
-`reconcile.ts` provides the shared execution envelope used by all multi-item activation kinds (`defaults`, `duti`, `pipx`, `editorExtensions`, `coderAgents`, `coderSkills`, `release`). It enforces a structural error boundary at the per-item level rather than leaving it to each implementation:
+`reconcile.ts` provides the shared execution envelope used by the multi-item activation kinds that call into it (`defaults`, `duti`, `pipx`, `editorExtensions`, `release`). It enforces a structural error boundary at the per-item level rather than leaving it to each implementation:
 
 - `declare()` — yields the set of items to process. A failure here aborts the whole activation.
 - `steps(declared)` — builds one `ReconcileStep` per item. This phase runs shared probes (e.g. listing installed tools or extensions) before returning the per-item work. A failure here also aborts the whole activation.
