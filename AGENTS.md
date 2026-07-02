@@ -38,7 +38,7 @@ A module is promoted from `app/` into its own `src/<domain>/` directory only whe
 
 ## Testing
 
-Unit tests are colocated `*.test.ts` files next to source under `src/`; they verify pure logic with no filesystem, process, or network access. Integration tests live under `tests/`; they verify filesystem, CLI routing, subprocess, or network behavior. Sandbox conventions, fake-injection rules, and CI layout are in docs/testing.md.
+Unit tests are colocated as `*.test.ts` files next to source under `src/`; they verify pure logic with no filesystem, process, or network access. Integration tests live under `tests/`; they verify filesystem, CLI routing, subprocess, or network behavior. Sandbox conventions, fake-injection rules, and CI layout are in docs/testing.md.
 
 ## Core Concepts
 

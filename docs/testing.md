@@ -12,7 +12,7 @@ Files under `tests/`. Verify filesystem, CLI routing, subprocess execution, or n
 
 ## Commands
 
-`bun run test` / `test:unit` / `test:integration`. A pre-hook regenerates the embedded asset registry before each run; `src/assets/registry.generated.ts` is gitignored.
+`bun run test` / `bun run test:unit` / `bun run test:integration`. A pre-hook regenerates the embedded asset registry before each run; `src/assets/registry.generated.ts` is gitignored.
 
 ## Rules
 
