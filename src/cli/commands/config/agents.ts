@@ -5,12 +5,14 @@ import { resolveHome } from '../../../host/context';
 export class ConfigAgentsCommand extends Command {
   static override paths = [
     ['config', 'agents'],
+    ['config', 'ag'],
+    ['cf', 'agents'],
     ['cf', 'ag'],
   ];
   static override usage = Command.Usage({
     category: 'config',
     description:
-      'Interactively select enabled AGENTS.md sections. [aliases: cf ag]',
+      'Interactively select enabled AGENTS.md sections. [aliases: ag, cf ag]',
   });
 
   clear = Option.Boolean('--clear', false, {

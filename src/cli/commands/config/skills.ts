@@ -5,11 +5,13 @@ import { resolveHome } from '../../../host/context';
 export class ConfigSkillsCommand extends Command {
   static override paths = [
     ['config', 'skills'],
+    ['config', 'sk'],
+    ['cf', 'skills'],
     ['cf', 'sk'],
   ];
   static override usage = Command.Usage({
     category: 'config',
-    description: 'Interactively select enabled skills. [aliases: cf sk]',
+    description: 'Interactively select enabled skills. [aliases: sk, cf sk]',
   });
 
   clear = Option.Boolean('--clear', false, {

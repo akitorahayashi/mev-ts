@@ -144,3 +144,35 @@ test('unknown commands print usage errors to stdout', async () => {
   expect(result.stdout).toContain('Command not found');
   expect(result.stderr).toBe('');
 });
+
+test('config agents and skills commands resolve via all alias permutations', async () => {
+  const agentPermutations = [
+    ['config', 'agents'],
+    ['config', 'ag'],
+    ['cf', 'agents'],
+    ['cf', 'ag'],
+  ];
+
+  for (const perm of agentPermutations) {
+    const result = await capture([...perm, '--help']);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain(
+      'Interactively select enabled AGENTS.md sections.',
+    );
+    expect(result.stderr).toBe('');
+  }
+
+  const skillPermutations = [
+    ['config', 'skills'],
+    ['config', 'sk'],
+    ['cf', 'skills'],
+    ['cf', 'sk'],
+  ];
+
+  for (const perm of skillPermutations) {
+    const result = await capture([...perm, '--help']);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Interactively select enabled skills.');
+    expect(result.stderr).toBe('');
+  }
+});
