@@ -81,6 +81,51 @@ test('list alias routes to the target list', async () => {
   expect(result.stderr).toBe('');
 });
 
+test('config prints its subcommands', async () => {
+  const result = await capture(['config']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev config <command>');
+  expect(result.stdout).toContain('mev config select');
+  expect(result.stderr).toBe('');
+});
+
+test('config alias routes to the same subcommand listing', async () => {
+  const result = await capture(['cf']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev cf <command>');
+  expect(result.stdout).toContain('mev config select');
+  expect(result.stderr).toBe('');
+});
+
+test('config --help shows the subcommand listing instead of an ambiguous match', async () => {
+  const result = await capture(['config', '--help']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev config <command>');
+  expect(result.stdout).not.toContain('Multiple commands match');
+  expect(result.stderr).toBe('');
+});
+
+test('cf --help shows the subcommand listing instead of an ambiguous match', async () => {
+  const result = await capture(['cf', '--help']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev cf <command>');
+  expect(result.stdout).not.toContain('Multiple commands match');
+  expect(result.stderr).toBe('');
+});
+
+test('list --help still shows detailed usage for a leaf command', async () => {
+  const result = await capture(['list', '--help']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev list');
+  expect(result.stdout).not.toContain('Multiple commands match');
+  expect(result.stderr).toBe('');
+});
+
 test('usage errors print guidance to stdout', async () => {
   const result = await capture(['config', 'select', 'unknown']);
 
