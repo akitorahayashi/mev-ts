@@ -3,9 +3,9 @@ import {
   type CoderSelectable,
   configSelect,
   configSelectClear,
-} from '../../app/coder';
-import { CommandLineError } from '../../errors';
-import { resolveHome } from '../../host/context';
+} from '../../../app/coder';
+import { CommandLineError } from '../../../errors';
+import { resolveHome } from '../../../host/context';
 
 const SELECTABLES: Record<string, CoderSelectable> = {
   agents: 'agents',
@@ -20,6 +20,7 @@ export class ConfigSelectCommand extends Command {
     ['cf', 'sl'],
   ];
   static override usage = Command.Usage({
+    category: 'config',
     description:
       'Interactively select enabled AGENTS.md sections or skills. [aliases: cf sl]',
   });
