@@ -94,6 +94,16 @@
       "model": "gemini-3.1-flash-lite"
     }
   },
+  "agent_servers": {
+    "claude-acp": {
+      "default_config_options": {
+        "effort": "medium",
+        "mode": "acceptEdits",
+        "model": "sonnet"
+      },
+      "type": "registry"
+    }
+  },
   "outline_panel": {
     "button": true,
     "dock": "left",
