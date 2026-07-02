@@ -11,7 +11,14 @@ async function readJson(path: string, label: string): Promise<JsonObject> {
       `${label} not found: ${path}. Run provisioning to deploy it first.`,
     );
   }
-  return JSON.parse(raw) as JsonObject;
+  try {
+    return JSON.parse(raw) as JsonObject;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new ProvisioningError(
+      `Failed to parse JSON for ${label} at ${path}: ${message}`,
+    );
+  }
 }
 
 /** Render the base settings merged with the enabled overrides, in catalog order. */

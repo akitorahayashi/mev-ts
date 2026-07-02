@@ -14,10 +14,22 @@ function isPlainObject(value: JsonValue): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Keys that reassign an object's prototype chain rather than data. None are
+ * legitimate Zed setting names, so encountering one is treated as malformed
+ * input and rejected rather than merged.
+ */
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 /** Deep-merge `overlay` onto `base`; `overlay` wins on every leaf it defines. */
 export function deepMerge(base: JsonObject, overlay: JsonObject): JsonObject {
   const result: Record<string, JsonValue> = { ...base };
   for (const [key, value] of Object.entries(overlay)) {
+    if (UNSAFE_KEYS.has(key)) {
+      throw new ProvisioningError(
+        `Zed settings contain a disallowed key '${key}'.`,
+      );
+    }
     const existing = result[key];
     result[key] =
       isPlainObject(value) && existing !== undefined && isPlainObject(existing)
@@ -56,6 +68,11 @@ function mergeTracked(
 ): JsonObject {
   const result: Record<string, JsonValue> = { ...combined };
   for (const [key, value] of Object.entries(override.settings)) {
+    if (UNSAFE_KEYS.has(key)) {
+      throw new ProvisioningError(
+        `Zed override '${override.name}' sets a disallowed key '${key}'.`,
+      );
+    }
     const path = pathPrefix ? `${pathPrefix}.${key}` : key;
     const existing = result[key];
     if (
@@ -69,6 +86,16 @@ function mergeTracked(
         path,
       );
       continue;
+    }
+    // A prior override may have claimed a key nested under `path` (e.g.
+    // 'agent.commit_message_model.model'); overwriting `path` itself with a
+    // primitive here would silently discard that nested contribution.
+    for (const [ownedPath, otherOwner] of owners) {
+      if (ownedPath.startsWith(`${path}.`) && otherOwner !== override.name) {
+        throw new ProvisioningError(
+          `Zed overrides '${otherOwner}' and '${override.name}' both set '${path}'.`,
+        );
+      }
     }
     const owner = owners.get(path);
     if (owner !== undefined && owner !== override.name) {
