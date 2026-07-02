@@ -2,8 +2,9 @@
 
 import { Builtins, Cli } from 'clipanion';
 import packageMetadata from '../package.json';
+import { ConfigAgentsCommand } from './cli/commands/config/agents';
 import { ConfigHelpCommand } from './cli/commands/config/help';
-import { ConfigSelectCommand } from './cli/commands/config/select';
+import { ConfigSkillsCommand } from './cli/commands/config/skills';
 import { CreateCommand } from './cli/commands/create';
 import { InternalGhLabelsDeployCommand } from './cli/commands/internal/gh-labels-deploy';
 import { InternalGhLabelsResetCommand } from './cli/commands/internal/gh-labels-reset';
@@ -27,7 +28,8 @@ function createCli(): Cli {
   cli.register(MakeCommand);
   cli.register(CreateCommand);
   cli.register(ConfigHelpCommand);
-  cli.register(ConfigSelectCommand);
+  cli.register(ConfigAgentsCommand);
+  cli.register(ConfigSkillsCommand);
   cli.register(ListCommand);
   cli.register(SwitchCommand);
   cli.register(UserCommand);
