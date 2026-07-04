@@ -53,7 +53,7 @@ jobs:
         run: bun run codegen
 
       - name: Build mev
-        run: bun build src/main.ts --compile --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
+        run: bun scripts/build.ts --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
       - name: Checksum mev
         run: sha256sum ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256

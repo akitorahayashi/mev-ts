@@ -6,7 +6,6 @@
       "**",
       "!node_modules",
       "!coverage",
-      "!.tmp",
       "!references",
       "!src/assets/files",
       "!src/assets/registry.generated.ts"

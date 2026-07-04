@@ -1,5 +1,5 @@
-import { afterAll, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { expect, test } from 'bun:test';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   setIdentity,
@@ -14,19 +14,30 @@ import {
   makeIdentity,
   saveState,
 } from '../../src/identity/store';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
-const roots: string[] = [];
+let sandbox = '';
+let counter = 0;
 
 function tempHome(): string {
-  mkdirSync('.tmp', { recursive: true });
-  const dir = mkdtempSync(join('.tmp', 'identity-app-'));
-  roots.push(dir);
+  counter += 1;
+  const dir = join(sandbox, `identity-app-${counter}`);
+  mkdirSync(dir);
   return dir;
 }
 
-afterAll(() => {
-  for (const dir of roots) rmSync(dir, { recursive: true, force: true });
-});
+function sandboxTest(name: string, body: () => Promise<void>): void {
+  test(name, async () => {
+    await withTemporaryDirectory(
+      async (dir) => {
+        sandbox = dir;
+        counter = 0;
+        await body();
+      },
+      { prefix: 'identity-app-' },
+    );
+  });
+}
 
 /** Runner that answers `git config --global --get <key>` from a map and
  * records every `git config --global <key> <value>` write. */
@@ -63,37 +74,43 @@ async function seed(home: string): Promise<void> {
   });
 }
 
-test('showIdentity marks the active scope when git matches a profile', async () => {
-  const home = tempHome();
-  await seed(home);
-  const run = gitRunner({
-    'user.name': 'Work Name',
-    'user.email': 'work@example.com',
-  });
+sandboxTest(
+  'showIdentity marks the active scope when git matches a profile',
+  async () => {
+    const home = tempHome();
+    await seed(home);
+    const run = gitRunner({
+      'user.name': 'Work Name',
+      'user.email': 'work@example.com',
+    });
 
-  const view = await showIdentity({ run, home });
+    const view = await showIdentity({ run, home });
 
-  expect(view.personal?.email).toBe('personal@example.com');
-  expect(view.current).toEqual({
-    kind: 'matched',
-    scope: 'work',
-    identity: { name: 'Work Name', email: 'work@example.com' },
-  });
-});
+    expect(view.personal?.email).toBe('personal@example.com');
+    expect(view.current).toEqual({
+      kind: 'matched',
+      scope: 'work',
+      identity: { name: 'Work Name', email: 'work@example.com' },
+    });
+  },
+);
 
-test('showIdentity reports unmanaged when git matches no profile', async () => {
-  const home = tempHome();
-  await seed(home);
-  const run = gitRunner({
-    'user.name': 'Someone Else',
-    'user.email': 'other@example.com',
-  });
+sandboxTest(
+  'showIdentity reports unmanaged when git matches no profile',
+  async () => {
+    const home = tempHome();
+    await seed(home);
+    const run = gitRunner({
+      'user.name': 'Someone Else',
+      'user.email': 'other@example.com',
+    });
 
-  const view = await showIdentity({ run, home });
-  expect(view.current.kind).toBe('unmanaged');
-});
+    const view = await showIdentity({ run, home });
+    expect(view.current.kind).toBe('unmanaged');
+  },
+);
 
-test('showIdentity reports unset when git has no identity', async () => {
+sandboxTest('showIdentity reports unset when git has no identity', async () => {
   const home = tempHome();
   await seed(home);
   const run = gitRunner({});
@@ -102,75 +119,87 @@ test('showIdentity reports unset when git has no identity', async () => {
   expect(view.current.kind).toBe('unset');
 });
 
-test('showIdentity surfaces a half-configured identity as unmanaged', async () => {
-  const home = tempHome();
-  await seed(home);
-  const run = gitRunner({ 'user.name': 'Solo Name' });
+sandboxTest(
+  'showIdentity surfaces a half-configured identity as unmanaged',
+  async () => {
+    const home = tempHome();
+    await seed(home);
+    const run = gitRunner({ 'user.name': 'Solo Name' });
 
-  const view = await showIdentity({ run, home });
-  expect(view.current).toEqual({
-    kind: 'unmanaged',
-    identity: { name: 'Solo Name', email: '' },
-  });
-});
+    const view = await showIdentity({ run, home });
+    expect(view.current).toEqual({
+      kind: 'unmanaged',
+      identity: { name: 'Solo Name', email: '' },
+    });
+  },
+);
 
-test('showIdentity throws when no configuration exists', async () => {
+sandboxTest('showIdentity throws when no configuration exists', async () => {
   const run = gitRunner({});
   await expect(showIdentity({ run, home: tempHome() })).rejects.toBeInstanceOf(
     CommandLineError,
   );
 });
 
-test('switchIdentity applies the stored identity to global git config', async () => {
-  const home = tempHome();
-  await seed(home);
-  const writes: { key: string; value: string }[] = [];
-  const run = gitRunner({}, writes);
+sandboxTest(
+  'switchIdentity applies the stored identity to global git config',
+  async () => {
+    const home = tempHome();
+    await seed(home);
+    const writes: { key: string; value: string }[] = [];
+    const run = gitRunner({}, writes);
 
-  const applied = await switchIdentity({ run, home }, 'personal');
+    const applied = await switchIdentity({ run, home }, 'personal');
 
-  expect(applied).toEqual({
-    name: 'Personal Name',
-    email: 'personal@example.com',
-  });
-  expect(writes).toEqual([
-    { key: 'user.name', value: 'Personal Name' },
-    { key: 'user.email', value: 'personal@example.com' },
-  ]);
-});
+    expect(applied).toEqual({
+      name: 'Personal Name',
+      email: 'personal@example.com',
+    });
+    expect(writes).toEqual([
+      { key: 'user.name', value: 'Personal Name' },
+      { key: 'user.email', value: 'personal@example.com' },
+    ]);
+  },
+);
 
-test('switchIdentity throws when no configuration exists', async () => {
+sandboxTest('switchIdentity throws when no configuration exists', async () => {
   const run = gitRunner({});
   await expect(
     switchIdentity({ run, home: tempHome() }, 'work'),
   ).rejects.toBeInstanceOf(CommandLineError);
 });
 
-test('switchIdentity throws when the requested scope is unconfigured', async () => {
-  const home = tempHome();
-  await saveState(identityFilePath(home), {
-    personal: makeIdentity('Personal Name', 'personal@example.com'),
-    work: null,
-  });
-  const run = gitRunner({});
-  await expect(switchIdentity({ run, home }, 'work')).rejects.toBeInstanceOf(
-    CommandLineError,
-  );
-});
+sandboxTest(
+  'switchIdentity throws when the requested scope is unconfigured',
+  async () => {
+    const home = tempHome();
+    await saveState(identityFilePath(home), {
+      personal: makeIdentity('Personal Name', 'personal@example.com'),
+      work: null,
+    });
+    const run = gitRunner({});
+    await expect(switchIdentity({ run, home }, 'work')).rejects.toBeInstanceOf(
+      CommandLineError,
+    );
+  },
+);
 
-test('setIdentity persists collected inputs and drops blank profiles', async () => {
-  const home = tempHome();
-  const { path, state } = await setIdentity(
-    { home },
-    {
+sandboxTest(
+  'setIdentity persists collected inputs and drops blank profiles',
+  async () => {
+    const home = tempHome();
+    const { path, state } = await setIdentity(
+      { home },
+      {
+        personal: { name: 'Jane', email: 'jane@example.com' },
+        work: { name: '', email: '' },
+      },
+    );
+
+    expect(state.work).toBeNull();
+    expect(await loadState(path)).toEqual({
       personal: { name: 'Jane', email: 'jane@example.com' },
-      work: { name: '', email: '' },
-    },
-  );
-
-  expect(state.work).toBeNull();
-  expect(await loadState(path)).toEqual({
-    personal: { name: 'Jane', email: 'jane@example.com' },
-    work: null,
-  });
-});
+      work: null,
+    });
+  },
+);

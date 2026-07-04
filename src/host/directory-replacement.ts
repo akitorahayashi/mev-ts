@@ -1,13 +1,14 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, rename, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rename, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { lstatIfPresent } from './absence';
+import { throwWithCleanupError } from './cleanup-error';
 
-function siblingPath(path: string, suffix: string): string {
-  return join(
-    dirname(path),
-    `.${basename(path)}.${process.pid}.${randomUUID()}.${suffix}`,
-  );
+const noFailure = Symbol('noFailure');
+
+async function transactionDirectory(path: string): Promise<string> {
+  await mkdir(dirname(path), { recursive: true });
+  const parent = await realpath(dirname(path));
+  return mkdtemp(join(parent, `.${basename(path)}.`));
 }
 
 /**
@@ -23,36 +24,53 @@ export async function replaceDirectoryAfterBuild(
   path: string,
   buildDirectory: (tmp: string) => Promise<void>,
 ): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  const tmp = siblingPath(path, 'tmp');
-  const backup = siblingPath(path, 'old');
-  await mkdir(tmp, { recursive: true });
+  const transaction = await transactionDirectory(path);
+  const staging = join(transaction, 'staging');
+  const backup = join(transaction, 'backup');
 
+  let primary: unknown = noFailure;
+  let retainTransaction = false;
   try {
-    await buildDirectory(tmp);
+    await mkdir(staging);
+    await buildDirectory(staging);
 
     const present = (await lstatIfPresent(path)) !== null;
     if (!present) {
-      await rename(tmp, path);
-      return;
-    }
-
-    await rename(path, backup);
-    try {
-      await rename(tmp, path);
-    } catch (error) {
+      await rename(staging, path);
+    } else {
+      await rename(path, backup);
       try {
-        await rename(backup, path);
-      } catch (restoreError) {
-        throw new AggregateError(
-          [error, restoreError],
-          `Failed to replace ${path} and restore its previous contents.`,
+        await rename(staging, path);
+      } catch (error) {
+        try {
+          await rename(backup, path);
+        } catch (restoreError) {
+          retainTransaction = true;
+          throw new AggregateError(
+            [error, restoreError],
+            `Failed to replace ${path} and restore its previous contents. Previous contents remain in ${backup}.`,
+          );
+        }
+        throw error;
+      }
+    }
+  } catch (error) {
+    primary = error;
+  }
+
+  if (!retainTransaction) {
+    try {
+      await rm(transaction, { recursive: true, force: true });
+    } catch (cleanup) {
+      if (primary !== noFailure) {
+        throwWithCleanupError(
+          primary,
+          cleanup,
+          `Failed to clean up directory replacement transaction for ${path}.`,
         );
       }
-      throw error;
+      throw cleanup;
     }
-    await rm(backup, { recursive: true, force: true });
-  } finally {
-    await rm(tmp, { recursive: true, force: true });
   }
+  if (primary !== noFailure) throw primary;
 }

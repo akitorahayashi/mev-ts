@@ -1,9 +1,11 @@
 import { expect, test } from 'bun:test';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { installPackages } from '../../src/brew/install';
 import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import { type PackageToken, packages } from '../../src/provisioning/package';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 interface Sink {
   brewfile?: string;
@@ -50,6 +52,72 @@ test('reports present when brew bundle check succeeds', async () => {
   expect(sink.brewfile).toBe('brew "git"\n');
   expect(sink.brewfilePath).toMatch(/Brewfile$/);
   expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
+});
+
+test('removes the Brewfile directory when the command runner throws', async () => {
+  const sink: Sink = {};
+  const context: Context = {
+    ...contextWith(0, sink),
+    commands: {
+      async run(_command, args) {
+        const fileArg = args.find((arg) => arg.startsWith('--file='));
+        if (fileArg) {
+          sink.brewfilePath = fileArg.slice('--file='.length);
+        }
+        throw new Error('runner failed');
+      },
+    },
+  };
+
+  const reports = await installPackages(oneFormula, context);
+
+  expect(reports[0]?.status).toBe('failed');
+  expect(reports[0]?.error).toBe('runner failed');
+  expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
+});
+
+test('reports failure when the command runner rejects without a reason', async () => {
+  const context: Context = {
+    ...contextWith(0),
+    commands: {
+      async run(): Promise<CommandResult> {
+        return Promise.reject();
+      },
+    },
+  };
+
+  const reports = await installPackages(oneFormula, context);
+
+  expect(reports[0]?.status).toBe('failed');
+  expect(reports[0]?.error).toBe('undefined');
+});
+
+test('allocates Brewfile scratch under the configured temporary root', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const root = join(dir, 'tmp root');
+      await mkdir(root);
+      const previous = Bun.env.TMPDIR;
+      Bun.env.TMPDIR = root;
+      const sink: Sink = {};
+
+      try {
+        await installPackages(oneFormula, contextWith(0, sink));
+      } finally {
+        if (previous === undefined) {
+          delete Bun.env.TMPDIR;
+        } else {
+          Bun.env.TMPDIR = previous;
+        }
+      }
+
+      expect(sink.brewfilePath?.startsWith(join(root, 'mev-brewfile-'))).toBe(
+        true,
+      );
+      expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
+    },
+    { prefix: 'brew-tmp-root-' },
+  );
 });
 
 test('attempts install with --no-upgrade for a missing formula', async () => {

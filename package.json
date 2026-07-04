@@ -15,7 +15,7 @@
     "up": "bun scripts/install-mev.ts",
     "codegen": "bun scripts/generate-assets.ts",
     "prebuild": "mkdir -p dist && bun run codegen",
-    "build": "bun build src/main.ts --compile --outfile dist/mev && rm -f .*.bun-build",
+    "build": "bun scripts/build.ts --outfile dist/mev",
     "pretest": "bun run codegen",
     "test": "bun test",
     "pretest:unit": "bun run codegen",

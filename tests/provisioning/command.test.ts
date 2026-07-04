@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
-import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
 import type { CommandOptions, CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import { runActivation, runCommand } from '../../src/provisioning/activation';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 interface Invocation {
   readonly command: string;
@@ -74,59 +74,57 @@ test('reads inject asset values and captures feed later steps', async () => {
 });
 
 test('skipIf with a satisfied pathExists guard marks the step unchanged', async () => {
-  const sandbox = join(process.cwd(), '.tmp', `cmd-${process.pid}`);
-  await mkdir(sandbox, { recursive: true });
-  try {
-    const { context, calls } = contextWith(sandbox, () => ok());
-    const activation = runCommand({
-      label: 'demo',
-      steps: [
-        {
-          label: 'install',
-          argv: () => ['install'],
-          skipIf: () => ({ pathExists: sandbox }),
-        },
-      ],
-    });
+  await withTemporaryDirectory(
+    async (sandbox) => {
+      const { context, calls } = contextWith(sandbox, () => ok());
+      const activation = runCommand({
+        label: 'demo',
+        steps: [
+          {
+            label: 'install',
+            argv: () => ['install'],
+            skipIf: () => ({ pathExists: sandbox }),
+          },
+        ],
+      });
 
-    const report = await runActivation(activation, context);
+      const report = await runActivation(activation, context);
 
-    expect(calls).toHaveLength(0);
-    expect(report.entries?.[0]?.status).toBe('unchanged');
-    expect(report.status).toBe('unchanged');
-  } finally {
-    await rm(sandbox, { force: true, recursive: true });
-  }
+      expect(calls).toHaveLength(0);
+      expect(report.entries?.[0]?.status).toBe('unchanged');
+      expect(report.status).toBe('unchanged');
+    },
+    { prefix: 'cmd-' },
+  );
 });
 
 test('skipIf pathExists surfaces filesystem errors instead of running', async () => {
-  const sandbox = join(process.cwd(), '.tmp', `cmd-error-${process.pid}`);
-  await mkdir(sandbox, { recursive: true });
-  try {
-    const blockedParent = join(sandbox, 'file-parent');
-    await Bun.write(blockedParent, 'not a directory');
-    const { context, calls } = contextWith(sandbox, () => ok());
-    const activation = runCommand({
-      label: 'demo',
-      steps: [
-        {
-          label: 'install',
-          argv: () => ['install'],
-          skipIf: () => ({
-            pathExists: join(blockedParent, 'tool'),
-          }),
-        },
-      ],
-    });
+  await withTemporaryDirectory(
+    async (sandbox) => {
+      const blockedParent = join(sandbox, 'file-parent');
+      await Bun.write(blockedParent, 'not a directory');
+      const { context, calls } = contextWith(sandbox, () => ok());
+      const activation = runCommand({
+        label: 'demo',
+        steps: [
+          {
+            label: 'install',
+            argv: () => ['install'],
+            skipIf: () => ({
+              pathExists: join(blockedParent, 'tool'),
+            }),
+          },
+        ],
+      });
 
-    const report = await runActivation(activation, context);
+      const report = await runActivation(activation, context);
 
-    expect(calls).toHaveLength(0);
-    expect(report.status).toBe('failed');
-    expect(report.error).toMatch(/not a directory/i);
-  } finally {
-    await rm(sandbox, { force: true, recursive: true });
-  }
+      expect(calls).toHaveLength(0);
+      expect(report.status).toBe('failed');
+      expect(report.error).toMatch(/not a directory/i);
+    },
+    { prefix: 'cmd-error-' },
+  );
 });
 
 test('a non-zero step fails the activation and halts the pipeline', async () => {

@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { expect, test } from 'bun:test';
+import { mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../../src/errors';
 import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { deleteSubmodule } from '../../../src/internal/git/submodule';
+import { withTemporaryDirectory } from '../../fixtures/temporary-directory';
 
 interface Call {
   args: string[];
@@ -28,20 +29,21 @@ function sequenceRunner(
   };
 }
 
-let counter = 0;
 let sandbox: string;
 
-beforeEach(async () => {
-  counter += 1;
-  sandbox = join(process.cwd(), '.tmp', `submodule-${process.pid}-${counter}`);
-  await mkdir(sandbox, { recursive: true });
-});
+function sandboxTest(name: string, body: () => Promise<void>): void {
+  test(name, async () => {
+    await withTemporaryDirectory(
+      async (dir) => {
+        sandbox = dir;
+        await body();
+      },
+      { prefix: 'submodule-' },
+    );
+  });
+}
 
-afterEach(async () => {
-  await rm(sandbox, { force: true, recursive: true });
-});
-
-test('runs deinit, rm, and config removal in order', async () => {
+sandboxTest('runs deinit, rm, and config removal in order', async () => {
   const calls: Call[] = [];
   const run = sequenceRunner(
     [
@@ -79,30 +81,33 @@ test('runs deinit, rm, and config removal in order', async () => {
   ]);
 });
 
-test('removes the .git/modules directory for the submodule', async () => {
-  const modulesPath = join(sandbox, 'modules', 'vendor/dep');
-  await mkdir(modulesPath, { recursive: true });
+sandboxTest(
+  'removes the .git/modules directory for the submodule',
+  async () => {
+    const modulesPath = join(sandbox, 'modules', 'vendor/dep');
+    await mkdir(modulesPath, { recursive: true });
 
-  const run = sequenceRunner(
-    [
-      { code: 0, stdout: '', stderr: '' },
-      { code: 0, stdout: '', stderr: '' },
-      { code: 0, stdout: sandbox, stderr: '' },
-      { code: 0, stdout: '', stderr: '' },
-    ],
-    [],
-  );
+    const run = sequenceRunner(
+      [
+        { code: 0, stdout: '', stderr: '' },
+        { code: 0, stdout: '', stderr: '' },
+        { code: 0, stdout: sandbox, stderr: '' },
+        { code: 0, stdout: '', stderr: '' },
+      ],
+      [],
+    );
 
-  await deleteSubmodule(run, ['vendor/dep']);
+    await deleteSubmodule(run, ['vendor/dep']);
 
-  const exists = await stat(modulesPath).then(
-    () => true,
-    () => false,
-  );
-  expect(exists).toBe(false);
-});
+    const exists = await stat(modulesPath).then(
+      () => true,
+      () => false,
+    );
+    expect(exists).toBe(false);
+  },
+);
 
-test('tolerates a missing config section', async () => {
+sandboxTest('tolerates a missing config section', async () => {
   const run = sequenceRunner(
     [
       { code: 0, stdout: '', stderr: '' },
@@ -116,7 +121,7 @@ test('tolerates a missing config section', async () => {
   await expect(deleteSubmodule(run, ['vendor/dep'])).resolves.toBeUndefined();
 });
 
-test('throws when config removal fails for another reason', async () => {
+sandboxTest('throws when config removal fails for another reason', async () => {
   const run = sequenceRunner(
     [
       { code: 0, stdout: '', stderr: '' },
@@ -132,7 +137,7 @@ test('throws when config removal fails for another reason', async () => {
   );
 });
 
-test('throws when deinit fails', async () => {
+sandboxTest('throws when deinit fails', async () => {
   const run = sequenceRunner([{ code: 1, stdout: '', stderr: 'boom' }], []);
 
   await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toBeInstanceOf(
@@ -140,15 +145,18 @@ test('throws when deinit fails', async () => {
   );
 });
 
-test('reports inherited submodule failures without pretending output was captured', async () => {
-  const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], []);
+sandboxTest(
+  'reports inherited submodule failures without pretending output was captured',
+  async () => {
+    const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], []);
 
-  await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toThrow(
-    'git submodule deinit -f vendor/dep failed with code 1: see command output above',
-  );
-});
+    await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toThrow(
+      'git submodule deinit -f vendor/dep failed with code 1: see command output above',
+    );
+  },
+);
 
-test('accepts a valid relative path', async () => {
+sandboxTest('accepts a valid relative path', async () => {
   const run = sequenceRunner(
     [
       { code: 0, stdout: '', stderr: '' },

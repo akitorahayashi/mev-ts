@@ -34,31 +34,44 @@ toon large-response.json
 curl -fsSL https://api.example.com/items | toon
 ```
 
-Converted data is persisted under the project-root `.tmp/` directory:
+Converted data that must persist during the task is written under a system temporary directory owned by the current command sequence:
 
 ```sh
-mkdir -p .tmp
-toon large-response.json --stats -o .tmp/large-response.toon
+scratch="$(mktemp -d -t toon.XXXXXX)"
+cleanup() {
+  status=$?
+  rm -rf "$scratch"
+  exit "$status"
+}
+trap cleanup EXIT
+toon large-response.json --stats -o "$scratch/large-response.toon"
 ```
 
 The complete source JSON and its TOON representation are not both read unless comparison is required by the task.
 
 ## Producing Structured Data
 
-JSON-compatible output is authored as TOON in the project-root `.tmp/` directory and decoded with strict validation into another temporary file:
+JSON-compatible output is authored as TOON and decoded with strict validation into a temporary file. When the final JSON file must be replaced atomically, the temporary output is created in an exclusive sibling directory next to the final path:
 
 ```sh
-mkdir -p .tmp
-output="$(mktemp .tmp/generated.XXXXXX)"
-toon .tmp/generated.toon -o "$output"
+final="generated.json"
+parent="$(dirname "$final")"
+name="$(basename "$final")"
+staging="$(mktemp -d "$parent/.${name}.XXXXXX")"
+output="$staging/file"
+cleanup() {
+  status=$?
+  rm -rf "$staging"
+  exit "$status"
+}
+trap cleanup EXIT
+toon --decode -o "$output" < generated.toon
 ```
 
 For stdin, decode direction is specified explicitly:
 
 ```sh
-mkdir -p .tmp
-output="$(mktemp .tmp/generated.XXXXXX)"
-toon --decode -o "$output" < .tmp/generated.toon
+toon --decode -o "$output" < generated.toon
 ```
 
 The decoded JSON syntax is validated:
@@ -72,7 +85,7 @@ jq empty "$output"
 The output is moved to the required path only after all validation succeeds:
 
 ```sh
-mv "$output" generated.json
+mv "$output" "$final"
 ```
 
 The generated JSON is the deliverable unless the task explicitly requests TOON.

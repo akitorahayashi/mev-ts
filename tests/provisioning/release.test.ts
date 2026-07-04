@@ -1,12 +1,19 @@
 import { expect, test } from 'bun:test';
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import {
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  writeFile,
+} from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import {
   releaseBinaries,
   runActivation,
 } from '../../src/provisioning/activation';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 interface Call {
   readonly command: string;
@@ -16,17 +23,7 @@ interface Call {
 type Responder = (command: string, args: readonly string[]) => CommandResult;
 
 async function withSandbox(fn: (home: string) => Promise<void>): Promise<void> {
-  const home = join(
-    process.cwd(),
-    '.tmp',
-    `release-${process.pid}-${Math.random().toString(36).slice(2)}`,
-  );
-  await mkdir(home, { recursive: true });
-  try {
-    await fn(home);
-  } finally {
-    await rm(home, { force: true, recursive: true });
-  }
+  await withTemporaryDirectory(fn, { prefix: 'release-' });
 }
 
 function contextWith(
@@ -176,8 +173,10 @@ test('a private binary is fetched with an authenticated gh download', async () =
     const gh = calls.find((c) => c.command === 'gh');
     expect(gh).toBeDefined();
     const output = gh?.args[gh.args.indexOf('--output') + 1] as string;
-    expect(output).toEqual(expect.stringContaining('/.astm.'));
-    expect(output).toEqual(expect.stringContaining('.tmp'));
+    expect(dirname(dirname(output))).toBe(
+      await realpath(join(home, '.cargo', 'bin')),
+    );
+    expect(basename(dirname(output)).startsWith('.astm.')).toBe(true);
     expect(gh?.args).toEqual([
       'release',
       'download',

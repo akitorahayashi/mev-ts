@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
+import { throwWithCleanupError } from '../host/cleanup-error';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 import {
@@ -9,6 +10,8 @@ import {
   type PackageToken,
   tokens,
 } from '../provisioning/package';
+
+const noFailure = Symbol('noFailure');
 
 export type InstallStatus = 'installed' | 'present' | 'failed';
 export type InstallStage = 'checking' | 'installing';
@@ -36,12 +39,29 @@ async function withBrewfile<T>(
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'mev-brewfile-'));
   const file = join(dir, 'Brewfile');
+  let primary: unknown = noFailure;
+  let result: T | undefined;
   try {
     await writeFile(file, `${line}\n`);
-    return await action(file);
-  } finally {
-    await rm(dir, { force: true, recursive: true });
+    result = await action(file);
+  } catch (error) {
+    primary = error;
   }
+
+  try {
+    await rm(dir, { force: true, recursive: true });
+  } catch (cleanup) {
+    if (primary !== noFailure) {
+      throwWithCleanupError(
+        primary,
+        cleanup,
+        `Failed to clean up Brewfile directory ${dir}.`,
+      );
+    }
+    throw cleanup;
+  }
+  if (primary !== noFailure) throw primary;
+  return result as T;
 }
 
 function brewfileLine(token: PackageToken): string {
