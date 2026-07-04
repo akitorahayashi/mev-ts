@@ -3,6 +3,8 @@ import { basename, dirname, join } from 'node:path';
 import { lstatIfPresent } from './absence';
 import { throwWithCleanupError } from './cleanup-error';
 
+const noFailure = Symbol('noFailure');
+
 async function transactionDirectory(path: string): Promise<string> {
   await mkdir(dirname(path), { recursive: true });
   const parent = await realpath(dirname(path));
@@ -25,11 +27,11 @@ export async function replaceDirectoryAfterBuild(
   const transaction = await transactionDirectory(path);
   const staging = join(transaction, 'staging');
   const backup = join(transaction, 'backup');
-  await mkdir(staging);
 
-  let primary: unknown;
+  let primary: unknown = noFailure;
   let retainTransaction = false;
   try {
+    await mkdir(staging);
     await buildDirectory(staging);
 
     const present = (await lstatIfPresent(path)) !== null;
@@ -60,7 +62,7 @@ export async function replaceDirectoryAfterBuild(
     try {
       await rm(transaction, { recursive: true, force: true });
     } catch (cleanup) {
-      if (primary !== undefined) {
+      if (primary !== noFailure) {
         throwWithCleanupError(
           primary,
           cleanup,
@@ -70,5 +72,5 @@ export async function replaceDirectoryAfterBuild(
       throw cleanup;
     }
   }
-  if (primary !== undefined) throw primary;
+  if (primary !== noFailure) throw primary;
 }

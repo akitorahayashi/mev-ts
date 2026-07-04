@@ -1,6 +1,7 @@
 export function attachCleanupError(primary: Error, cleanup: unknown): Error {
   Object.defineProperty(primary, 'cleanupError', {
     configurable: true,
+    enumerable: true,
     value: cleanup,
   });
   return primary;

@@ -76,6 +76,22 @@ test('removes the Brewfile directory when the command runner throws', async () =
   expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
+test('reports failure when the command runner rejects without a reason', async () => {
+  const context: Context = {
+    ...contextWith(0),
+    commands: {
+      async run(): Promise<CommandResult> {
+        return Promise.reject();
+      },
+    },
+  };
+
+  const reports = await installPackages(oneFormula, context);
+
+  expect(reports[0]?.status).toBe('failed');
+  expect(reports[0]?.error).toBe('undefined');
+});
+
 test('allocates Brewfile scratch under the configured temporary root', async () => {
   await withTemporaryDirectory(
     async (dir) => {

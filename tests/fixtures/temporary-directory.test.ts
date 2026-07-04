@@ -59,6 +59,27 @@ test('preserves the body failure and attaches cleanup failure', async () => {
   expect((bodyError as Error & { cleanupError?: unknown }).cleanupError).toBe(
     cleanupError,
   );
+  expect(Object.keys(bodyError)).toContain('cleanupError');
+});
+
+test('does not treat a body rejection without a reason as success', async () => {
+  let observed = '';
+  let rejected = false;
+  let reason: unknown = 'unset';
+
+  try {
+    await withTemporaryDirectory(async (dir) => {
+      observed = dir;
+      await Promise.reject();
+    });
+  } catch (error) {
+    rejected = true;
+    reason = error;
+  }
+
+  expect(rejected).toBe(true);
+  expect(reason).toBeUndefined();
+  expect(await exists(observed)).toBe(false);
 });
 
 test('surfaces cleanup failure when the body succeeds', async () => {

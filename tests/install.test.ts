@@ -1,74 +1,93 @@
 import { expect, test } from 'bun:test';
-import { chmod, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { withTemporaryDirectory } from './fixtures/temporary-directory';
 
 const SHA256 =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
-async function writeExecutable(path: string, body: string): Promise<void> {
-  await writeFile(path, body);
-  await chmod(path, 0o755);
+async function fakeCommands(dir: string, log: string): Promise<string> {
+  const bashEnv = join(dir, 'fake-commands.bash');
+  await writeFile(
+    bashEnv,
+    `uname() {
+  if [ "$1" = "-s" ]; then
+    printf 'Darwin\\n'
+  else
+    printf 'arm64\\n'
+  fi
 }
 
-async function fakeTools(bin: string, log: string): Promise<void> {
-  await mkdir(bin, { recursive: true });
-  await writeExecutable(
-    join(bin, 'uname'),
-    `#!/usr/bin/env bash
-if [ "$1" = "-s" ]; then
-  echo Darwin
-else
-  echo arm64
-fi
-`,
-  );
-  await writeExecutable(
-    join(bin, 'curl'),
-    `#!/usr/bin/env bash
-set -euo pipefail
-out=""
-while [ "$#" -gt 0 ]; do
-  if [ "$1" = "-o" ]; then
-    out="$2"
-    shift 2
+mktemp() {
+  local template
+  if [ "$1" = "-d" ] && [ "$2" = "-t" ]; then
+    template="\${TMPDIR:-/tmp}/$3"
+  elif [ "$1" = "-d" ]; then
+    template="$2"
   else
-    shift
+    return 64
   fi
-done
-printf 'curl %s\\n' "$out" >> "${log}"
-if [ "\${MEV_FAKE_CURL_FAIL:-}" = "1" ]; then
-  echo "curl failed" >&2
-  exit 7
-fi
-case "$out" in
-  *.sha256) printf '%s  mev\\n' "${SHA256}" > "$out" ;;
-  *) printf binary > "$out" ;;
-esac
+  local path="\${template%XXXXXX}\${RANDOM}\${RANDOM}"
+  mkdir "$path"
+  printf '%s\\n' "$path"
+}
+
+curl() {
+  local out=""
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = "-o" ]; then
+      out="$2"
+      shift 2
+    else
+      shift
+    fi
+  done
+  printf 'curl %s\\n' "$out" >> "${log}"
+  if [ "\${MEV_FAKE_CURL_FAIL:-}" = "1" ]; then
+    echo "curl failed" >&2
+    return 7
+  fi
+  case "$out" in
+    *.sha256) printf '%s  mev\\n' "${SHA256}" > "$out" ;;
+    *) printf binary > "$out" ;;
+  esac
+}
+
+shasum() {
+  printf '%s  %s\\n' "${SHA256}" "$3"
+}
+
+awk() {
+  if [ "$1" != "{print \\$1}" ]; then
+    command awk "$@"
+    return
+  fi
+  if [ "$#" -gt 1 ]; then
+    while read -r first _; do
+      printf '%s\\n' "$first"
+    done < "$2"
+  else
+    while read -r first _; do
+      printf '%s\\n' "$first"
+    done
+  fi
+}
+
+install() {
+  if [ "\${MEV_FAKE_INSTALL_FAIL:-}" = "1" ]; then
+    echo "install failed" >&2
+    return 9
+  fi
+  local src="$3"
+  local dest="$4"
+  mkdir -p "\${dest%/*}"
+  cp "$src" "$dest"
+  chmod 755 "$dest"
+  printf 'install %s\\n' "$dest" >> "${log}"
+}
 `,
   );
-  await writeExecutable(
-    join(bin, 'shasum'),
-    `#!/usr/bin/env bash
-printf '%s  %s\\n' "${SHA256}" "$3"
-`,
-  );
-  await writeExecutable(
-    join(bin, 'install'),
-    `#!/usr/bin/env bash
-set -euo pipefail
-if [ "\${MEV_FAKE_INSTALL_FAIL:-}" = "1" ]; then
-  echo "install failed" >&2
-  exit 9
-fi
-src="$3"
-dest="$4"
-mkdir -p "$(dirname "$dest")"
-cp "$src" "$dest"
-chmod 755 "$dest"
-printf 'install %s\\n' "$dest" >> "${log}"
-`,
-  );
+  return bashEnv;
 }
 
 async function runInstaller(
@@ -78,11 +97,10 @@ async function runInstaller(
   const proc = Bun.spawn(['/bin/bash', 'install.sh'], {
     cwd: process.cwd(),
     env: {
-      ...Bun.env,
+      PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
       ...env,
       MEV_BINARY_URL: 'https://example.test/mev',
       MEV_INSTALL_DIR: join(dir, 'bin'),
-      PATH: `${join(dir, 'fake-bin')}:${Bun.env.PATH}`,
     },
     stderr: 'pipe',
     stdout: 'pipe',
@@ -101,9 +119,10 @@ test('installer downloads one binary when checksum is supplied and cleans TMPDIR
       const log = join(dir, 'calls.log');
       const tmp = join(dir, 'tmp root');
       await mkdir(tmp);
-      await fakeTools(join(dir, 'fake-bin'), log);
+      const bashEnv = await fakeCommands(dir, log);
 
       const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
         MEV_BINARY_SHA256: SHA256,
         TMPDIR: tmp,
       });
@@ -125,9 +144,12 @@ test('installer downloads checksum when no checksum value is supplied', async ()
       const log = join(dir, 'calls.log');
       const tmp = join(dir, 'tmp root');
       await mkdir(tmp);
-      await fakeTools(join(dir, 'fake-bin'), log);
+      const bashEnv = await fakeCommands(dir, log);
 
-      const result = await runInstaller(dir, { TMPDIR: tmp });
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        TMPDIR: tmp,
+      });
 
       expect(result.code).toBe(0);
       const calls = await readFile(log, 'utf8');
@@ -143,9 +165,10 @@ test('installer cleans temporary files after download failure', async () => {
     async (dir) => {
       const tmp = join(dir, 'tmp root');
       await mkdir(tmp);
-      await fakeTools(join(dir, 'fake-bin'), join(dir, 'calls.log'));
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
 
       const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
         MEV_BINARY_SHA256: SHA256,
         MEV_FAKE_CURL_FAIL: '1',
         TMPDIR: tmp,
@@ -165,9 +188,10 @@ test('installer cleans temporary files after install failure', async () => {
     async (dir) => {
       const tmp = join(dir, 'tmp root');
       await mkdir(tmp);
-      await fakeTools(join(dir, 'fake-bin'), join(dir, 'calls.log'));
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
 
       const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
         MEV_BINARY_SHA256: SHA256,
         MEV_FAKE_INSTALL_FAIL: '1',
         TMPDIR: tmp,

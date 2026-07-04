@@ -59,6 +59,28 @@ test('keeps the previous directory when staging fails', async () => {
   });
 });
 
+test('does not treat a build rejection without a reason as success', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const dest = join(dir, 'role');
+    let rejected = false;
+    let reason: unknown = 'unset';
+
+    try {
+      await replaceDirectoryAfterBuild(dest, async () => {
+        await Promise.reject();
+      });
+    } catch (error) {
+      rejected = true;
+      reason = error;
+    }
+
+    expect(rejected).toBe(true);
+    expect(reason).toBeUndefined();
+    expect(await Bun.file(dest).exists()).toBe(false);
+    expect(await runOwnedSiblings(dest)).toEqual([]);
+  });
+});
+
 test('preserves the build failure when cleanup also fails', async () => {
   await withTemporaryDirectory(async (dir) => {
     const dest = join(dir, 'role');
@@ -80,5 +102,6 @@ test('preserves the build failure when cleanup also fails', async () => {
     expect(
       (primary as Error & { cleanupError?: unknown }).cleanupError,
     ).toBeDefined();
+    expect(Object.keys(primary)).toContain('cleanupError');
   });
 });

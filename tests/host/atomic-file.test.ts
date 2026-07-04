@@ -48,6 +48,28 @@ test('keeps an existing destination when the writer fails', async () => {
   });
 });
 
+test('does not treat a writer rejection without a reason as success', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const dest = join(dir, 'state.json');
+    let rejected = false;
+    let reason: unknown = 'unset';
+
+    try {
+      await replaceFileAtomically(dest, async () => {
+        await Promise.reject();
+      });
+    } catch (error) {
+      rejected = true;
+      reason = error;
+    }
+
+    expect(rejected).toBe(true);
+    expect(reason).toBeUndefined();
+    expect(await Bun.file(dest).exists()).toBe(false);
+    expect(await runOwnedSiblings(dest)).toEqual([]);
+  });
+});
+
 test('lends a named path inside a private destination-adjacent directory', async () => {
   await withTemporaryDirectory(async (dir) => {
     const dest = join(dir, 'tool');
@@ -108,5 +130,6 @@ test('preserves the writer failure when cleanup also fails', async () => {
     expect(
       (primary as Error & { cleanupError?: unknown }).cleanupError,
     ).toBeDefined();
+    expect(Object.keys(primary)).toContain('cleanupError');
   });
 });

@@ -11,6 +11,8 @@ import {
   tokens,
 } from '../provisioning/package';
 
+const noFailure = Symbol('noFailure');
+
 export type InstallStatus = 'installed' | 'present' | 'failed';
 export type InstallStage = 'checking' | 'installing';
 
@@ -37,7 +39,7 @@ async function withBrewfile<T>(
 ): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'mev-brewfile-'));
   const file = join(dir, 'Brewfile');
-  let primary: unknown;
+  let primary: unknown = noFailure;
   let result: T | undefined;
   try {
     await writeFile(file, `${line}\n`);
@@ -49,7 +51,7 @@ async function withBrewfile<T>(
   try {
     await rm(dir, { force: true, recursive: true });
   } catch (cleanup) {
-    if (primary !== undefined) {
+    if (primary !== noFailure) {
       throwWithCleanupError(
         primary,
         cleanup,
@@ -58,7 +60,7 @@ async function withBrewfile<T>(
     }
     throw cleanup;
   }
-  if (primary !== undefined) throw primary;
+  if (primary !== noFailure) throw primary;
   return result as T;
 }
 

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 type RemoveDirectory = (path: string) => Promise<void>;
+const noFailure = Symbol('noFailure');
 
 export interface TemporaryDirectoryOptions {
   readonly prefix?: string;
@@ -13,6 +14,7 @@ export interface TemporaryDirectoryOptions {
 function attachCleanupFailure(primary: Error, cleanup: unknown): Error {
   Object.defineProperty(primary, 'cleanupError', {
     configurable: true,
+    enumerable: true,
     value: cleanup,
   });
   return primary;
@@ -29,7 +31,7 @@ export async function withTemporaryDirectory<T>(
     options.removeDirectory ??
     ((path) => rm(path, { force: true, recursive: true }));
 
-  let primary: unknown;
+  let primary: unknown = noFailure;
   let result: T | undefined;
   try {
     result = await body(dir);
@@ -40,7 +42,7 @@ export async function withTemporaryDirectory<T>(
   try {
     await removeDirectory(dir);
   } catch (cleanup) {
-    if (primary !== undefined) {
+    if (primary !== noFailure) {
       if (primary instanceof Error) {
         throw attachCleanupFailure(primary, cleanup);
       }
@@ -51,6 +53,6 @@ export async function withTemporaryDirectory<T>(
     }
     throw cleanup;
   }
-  if (primary !== undefined) throw primary;
+  if (primary !== noFailure) throw primary;
   return result as T;
 }

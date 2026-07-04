@@ -3,10 +3,31 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { throwWithCleanupError } from '../src/host/cleanup-error';
 
+const noFailure = Symbol('noFailure');
+type BuildStdio = 'inherit' | 'ignore';
+
+interface BuildInvocation {
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly stdio: BuildStdio;
+}
+
 interface BuildOptions {
   readonly projectRoot: string;
   readonly outfile: string;
   readonly target?: string;
+  readonly stdio?: BuildStdio;
+  readonly runBuildCommand?: (invocation: BuildInvocation) => Promise<number>;
+  readonly removeWorkspace?: (path: string) => Promise<void>;
+}
+
+async function runBunBuild(invocation: BuildInvocation): Promise<number> {
+  const proc = Bun.spawn(['bun', ...invocation.args], {
+    cwd: invocation.cwd,
+    stderr: invocation.stdio,
+    stdout: invocation.stdio,
+  });
+  return proc.exited;
 }
 
 function parseArgs(args: readonly string[], projectRoot: string): BuildOptions {
@@ -42,7 +63,11 @@ function parseArgs(args: readonly string[], projectRoot: string): BuildOptions {
 
 export async function buildMev(options: BuildOptions): Promise<void> {
   const workspace = await mkdtemp(join(tmpdir(), 'mev-build-'));
-  let primary: unknown;
+  const removeWorkspace =
+    options.removeWorkspace ??
+    ((path: string) => rm(path, { force: true, recursive: true }));
+  const runBuildCommand = options.runBuildCommand ?? runBunBuild;
+  let primary: unknown = noFailure;
 
   try {
     await mkdir(dirname(options.outfile), { recursive: true });
@@ -55,12 +80,8 @@ export async function buildMev(options: BuildOptions): Promise<void> {
     ];
     if (options.target) args.push('--target', options.target);
 
-    const proc = Bun.spawn(['bun', ...args], {
-      cwd: workspace,
-      stderr: 'inherit',
-      stdout: 'inherit',
-    });
-    const code = await proc.exited;
+    const stdio = options.stdio ?? 'inherit';
+    const code = await runBuildCommand({ args, cwd: workspace, stdio });
     if (code !== 0) {
       throw new Error(`bun build failed with exit code ${code}`);
     }
@@ -69,9 +90,9 @@ export async function buildMev(options: BuildOptions): Promise<void> {
   }
 
   try {
-    await rm(workspace, { force: true, recursive: true });
+    await removeWorkspace(workspace);
   } catch (cleanup) {
-    if (primary !== undefined) {
+    if (primary !== noFailure) {
       throwWithCleanupError(
         primary,
         cleanup,
@@ -80,7 +101,7 @@ export async function buildMev(options: BuildOptions): Promise<void> {
     }
     throw cleanup;
   }
-  if (primary !== undefined) throw primary;
+  if (primary !== noFailure) throw primary;
 }
 
 if (import.meta.main) {
