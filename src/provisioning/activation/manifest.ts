@@ -7,8 +7,8 @@ import { isNotFound } from '../../host/absence';
  * Read a deployed manifest and hand its contents to `parse`. Only a missing
  * file (`ENOENT`) becomes the deploy-first guidance, named by `label`; every
  * other filesystem failure keeps its cause rather than being mislabeled as
- * not-found. `parse` may be asynchronous so a kind can `await import('js-yaml')`
- * inside it.
+ * not-found. `parse` may be synchronous or asynchronous so kind-specific
+ * parsing and probing can share the same manifest reader.
  */
 export async function readDeployedManifest<T>(
   configKey: string,

@@ -10,7 +10,7 @@
 src/
   main.ts        CLI entry point
   errors.ts      Typed error hierarchy
-  app/           Identity use-case orchestration
+  app/           Use-case orchestration (identity, config selection)
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
   cli/
@@ -50,7 +50,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 `activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Two cross-cutting rules govern the kinds:
 
-- Multi-item kinds (`defaults`, `duti`, `pipx`, `editorExtensions`, `coderAgents`, `coderSkills`, `release`) share the `reconcile.ts` envelope, which enforces per-item failure isolation structurally — a throwing item fails only itself.
+- Multi-item kinds (`defaults`, `duti`, `pipx`, `editorExtensions`, `release`) share the `reconcile.ts` envelope, which enforces per-item failure isolation structurally — a throwing item fails only itself.
 - Kinds that drive an external tool delegate its protocol and state probes to a capability module under `src/<tool>/` (`pipx/`, `duti/`, `editor/`, `github/`). Capability modules accept a `Context` and import no activation type; activations may import capabilities, never the reverse.
 
 See docs/architecture.md for the per-kind table and the reconcile/manifest mechanics.

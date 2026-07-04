@@ -11,7 +11,7 @@ The execution model is three sequential phases: deploy role assets to the deploy
 ```
 src/
   cli/          argv parsing, exit code mapping, terminal rendering (clipanion)
-  app/          identity use-case orchestration
+  app/          use-case orchestration (identity, config selection)
   provisioning/ target DSL, activation engines, 3-phase orchestrator
   brew/         Homebrew install
   host/         CommandRunner, Context, HostPath

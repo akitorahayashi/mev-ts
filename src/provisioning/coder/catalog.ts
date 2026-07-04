@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { readDirentsIfPresent, readTextIfPresent } from '../../host/absence';
+import { loadYaml } from '../../host/yaml';
 
 /**
  * The catalog of coder selectables. It is the authority for which entries exist
@@ -51,7 +52,6 @@ export function reconcileSections(
 
 /** Read and validate the AGENTS.md section catalog from a deployed source dir. */
 export async function readSections(sourceDir: string): Promise<string[]> {
-  const { load } = await import('js-yaml');
   const catalogPath = join(sourceDir, 'catalog.yml');
   const raw = await readTextIfPresent(catalogPath);
   if (raw === null) {
@@ -59,7 +59,7 @@ export async function readSections(sourceDir: string): Promise<string[]> {
       `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
     );
   }
-  const parsed = load(raw) as SectionsCatalogFile;
+  const parsed = loadYaml(raw) as SectionsCatalogFile;
   if (!Array.isArray(parsed?.sections)) {
     throw new ProvisioningError(
       `AGENTS.md section catalog must contain a sections sequence: ${catalogPath}.`,

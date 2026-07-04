@@ -78,6 +78,15 @@ test('deployRole skips a present role without overwrite', async () => {
   expect(result.deployed).toBe(false);
 });
 
+test('deployRole skips roles with no embedded assets', async () => {
+  const result = await deployRole('assetless', contextFor(sandbox));
+
+  expect(result).toEqual({ role: 'assetless', deployed: false, files: [] });
+  expect(await Bun.file(deployedDir('assetless', sandbox)).exists()).toBe(
+    false,
+  );
+});
+
 test('deployRole prunes stale files when overwrite is set', async () => {
   await deployRole('git', contextFor(sandbox));
   const stale = join(deployedDir('git', sandbox), 'global/stale.txt');

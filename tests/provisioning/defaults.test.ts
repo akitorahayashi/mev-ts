@@ -61,6 +61,11 @@ function contextWith(
 
 const ok = (): CommandResult => ({ code: 0, stdout: '', stderr: '' });
 const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
+const readValue = (stdout: string): CommandResult => ({
+  code: 0,
+  stdout,
+  stderr: '',
+});
 
 test('an empty defaults list reports unchanged', async () => {
   await withSandbox(async (dir) => {
@@ -75,7 +80,7 @@ test('an empty defaults list reports unchanged', async () => {
   });
 });
 
-test('each successful write is reported changed', async () => {
+test('matching defaults entry is reported unchanged without writing', async () => {
   await withSandbox(async (dir) => {
     await deploy(
       dir,
@@ -87,17 +92,70 @@ test('each successful write is reported changed', async () => {
         '',
       ].join('\n'),
     );
-    const { context, calls } = contextWith(dir, () => ok());
+    const { context, calls } = contextWith(dir, (_command, args) =>
+      args[0] === 'read' ? readValue('1\n') : ok(),
+    );
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    expect(calls).toEqual([
+      {
+        command: 'defaults',
+        args: ['read', 'com.apple.dock', 'autohide'],
+      },
+    ]);
+  });
+});
+
+test('differing defaults entry is written and reported changed', async () => {
+  await withSandbox(async (dir) => {
+    await deploy(
+      dir,
+      [
+        '- domain: com.apple.dock',
+        '  key: autohide',
+        '  type: bool',
+        '  value: true',
+        '',
+      ].join('\n'),
+    );
+    const { context, calls } = contextWith(dir, (_command, args) =>
+      args[0] === 'read' ? readValue('0\n') : ok(),
+    );
 
     const report = await runActivation(applyDefaults(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
-    expect(calls[0]?.args).toEqual([
-      'write',
-      'com.apple.dock',
-      'autohide',
-      '-bool',
-      'YES',
+    expect(calls.map((call) => call.args)).toEqual([
+      ['read', 'com.apple.dock', 'autohide'],
+      ['write', 'com.apple.dock', 'autohide', '-bool', 'YES'],
+    ]);
+  });
+});
+
+test('a missing defaults key is written and reported changed', async () => {
+  await withSandbox(async (dir) => {
+    await deploy(
+      dir,
+      [
+        '- domain: com.apple.dock',
+        '  key: autohide',
+        '  type: bool',
+        '  value: true',
+        '',
+      ].join('\n'),
+    );
+    const { context, calls } = contextWith(dir, (_command, args) =>
+      args[0] === 'read' ? fail('does not exist') : ok(),
+    );
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    expect(calls.map((call) => call.args)).toEqual([
+      ['read', 'com.apple.dock', 'autohide'],
+      ['write', 'com.apple.dock', 'autohide', '-bool', 'YES'],
     ]);
   });
 });
@@ -114,11 +172,82 @@ test('a failed write marks the activation failed', async () => {
         '',
       ].join('\n'),
     );
-    const { context } = contextWith(dir, () => fail('not permitted'));
+    const { context } = contextWith(dir, (_command, args) =>
+      args[0] === 'read' ? fail('does not exist') : fail('not permitted'),
+    );
 
     const report = await runActivation(applyDefaults(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.entries?.[0]?.error).toBe('not permitted');
+  });
+});
+
+test('defaults string expansion replaces every home placeholder', async () => {
+  await withSandbox(async (dir) => {
+    await deploy(
+      dir,
+      [
+        '- domain: com.example',
+        '  key: Path',
+        '  type: string',
+        '  value: "$HOME/bin/$HOME/cache"',
+        '',
+      ].join('\n'),
+    );
+    const { context, calls } = contextWith(dir, (_command, args) =>
+      args[0] === 'read' ? fail('does not exist') : ok(),
+    );
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    expect(calls[1]?.args).toEqual([
+      'write',
+      'com.example',
+      'Path',
+      '-string',
+      `${dir}/bin/${dir}/cache`,
+    ]);
+  });
+});
+
+test('defaults manifest rejects missing required fields', async () => {
+  await withSandbox(async (dir) => {
+    await deploy(
+      dir,
+      ['- domain: com.apple.dock', '  type: bool', '  value: true', ''].join(
+        '\n',
+      ),
+    );
+    const { context, calls } = contextWith(dir, () => ok());
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain("'key' must be a non-empty string");
+    expect(calls).toHaveLength(0);
+  });
+});
+
+test('defaults manifest rejects values incompatible with the declared type', async () => {
+  await withSandbox(async (dir) => {
+    await deploy(
+      dir,
+      [
+        '- domain: com.apple.dock',
+        '  key: autohide',
+        '  type: bool',
+        '  value: maybe',
+        '',
+      ].join('\n'),
+    );
+    const { context, calls } = contextWith(dir, () => ok());
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain("'value' must be a boolean");
+    expect(calls).toHaveLength(0);
   });
 });

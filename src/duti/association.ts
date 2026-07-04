@@ -1,6 +1,7 @@
 import { ProvisioningError } from '../errors';
 import { commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
+import { loadYaml } from '../host/yaml';
 
 interface DutiApp {
   readonly bundle_id: string;
@@ -20,8 +21,7 @@ export async function parseAssociations(
   raw: string,
   path: string,
 ): Promise<Association[]> {
-  const { load } = await import('js-yaml');
-  const parsed = load(raw) as DutiConfig;
+  const parsed = loadYaml(raw) as DutiConfig;
   if (!parsed?.default_apps || !Array.isArray(parsed.default_apps)) {
     throw new ProvisioningError(
       `Duti config must contain a default_apps sequence: ${path}`,

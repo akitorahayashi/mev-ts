@@ -3,17 +3,12 @@ import { dirname } from 'node:path';
 import { ProvisioningError } from '../errors';
 import { lstatIfPresent } from './absence';
 
-/** `lstat` a path, returning null when it does not exist. */
-export async function lstatOrNull(path: string) {
-  return lstatIfPresent(path);
-}
-
 /** Whether `link` is a symlink whose target is exactly `target`. */
 export async function isSymlinkTo(
   link: string,
   target: string,
 ): Promise<boolean> {
-  const stats = await lstatOrNull(link);
+  const stats = await lstatIfPresent(link);
   if (!stats?.isSymbolicLink()) {
     return false;
   }
@@ -30,7 +25,7 @@ export async function placeSymlink(
   target: string,
   overwrite: boolean,
 ): Promise<void> {
-  const stats = await lstatOrNull(link);
+  const stats = await lstatIfPresent(link);
   if (stats && !stats.isSymbolicLink() && !overwrite) {
     throw new ProvisioningError(
       `Refusing to replace unmanaged file at ${link}; re-run with --overwrite to replace it.`,

@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
 import { type CommandOptions, commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
+import { loadYaml } from '../host/yaml';
 
 export interface PostInstall {
   readonly bin: string;
@@ -48,8 +49,7 @@ export async function parseTools(
   raw: string,
   path: string,
 ): Promise<PipxTool[]> {
-  const { load } = await import('js-yaml');
-  const parsed = load(raw) as { tools?: unknown };
+  const parsed = loadYaml(raw) as { tools?: unknown };
   if (!parsed?.tools || !Array.isArray(parsed.tools)) {
     throw new ProvisioningError(
       `Pipx config must contain a tools sequence: ${path}`,

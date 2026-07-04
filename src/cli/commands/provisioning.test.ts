@@ -104,7 +104,7 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
       tags: ['shell'],
       overwrite: true,
       intro: 'mev: Creating personal environment',
-      footer: () => ['Optional', 'GUI applications: mev make br-c'],
+      footer: () => ['Optional', 'Baseline Homebrew casks: mev make br-c'],
       run,
     }),
   );
@@ -118,7 +118,7 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   expect(result.stdout).toContain('shell  1 unchanged');
   expect(result.stdout).toContain('Result: success');
   expect(result.stdout).toContain('Optional');
-  expect(result.stdout).toContain('GUI applications: mev make br-c');
+  expect(result.stdout).toContain('Baseline Homebrew casks: mev make br-c');
 });
 
 test('executeProvisioningRun renders failed runs without success footer', async () => {
@@ -131,7 +131,7 @@ test('executeProvisioningRun renders failed runs without success footer', async 
       footer: (report) =>
         report.failed
           ? undefined
-          : ['Optional', 'GUI applications: mev make br-c'],
+          : ['Optional', 'Baseline Homebrew casks: mev make br-c'],
       run,
     }),
   );

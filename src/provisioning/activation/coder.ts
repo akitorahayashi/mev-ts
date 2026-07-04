@@ -1,6 +1,6 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { deployedDirSymbolic } from '../../assets/ref';
+import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
 import { readDirentsIfPresent, readlinkIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath } from '../../host/path';
@@ -11,7 +11,6 @@ import { readDisabled, resolve } from '../coder/manifest';
 import {
   agentsFile,
   agentsManifest,
-  deployedSource,
   skillsDir,
   skillsManifest,
 } from '../coder/paths';
@@ -132,7 +131,7 @@ export async function runCoderAgents(
 ): Promise<ActivationReport> {
   const base = describeCoderAgents(activation);
   try {
-    const sourceDir = deployedSource(activation.sectionsPrefix, context.home);
+    const sourceDir = deployedDir(activation.sectionsPrefix, context.home);
     const catalog = await readSections(sourceDir);
     const disabled = await readDisabled(agentsManifest(context.home));
     const { enabled } = resolve(catalog, disabled);
@@ -151,7 +150,7 @@ export async function runCoderSkills(
 ): Promise<ActivationReport> {
   const base = describeCoderSkills(activation);
   try {
-    const sourceDir = deployedSource(activation.skillsPrefix, context.home);
+    const sourceDir = deployedDir(activation.skillsPrefix, context.home);
     const catalog = await readSkills(sourceDir);
     const disabled = await readDisabled(skillsManifest(context.home));
     const { enabled } = resolve(catalog, disabled);
