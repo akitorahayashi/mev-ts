@@ -1,5 +1,4 @@
 import { join } from 'node:path';
-import { deployedDir } from '../../assets/ref';
 
 export const AGENTS_SECTIONS_PREFIX = 'coder/global/agents-sections';
 export const SKILLS_PREFIX = 'coder/global/skills';
@@ -39,9 +38,4 @@ export function agentsManifest(home: string): string {
  */
 export function skillsManifest(home: string): string {
   return join(coderRoot(home), 'skills-selection.yml');
-}
-
-/** The deployed source directory for an asset prefix under the deploy store. */
-export function deployedSource(prefix: string, home: string): string {
-  return deployedDir(prefix, home);
 }

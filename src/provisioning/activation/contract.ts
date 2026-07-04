@@ -2,7 +2,7 @@ import type { AssetRef } from '../../assets/ref';
 import type { ReleaseBinary } from '../../github/release';
 import type { HostPath } from '../../host/path';
 
-export type Verb = 'copy' | 'link' | 'apply' | 'run';
+export type Verb = 'link' | 'apply' | 'run';
 
 /**
  * A single config materialization or host mutation. `file`/`tree` link deployed

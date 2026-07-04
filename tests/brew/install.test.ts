@@ -69,10 +69,9 @@ test('attempts install with --no-upgrade for a missing formula', async () => {
 
 test('hooks report the total and tick per token', async () => {
   const started: string[] = [];
-  const done: string[] = [];
   const ticked: PackageToken[] = [];
   let total = -1;
-  await installPackages(
+  const reports = await installPackages(
     packages({ taps: ['a/b'], formulae: ['git', 'gh'] }),
     contextWith(0),
     {
@@ -81,9 +80,6 @@ test('hooks report the total and tick per token', async () => {
       },
       onTokenStart: (token, stage) => {
         started.push(`${stage} ${token.kind} ${token.name}`);
-      },
-      onTokenDone: (report) => {
-        done.push(`${report.status} ${report.token.name}`);
       },
       onTick: (token) => ticked.push(token),
     },
@@ -94,23 +90,23 @@ test('hooks report the total and tick per token', async () => {
     'checking formula git',
     'checking formula gh',
   ]);
-  expect(done).toEqual(['present a/b', 'present git', 'present gh']);
+  expect(
+    reports.map((report) => `${report.status} ${report.token.name}`),
+  ).toEqual(['present a/b', 'present git', 'present gh']);
   expect(ticked.map((t) => t.name)).toEqual(['a/b', 'git', 'gh']);
 });
 
 test('hooks report installing stage for missing packages', async () => {
   const started: string[] = [];
-  const done: string[] = [];
 
-  await installPackages(oneFormula, contextWith(1), {
+  const reports = await installPackages(oneFormula, contextWith(1), {
     onTokenStart: (token, stage) => {
       started.push(`${stage} ${token.kind} ${token.name}`);
-    },
-    onTokenDone: (report) => {
-      done.push(`${report.status} ${report.token.name}`);
     },
   });
 
   expect(started).toEqual(['checking formula git', 'installing formula git']);
-  expect(done).toEqual(['failed git']);
+  expect(
+    reports.map((report) => `${report.status} ${report.token.name}`),
+  ).toEqual(['failed git']);
 });

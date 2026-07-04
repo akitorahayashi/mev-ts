@@ -22,7 +22,6 @@ export interface InstallReport {
 export interface InstallHooks {
   onStart?(total: number): void;
   onTokenStart?(token: PackageToken, stage: InstallStage): void;
-  onTokenDone?(report: InstallReport): void;
   onTick?(token: PackageToken): void;
 }
 
@@ -116,7 +115,6 @@ export async function installPackages(
       };
     }
     reports.push(report);
-    hooks.onTokenDone?.(report);
     hooks.onTick?.(token);
   }
   return reports;

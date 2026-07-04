@@ -5,7 +5,7 @@ export { UsageError as CommandLineError };
 export class AppError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AppError';
+    this.name = new.target.name;
   }
 }
 

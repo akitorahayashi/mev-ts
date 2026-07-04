@@ -1,7 +1,19 @@
 import { Command, Option } from 'clipanion';
 import { resolveProfile } from '../../provisioning/profile';
-import { fullSetupTargets } from '../../provisioning/registry';
+import { allTargets, fullSetupTargets } from '../../provisioning/registry';
+import type { Target } from '../../provisioning/target';
 import { executeProvisioningRun } from './provisioning';
+
+function optionalTargetLine(target: Target): string {
+  return `${target.description}: mev make ${target.aliases[0] ?? target.tags[0]}`;
+}
+
+function optionalFooter(): readonly string[] | undefined {
+  const lines = allTargets()
+    .filter((target) => target.optional)
+    .map(optionalTargetLine);
+  return lines.length > 0 ? ['Optional', ...lines] : undefined;
+}
 
 export class CreateCommand extends Command {
   static override paths = [['create'], ['cr']];
@@ -23,10 +35,7 @@ export class CreateCommand extends Command {
       tags,
       overwrite: this.overwrite,
       intro: `mev: Creating ${profile} environment`,
-      footer: (report) =>
-        report.failed
-          ? undefined
-          : ['Optional', 'GUI applications: mev make br-c'],
+      footer: (report) => (report.failed ? undefined : optionalFooter()),
     });
   }
 }

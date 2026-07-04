@@ -1,3 +1,4 @@
+import { deployedDir } from '../assets/ref';
 import { toggle } from '../cli/tty/toggle';
 import { readSections, readSkills } from '../provisioning/coder/catalog';
 import {
@@ -8,7 +9,6 @@ import {
 import {
   AGENTS_SECTIONS_PREFIX,
   agentsManifest,
-  deployedSource,
   SKILLS_PREFIX,
   skillsManifest,
 } from '../provisioning/coder/paths';
@@ -24,7 +24,7 @@ function manifestPath(kind: CoderSelectable, home: string): string {
 }
 
 function sourceDir(kind: CoderSelectable, home: string): string {
-  return deployedSource(
+  return deployedDir(
     kind === 'agents' ? AGENTS_SECTIONS_PREFIX : SKILLS_PREFIX,
     home,
   );
@@ -36,6 +36,14 @@ function selectMessage(kind: CoderSelectable): string {
     : 'Select enabled skills';
 }
 
+function warnUnknown(names: readonly string[]): void {
+  if (names.length > 0) {
+    process.stdout.write(
+      `warning: manifest names not in catalog: ${names.join(', ')}\n`,
+    );
+  }
+}
+
 export async function configSelect(
   kind: CoderSelectable,
   home: string,
@@ -43,7 +51,8 @@ export async function configSelect(
   const catalog = await catalogReader(kind)(sourceDir(kind, home));
   const manifest = manifestPath(kind, home);
   const disabled = await readDisabled(manifest);
-  const { enabled } = resolve(catalog, disabled);
+  const { enabled, unknownDisabled } = resolve(catalog, disabled);
+  warnUnknown(unknownDisabled);
 
   const chosen = await toggle(selectMessage(kind), catalog, enabled);
   if (chosen === null) return;

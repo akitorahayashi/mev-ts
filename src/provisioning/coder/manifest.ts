@@ -1,7 +1,4 @@
-import { unlink } from 'node:fs/promises';
-import { ProvisioningError } from '../../errors';
-import { isNotFound, readTextIfPresent } from '../../host/absence';
-import { writeFileAtomically } from '../../host/atomic-file';
+import { readNameList, splitNames, writeNameList } from '../selection';
 
 /**
  * The selection manifest records only what the user turned off. The catalog is
@@ -9,10 +6,6 @@ import { writeFileAtomically } from '../../host/atomic-file';
  * catalog entries added across mev updates stay enabled by default rather than
  * being silently dropped.
  */
-
-interface ManifestFile {
-  readonly disabled?: unknown;
-}
 
 /** The resolution of a catalog against a disabled list. */
 export interface Selection {
@@ -29,26 +22,7 @@ export interface Selection {
  * nothing is disabled.
  */
 export async function readDisabled(manifestPath: string): Promise<string[]> {
-  const raw = await readTextIfPresent(manifestPath);
-  if (raw === null) {
-    return [];
-  }
-  const { load } = await import('js-yaml');
-  const parsed = load(raw) as ManifestFile;
-  if (parsed?.disabled === undefined) {
-    return [];
-  }
-  if (!Array.isArray(parsed.disabled)) {
-    throw new ProvisioningError(
-      `Invalid selection manifest ${manifestPath}: 'disabled' must be a sequence.`,
-    );
-  }
-  if (!parsed.disabled.every((entry) => typeof entry === 'string')) {
-    throw new ProvisioningError(
-      `Invalid selection manifest ${manifestPath}: 'disabled' must be a sequence of strings.`,
-    );
-  }
-  return parsed.disabled;
+  return readNameList(manifestPath, 'disabled', 'selection manifest');
 }
 
 /**
@@ -61,17 +35,12 @@ export function resolve(
   catalog: readonly string[],
   disabled: readonly string[],
 ): Selection {
-  const enabled: string[] = [];
-  const disabledInCatalog: string[] = [];
-  for (const name of catalog) {
-    if (disabled.includes(name)) {
-      disabledInCatalog.push(name);
-    } else {
-      enabled.push(name);
-    }
-  }
-  const unknownDisabled = disabled.filter((name) => !catalog.includes(name));
-  return { enabled, disabled: disabledInCatalog, unknownDisabled };
+  const split = splitNames(catalog, disabled);
+  return {
+    enabled: split.excluded,
+    disabled: split.included,
+    unknownDisabled: split.unknown,
+  };
 }
 
 /**
@@ -82,16 +51,5 @@ export async function writeDisabled(
   manifestPath: string,
   disabled: readonly string[],
 ): Promise<void> {
-  if (disabled.length === 0) {
-    try {
-      await unlink(manifestPath);
-    } catch (err) {
-      if (!isNotFound(err)) {
-        throw err;
-      }
-    }
-    return;
-  }
-  const { dump } = await import('js-yaml');
-  await writeFileAtomically(manifestPath, dump({ disabled: [...disabled] }));
+  await writeNameList(manifestPath, 'disabled', disabled);
 }

@@ -1,6 +1,8 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isSymlinkTo, lstatOrNull, placeSymlink } from '../../host/symlink';
+import { ProvisioningError } from '../../errors';
+import { lstatIfPresent } from '../../host/absence';
+import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 
 /**
  * Reconcile `skillsDir` to hold exactly one symlink per enabled skill, each
@@ -35,9 +37,9 @@ export async function buildSkills(
     if (await isSymlinkTo(link, target)) {
       continue;
     }
-    const stats = await lstatOrNull(link);
+    const stats = await lstatIfPresent(link);
     if (stats && !stats.isSymbolicLink()) {
-      throw new Error(
+      throw new ProvisioningError(
         `Skills entry '${link}' already exists and is not a managed symlink.`,
       );
     }

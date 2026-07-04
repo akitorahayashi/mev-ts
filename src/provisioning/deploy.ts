@@ -43,12 +43,15 @@ export async function deployRole(
   role: string,
   context: Context,
 ): Promise<DeployResult> {
+  const keys = context.assets.keysByPrefix(`${role}/`);
   const destDir = deployedDir(role, context.home);
   const present = await exists(destDir);
+  if (keys.length === 0 && (!present || !context.overwrite)) {
+    return { role, deployed: false, files: [] };
+  }
   if (present && !context.overwrite) {
     return { role, deployed: false, files: [] };
   }
-  const keys = context.assets.keysByPrefix(`${role}/`);
 
   await replaceDirectoryAfterBuild(destDir, async (tmp) => {
     const createdDirs = new Set<string>();

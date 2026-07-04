@@ -7,10 +7,14 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
-import { readDirectoryIfPresent, readlinkIfPresent } from '../../host/absence';
+import {
+  lstatIfPresent,
+  readDirectoryIfPresent,
+  readlinkIfPresent,
+} from '../../host/absence';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
-import { isSymlinkTo, lstatOrNull, placeSymlink } from '../../host/symlink';
+import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import {
   type Activation,
   type ActivationReport,
@@ -78,7 +82,7 @@ async function staleLinks(
     if (expected.has(path)) {
       continue;
     }
-    const stats = await lstatOrNull(path);
+    const stats = await lstatIfPresent(path);
     if (!stats?.isSymbolicLink()) {
       continue;
     }
