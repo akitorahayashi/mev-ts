@@ -44,7 +44,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### 3-Phase Provisioning
 
-`runMake()` drives three sequential phases: deploy embedded assets into `~/.config/mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply each activation concurrently (`runActivation()`). `overwrite` stages a replacement role before removing the old deploy, with best-effort rollback for in-process failures; otherwise existing deploys are skipped.
+`runMake()` drives three sequential phases: deploy embedded assets into `~/.config/mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply activations in declaration order (`runActivation()`). `overwrite` stages a replacement role before removing the old deploy, with best-effort rollback for in-process failures; otherwise existing deploys are skipped.
 
 ### Activation DSL
 
