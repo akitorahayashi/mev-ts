@@ -11,7 +11,11 @@
     b = branch
     br = branch
     b-d = !mev internal git delete-branches
-    cln = remote prune origin
+    r-v = remote -v
+    r-a = remote add
+    r-s-u = remote set-url
+    r-pr = remote prune
+    r-pr-o = remote prune origin
     ft = fetch
 
     p = pull
