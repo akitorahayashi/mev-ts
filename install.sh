@@ -39,10 +39,29 @@ else
 	binary_url="https://github.com/${repo}/releases/download/${version}/${binary_name}-${target}"
 fi
 
-tmp_file="$(mktemp "${TMPDIR:-/tmp}/mev.XXXXXX")"
-trap 'rm -f "$tmp_file"' EXIT
-checksum_file="$(mktemp "${TMPDIR:-/tmp}/mev-sha256.XXXXXX")"
-trap 'rm -f "$tmp_file" "$checksum_file"' EXIT
+tmp_dir=""
+cleanup() {
+	status=$?
+	trap - EXIT INT TERM HUP
+	if [[ -n "$tmp_dir" && -d "$tmp_dir" ]]; then
+		if ! rm -rf "$tmp_dir"; then
+			echo "Warning: failed to remove temporary directory: $tmp_dir" >&2
+		fi
+	fi
+	exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+if [[ -n "${TMPDIR:-}" ]]; then
+	tmp_dir="$(mktemp -d "${TMPDIR%/}/mev.XXXXXX")"
+else
+	tmp_dir="$(mktemp -d -t mev.XXXXXX)"
+fi
+tmp_file="${tmp_dir}/${binary_name}"
+checksum_file="${tmp_dir}/${binary_name}.sha256"
 
 echo "Downloading ${binary_name} for ${target} from ${binary_url}..."
 curl -fsSL -o "$tmp_file" -- "$binary_url"

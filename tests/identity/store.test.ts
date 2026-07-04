@@ -1,5 +1,5 @@
-import { afterAll, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { expect, test } from 'bun:test';
+import { mkdirSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppError } from '../../src/errors';
@@ -10,21 +10,32 @@ import {
   saveState,
   stateExists,
 } from '../../src/identity/store';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
-const roots: string[] = [];
+let sandbox = '';
+let counter = 0;
 
 function tempHome(): string {
-  mkdirSync('.tmp', { recursive: true });
-  const dir = mkdtempSync(join('.tmp', 'identity-'));
-  roots.push(dir);
+  counter += 1;
+  const dir = join(sandbox, `identity-${counter}`);
+  mkdirSync(dir);
   return dir;
 }
 
-afterAll(() => {
-  for (const dir of roots) rmSync(dir, { recursive: true, force: true });
-});
+function sandboxTest(name: string, body: () => Promise<void>): void {
+  test(name, async () => {
+    await withTemporaryDirectory(
+      async (dir) => {
+        sandbox = dir;
+        counter = 0;
+        await body();
+      },
+      { prefix: 'identity-' },
+    );
+  });
+}
 
-test('stateExists reflects whether the file is present', async () => {
+sandboxTest('stateExists reflects whether the file is present', async () => {
   const home = tempHome();
   const path = identityFilePath(home);
   expect(stateExists(path)).toBe(false);
@@ -35,7 +46,7 @@ test('stateExists reflects whether the file is present', async () => {
   expect(stateExists(path)).toBe(true);
 });
 
-test('saveState then loadState round-trips identities', async () => {
+sandboxTest('saveState then loadState round-trips identities', async () => {
   const path = identityFilePath(tempHome());
   const state = {
     personal: makeIdentity('Personal Name', 'personal@example.com'),
@@ -45,19 +56,22 @@ test('saveState then loadState round-trips identities', async () => {
   expect(await loadState(path)).toEqual(state);
 });
 
-test('saveState omits null profiles from the serialized file', async () => {
-  const path = identityFilePath(tempHome());
-  await saveState(path, {
-    personal: makeIdentity('Only Personal', 'p@example.com'),
-    work: null,
-  });
-  const json = JSON.parse(await readFile(path, 'utf8'));
-  expect(json).toEqual({
-    personal: { name: 'Only Personal', email: 'p@example.com' },
-  });
-});
+sandboxTest(
+  'saveState omits null profiles from the serialized file',
+  async () => {
+    const path = identityFilePath(tempHome());
+    await saveState(path, {
+      personal: makeIdentity('Only Personal', 'p@example.com'),
+      work: null,
+    });
+    const json = JSON.parse(await readFile(path, 'utf8'));
+    expect(json).toEqual({
+      personal: { name: 'Only Personal', email: 'p@example.com' },
+    });
+  },
+);
 
-test('saveState does not leave atomic temp files behind', async () => {
+sandboxTest('saveState does not leave atomic temp files behind', async () => {
   const path = identityFilePath(tempHome());
   await saveState(path, {
     personal: makeIdentity('Personal', 'p@example.com'),
@@ -65,14 +79,12 @@ test('saveState does not leave atomic temp files behind', async () => {
   });
 
   const names = await readdir(join(path, '..'));
-  expect(
-    names.filter((name) =>
-      /^\.identity\.json\.\d+\.[0-9a-f-]+\.tmp$/.test(name),
-    ),
-  ).toEqual([]);
+  expect(names.filter((name) => name.startsWith('.identity.json.'))).toEqual(
+    [],
+  );
 });
 
-test('loadState throws when the file does not exist', async () => {
+sandboxTest('loadState throws when the file does not exist', async () => {
   const path = identityFilePath(tempHome());
   await expect(loadState(path)).rejects.toBeInstanceOf(AppError);
 });

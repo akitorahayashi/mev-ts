@@ -17,7 +17,7 @@ Files under `tests/`. Verify filesystem, CLI routing, subprocess execution, or n
 ## Rules
 
 - New tests: pure logic goes under `src/`; real I/O or full orchestration goes under `tests/`.
-- Integration tests that write to disk are confined to `.tmp/` sandboxes, created and removed in `beforeEach`/`afterEach`.
+- Integration tests that write to disk use `tests/fixtures/temporary-directory.ts`, which allocates one directory per test under the system temporary root and removes only the directory it created.
 - Never make real HTTP requests or call real external binaries; inject fake contexts or a fake `CommandRunner`.
 - Clean up any modified env vars, process flags, or spies; don't let stdout/stderr spillage contaminate the test runner.
 

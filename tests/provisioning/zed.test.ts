@@ -1,24 +1,15 @@
 import { expect, test } from 'bun:test';
-import { mkdir, readFile, readlink, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { asset } from '../../src/assets/ref';
 import type { Context } from '../../src/host/context';
 import { home } from '../../src/host/path';
 import { runActivation, zedSettings } from '../../src/provisioning/activation';
 import { OVERRIDES_PREFIX } from '../../src/provisioning/zed/paths';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
-  const dir = join(
-    process.cwd(),
-    '.tmp',
-    `zed-${process.pid}-${Math.random().toString(36).slice(2)}`,
-  );
-  await mkdir(dir, { recursive: true });
-  try {
-    await fn(dir);
-  } finally {
-    await rm(dir, { force: true, recursive: true });
-  }
+  await withTemporaryDirectory(fn, { prefix: 'zed-' });
 }
 
 function contextWith(homeDir: string): Context {

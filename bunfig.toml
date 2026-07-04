@@ -2,7 +2,6 @@
 pathIgnorePatterns = [
   "references/**",
   "docs/**",
-  ".tmp/**",
 ]
 
 [test.reporter]

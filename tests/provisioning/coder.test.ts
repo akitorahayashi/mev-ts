@@ -4,7 +4,6 @@ import {
   mkdir,
   readFile,
   readlink,
-  rm,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -20,19 +19,10 @@ import {
   AGENTS_SECTIONS_PREFIX,
   SKILLS_PREFIX,
 } from '../../src/provisioning/coder/paths';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
-  const dir = join(
-    process.cwd(),
-    '.tmp',
-    `coder-${process.pid}-${Math.random().toString(36).slice(2)}`,
-  );
-  await mkdir(dir, { recursive: true });
-  try {
-    await fn(dir);
-  } finally {
-    await rm(dir, { force: true, recursive: true });
-  }
+  await withTemporaryDirectory(fn, { prefix: 'coder-' });
 }
 
 function contextWith(homeDir: string): Context {

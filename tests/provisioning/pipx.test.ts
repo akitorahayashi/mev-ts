@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import { applyPipx, runActivation } from '../../src/provisioning/activation';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 const CONFIG_KEY = 'pipx/global/tools.yml';
 
@@ -21,17 +22,7 @@ tools:
 `.trimStart();
 
 async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
-  const dir = join(
-    process.cwd(),
-    '.tmp',
-    `pipx-${process.pid}-${Math.random().toString(36).slice(2)}`,
-  );
-  await mkdir(dir, { recursive: true });
-  try {
-    await fn(dir);
-  } finally {
-    await rm(dir, { force: true, recursive: true });
-  }
+  await withTemporaryDirectory(fn, { prefix: 'pipx-' });
 }
 
 async function deployConfig(dir: string): Promise<void> {

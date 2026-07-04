@@ -1,23 +1,14 @@
 import { expect, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { readDeployedManifest } from '../../src/provisioning/activation/manifest';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 const CONFIG_KEY = 'sample/global/manifest.json';
 
 async function withSandbox(fn: (home: string) => Promise<void>): Promise<void> {
-  const home = join(
-    process.cwd(),
-    '.tmp',
-    `manifest-${process.pid}-${Math.random().toString(36).slice(2)}`,
-  );
-  await mkdir(home, { recursive: true });
-  try {
-    await fn(home);
-  } finally {
-    await rm(home, { force: true, recursive: true });
-  }
+  await withTemporaryDirectory(fn, { prefix: 'manifest-' });
 }
 
 async function deploy(home: string, contents: string): Promise<void> {

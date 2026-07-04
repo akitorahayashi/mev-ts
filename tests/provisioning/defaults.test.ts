@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
@@ -7,21 +7,12 @@ import {
   applyDefaults,
   runActivation,
 } from '../../src/provisioning/activation';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 const CONFIG_KEY = 'system/global/defaults.yml';
 
 async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
-  const dir = join(
-    process.cwd(),
-    '.tmp',
-    `defaults-${process.pid}-${Math.random().toString(36).slice(2)}`,
-  );
-  await mkdir(dir, { recursive: true });
-  try {
-    await fn(dir);
-  } finally {
-    await rm(dir, { force: true, recursive: true });
-  }
+  await withTemporaryDirectory(fn, { prefix: 'defaults-' });
 }
 
 async function deploy(dir: string, yaml: string): Promise<void> {

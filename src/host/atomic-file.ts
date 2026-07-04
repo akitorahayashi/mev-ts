@@ -1,12 +1,18 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
+import { throwWithCleanupError } from './cleanup-error';
 
-function siblingTempPath(path: string): string {
-  return join(
-    dirname(path),
-    `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`,
-  );
+async function siblingTransactionDirectory(path: string): Promise<string> {
+  await mkdir(dirname(path), { recursive: true });
+  const parent = await realpath(dirname(path));
+  return mkdtemp(join(parent, `.${basename(path)}.`));
 }
 
 export async function writeFileAtomically(
@@ -22,12 +28,27 @@ export async function replaceFileAtomically(
   path: string,
   writeTemp: (tmp: string) => Promise<void>,
 ): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  const tmp = siblingTempPath(path);
+  const transaction = await siblingTransactionDirectory(path);
+  const tmp = join(transaction, 'file');
+  let primary: unknown;
   try {
     await writeTemp(tmp);
     await rename(tmp, path);
-  } finally {
-    await rm(tmp, { force: true });
+  } catch (error) {
+    primary = error;
   }
+
+  try {
+    await rm(transaction, { force: true, recursive: true });
+  } catch (cleanup) {
+    if (primary !== undefined) {
+      throwWithCleanupError(
+        primary,
+        cleanup,
+        `Failed to clean up temporary file transaction for ${path}.`,
+      );
+    }
+    throw cleanup;
+  }
+  if (primary !== undefined) throw primary;
 }
