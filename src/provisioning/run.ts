@@ -1,4 +1,3 @@
-import pLimit from 'p-limit';
 import {
   type InstallReport,
   type InstallStage,
@@ -13,8 +12,6 @@ import {
 import { type DeployResult, deployRole } from './deploy';
 import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
-
-const ACTIVATION_CONCURRENCY = 8;
 
 export type ActivationBlocker =
   | {
@@ -109,7 +106,6 @@ export async function runMake(
   const failedPackages = install.filter((r) => r.status === 'failed');
 
   // Phase 3: activate deployed assets, grouped and attributed by tag.
-  const limit = pLimit(ACTIVATION_CONCURRENCY);
   const groups: ActivationGroupReport[] = [];
   for (const group of selection.groups) {
     const blockers: ActivationBlocker[] = [];
@@ -145,11 +141,10 @@ export async function runMake(
       });
       continue;
     }
-    const reports = await Promise.all(
-      group.activations.map((activation) =>
-        limit(() => runActivation(activation, context)),
-      ),
-    );
+    const reports: ActivationReport[] = [];
+    for (const activation of group.activations) {
+      reports.push(await runActivation(activation, context));
+    }
     groups.push({ tag: group.tag, blockers, reports });
   }
 

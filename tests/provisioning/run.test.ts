@@ -83,6 +83,65 @@ test('onDeploy fires for each role and onInstallStart reports formula count', as
   expect(installTotal).toBe(1);
 });
 
+test('activations in one target run in declaration order', async () => {
+  const defaultsKeys = [
+    'BehaviorOrder',
+    'BuildOrder',
+    'EditorOrder',
+    'UiOrder',
+  ];
+  const assetKeys = [
+    'editor/xcode/global/behavior.yml',
+    'editor/xcode/global/build.yml',
+    'editor/xcode/global/editor.yml',
+    'editor/xcode/global/ui.yml',
+  ];
+  const assets = new Map(
+    assetKeys.map((key, index) => [
+      key,
+      `---
+- key: ${defaultsKeys[index]}
+  type: bool
+  value: true
+  domain: com.apple.dt.Xcode
+`,
+    ]),
+  );
+  const writes: string[] = [];
+  const context: Context = {
+    ...contextFor(sandbox),
+    assets: {
+      async read(key) {
+        const content = assets.get(key);
+        if (content === undefined) throw new Error(`unexpected asset ${key}`);
+        return content;
+      },
+      keysByPrefix(prefix) {
+        return assetKeys.filter((key) => key.startsWith(prefix));
+      },
+      isExecutable() {
+        return false;
+      },
+    },
+    commands: {
+      async run(command, args) {
+        if (command === 'defaults' && args[0] === 'write') {
+          const key = args[2] ?? '';
+          if (key === 'BehaviorOrder') {
+            await new Promise((resolve) => setTimeout(resolve, 20));
+          }
+          writes.push(key);
+        }
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+
+  await runMake({ tags: ['xcode'], overwrite: false }, context);
+
+  expect(writes).toEqual(defaultsKeys);
+});
+
 test('a failed package blocks dependent activations', async () => {
   const commands: string[] = [];
   const context: Context = {
