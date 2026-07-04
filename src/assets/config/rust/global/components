@@ -1,0 +1,3 @@
+rustfmt
+clippy
+rust-analyzer

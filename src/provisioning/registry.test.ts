@@ -51,7 +51,9 @@ test('every activation references an asset that exists in the registry', async (
           await expect(embeddedAssets.read(key)).resolves.toBeString();
         }
       } else if (activation.kind === 'release') {
-        // Release binaries are fetched from GitHub at run time, not embedded.
+        await expect(
+          embeddedAssets.read(activation.configKey),
+        ).resolves.toBeString();
       } else {
         expect(
           embeddedAssets.keysByPrefix(activation.prefix).length,

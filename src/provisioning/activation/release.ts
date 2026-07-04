@@ -4,6 +4,7 @@ import {
   detectArch,
   fetchReleaseBinary,
   installedMatches,
+  parseReleaseBinaries,
   type ReleaseBinary,
 } from '../../github/release';
 import type { Context } from '../../host/context';
@@ -13,14 +14,13 @@ import {
   type Described,
   errorMessage,
 } from './contract';
+import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';
 
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
 
-export function releaseBinaries(
-  binaries: readonly ReleaseBinary[],
-): Activation {
-  return { kind: 'release', binaries };
+export function releaseBinaries(configKey: string): Activation {
+  return { kind: 'release', configKey };
 }
 
 export function describeRelease(): Described {
@@ -62,7 +62,13 @@ export function runRelease(
   context: Context,
 ): Promise<ActivationReport> {
   return reconcile(describeRelease(), {
-    declare: async () => activation.binaries,
+    declare: () =>
+      readDeployedManifest(
+        activation.configKey,
+        context.home,
+        parseReleaseBinaries,
+        'Release binaries manifest',
+      ),
     // Each binary is independent and writes to a unique path, so the
     // network-bound reconciliations run concurrently; the envelope isolates a
     // single binary's failure and preserves declaration order.

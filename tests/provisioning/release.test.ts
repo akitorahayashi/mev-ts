@@ -66,10 +66,23 @@ function contextWith(
 const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });
 const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
 
-const PUBLIC = [
-  { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.6.0' },
-  { name: 'mx', repo: 'akitorahayashi/mx', tag: 'v3.1.0' },
-];
+const CONFIG_KEY = 'rust-cli/global/binaries.yml';
+
+async function deployBinaries(home: string, yaml: string): Promise<void> {
+  const roleDir = join(home, '.config', 'mev', 'roles', 'rust-cli', 'global');
+  await mkdir(roleDir, { recursive: true });
+  await writeFile(join(roleDir, 'binaries.yml'), yaml);
+}
+
+const PUBLIC_YAML = `
+binaries:
+  - name: kpv
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+  - name: mx
+    repo: akitorahayashi/mx
+    tag: v3.1.0
+`.trimStart();
 
 // A missing binary makes the `<dest> --version` probe spawn an absent
 // executable, which throws ENOENT synchronously. installedMatches must treat
@@ -82,6 +95,7 @@ const absentProbe = (args: readonly string[]): void => {
 
 test('first run: an absent binary is fetched and installed, not aborted', async () => {
   await withSandbox(async (home) => {
+    await deployBinaries(home, PUBLIC_YAML);
     const { context, calls } = contextWith(home, (command, args) => {
       absentProbe(args);
       if (command === 'uname') return ok('arm64');
@@ -89,7 +103,7 @@ test('first run: an absent binary is fetched and installed, not aborted', async 
       return fail();
     });
 
-    const report = await runActivation(releaseBinaries(PUBLIC), context);
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
     expect(report.entries?.map((e) => e.status)).toEqual([
@@ -105,6 +119,7 @@ test('first run: an absent binary is fetched and installed, not aborted', async 
 
 test('one binary failing still processes its siblings', async () => {
   await withSandbox(async (home) => {
+    await deployBinaries(home, PUBLIC_YAML);
     const { context } = contextWith(home, (command, args) => {
       absentProbe(args);
       if (command === 'uname') return ok('arm64');
@@ -116,7 +131,7 @@ test('one binary failing still processes its siblings', async () => {
       return fail();
     });
 
-    const report = await runActivation(releaseBinaries(PUBLIC), context);
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.entries?.find((e) => e.key === 'kpv')?.status).toBe(
@@ -130,6 +145,7 @@ test('one binary failing still processes its siblings', async () => {
 
 test('an up-to-date binary is left unchanged and not re-fetched', async () => {
   await withSandbox(async (home) => {
+    await deployBinaries(home, PUBLIC_YAML);
     const { context, calls } = contextWith(home, (command, args) => {
       if (command === 'uname') return ok('arm64');
       if (args[0] === '--version') {
@@ -139,7 +155,7 @@ test('an up-to-date binary is left unchanged and not re-fetched', async () => {
       return fail();
     });
 
-    const report = await runActivation(releaseBinaries(PUBLIC), context);
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('unchanged');
     expect(report.entries?.every((e) => e.status === 'unchanged')).toBe(true);
@@ -149,6 +165,16 @@ test('an up-to-date binary is left unchanged and not re-fetched', async () => {
 
 test('a private binary is fetched with an authenticated gh download', async () => {
   await withSandbox(async (home) => {
+    await deployBinaries(
+      home,
+      `
+binaries:
+  - name: astm
+    repo: asterismhq/asterism
+    tag: v27.0.2
+    private: true
+`.trimStart(),
+    );
     const { context, calls } = contextWith(home, (command, args) => {
       absentProbe(args);
       if (command === 'uname') return ok('arm64');
@@ -156,17 +182,7 @@ test('a private binary is fetched with an authenticated gh download', async () =
       return fail();
     });
 
-    const report = await runActivation(
-      releaseBinaries([
-        {
-          name: 'astm',
-          repo: 'asterismhq/asterism',
-          tag: 'v27.0.2',
-          private: true,
-        },
-      ]),
-      context,
-    );
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
     expect(calls.some((c) => c.command === 'curl')).toBe(false);
@@ -200,6 +216,15 @@ test('a failed download keeps the existing binary and removes temp files', async
     const existing = join(home, '.cargo', 'bin', 'kpv');
     await mkdir(join(existing, '..'), { recursive: true });
     await writeFile(existing, 'old');
+    await deployBinaries(
+      home,
+      `
+binaries:
+  - name: kpv
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+`.trimStart(),
+    );
     const { context } = contextWith(home, (command, args) => {
       if (command === 'uname') return ok('arm64');
       if (args[0] === '--version') return fail();
@@ -207,12 +232,7 @@ test('a failed download keeps the existing binary and removes temp files', async
       return fail();
     });
 
-    const report = await runActivation(
-      releaseBinaries([
-        { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.6.0' },
-      ]),
-      context,
-    );
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(await readFile(existing, 'utf8')).toBe('old');
