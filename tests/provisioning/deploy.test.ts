@@ -87,6 +87,19 @@ test('deployRole skips roles with no embedded assets', async () => {
   );
 });
 
+test('deployRole clears a present assetless role when overwrite is set', async () => {
+  const dest = deployedDir('assetless', sandbox);
+  const stale = join(dest, 'global/stale.txt');
+  await mkdir(join(dest, 'global'), { recursive: true });
+  await writeFile(stale, 'leftover');
+
+  const result = await deployRole('assetless', contextFor(sandbox, true));
+
+  expect(result).toEqual({ role: 'assetless', deployed: true, files: [] });
+  expect((await lstat(dest)).isDirectory()).toBe(true);
+  await expect(lstat(stale)).rejects.toThrow();
+});
+
 test('deployRole prunes stale files when overwrite is set', async () => {
   await deployRole('git', contextFor(sandbox));
   const stale = join(deployedDir('git', sandbox), 'global/stale.txt');

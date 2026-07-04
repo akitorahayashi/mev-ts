@@ -44,11 +44,11 @@ export async function deployRole(
   context: Context,
 ): Promise<DeployResult> {
   const keys = context.assets.keysByPrefix(`${role}/`);
-  if (keys.length === 0) {
-    return { role, deployed: false, files: [] };
-  }
   const destDir = deployedDir(role, context.home);
   const present = await exists(destDir);
+  if (keys.length === 0 && (!present || !context.overwrite)) {
+    return { role, deployed: false, files: [] };
+  }
   if (present && !context.overwrite) {
     return { role, deployed: false, files: [] };
   }

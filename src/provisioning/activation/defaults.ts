@@ -146,6 +146,19 @@ function defaultsValueMatches(
   return actual === expected;
 }
 
+function defaultsTypeMatches(
+  expected: DefaultsEntry['type'],
+  actualStdout: string,
+): boolean {
+  const actual = readValue(actualStdout).trim().toLowerCase();
+  const type = actual.startsWith('type is ')
+    ? actual.slice('type is '.length)
+    : actual;
+  if (expected === 'bool') return type === 'boolean' || type === 'bool';
+  if (expected === 'int') return type === 'integer' || type === 'int';
+  return type === expected;
+}
+
 function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
   const displayValue = defaultsArg(entry.type, entry.value, context.home);
   const writeArgs = [
@@ -162,8 +175,18 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
         entry.domain,
         entry.key,
       ]);
+      const currentType =
+        current.code === 0
+          ? await context.commands.run('defaults', [
+              'read-type',
+              entry.domain,
+              entry.key,
+            ])
+          : null;
       if (
         current.code === 0 &&
+        currentType?.code === 0 &&
+        defaultsTypeMatches(entry.type, currentType.stdout) &&
         defaultsValueMatches(entry.type, displayValue, current.stdout)
       ) {
         return { key: entry.key, value: displayValue, status: 'unchanged' };

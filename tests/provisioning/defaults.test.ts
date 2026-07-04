@@ -93,7 +93,11 @@ test('matching defaults entry is reported unchanged without writing', async () =
       ].join('\n'),
     );
     const { context, calls } = contextWith(dir, (_command, args) =>
-      args[0] === 'read' ? readValue('1\n') : ok(),
+      args[0] === 'read'
+        ? readValue('1\n')
+        : args[0] === 'read-type'
+          ? readValue('Type is boolean\n')
+          : ok(),
     );
 
     const report = await runActivation(applyDefaults(CONFIG_KEY), context);
@@ -104,6 +108,41 @@ test('matching defaults entry is reported unchanged without writing', async () =
         command: 'defaults',
         args: ['read', 'com.apple.dock', 'autohide'],
       },
+      {
+        command: 'defaults',
+        args: ['read-type', 'com.apple.dock', 'autohide'],
+      },
+    ]);
+  });
+});
+
+test('matching defaults value with a different stored type is rewritten', async () => {
+  await withSandbox(async (dir) => {
+    await deploy(
+      dir,
+      [
+        '- domain: com.apple.dock',
+        '  key: autohide',
+        '  type: bool',
+        '  value: true',
+        '',
+      ].join('\n'),
+    );
+    const { context, calls } = contextWith(dir, (_command, args) =>
+      args[0] === 'read'
+        ? readValue('1\n')
+        : args[0] === 'read-type'
+          ? readValue('Type is integer\n')
+          : ok(),
+    );
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    expect(calls.map((call) => call.args)).toEqual([
+      ['read', 'com.apple.dock', 'autohide'],
+      ['read-type', 'com.apple.dock', 'autohide'],
+      ['write', 'com.apple.dock', 'autohide', '-bool', 'YES'],
     ]);
   });
 });
@@ -121,7 +160,11 @@ test('differing defaults entry is written and reported changed', async () => {
       ].join('\n'),
     );
     const { context, calls } = contextWith(dir, (_command, args) =>
-      args[0] === 'read' ? readValue('0\n') : ok(),
+      args[0] === 'read'
+        ? readValue('0\n')
+        : args[0] === 'read-type'
+          ? readValue('Type is boolean\n')
+          : ok(),
     );
 
     const report = await runActivation(applyDefaults(CONFIG_KEY), context);
@@ -129,6 +172,7 @@ test('differing defaults entry is written and reported changed', async () => {
     expect(report.status).toBe('changed');
     expect(calls.map((call) => call.args)).toEqual([
       ['read', 'com.apple.dock', 'autohide'],
+      ['read-type', 'com.apple.dock', 'autohide'],
       ['write', 'com.apple.dock', 'autohide', '-bool', 'YES'],
     ]);
   });
