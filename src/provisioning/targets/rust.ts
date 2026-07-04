@@ -51,6 +51,9 @@ export const rustTarget = target('rust', {
             'add',
             ...s.ref('components').split(/\s+/).filter(Boolean),
           ],
+          skipIf: (s) => ({
+            commandSucceeds: ['test', '-z', s.ref('components')],
+          }),
           changedWhen: { outputContains: 'installing' },
         },
         {
@@ -61,6 +64,9 @@ export const rustTarget = target('rust', {
             'add',
             ...s.ref('targets').split(/\s+/).filter(Boolean),
           ],
+          skipIf: (s) => ({
+            commandSucceeds: ['test', '-z', s.ref('targets')],
+          }),
           changedWhen: { outputContains: 'installing' },
         },
       ],
