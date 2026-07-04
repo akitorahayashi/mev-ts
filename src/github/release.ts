@@ -3,6 +3,7 @@ import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
+import { loadYaml } from '../host/yaml';
 
 /**
  * A prebuilt CLI binary distributed through GitHub Releases. `repo` is
@@ -15,6 +16,50 @@ export interface ReleaseBinary {
   readonly repo: string;
   readonly tag: string;
   readonly private?: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function parseReleaseBinaries(
+  raw: string,
+  path: string,
+): ReleaseBinary[] {
+  const parsed = loadYaml(raw) as { binaries?: unknown };
+  if (!parsed?.binaries || !Array.isArray(parsed.binaries)) {
+    throw new ProvisioningError(
+      `Release binaries manifest must contain a binaries sequence: ${path}`,
+    );
+  }
+  return parsed.binaries.map((entry: unknown, index: number) => {
+    if (!isRecord(entry)) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1}: entry must be a mapping.`,
+      );
+    }
+    if (typeof entry.name !== 'string' || entry.name.length === 0) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1}: 'name' must be a non-empty string.`,
+      );
+    }
+    if (typeof entry.repo !== 'string' || entry.repo.length === 0) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'repo' must be a non-empty string.`,
+      );
+    }
+    if (typeof entry.tag !== 'string' || entry.tag.length === 0) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'tag' must be a non-empty string.`,
+      );
+    }
+    if (entry.private !== undefined && typeof entry.private !== 'boolean') {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'private' must be a boolean.`,
+      );
+    }
+    return entry as unknown as ReleaseBinary;
+  });
 }
 
 // macOS-only CLI, so the OS segment of every release asset name is fixed.

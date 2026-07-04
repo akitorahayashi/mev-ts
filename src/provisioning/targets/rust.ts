@@ -13,7 +13,11 @@ export const rustTarget = target('rust', {
   activations: [
     runCommand({
       label: 'rust toolchain',
-      reads: { version: 'rust/global/.rust-version' },
+      reads: {
+        version: 'rust/global/.rust-version',
+        targets: 'rust/global/targets',
+        components: 'rust/global/components',
+      },
       steps: [
         {
           label: 'rustup install',
@@ -45,10 +49,24 @@ export const rustTarget = target('rust', {
             `${s.home}/.cargo/bin/rustup`,
             'component',
             'add',
-            'rustfmt',
-            'clippy',
-            'rust-analyzer',
+            ...s.ref('components').split(/\s+/).filter(Boolean),
           ],
+          skipIf: (s) => ({
+            commandSucceeds: ['test', '-z', s.ref('components')],
+          }),
+          changedWhen: { outputContains: 'installing' },
+        },
+        {
+          label: 'rustup target add',
+          argv: (s) => [
+            `${s.home}/.cargo/bin/rustup`,
+            'target',
+            'add',
+            ...s.ref('targets').split(/\s+/).filter(Boolean),
+          ],
+          skipIf: (s) => ({
+            commandSucceeds: ['test', '-z', s.ref('targets')],
+          }),
           changedWhen: { outputContains: 'installing' },
         },
       ],

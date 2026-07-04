@@ -1,5 +1,4 @@
 import type { AssetRef } from '../../assets/ref';
-import type { ReleaseBinary } from '../../github/release';
 import type { HostPath } from '../../host/path';
 
 export type Verb = 'link' | 'apply' | 'run';
@@ -67,7 +66,7 @@ export type Activation =
     }
   | {
       readonly kind: 'release';
-      readonly binaries: readonly ReleaseBinary[];
+      readonly configKey: string;
     };
 
 /**

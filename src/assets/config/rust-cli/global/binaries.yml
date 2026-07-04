@@ -1,0 +1,25 @@
+---
+# Prebuilt Rust CLI binaries fetched from GitHub Releases into ~/.cargo/bin.
+# Each entry:
+#   - name: binary name, also the release asset's <name> segment (required)
+#   - repo: GitHub repo as owner/name (required)
+#   - tag: release tag to install (required)
+#   - private: use an authenticated `gh release download` instead of an
+#       anonymous curl fetch (optional, defaults to false)
+binaries:
+  - name: astm
+    repo: asterismhq/asterism
+    tag: v27.0.2
+    private: true
+  - name: kpv
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+  - name: mx
+    repo: akitorahayashi/mx
+    tag: v3.1.0
+  - name: prf
+    repo: akitorahayashi/prf
+    tag: v1.0.0
+  - name: ssv
+    repo: akitorahayashi/ssv
+    tag: v0.5.0
