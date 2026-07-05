@@ -130,6 +130,7 @@
     "toml": true,
     "tombi": true,
     "swift": true,
+    "just": true,
     "kotlin": true,
     "dockerfile": true,
     "docker-compose": true,
@@ -145,26 +146,6 @@
     },
     "Swift": {
       "tab_size": 4
-    }
-  },
-  "language_models": {
-    "openai_compatible": {
-      "MLX": {
-        "api_url": "http://127.0.0.1:8080/v1",
-        "available_models": [
-          {
-            "name": "mlx-community/Qwen2.5-Coder-3B-Instruct-4bit",
-            "display_name": "MLX Qwen2.5 Coder 3B",
-            "max_tokens": 32768,
-            "capabilities": {
-              "tools": false,
-              "images": false,
-              "parallel_tool_calls": false,
-              "prompt_cache_key": false
-            }
-          }
-        ]
-      }
     }
   }
 }
