@@ -42,6 +42,12 @@ Jules can generate plans, ask for feedback, expose an activity feed, produce cod
 - Pull request creation is an automation mode for applicable repository-backed changes.
 - Artifacts can include code changes, command output, media, and file outputs.
 
+## Branches
+
+Jules appends a generated id to the branch name it creates, keeping branches unique. A branch naming convention supplied in the prompt is honored, with the id suffix applied on top of it.
+
+Auto-merge is delegated to a repository workflow: define a branch naming convention, trigger the workflow on pull-request creation, and let it decide the merge from the branch name.
+
 ## Session Frame
 
 Jules API work is framed first as a session design rather than endpoint syntax.
