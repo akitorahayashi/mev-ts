@@ -102,6 +102,9 @@
         "model": "sonnet"
       },
       "type": "registry"
+    },
+    "codex-acp": {
+      "type": "registry"
     }
   },
   "outline_panel": {

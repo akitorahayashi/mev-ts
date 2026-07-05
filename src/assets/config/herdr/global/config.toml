@@ -1,0 +1,34 @@
+onboarding = false
+
+[terminal]
+shell_mode = "auto"
+new_cwd = "follow"
+
+[theme]
+name = "catppuccin-latte"
+
+[keys]
+prefix = "ctrl+a"
+
+[ui]
+sidebar_width = 30
+confirm_close = true
+prompt_new_tab_name = false
+show_agent_labels_on_pane_borders = true
+agent_panel_sort = "priority"
+
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[ui.toast.herdr]
+position = "bottom-right"
+
+[ui.sound]
+enabled = false
+
+[experimental]
+reveal_hidden_cursor_for_cjk_ime = true
+cjk_ime_agents = ["claude", "codex", "agy"]
+cjk_ime_cursor_shape = "steady_block"
+switch_ascii_input_source_in_prefix = true

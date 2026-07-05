@@ -9,7 +9,7 @@
 binaries:
   - name: astm
     repo: asterismhq/asterism
-    tag: v27.0.2
+    tag: v27.3.1
     private: true
   - name: kpv
     repo: akitorahayashi/kpv
