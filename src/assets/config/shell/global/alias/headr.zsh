@@ -1,0 +1,5 @@
+alias hd="herdr"
+alias hd-u="herdr update"
+alias hd-st="herdr status"
+alias hd-rel="herdr server reload-config "
+alias hd-s-s="herdr server stop"
