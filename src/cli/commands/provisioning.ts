@@ -60,6 +60,9 @@ export async function executeProvisioningRun(
         bar?.setLabel(`installing ${token.kind} ${token.name}`);
       },
       onInstallTick() {
+        // Clear the label so it only ever names an in-flight install; present
+        // tokens and completed installs advance the bar unlabeled.
+        bar?.setLabel('');
         bar?.advance();
       },
     });
