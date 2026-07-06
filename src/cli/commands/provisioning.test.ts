@@ -86,10 +86,7 @@ function runReturning(report: MakeReport): {
       if (deploy) request.onDeploy?.(deploy);
       request.onHeader?.(report.selection);
       request.onInstallStart?.(1);
-      request.onInstallTokenStart?.(
-        { kind: 'formula', name: 'git' },
-        'checking',
-      );
+      request.onInstallTokenStart?.({ kind: 'formula', name: 'git' });
       request.onInstallTick?.({ kind: 'formula', name: 'git' });
       return report;
     },

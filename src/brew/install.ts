@@ -10,11 +10,11 @@ import {
   type PackageToken,
   tokens,
 } from '../provisioning/package';
+import { loadInventory } from './inventory';
 
 const noFailure = Symbol('noFailure');
 
 export type InstallStatus = 'installed' | 'present' | 'failed';
-export type InstallStage = 'checking' | 'installing';
 
 export interface InstallReport {
   readonly token: PackageToken;
@@ -24,14 +24,15 @@ export interface InstallReport {
 
 export interface InstallHooks {
   onStart?(total: number): void;
-  onTokenStart?(token: PackageToken, stage: InstallStage): void;
+  /** Fires only for tokens that actually reach the install step. */
+  onTokenStart?(token: PackageToken): void;
   onTick?(token: PackageToken): void;
 }
 
 /**
  * Writes a single-entry Brewfile to a temporary path and passes it to the given
  * action. Homebrew Bundle treats already-installed entries as no-ops, so
- * `check` reports desired state and `install` is idempotent.
+ * `install` is idempotent.
  */
 async function withBrewfile<T>(
   line: string,
@@ -70,17 +71,6 @@ function brewfileLine(token: PackageToken): string {
   return `brew "${token.name}"`;
 }
 
-function isPresent(context: Context, line: string): Promise<boolean> {
-  return withBrewfile(line, async (file) => {
-    const result = await context.commands.run('brew', [
-      'bundle',
-      'check',
-      `--file=${file}`,
-    ]);
-    return result.code === 0;
-  });
-}
-
 async function install(
   context: Context,
   line: string,
@@ -102,9 +92,12 @@ async function install(
 }
 
 /**
- * Resolve every required package as a batch. Missing tokens are installed and
- * already-installed entries are reported as present. The hooks drive live
- * progress labels and count completed tokens.
+ * Resolve every required package as a batch. Installed state is enumerated
+ * once up front (see loadInventory), so present tokens resolve as in-memory
+ * lookups and only missing tokens spawn `brew bundle install`. Tokens run in
+ * taps→formulae→casks order, so a missing tap is installed before the
+ * formulae that resolve through it. The hooks drive live progress labels and
+ * count completed tokens.
  */
 export async function installPackages(
   req: PackageRequirement,
@@ -113,26 +106,30 @@ export async function installPackages(
 ): Promise<InstallReport[]> {
   const list = tokens(req);
   hooks.onStart?.(list.length);
+  if (list.length === 0) return [];
+
+  const inventory = await loadInventory(req, context);
 
   const reports: InstallReport[] = [];
   for (const token of list) {
-    const line = brewfileLine(token);
+    const installed = inventory[token.kind];
     let report: InstallReport;
-    try {
-      hooks.onTokenStart?.(token, 'checking');
-      if (await isPresent(context, line)) {
-        report = { token, status: 'present' };
-      } else {
-        hooks.onTokenStart?.(token, 'installing');
-        await install(context, line, token.name);
+    if (!installed.loaded) {
+      report = { token, status: 'failed', error: installed.error };
+    } else if (installed.names.has(token.name)) {
+      report = { token, status: 'present' };
+    } else {
+      try {
+        hooks.onTokenStart?.(token);
+        await install(context, brewfileLine(token), token.name);
         report = { token, status: 'installed' };
+      } catch (error) {
+        report = {
+          token,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
-    } catch (error) {
-      report = {
-        token,
-        status: 'failed',
-        error: error instanceof Error ? error.message : String(error),
-      };
     }
     reports.push(report);
     hooks.onTick?.(token);

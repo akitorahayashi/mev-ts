@@ -10,22 +10,38 @@ import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 interface Sink {
   brewfile?: string;
   brewfilePath?: string;
-  args?: string[];
+  bundleArgs?: string[];
 }
 
-function contextWith(code: number, sink: Sink = {}): Context {
+interface BrewState {
+  readonly taps?: readonly string[];
+  readonly formulae?: readonly string[];
+  readonly casks?: readonly string[];
+  readonly installCode?: number;
+}
+
+// Answers enumeration probes from the declared installed state and captures
+// `brew bundle` invocations (with their temporary Brewfile) into the sink.
+function contextWith(state: BrewState, sink: Sink = {}): Context {
   return {
     home: '/sandbox',
     overwrite: false,
     commands: {
       async run(_command, args): Promise<CommandResult> {
-        sink.args = [...args];
+        if (args[0] === 'tap') {
+          return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
+        }
+        if (args[0] === 'list') {
+          const names = args.includes('--cask') ? state.casks : state.formulae;
+          return { code: 0, stdout: (names ?? []).join('\n'), stderr: '' };
+        }
+        sink.bundleArgs = [...args];
         const fileArg = args.find((arg) => arg.startsWith('--file='));
         if (fileArg) {
           sink.brewfilePath = fileArg.slice('--file='.length);
           sink.brewfile = await readFile(sink.brewfilePath, 'utf8');
         }
-        return { code, stdout: '', stderr: '' };
+        return { code: state.installCode ?? 0, stdout: '', stderr: '' };
       },
     },
     assets: {
@@ -44,22 +60,42 @@ function contextWith(code: number, sink: Sink = {}): Context {
 
 const oneFormula = packages({ formulae: ['git'] });
 
-test('reports present when brew bundle check succeeds', async () => {
+test('reports present without invoking brew bundle when the formula is listed', async () => {
   const sink: Sink = {};
-  const reports = await installPackages(oneFormula, contextWith(0, sink));
+  const reports = await installPackages(
+    oneFormula,
+    contextWith({ formulae: ['git'] }, sink),
+  );
 
   expect(reports[0]?.status).toBe('present');
+  expect(sink.bundleArgs).toBeUndefined();
+});
+
+test('installs a missing formula through a temporary Brewfile', async () => {
+  const sink: Sink = {};
+  const reports = await installPackages(oneFormula, contextWith({}, sink));
+
+  expect(reports[0]?.status).toBe('installed');
   expect(sink.brewfile).toBe('brew "git"\n');
   expect(sink.brewfilePath).toMatch(/Brewfile$/);
+  expect(sink.bundleArgs).toEqual([
+    'bundle',
+    'install',
+    '--no-upgrade',
+    expect.stringMatching(/^--file=/),
+  ]);
   expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
-test('removes the Brewfile directory when the command runner throws', async () => {
+test('removes the Brewfile directory when the install runner throws', async () => {
   const sink: Sink = {};
   const context: Context = {
-    ...contextWith(0, sink),
+    ...contextWith({}),
     commands: {
       async run(_command, args) {
+        if (args[0] === 'list') {
+          return { code: 0, stdout: '', stderr: '' };
+        }
         const fileArg = args.find((arg) => arg.startsWith('--file='));
         if (fileArg) {
           sink.brewfilePath = fileArg.slice('--file='.length);
@@ -76,9 +112,9 @@ test('removes the Brewfile directory when the command runner throws', async () =
   expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
-test('reports failure when the command runner rejects without a reason', async () => {
+test('reports failure when the enumeration rejects without a reason', async () => {
   const context: Context = {
-    ...contextWith(0),
+    ...contextWith({}),
     commands: {
       async run(): Promise<CommandResult> {
         return Promise.reject();
@@ -92,6 +128,33 @@ test('reports failure when the command runner rejects without a reason', async (
   expect(reports[0]?.error).toBe('undefined');
 });
 
+test('a failed enumeration fails every token of that kind without installing', async () => {
+  const sink: Sink = {};
+  const context: Context = {
+    ...contextWith({}, sink),
+    commands: {
+      async run(_command, args): Promise<CommandResult> {
+        if (args[0] === 'list') {
+          return { code: 1, stdout: '', stderr: 'brew broken' };
+        }
+        sink.bundleArgs = [...args];
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    },
+  };
+
+  const reports = await installPackages(
+    packages({ formulae: ['git', 'gh'] }),
+    context,
+  );
+
+  expect(reports.map((report) => report.status)).toEqual(['failed', 'failed']);
+  expect(reports[0]?.error).toBe(
+    'brew list --formula -1 failed with code 1: brew broken',
+  );
+  expect(sink.bundleArgs).toBeUndefined();
+});
+
 test('allocates Brewfile scratch under the configured temporary root', async () => {
   await withTemporaryDirectory(
     async (dir) => {
@@ -102,7 +165,7 @@ test('allocates Brewfile scratch under the configured temporary root', async () 
       const sink: Sink = {};
 
       try {
-        await installPackages(oneFormula, contextWith(0, sink));
+        await installPackages(oneFormula, contextWith({}, sink));
       } finally {
         if (previous === undefined) {
           delete Bun.env.TMPDIR;
@@ -120,60 +183,56 @@ test('allocates Brewfile scratch under the configured temporary root', async () 
   );
 });
 
-test('attempts install with --no-upgrade for a missing formula', async () => {
+test('installs a missing tap while present formulae skip the install step', async () => {
   const sink: Sink = {};
-  // check fails (missing) on every call, so install runs.
-  const reports = await installPackages(oneFormula, contextWith(1, sink));
+  const reports = await installPackages(
+    packages({ taps: ['a/b'], formulae: ['git'] }),
+    contextWith({ formulae: ['git'] }, sink),
+  );
 
-  expect(reports[0]?.status).toBe('failed');
-  // The last brew invocation is the install attempt.
-  expect(sink.args).toEqual([
-    'bundle',
-    'install',
-    '--no-upgrade',
-    expect.stringMatching(/^--file=/),
-  ]);
+  expect(
+    reports.map((report) => `${report.status} ${report.token.name}`),
+  ).toEqual(['installed a/b', 'present git']);
+  expect(sink.brewfile).toBe('tap "a/b"\n');
 });
 
 test('hooks report the total and tick per token', async () => {
-  const started: string[] = [];
+  const started: PackageToken[] = [];
   const ticked: PackageToken[] = [];
   let total = -1;
   const reports = await installPackages(
     packages({ taps: ['a/b'], formulae: ['git', 'gh'] }),
-    contextWith(0),
+    contextWith({ taps: ['a/b'], formulae: ['git', 'gh'] }),
     {
       onStart: (n) => {
         total = n;
       },
-      onTokenStart: (token, stage) => {
-        started.push(`${stage} ${token.kind} ${token.name}`);
-      },
+      onTokenStart: (token) => started.push(token),
       onTick: (token) => ticked.push(token),
     },
   );
   expect(total).toBe(3);
-  expect(started).toEqual([
-    'checking tap a/b',
-    'checking formula git',
-    'checking formula gh',
-  ]);
+  expect(started).toEqual([]);
   expect(
     reports.map((report) => `${report.status} ${report.token.name}`),
   ).toEqual(['present a/b', 'present git', 'present gh']);
   expect(ticked.map((t) => t.name)).toEqual(['a/b', 'git', 'gh']);
 });
 
-test('hooks report installing stage for missing packages', async () => {
+test('hooks report the installing token for missing packages', async () => {
   const started: string[] = [];
 
-  const reports = await installPackages(oneFormula, contextWith(1), {
-    onTokenStart: (token, stage) => {
-      started.push(`${stage} ${token.kind} ${token.name}`);
+  const reports = await installPackages(
+    oneFormula,
+    contextWith({ installCode: 1 }),
+    {
+      onTokenStart: (token) => {
+        started.push(`${token.kind} ${token.name}`);
+      },
     },
-  });
+  );
 
-  expect(started).toEqual(['checking formula git', 'installing formula git']);
+  expect(started).toEqual(['formula git']);
   expect(
     reports.map((report) => `${report.status} ${report.token.name}`),
   ).toEqual(['failed git']);

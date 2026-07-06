@@ -56,10 +56,13 @@ export async function executeProvisioningRun(
           });
         }
       },
-      onInstallTokenStart(token, stage) {
-        bar?.setLabel(`${stage} ${token.kind} ${token.name}`);
+      onInstallTokenStart(token) {
+        bar?.setLabel(`installing ${token.kind} ${token.name}`);
       },
       onInstallTick() {
+        // Clear the label so it only ever names an in-flight install; present
+        // tokens and completed installs advance the bar unlabeled.
+        bar?.setLabel('');
         bar?.advance();
       },
     });

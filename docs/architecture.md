@@ -26,7 +26,7 @@ src/
 `runMake()` drives three sequential phases per make request:
 
 1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.config/mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case replacement is built in a sibling staging directory before the old role is moved aside and removed. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
-2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. Runs `brew bundle check` per token and installs only missing ones. Its hooks expose the current token and stage so the CLI can render live `checking` and `installing` progress labels.
+2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
 3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
 
 ## Activation DSL (provisioning/activation/)
