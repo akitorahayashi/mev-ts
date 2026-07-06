@@ -4,12 +4,29 @@ import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
 import { renderIdentities } from '../tty/identities';
 import { withPrompter } from '../tty/prompt';
+import { writeNamespaceOverview } from './namespace-overview';
 
-export class UserCommand extends Command {
+export class UserHelpCommand extends Command {
   static override paths = [['user'], ['us']];
   static override usage = Command.Usage({
-    description:
-      "Show stored Git identities, or 'set' to configure them. [aliases: us]",
+    category: 'user',
+    description: 'Show git identity subcommands. [aliases: us]',
+  });
+
+  async execute(): Promise<void> {
+    const [canonical = []] = UserHelpCommand.paths;
+    writeNamespaceOverview(this, 'user', canonical);
+  }
+}
+
+export class UserShowCommand extends Command {
+  static override paths = [
+    ['user', 'show'],
+    ['us', 'show'],
+  ];
+  static override usage = Command.Usage({
+    category: 'user',
+    description: 'Show stored Git identities. [aliases: us show]',
   });
 
   async execute(): Promise<void> {
@@ -27,7 +44,9 @@ export class UserSetCommand extends Command {
     ['us', 'set'],
   ];
   static override usage = Command.Usage({
-    description: 'Configure the stored Git identities interactively.',
+    category: 'user',
+    description:
+      'Configure the stored Git identities interactively. [aliases: us set]',
   });
 
   async execute(): Promise<void> {

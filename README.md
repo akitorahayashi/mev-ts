@@ -71,13 +71,14 @@ mev config zed --clear           # Disable all Zed settings overrides
 ### Git identity
 
 ```bash
-mev user                        # Show stored Git identities (personal + work)
+mev user                        # List git identity subcommands (alias: mev us)
+mev user show                   # Show stored Git identities (personal + work)
 mev user set                    # Configure identities interactively
 mev switch personal             # Switch active Git identity (alias: mev sw)
 mev switch work
 ```
 
-Identities are stored in `~/.config/mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
+`user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.config/mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
 
 ### Global flags
 
