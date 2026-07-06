@@ -7,8 +7,9 @@ import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 let sandbox: string;
 
-// Real embedded assets, sandboxed home, and a brew runner pinned to "present"
-// so the run exercises deploy + activation without touching Homebrew.
+// Real embedded assets, sandboxed home, and a brew runner that reports an
+// empty inventory and successful installs, so the run exercises deploy +
+// activation without touching Homebrew.
 function contextFor(homeDir: string, overwrite = false): Context {
   return {
     home: homeDir,
@@ -156,14 +157,11 @@ sandboxTest('a failed package blocks dependent activations', async () => {
           return { code: 0, stdout: '', stderr: '' };
         }
         const fileArg = args.find((arg) => arg.startsWith('--file='));
-        const brewfile = fileArg
-          ? await Bun.file(fileArg.slice('--file='.length)).text()
-          : '';
-        if (args.includes('check')) {
-          return brewfile.includes('brew "uv"')
-            ? { code: 1, stdout: '', stderr: '' }
-            : { code: 0, stdout: '', stderr: '' };
+        if (!fileArg) {
+          // Enumeration probes report nothing installed.
+          return { code: 0, stdout: '', stderr: '' };
         }
+        const brewfile = await Bun.file(fileArg.slice('--file='.length)).text();
         if (args.includes('install') && brewfile.includes('brew "uv"')) {
           return { code: 1, stdout: '', stderr: 'uv unavailable' };
         }

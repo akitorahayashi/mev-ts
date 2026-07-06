@@ -56,8 +56,8 @@ export async function executeProvisioningRun(
           });
         }
       },
-      onInstallTokenStart(token, stage) {
-        bar?.setLabel(`${stage} ${token.kind} ${token.name}`);
+      onInstallTokenStart(token) {
+        bar?.setLabel(`installing ${token.kind} ${token.name}`);
       },
       onInstallTick() {
         bar?.advance();

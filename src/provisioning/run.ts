@@ -1,8 +1,4 @@
-import {
-  type InstallReport,
-  type InstallStage,
-  installPackages,
-} from '../brew/install';
+import { type InstallReport, installPackages } from '../brew/install';
 import { type Context, createContext } from '../host/context';
 import {
   type ActivationReport,
@@ -45,10 +41,7 @@ export interface MakeRequest {
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
-  readonly onInstallTokenStart?: (
-    token: PackageToken,
-    stage: InstallStage,
-  ) => void;
+  readonly onInstallTokenStart?: (token: PackageToken) => void;
   readonly onInstallTick?: (token: PackageToken) => void;
 }
 
