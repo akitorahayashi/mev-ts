@@ -1,6 +1,5 @@
-import { Command, Option } from 'clipanion';
+import { Command } from 'clipanion';
 import { loadIdentities, setIdentity, showIdentity } from '../../app/identity';
-import { CommandLineError } from '../../errors';
 import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
 import { renderIdentities } from '../tty/identities';
@@ -13,25 +12,26 @@ export class UserCommand extends Command {
       "Show stored Git identities, or 'set' to configure them. [aliases: us]",
   });
 
-  action = Option.String({ name: 'set', required: false });
+  async execute(): Promise<void> {
+    const view = await showIdentity({
+      run: bunCommandRunner,
+      home: resolveHome(),
+    });
+    process.stdout.write(`${renderIdentities(view)}\n`);
+  }
+}
+
+export class UserSetCommand extends Command {
+  static override paths = [
+    ['user', 'set'],
+    ['us', 'set'],
+  ];
+  static override usage = Command.Usage({
+    description: 'Configure the stored Git identities interactively.',
+  });
 
   async execute(): Promise<void> {
-    const home = resolveHome();
-
-    if (this.action === undefined) {
-      const view = await showIdentity({ run: bunCommandRunner, home });
-      process.stdout.write(`${renderIdentities(view)}\n`);
-      return;
-    }
-
-    if (this.action === 'set') {
-      await runSet(home);
-      return;
-    }
-
-    throw new CommandLineError(
-      `Unknown argument '${this.action}'. Use: mev user (show) or mev user set.`,
-    );
+    await runSet(resolveHome());
   }
 }
 

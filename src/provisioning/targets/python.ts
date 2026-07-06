@@ -1,12 +1,7 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import type { CommandScope } from '../activation';
-import { link, runCommand } from '../activation';
+import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
 import { target } from '../target';
-
-const brewPath = (s: CommandScope) => ({
-  PATH: [`${s.ref('brewPrefix')}/bin`, s.basePath].filter(Boolean).join(':'),
-});
 
 export const pythonTarget = target('python', {
   description: 'Python via uv',
@@ -19,12 +14,7 @@ export const pythonTarget = target('python', {
       label: 'python toolchain',
       reads: { version: 'python/global/.python-version' },
       steps: [
-        {
-          label: 'brew prefix',
-          argv: () => ['brew', '--prefix'],
-          capture: 'brewPrefix',
-          changedWhen: 'never',
-        },
+        brewPrefixCapture(),
         {
           label: 'uv python install',
           argv: (s) => [
@@ -36,7 +26,7 @@ export const pythonTarget = target('python', {
             '--no-progress',
           ],
           changedWhen: { outputContains: 'Installed Python' },
-          env: brewPath,
+          env: (s) => brewPath(s),
         },
       ],
     }),

@@ -85,19 +85,24 @@ binaries:
 `.trimStart();
 
 // A missing binary makes the `<dest> --version` probe spawn an absent
-// executable, which throws ENOENT synchronously. installedMatches must treat
-// that as "not installed" rather than letting it abort the batch.
-const absentProbe = (args: readonly string[]): void => {
-  if (args[0] === '--version') {
-    throw new Error('ENOENT: no such file or directory, posix_spawn');
-  }
-};
+// executable. Per the CommandRunner contract that resolves as code 127 (not a
+// throw), which installedMatches must treat as "not installed" rather than
+// letting it abort the batch.
+const absentProbe = (args: readonly string[]): CommandResult | null =>
+  args[0] === '--version'
+    ? {
+        code: 127,
+        stdout: '',
+        stderr: 'ENOENT: no such file or directory, posix_spawn',
+      }
+    : null;
 
 test('first run: an absent binary is fetched and installed, not aborted', async () => {
   await withSandbox(async (home) => {
     await deployBinaries(home, PUBLIC_YAML);
     const { context, calls } = contextWith(home, (command, args) => {
-      absentProbe(args);
+      const probe = absentProbe(args);
+      if (probe) return probe;
       if (command === 'uname') return ok('arm64');
       if (command === 'curl') return ok();
       return fail();
@@ -121,7 +126,8 @@ test('one binary failing still processes its siblings', async () => {
   await withSandbox(async (home) => {
     await deployBinaries(home, PUBLIC_YAML);
     const { context } = contextWith(home, (command, args) => {
-      absentProbe(args);
+      const probe = absentProbe(args);
+      if (probe) return probe;
       if (command === 'uname') return ok('arm64');
       if (command === 'curl') {
         return args.some((a) => a.includes('mx-darwin'))
@@ -176,7 +182,8 @@ binaries:
 `.trimStart(),
     );
     const { context, calls } = contextWith(home, (command, args) => {
-      absentProbe(args);
+      const probe = absentProbe(args);
+      if (probe) return probe;
       if (command === 'uname') return ok('arm64');
       if (command === 'gh') return ok();
       return fail();

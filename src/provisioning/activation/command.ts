@@ -59,9 +59,7 @@ function classifyChange(
   if (rule === 'never') return false;
   if ('outputContains' in rule)
     return (stdout + stderr).includes(rule.outputContains);
-  if ('outputNotContains' in rule)
-    return !(stdout + stderr).includes(rule.outputNotContains);
-  return stdout.includes(rule.stdoutContains);
+  return !(stdout + stderr).includes(rule.outputNotContains);
 }
 
 function scopeFor(
