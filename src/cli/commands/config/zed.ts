@@ -4,6 +4,8 @@ import {
   configSelectZedOverridesClear,
 } from '../../../app/zed';
 import { resolveHome } from '../../../host/context';
+import { toggle } from '../../tty/toggle';
+import { runReportingDomainErrors } from '../domain-error';
 
 export class ConfigZedCommand extends Command {
   static override paths = [
@@ -22,12 +24,18 @@ export class ConfigZedCommand extends Command {
     description: 'Disable all entries.',
   });
 
-  async execute(): Promise<void> {
-    const home = resolveHome();
-    if (this.clear) {
-      await configSelectZedOverridesClear(home);
-    } else {
-      await configSelectZedOverrides(home, (m) => process.stdout.write(m));
-    }
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, async () => {
+      const home = resolveHome();
+      if (this.clear) {
+        await configSelectZedOverridesClear(home);
+      } else {
+        await configSelectZedOverrides(
+          home,
+          (m) => process.stdout.write(m),
+          toggle,
+        );
+      }
+    });
   }
 }

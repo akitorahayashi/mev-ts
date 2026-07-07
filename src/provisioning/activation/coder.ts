@@ -1,6 +1,7 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
+import { errorMessage } from '../../errors';
 import { readDirentsIfPresent, readlinkIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath } from '../../host/path';
@@ -15,12 +16,7 @@ import {
   skillsManifest,
 } from '../coder/paths';
 import { buildSkills } from '../coder/skills';
-import {
-  type Activation,
-  type ActivationReport,
-  type Described,
-  errorMessage,
-} from './contract';
+import type { Activation, ActivationReport, Described } from './contract';
 
 type CoderAgentsActivation = Extract<Activation, { kind: 'coderAgents' }>;
 type CoderSkillsActivation = Extract<Activation, { kind: 'coderSkills' }>;

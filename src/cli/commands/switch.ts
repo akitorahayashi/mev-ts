@@ -4,6 +4,7 @@ import { CommandLineError } from '../../errors';
 import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
 import { aliasesOf, allScopes, resolveScope } from '../../identity/scope';
+import { runReportingDomainErrors } from './domain-error';
 
 function scopeHint(): string {
   return allScopes()
@@ -20,21 +21,23 @@ export class SwitchCommand extends Command {
 
   scope = Option.String({ required: true });
 
-  async execute(): Promise<void> {
-    const hint = scopeHint();
-    const resolved = resolveScope(this.scope);
-    if (!resolved) {
-      throw new CommandLineError(
-        `Unknown identity '${this.scope}'. Use: ${hint}.`,
-      );
-    }
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, async () => {
+      const hint = scopeHint();
+      const resolved = resolveScope(this.scope);
+      if (!resolved) {
+        throw new CommandLineError(
+          `Unknown identity '${this.scope}'. Use: ${hint}.`,
+        );
+      }
 
-    const identity = await switchIdentity(
-      { run: bunCommandRunner, home: resolveHome() },
-      resolved,
-    );
-    process.stdout.write(
-      `Switched to ${resolved} identity\n  Name:  ${identity.name}\n  Email: ${identity.email}\n`,
-    );
+      const identity = await switchIdentity(
+        { run: bunCommandRunner, home: resolveHome() },
+        resolved,
+      );
+      process.stdout.write(
+        `Switched to ${resolved} identity\n  Name:  ${identity.name}\n  Email: ${identity.email}\n`,
+      );
+    });
   }
 }

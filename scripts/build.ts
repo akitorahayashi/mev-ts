@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { errorMessage } from '../src/errors';
 import { runWithCleanup } from '../src/host/cleanup-error';
 
 type BuildStdio = 'inherit' | 'ignore';
@@ -94,7 +95,7 @@ if (import.meta.main) {
   try {
     await buildMev(parseArgs(Bun.argv.slice(2), process.cwd()));
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    console.error(errorMessage(error));
     process.exit(1);
   }
 }

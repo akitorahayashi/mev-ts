@@ -3,13 +3,9 @@ import {
   listInstalled,
   parseExtensions,
 } from '../../editor/extension';
+import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
-import {
-  type Activation,
-  type ActivationReport,
-  type Described,
-  errorMessage,
-} from './contract';
+import type { Activation, ActivationReport, Described } from './contract';
 import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';
 

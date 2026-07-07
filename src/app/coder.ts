@@ -1,5 +1,4 @@
 import { deployedDir } from '../assets/ref';
-import { toggle } from '../cli/tty/toggle';
 import { readSections, readSkills } from '../provisioning/coder/catalog';
 import {
   readDisabled,
@@ -14,6 +13,11 @@ import {
 } from '../provisioning/coder/paths';
 
 export type CoderSelectable = 'agents' | 'skills';
+export type SelectConfigEntries = (
+  message: string,
+  catalog: readonly string[],
+  enabled: readonly string[],
+) => Promise<string[] | null>;
 
 function catalogReader(kind: CoderSelectable) {
   return kind === 'agents' ? readSections : readSkills;
@@ -40,6 +44,7 @@ export async function configSelect(
   kind: CoderSelectable,
   home: string,
   warn: (message: string) => void,
+  select: SelectConfigEntries,
 ): Promise<void> {
   const catalog = await catalogReader(kind)(sourceDir(kind, home));
   const manifest = manifestPath(kind, home);
@@ -51,7 +56,7 @@ export async function configSelect(
     );
   }
 
-  const chosen = await toggle(selectMessage(kind), catalog, enabled);
+  const chosen = await select(selectMessage(kind), catalog, enabled);
   if (chosen === null) return;
 
   const newDisabled = catalog.filter((n) => !chosen.includes(n));

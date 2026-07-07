@@ -1,3 +1,4 @@
+import { errorMessage } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 import type { PackageKind, PackageRequirement } from '../provisioning/package';
@@ -44,7 +45,7 @@ async function enumerate(
   } catch (error) {
     return {
       loaded: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     };
   }
 }

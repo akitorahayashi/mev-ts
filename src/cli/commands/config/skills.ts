@@ -1,6 +1,8 @@
 import { Command, Option } from 'clipanion';
 import { configSelect, configSelectClear } from '../../../app/coder';
 import { resolveHome } from '../../../host/context';
+import { toggle } from '../../tty/toggle';
+import { runReportingDomainErrors } from '../domain-error';
 
 export class ConfigSkillsCommand extends Command {
   static override paths = [
@@ -18,12 +20,19 @@ export class ConfigSkillsCommand extends Command {
     description: 'Disable all entries.',
   });
 
-  async execute(): Promise<void> {
-    const home = resolveHome();
-    if (this.clear) {
-      await configSelectClear('skills', home);
-    } else {
-      await configSelect('skills', home, (m) => process.stdout.write(m));
-    }
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, async () => {
+      const home = resolveHome();
+      if (this.clear) {
+        await configSelectClear('skills', home);
+      } else {
+        await configSelect(
+          'skills',
+          home,
+          (m) => process.stdout.write(m),
+          toggle,
+        );
+      }
+    });
   }
 }

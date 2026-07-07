@@ -129,7 +129,3 @@ export interface Described {
   readonly source: string;
   readonly dest: string;
 }
-
-export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

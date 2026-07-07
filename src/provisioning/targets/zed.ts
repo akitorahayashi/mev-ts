@@ -7,17 +7,14 @@ import { OVERRIDES_PREFIX } from '../zed/paths';
 export const zedTarget = target('zed', {
   description: 'Zed editor configuration',
   aliases: ['zd'],
-  role: 'editor/zed',
+  role: 'zed',
   packages: { casks: ['zed'] },
   activations: [
     zedSettings(
-      asset('editor/zed/global/settings.json'),
+      asset('zed/global/settings.json'),
       OVERRIDES_PREFIX,
       home('.config/zed/settings.json'),
     ),
-    link(
-      asset('editor/zed/global/keymap.json'),
-      home('.config/zed/keymap.json'),
-    ),
+    link(asset('zed/global/keymap.json'), home('.config/zed/keymap.json')),
   ],
 });

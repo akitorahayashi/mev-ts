@@ -4,6 +4,7 @@ import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
 import { renderIdentities } from '../tty/identities';
 import { withPrompter } from '../tty/prompt';
+import { runReportingDomainErrors } from './domain-error';
 import { writeNamespaceOverview } from './namespace-overview';
 
 export class UserHelpCommand extends Command {
@@ -29,12 +30,14 @@ export class UserShowCommand extends Command {
     description: 'Show stored Git identities. [aliases: us show]',
   });
 
-  async execute(): Promise<void> {
-    const view = await showIdentity({
-      run: bunCommandRunner,
-      home: resolveHome(),
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, async () => {
+      const view = await showIdentity({
+        run: bunCommandRunner,
+        home: resolveHome(),
+      });
+      process.stdout.write(`${renderIdentities(view)}\n`);
     });
-    process.stdout.write(`${renderIdentities(view)}\n`);
   }
 }
 
@@ -49,8 +52,10 @@ export class UserSetCommand extends Command {
       'Configure the stored Git identities interactively. [aliases: us set]',
   });
 
-  async execute(): Promise<void> {
-    await runSet(resolveHome());
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, () =>
+      runSet(resolveHome()),
+    );
   }
 }
 

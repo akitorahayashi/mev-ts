@@ -61,7 +61,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### CLI
 
-`main.ts` owns the clipanion `Cli`. Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage; an uncaught `AppError`/`ProvisioningError` also goes to stdout, as the error's name, message, and stack, without a usage synopsis. No command currently catches a domain error to route it to stderr.
+`main.ts` owns the clipanion `Cli`. Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage. Commands that can transitively throw `AppError`/`ProvisioningError` wrap their execute body with `runReportingDomainErrors`, which prints `<name>: <message>` to stderr without stack or usage and returns exit code 1. Pure renderers stay unwrapped.
 
 ### Key Types
 

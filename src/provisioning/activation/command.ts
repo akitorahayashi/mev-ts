@@ -1,17 +1,16 @@
-import { ProvisioningError } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
 import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
-import {
-  type Activation,
-  type ActivationReport,
-  type ChangedWhen,
-  type CommandScope,
-  type CommandStep,
-  type Described,
-  errorMessage,
-  type StepGuard,
-  type StepReport,
+import type {
+  Activation,
+  ActivationReport,
+  ChangedWhen,
+  CommandScope,
+  CommandStep,
+  Described,
+  StepGuard,
+  StepReport,
 } from './contract';
 
 type CommandActivation = Extract<Activation, { kind: 'command' }>;

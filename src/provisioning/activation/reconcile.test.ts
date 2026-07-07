@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import type { Described, StepReport } from './contract';
 import { type ReconcileStep, reconcile } from './reconcile';
 
@@ -18,7 +18,7 @@ function throwingStep(key: string, error: unknown): ReconcileStep {
       key,
       value: 'boom',
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     }),
   };
 }

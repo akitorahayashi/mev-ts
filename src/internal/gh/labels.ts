@@ -99,19 +99,3 @@ export async function buildResetTasks(
     run: () => deleteLabel(run, name, repo),
   }));
 }
-
-export async function deployLabels(
-  run: CommandRunner,
-  repo?: string,
-): Promise<void> {
-  const tasks = await buildDeployTasks(run, repo);
-  await Promise.all(tasks.map((t) => t.run()));
-}
-
-export async function resetLabels(
-  run: CommandRunner,
-  repo?: string,
-): Promise<void> {
-  const tasks = await buildResetTasks(run, repo);
-  await Promise.all(tasks.map((t) => t.run()));
-}

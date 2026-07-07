@@ -74,6 +74,12 @@ test('every target deploys assets, installs packages, or runs activations', () =
   }
 });
 
+test('every embedded asset key belongs to a role global directory', () => {
+  for (const key of embeddedAssets.keysByPrefix('')) {
+    expect(key).toMatch(/^[^/]+\/global\//);
+  }
+});
+
 test('no tag or alias is shared between targets', () => {
   const selectors = availableSelectors();
   expect(new Set(selectors).size).toBe(selectors.length);

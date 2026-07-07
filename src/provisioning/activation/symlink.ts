@@ -7,6 +7,7 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
+import { errorMessage } from '../../errors';
 import {
   lstatIfPresent,
   readDirectoryIfPresent,
@@ -15,12 +16,7 @@ import {
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
-import {
-  type Activation,
-  type ActivationReport,
-  type Described,
-  errorMessage,
-} from './contract';
+import type { Activation, ActivationReport, Described } from './contract';
 
 type FileActivation = Extract<Activation, { kind: 'file' }>;
 type TreeActivation = Extract<Activation, { kind: 'tree' }>;

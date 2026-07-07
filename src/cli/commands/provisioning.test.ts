@@ -9,6 +9,8 @@ interface CaptureResult {
   readonly stdout: string;
 }
 
+type ProvisioningOptions = Parameters<typeof executeProvisioningRun>[0];
+
 function reportWithStatus(
   status: MakeReport['groups'][number]['reports'][number]['status'],
 ): MakeReport {
@@ -48,29 +50,18 @@ function reportWithStatus(
   };
 }
 
-async function capture(action: () => Promise<number>): Promise<CaptureResult> {
+async function capture(
+  options: Omit<ProvisioningOptions, 'out' | 'isTTY'>,
+): Promise<CaptureResult> {
   let stdout = '';
-  const originalStdout = process.stdout.write;
-  process.stdout.write = ((
-    chunk: unknown,
-    encoding?: unknown,
-    cb?: unknown,
-  ) => {
-    stdout +=
-      chunk instanceof Uint8Array
-        ? Buffer.from(chunk).toString()
-        : String(chunk);
-    if (typeof encoding === 'function') encoding();
-    if (typeof cb === 'function') cb();
-    return true;
-  }) as typeof process.stdout.write;
-
-  try {
-    const code = await action();
-    return { code, stdout: Bun.stripANSI(stdout) };
-  } finally {
-    process.stdout.write = originalStdout;
-  }
+  const code = await executeProvisioningRun({
+    ...options,
+    isTTY: false,
+    out: (text) => {
+      stdout += text;
+    },
+  });
+  return { code, stdout: Bun.stripANSI(stdout) };
 }
 
 function runReturning(report: MakeReport): {
@@ -96,15 +87,13 @@ function runReturning(report: MakeReport): {
 test('executeProvisioningRun renders a successful run and returns zero', async () => {
   const { run, requests } = runReturning(reportWithStatus('unchanged'));
 
-  const result = await capture(() =>
-    executeProvisioningRun({
-      tags: ['shell'],
-      overwrite: true,
-      intro: 'mev: Creating personal environment',
-      footer: () => ['Optional', 'Baseline Homebrew casks: mev make br-c'],
-      run,
-    }),
-  );
+  const result = await capture({
+    tags: ['shell'],
+    overwrite: true,
+    intro: 'mev: Creating personal environment',
+    footer: () => ['Optional', 'Baseline Homebrew casks: mev make br-c'],
+    run,
+  });
 
   expect(result.code).toBe(0);
   expect(requests[0]?.tags).toEqual(['shell']);
@@ -121,17 +110,15 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
 test('executeProvisioningRun renders failed runs without success footer', async () => {
   const { run } = runReturning(reportWithStatus('failed'));
 
-  const result = await capture(() =>
-    executeProvisioningRun({
-      tags: ['shell'],
-      overwrite: false,
-      footer: (report) =>
-        report.failed
-          ? undefined
-          : ['Optional', 'Baseline Homebrew casks: mev make br-c'],
-      run,
-    }),
-  );
+  const result = await capture({
+    tags: ['shell'],
+    overwrite: false,
+    footer: (report) =>
+      report.failed
+        ? undefined
+        : ['Optional', 'Baseline Homebrew casks: mev make br-c'],
+    run,
+  });
 
   expect(result.code).toBe(1);
   expect(result.stdout).toContain('Result: failed');

@@ -1,3 +1,5 @@
+import { errorMessage } from '../errors';
+
 export interface CommandResult {
   readonly code: number;
   readonly stdout: string;
@@ -74,7 +76,7 @@ export const bunCommandRunner: CommandRunner = {
       return {
         code: 127,
         stdout: '',
-        stderr: error instanceof Error ? error.message : String(error),
+        stderr: errorMessage(error),
       };
     }
   },

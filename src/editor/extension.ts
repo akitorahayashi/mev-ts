@@ -1,4 +1,4 @@
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import { commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
 
@@ -11,9 +11,8 @@ export function parseExtensions(raw: string, path: string): string[] {
   try {
     parsed = JSON.parse(raw) as ExtensionsConfig;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
     throw new ProvisioningError(
-      `Failed to parse extensions manifest as JSON: ${path}. ${detail}`,
+      `Failed to parse extensions manifest as JSON: ${path}. ${errorMessage(error)}`,
     );
   }
   if (!parsed?.extensions || !Array.isArray(parsed.extensions)) {

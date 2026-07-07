@@ -66,7 +66,7 @@ mev config zed                   # Toggle enabled Zed settings overrides (alias:
 mev config zed --clear           # Disable all Zed settings overrides
 ```
 
-`config` (alias `cf`) groups interactive selection commands. `config zed` merges the enabled override fragments in `src/assets/config/editor/zed/global/overrides/` onto the base `settings.json`, failing loudly if two enabled overrides set the same key; adding a new override is a matter of dropping another `<name>.json` file into that directory.
+`config` (alias `cf`) groups interactive selection commands. `config zed` merges the enabled override fragments in `src/assets/config/zed/global/overrides/` onto the base `settings.json`, failing loudly if two enabled overrides set the same key; adding a new override is a matter of dropping another `<name>.json` file into that directory.
 
 ### Git identity
 
