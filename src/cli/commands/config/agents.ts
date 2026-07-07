@@ -24,7 +24,7 @@ export class ConfigAgentsCommand extends Command {
     if (this.clear) {
       await configSelectClear('agents', home);
     } else {
-      await configSelect('agents', home);
+      await configSelect('agents', home, (m) => process.stdout.write(m));
     }
   }
 }

@@ -15,7 +15,11 @@ import { InternalGitDeleteSubmoduleCommand } from './cli/commands/internal/git-d
 import { ListCommand } from './cli/commands/list';
 import { MakeCommand } from './cli/commands/make';
 import { SwitchCommand } from './cli/commands/switch';
-import { UserCommand } from './cli/commands/user';
+import {
+  UserHelpCommand,
+  UserSetCommand,
+  UserShowCommand,
+} from './cli/commands/user';
 
 function createCli(): Cli {
   const cli = new Cli({
@@ -34,7 +38,9 @@ function createCli(): Cli {
   cli.register(ConfigZedCommand);
   cli.register(ListCommand);
   cli.register(SwitchCommand);
-  cli.register(UserCommand);
+  cli.register(UserHelpCommand);
+  cli.register(UserShowCommand);
+  cli.register(UserSetCommand);
   cli.register(InternalGitCloneCommand);
   cli.register(InternalGitDeleteBranchesCommand);
   cli.register(InternalGitDeleteSubmoduleCommand);

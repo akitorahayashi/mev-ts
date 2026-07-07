@@ -23,7 +23,7 @@ export class ConfigSkillsCommand extends Command {
     if (this.clear) {
       await configSelectClear('skills', home);
     } else {
-      await configSelect('skills', home);
+      await configSelect('skills', home, (m) => process.stdout.write(m));
     }
   }
 }

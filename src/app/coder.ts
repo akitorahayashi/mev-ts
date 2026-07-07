@@ -36,23 +36,20 @@ function selectMessage(kind: CoderSelectable): string {
     : 'Select enabled skills';
 }
 
-function warnUnknown(names: readonly string[]): void {
-  if (names.length > 0) {
-    process.stdout.write(
-      `warning: manifest names not in catalog: ${names.join(', ')}\n`,
-    );
-  }
-}
-
 export async function configSelect(
   kind: CoderSelectable,
   home: string,
+  warn: (message: string) => void,
 ): Promise<void> {
   const catalog = await catalogReader(kind)(sourceDir(kind, home));
   const manifest = manifestPath(kind, home);
   const disabled = await readDisabled(manifest);
   const { enabled, unknownDisabled } = resolve(catalog, disabled);
-  warnUnknown(unknownDisabled);
+  if (unknownDisabled.length > 0) {
+    warn(
+      `warning: manifest names not in catalog: ${unknownDisabled.join(', ')}\n`,
+    );
+  }
 
   const chosen = await toggle(selectMessage(kind), catalog, enabled);
   if (chosen === null) return;

@@ -26,16 +26,16 @@ type FileActivation = Extract<Activation, { kind: 'file' }>;
 type TreeActivation = Extract<Activation, { kind: 'tree' }>;
 
 export function link(source: AssetRef, dest: HostPath): Activation {
-  return { kind: 'file', verb: 'link', source, dest };
+  return { kind: 'file', source, dest };
 }
 
 export function linkTree(prefix: string, dest: HostPath): Activation {
-  return { kind: 'tree', verb: 'link', prefix, dest };
+  return { kind: 'tree', prefix, dest };
 }
 
 export function describeFile(activation: FileActivation): Described {
   return {
-    verb: activation.verb,
+    verb: 'link',
     source: deployedSymbolic(activation.source),
     dest: symbolic(activation.dest),
   };
@@ -43,7 +43,7 @@ export function describeFile(activation: FileActivation): Described {
 
 export function describeTree(activation: TreeActivation): Described {
   return {
-    verb: activation.verb,
+    verb: 'link',
     source: deployedSymbolic({ key: activation.prefix }),
     dest: symbolic(activation.dest),
   };

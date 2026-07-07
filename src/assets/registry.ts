@@ -11,13 +11,6 @@ export interface AssetSource {
 
 const executableKeys = new Set(executableAssets);
 
-/** All embedded asset keys whose path begins with the given prefix, sorted. */
-export function assetKeysByPrefix(prefix: string): string[] {
-  return Object.keys(assetContents)
-    .filter((key) => key.startsWith(prefix))
-    .sort();
-}
-
 /**
  * Embedded configuration assets, keyed by their path under the deployed config
  * root. The map is generated from `src/assets/config/` by
@@ -33,7 +26,9 @@ export const embeddedAssets: AssetSource = {
     return content;
   },
   keysByPrefix(prefix): readonly string[] {
-    return assetKeysByPrefix(prefix);
+    return Object.keys(assetContents)
+      .filter((key) => key.startsWith(prefix))
+      .sort();
   },
   isExecutable(key): boolean {
     return executableKeys.has(key);

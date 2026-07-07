@@ -1,6 +1,13 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { coderAgents, coderSkills, link, runCommand } from '../activation';
+import {
+  brewPath,
+  brewPrefixCapture,
+  coderAgents,
+  coderSkills,
+  link,
+  runCommand,
+} from '../activation';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../coder/paths';
 import { target } from '../target';
 
@@ -34,6 +41,7 @@ export const coderTarget = target('coder', {
     runCommand({
       label: 'coder CLIs',
       steps: [
+        brewPrefixCapture(),
         {
           label: 'install claude',
           argv: () => [
@@ -85,9 +93,7 @@ export const coderTarget = target('coder', {
         {
           label: 'rtk --version',
           argv: () => ['rtk', '--version'],
-          env: (s) => ({
-            PATH: `/opt/homebrew/bin:/usr/local/bin:${s.home}/.local/bin:${s.basePath}`,
-          }),
+          env: (s) => brewPath(s, [`${s.home}/.local/bin`]),
           changedWhen: 'never',
         },
       ],

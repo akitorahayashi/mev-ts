@@ -89,7 +89,7 @@ Eleven activation kinds:
   - `env(scope)` — environment override layered over the inherited environment
   - `skipIf(scope)` — idempotency guard: `{ pathExists }` or `{ commandSucceeds }`. `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
   - `capture` — register `stdout.trim()` into scope for later steps
-  - `changedWhen` — `'always' | 'never' | { stdoutContains } | { outputNotContains }` — classify a successful run. `outputNotContains` matches against combined stdout+stderr.
+  - `changedWhen` — `'always' | 'never' | { outputContains } | { outputNotContains }` — classify a successful run. `outputContains` and `outputNotContains` both match against combined stdout+stderr.
 
 A failed step halts the pipeline. Skipped steps report `unchanged`. The overall status is `failed` if any step failed, `changed` if any step changed, otherwise `unchanged`.
 
@@ -119,7 +119,7 @@ Raw config files live under `src/assets/config/` keyed as `{role}/global/{filena
 
 `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource }` — is assembled by `createContext()` and injected through every provisioning call. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
-`CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`.
+`CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd?, stdout?, stderr? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`; `stdout` and `stderr` each select `'pipe'` (the default, captured into the result) or `'inherit'`. A spawn failure — a missing or otherwise unspawnable executable — resolves as `code 127` with the reason in `stderr` rather than rejecting, so every call site handles it as an ordinary non-zero exit.
 
 ## Capability Modules
 

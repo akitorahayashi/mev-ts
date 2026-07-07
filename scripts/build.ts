@@ -1,9 +1,8 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { throwWithCleanupError } from '../src/host/cleanup-error';
+import { runWithCleanup } from '../src/host/cleanup-error';
 
-const noFailure = Symbol('noFailure');
 type BuildStdio = 'inherit' | 'ignore';
 
 interface BuildInvocation {
@@ -67,41 +66,28 @@ export async function buildMev(options: BuildOptions): Promise<void> {
     options.removeWorkspace ??
     ((path: string) => rm(path, { force: true, recursive: true }));
   const runBuildCommand = options.runBuildCommand ?? runBunBuild;
-  let primary: unknown = noFailure;
 
-  try {
-    await mkdir(dirname(options.outfile), { recursive: true });
-    const args = [
-      'build',
-      resolve(options.projectRoot, 'src/main.ts'),
-      '--compile',
-      '--outfile',
-      options.outfile,
-    ];
-    if (options.target) args.push('--target', options.target);
+  await runWithCleanup(
+    async () => {
+      await mkdir(dirname(options.outfile), { recursive: true });
+      const args = [
+        'build',
+        resolve(options.projectRoot, 'src/main.ts'),
+        '--compile',
+        '--outfile',
+        options.outfile,
+      ];
+      if (options.target) args.push('--target', options.target);
 
-    const stdio = options.stdio ?? 'inherit';
-    const code = await runBuildCommand({ args, cwd: workspace, stdio });
-    if (code !== 0) {
-      throw new Error(`bun build failed with exit code ${code}`);
-    }
-  } catch (error) {
-    primary = error;
-  }
-
-  try {
-    await removeWorkspace(workspace);
-  } catch (cleanup) {
-    if (primary !== noFailure) {
-      throwWithCleanupError(
-        primary,
-        cleanup,
-        `Failed to clean up build workspace ${workspace}.`,
-      );
-    }
-    throw cleanup;
-  }
-  if (primary !== noFailure) throw primary;
+      const stdio = options.stdio ?? 'inherit';
+      const code = await runBuildCommand({ args, cwd: workspace, stdio });
+      if (code !== 0) {
+        throw new Error(`bun build failed with exit code ${code}`);
+      }
+    },
+    () => removeWorkspace(workspace),
+    `Failed to clean up build workspace ${workspace}.`,
+  );
 }
 
 if (import.meta.main) {

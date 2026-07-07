@@ -2,18 +2,12 @@ import { asset } from '../../assets/ref';
 import { ProvisioningError } from '../../errors';
 import { home } from '../../host/path';
 import type { CommandScope } from '../activation';
-import { link, runCommand } from '../activation';
+import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
 import { target } from '../target';
-
-const brewPath = (s: CommandScope) => ({
-  PATH: [`${s.ref('brewPrefix')}/bin`, s.basePath].filter(Boolean).join(':'),
-});
 
 const pnpmEnv = (s: CommandScope) => ({
   PNPM_HOME: `${s.home}/Library/pnpm`,
-  PATH: [`${s.ref('brewPrefix')}/bin`, `${s.home}/Library/pnpm`, s.basePath]
-    .filter(Boolean)
-    .join(':'),
+  ...brewPath(s, [`${s.home}/Library/pnpm`]),
 });
 
 function isPackageMap(value: unknown): value is Record<string, string> {
@@ -85,12 +79,7 @@ export const pnpmTarget = target('pnpm', {
       label: 'pnpm global packages',
       reads: { globalPackages: 'pnpm/global/global-packages.json' },
       steps: [
-        {
-          label: 'brew prefix',
-          argv: () => ['brew', '--prefix'],
-          capture: 'brewPrefix',
-          changedWhen: 'never',
-        },
+        brewPrefixCapture(),
         {
           label: 'verify nodejs runtime',
           argv: () => [
@@ -102,7 +91,7 @@ export const pnpmTarget = target('pnpm', {
             '--version',
           ],
           changedWhen: 'never',
-          env: brewPath,
+          env: (s) => brewPath(s),
         },
         {
           label: 'pnpm add -g',

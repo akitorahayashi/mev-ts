@@ -1,3 +1,4 @@
+export { brewPath, brewPrefixCapture } from './brew-path';
 export { coderAgents, coderSkills } from './coder';
 export { runCommand } from './command';
 export type {

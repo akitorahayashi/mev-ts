@@ -121,6 +121,35 @@ test('cf --help shows the subcommand listing instead of an ambiguous match', asy
   expect(result.stderr).toBe('');
 });
 
+test('user prints its subcommands', async () => {
+  const result = await capture(['user']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev user <command>');
+  expect(result.stdout).toContain('mev user show');
+  expect(result.stdout).toContain('mev user set');
+  expect(result.stderr).toBe('');
+});
+
+test('user --help shows the subcommand listing instead of an ambiguous match', async () => {
+  const result = await capture(['user', '--help']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev user <command>');
+  expect(result.stdout).toContain('mev user set');
+  expect(result.stdout).not.toContain('Multiple commands match');
+  expect(result.stderr).toBe('');
+});
+
+test('us --help shows the subcommand listing instead of an ambiguous match', async () => {
+  const result = await capture(['us', '--help']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('mev us <command>');
+  expect(result.stdout).not.toContain('Multiple commands match');
+  expect(result.stderr).toBe('');
+});
+
 test('list --help still shows detailed usage for a leaf command', async () => {
   const result = await capture(['list', '--help']);
 

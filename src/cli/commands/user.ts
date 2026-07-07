@@ -1,37 +1,56 @@
-import { Command, Option } from 'clipanion';
+import { Command } from 'clipanion';
 import { loadIdentities, setIdentity, showIdentity } from '../../app/identity';
-import { CommandLineError } from '../../errors';
 import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
 import { renderIdentities } from '../tty/identities';
 import { withPrompter } from '../tty/prompt';
+import { writeNamespaceOverview } from './namespace-overview';
 
-export class UserCommand extends Command {
+export class UserHelpCommand extends Command {
   static override paths = [['user'], ['us']];
   static override usage = Command.Usage({
-    description:
-      "Show stored Git identities, or 'set' to configure them. [aliases: us]",
+    category: 'user',
+    description: 'Show git identity subcommands. [aliases: us]',
   });
 
-  action = Option.String({ name: 'set', required: false });
+  async execute(): Promise<void> {
+    const [canonical = []] = UserHelpCommand.paths;
+    writeNamespaceOverview(this, 'user', canonical);
+  }
+}
+
+export class UserShowCommand extends Command {
+  static override paths = [
+    ['user', 'show'],
+    ['us', 'show'],
+  ];
+  static override usage = Command.Usage({
+    category: 'user',
+    description: 'Show stored Git identities. [aliases: us show]',
+  });
 
   async execute(): Promise<void> {
-    const home = resolveHome();
+    const view = await showIdentity({
+      run: bunCommandRunner,
+      home: resolveHome(),
+    });
+    process.stdout.write(`${renderIdentities(view)}\n`);
+  }
+}
 
-    if (this.action === undefined) {
-      const view = await showIdentity({ run: bunCommandRunner, home });
-      process.stdout.write(`${renderIdentities(view)}\n`);
-      return;
-    }
+export class UserSetCommand extends Command {
+  static override paths = [
+    ['user', 'set'],
+    ['us', 'set'],
+  ];
+  static override usage = Command.Usage({
+    category: 'user',
+    description:
+      'Configure the stored Git identities interactively. [aliases: us set]',
+  });
 
-    if (this.action === 'set') {
-      await runSet(home);
-      return;
-    }
-
-    throw new CommandLineError(
-      `Unknown argument '${this.action}'. Use: mev user (show) or mev user set.`,
-    );
+  async execute(): Promise<void> {
+    await runSet(resolveHome());
   }
 }
 

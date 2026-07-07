@@ -1,12 +1,7 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import type { CommandScope } from '../activation';
-import { link, runCommand } from '../activation';
+import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
 import { target } from '../target';
-
-const brewPath = (s: CommandScope) => ({
-  PATH: [`${s.ref('brewPrefix')}/bin`, s.basePath].filter(Boolean).join(':'),
-});
 
 export const nodejsTarget = target('nodejs', {
   description: 'Node.js via fnm',
@@ -19,23 +14,18 @@ export const nodejsTarget = target('nodejs', {
       label: 'nodejs toolchain',
       reads: { version: 'nodejs/global/.node-version' },
       steps: [
-        {
-          label: 'brew prefix',
-          argv: () => ['brew', '--prefix'],
-          capture: 'brewPrefix',
-          changedWhen: 'never',
-        },
+        brewPrefixCapture(),
         {
           label: 'fnm install',
           argv: (s) => ['fnm', 'install', s.ref('version'), '--progress=never'],
           changedWhen: { outputNotContains: 'already installed' },
-          env: brewPath,
+          env: (s) => brewPath(s),
         },
         {
           label: 'fnm default',
           argv: (s) => ['fnm', 'default', s.ref('version')],
           changedWhen: 'never',
-          env: brewPath,
+          env: (s) => brewPath(s),
         },
       ],
     }),

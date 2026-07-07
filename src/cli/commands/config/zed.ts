@@ -27,7 +27,7 @@ export class ConfigZedCommand extends Command {
     if (this.clear) {
       await configSelectZedOverridesClear(home);
     } else {
-      await configSelectZedOverrides(home);
+      await configSelectZedOverrides(home, (m) => process.stdout.write(m));
     }
   }
 }

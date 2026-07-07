@@ -15,13 +15,11 @@ export type Verb = 'link' | 'apply' | 'run';
 export type Activation =
   | {
       readonly kind: 'file';
-      readonly verb: Verb;
       readonly source: AssetRef;
       readonly dest: HostPath;
     }
   | {
       readonly kind: 'tree';
-      readonly verb: Verb;
       readonly prefix: string;
       readonly dest: HostPath;
     }
@@ -89,7 +87,6 @@ export type StepGuard =
 export type ChangedWhen =
   | 'always'
   | 'never'
-  | { readonly stdoutContains: string }
   | { readonly outputContains: string }
   | { readonly outputNotContains: string };
 

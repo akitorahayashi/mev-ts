@@ -7,9 +7,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import { throwWithCleanupError } from './cleanup-error';
-
-const noFailure = Symbol('noFailure');
+import { runWithCleanup } from './cleanup-error';
 
 async function siblingTransactionDirectory(path: string): Promise<string> {
   await mkdir(dirname(path), { recursive: true });
@@ -32,25 +30,12 @@ export async function replaceFileAtomically(
 ): Promise<void> {
   const transaction = await siblingTransactionDirectory(path);
   const tmp = join(transaction, 'file');
-  let primary: unknown = noFailure;
-  try {
-    await writeTemp(tmp);
-    await rename(tmp, path);
-  } catch (error) {
-    primary = error;
-  }
-
-  try {
-    await rm(transaction, { force: true, recursive: true });
-  } catch (cleanup) {
-    if (primary !== noFailure) {
-      throwWithCleanupError(
-        primary,
-        cleanup,
-        `Failed to clean up temporary file transaction for ${path}.`,
-      );
-    }
-    throw cleanup;
-  }
-  if (primary !== noFailure) throw primary;
+  await runWithCleanup(
+    async () => {
+      await writeTemp(tmp);
+      await rename(tmp, path);
+    },
+    () => rm(transaction, { force: true, recursive: true }),
+    `Failed to clean up temporary file transaction for ${path}.`,
+  );
 }

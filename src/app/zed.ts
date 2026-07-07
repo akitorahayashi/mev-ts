@@ -8,15 +8,10 @@ import {
 } from '../provisioning/zed/manifest';
 import { OVERRIDES_PREFIX, overridesManifest } from '../provisioning/zed/paths';
 
-function warnUnknown(names: readonly string[]): void {
-  if (names.length > 0) {
-    process.stdout.write(
-      `warning: manifest names not in catalog: ${names.join(', ')}\n`,
-    );
-  }
-}
-
-export async function configSelectZedOverrides(home: string): Promise<void> {
+export async function configSelectZedOverrides(
+  home: string,
+  warn: (message: string) => void,
+): Promise<void> {
   const sourceDir = deployedDir(OVERRIDES_PREFIX, home);
   const catalog = await readOverrides(sourceDir);
   const manifest = overridesManifest(home);
@@ -24,7 +19,11 @@ export async function configSelectZedOverrides(home: string): Promise<void> {
     catalog,
     await readEnabled(manifest),
   );
-  warnUnknown(unknownEnabled);
+  if (unknownEnabled.length > 0) {
+    warn(
+      `warning: manifest names not in catalog: ${unknownEnabled.join(', ')}\n`,
+    );
+  }
 
   const chosen = await toggle(
     'Select enabled Zed setting overrides',
