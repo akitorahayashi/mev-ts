@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import packageMetadata from '../../package.json';
 import { runCommandLine } from '../../src/main';
+import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 interface RunResult {
   readonly code: number;
@@ -174,6 +175,35 @@ test('unknown commands print usage errors to stdout', async () => {
   expect(result.code).toBe(1);
   expect(result.stdout).toContain('Command not found');
   expect(result.stderr).toBe('');
+});
+
+test('domain errors print concise diagnostics to stderr', async () => {
+  const originalHome = process.env.HOME;
+  await withTemporaryDirectory(async (home) => {
+    try {
+      process.env.HOME = home;
+
+      const result = await capture(['config', 'agents', '--clear']);
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('ProvisioningError:');
+      expect(result.stderr).toContain('Run provisioning to deploy it first');
+      expect(result.stdout).not.toContain(
+        'Run provisioning to deploy it first',
+      );
+      expect(
+        stripAnsi(result.stderr)
+          .split('\n')
+          .some((line) => line.startsWith('    at ')),
+      ).toBe(false);
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+    }
+  });
 });
 
 test('config agents and skills commands resolve via all alias permutations', async () => {

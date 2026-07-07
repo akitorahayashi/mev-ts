@@ -1,9 +1,5 @@
-import {
-  type ActivationReport,
-  type Described,
-  errorMessage,
-  type StepReport,
-} from './contract';
+import { errorMessage } from '../../errors';
+import type { ActivationReport, Described, StepReport } from './contract';
 
 /**
  * One reconciled item. `run` is the normal path—probe, act, return its report.

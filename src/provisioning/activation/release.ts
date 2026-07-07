@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { errorMessage } from '../../errors';
 import {
   detectArch,
   fetchReleaseBinary,
@@ -8,23 +9,20 @@ import {
   type ReleaseBinary,
 } from '../../github/release';
 import type { Context } from '../../host/context';
-import {
-  type Activation,
-  type ActivationReport,
-  type Described,
-  errorMessage,
-} from './contract';
+import type { Activation, ActivationReport, Described } from './contract';
 import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';
 
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
+
+const BIN_DIR = '.cargo/bin';
 
 export function releaseBinaries(configKey: string): Activation {
   return { kind: 'release', configKey };
 }
 
 export function describeRelease(): Described {
-  return { verb: 'apply', source: 'release binaries', dest: '~/.cargo/bin' };
+  return { verb: 'apply', source: 'release binaries', dest: `~/${BIN_DIR}` };
 }
 
 function releaseStep(
@@ -75,7 +73,7 @@ export function runRelease(
     concurrent: true,
     steps: async (binaries) => {
       const arch = await detectArch(context);
-      const binDir = join(context.home, '.cargo', 'bin');
+      const binDir = join(context.home, BIN_DIR);
       await mkdir(binDir, { recursive: true });
       return binaries.map((binary) =>
         releaseStep(binary, arch, binDir, context),

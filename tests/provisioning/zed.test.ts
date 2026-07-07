@@ -35,7 +35,7 @@ function contextWith(homeDir: string): Context {
   };
 }
 
-const BASE_KEY = 'editor/zed/global/settings.json';
+const BASE_KEY = 'zed/global/settings.json';
 const BASE_ASSET = asset(BASE_KEY);
 const DEST = home('.config/zed/settings.json');
 

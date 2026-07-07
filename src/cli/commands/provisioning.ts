@@ -19,13 +19,19 @@ interface ProvisioningRunOptions {
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
+  readonly out?: (text: string) => void;
+  readonly isTTY?: boolean;
 }
 
 export async function executeProvisioningRun(
   options: ProvisioningRunOptions,
 ): Promise<number> {
-  const isTTY = process.stdout.isTTY ?? false;
-  const out = (text: string) => process.stdout.write(text);
+  const isTTY = options.isTTY ?? process.stdout.isTTY ?? false;
+  const out =
+    options.out ??
+    ((text: string) => {
+      process.stdout.write(text);
+    });
   const startedAt = Date.now();
   const run = options.run ?? runMake;
 

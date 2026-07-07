@@ -4,6 +4,7 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
+import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
@@ -11,12 +12,7 @@ import { readOverrides } from '../zed/catalog';
 import { readEnabled, resolve } from '../zed/manifest';
 import { overridesManifest, settingsFile } from '../zed/paths';
 import { buildSettings } from '../zed/settings';
-import {
-  type Activation,
-  type ActivationReport,
-  type Described,
-  errorMessage,
-} from './contract';
+import type { Activation, ActivationReport, Described } from './contract';
 
 type ZedSettingsActivation = Extract<Activation, { kind: 'zedSettings' }>;
 

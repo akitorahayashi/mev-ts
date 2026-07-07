@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError } from '../errors';
+import { AppError, errorMessage } from '../errors';
 import { writeFileAtomically } from '../host/atomic-file';
 
 /** A name/email pair applied to global Git configuration. */
@@ -43,16 +43,18 @@ export async function loadState(path: string): Promise<IdentityState> {
     if (code === 'ENOENT') {
       throw new AppError('identity configuration does not exist');
     }
-    const message = error instanceof Error ? error.message : String(error);
-    throw new AppError(`failed to read identity config: ${message}`);
+    throw new AppError(
+      `failed to read identity config: ${errorMessage(error)}`,
+    );
   }
 
   let raw: unknown;
   try {
     raw = JSON.parse(content);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new AppError(`failed to parse identity config: ${message}`);
+    throw new AppError(
+      `failed to parse identity config: ${errorMessage(error)}`,
+    );
   }
 
   return {

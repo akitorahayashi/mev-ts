@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import { runWithCleanup } from '../host/cleanup-error';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
@@ -110,7 +110,7 @@ export async function installPackages(
         report = {
           token,
           status: 'failed',
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         };
       }
     }

@@ -2,6 +2,7 @@ import { Command, Option } from 'clipanion';
 import { resolveProfile } from '../../provisioning/profile';
 import { allTargets, fullSetupTargets } from '../../provisioning/registry';
 import type { Target } from '../../provisioning/target';
+import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
 
 function optionalTargetLine(target: Target): string {
@@ -27,15 +28,17 @@ export class CreateCommand extends Command {
     description: 'Replace unmanaged files when linking configs.',
   });
 
-  async execute(): Promise<number> {
-    const profile = resolveProfile(this.profile);
-    const tags = fullSetupTargets().map((t) => t.tags[0]);
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, async () => {
+      const profile = resolveProfile(this.profile);
+      const tags = fullSetupTargets().map((t) => t.tags[0]);
 
-    return executeProvisioningRun({
-      tags,
-      overwrite: this.overwrite,
-      intro: `mev: Creating ${profile} environment`,
-      footer: (report) => (report.failed ? undefined : optionalFooter()),
+      return executeProvisioningRun({
+        tags,
+        overwrite: this.overwrite,
+        intro: `mev: Creating ${profile} environment`,
+        footer: (report) => (report.failed ? undefined : optionalFooter()),
+      });
     });
   }
 }

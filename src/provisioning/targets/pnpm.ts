@@ -1,5 +1,5 @@
 import { asset } from '../../assets/ref';
-import { ProvisioningError } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import { home } from '../../host/path';
 import type { CommandScope } from '../activation';
 import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
@@ -25,7 +25,7 @@ export function globalPackageArgs(raw: string): string[] {
     parsed = JSON.parse(raw);
   } catch (error) {
     throw new ProvisioningError(
-      `Failed to parse pnpm global packages manifest as JSON: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to parse pnpm global packages manifest as JSON: ${errorMessage(error)}`,
     );
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {

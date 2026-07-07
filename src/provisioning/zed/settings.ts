@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import { readTextIfPresent } from '../../host/absence';
 import { writeFileAtomically } from '../../host/atomic-file';
 import { combineOverrides, deepMerge, type JsonObject } from './merge';
@@ -14,9 +14,8 @@ async function readJson(path: string, label: string): Promise<JsonObject> {
   try {
     return JSON.parse(raw) as JsonObject;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
     throw new ProvisioningError(
-      `Failed to parse JSON for ${label} at ${path}: ${message}`,
+      `Failed to parse JSON for ${label} at ${path}: ${errorMessage(error)}`,
     );
   }
 }

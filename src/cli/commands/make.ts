@@ -1,4 +1,5 @@
 import { Command, Option } from 'clipanion';
+import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
 
 export class MakeCommand extends Command {
@@ -12,10 +13,12 @@ export class MakeCommand extends Command {
     description: 'Replace unmanaged files when linking configs.',
   });
 
-  async execute(): Promise<number> {
-    return executeProvisioningRun({
-      tags: this.tags,
-      overwrite: this.overwrite,
-    });
+  async execute() {
+    return runReportingDomainErrors(this.context.stderr, () =>
+      executeProvisioningRun({
+        tags: this.tags,
+        overwrite: this.overwrite,
+      }),
+    );
   }
 }

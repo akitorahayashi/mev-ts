@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import { type CommandOptions, commandFailureDetail } from '../host/command';
 import type { Context } from '../host/context';
 import { loadYaml } from '../host/yaml';
@@ -191,9 +191,8 @@ export async function listInstalled(
   try {
     data = JSON.parse(result.stdout) as PipxListJson;
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
     throw new ProvisioningError(
-      `Failed to parse pipx list --json output as JSON: ${detail}`,
+      `Failed to parse pipx list --json output as JSON: ${errorMessage(error)}`,
     );
   }
   if (!isRecord(data)) {

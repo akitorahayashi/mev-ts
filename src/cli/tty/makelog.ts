@@ -4,10 +4,10 @@ import type {
 } from '../../provisioning/activation';
 import type { DeployResult } from '../../provisioning/deploy';
 import type { MakePlan } from '../../provisioning/plan';
-import type {
-  ActivationBlocker,
-  ActivationGroupReport,
-  MakeReport,
+import {
+  type ActivationGroupReport,
+  formatBlocker,
+  type MakeReport,
 } from '../../provisioning/run';
 import { makeStyle } from './style';
 
@@ -53,13 +53,6 @@ function isAllUnchanged(group: ActivationGroupReport): boolean {
     group.reports.length > 0 &&
     group.reports.every((r) => r.status === 'unchanged')
   );
-}
-
-function formatBlocker(blocker: ActivationBlocker): string {
-  if (blocker.kind === 'deploy') {
-    return `deploy role ${blocker.role}: ${blocker.error}`;
-  }
-  return `${blocker.token.kind} ${blocker.token.name}: ${blocker.error}`;
 }
 
 export function renderGroups(

@@ -9,7 +9,7 @@ import {
 } from '../../src/provisioning/activation';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
-const CONFIG_KEY = 'editor/vscode/global/extensions.json';
+const CONFIG_KEY = 'vscode/global/extensions.json';
 
 const MANIFEST = JSON.stringify({
   extensions: ['publisher.alpha', 'publisher.Beta', 'publisher.gamma'],
@@ -20,7 +20,7 @@ async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
 }
 
 async function deployManifest(dir: string): Promise<void> {
-  const roleDir = join(dir, '.config/mev/roles/editor/vscode/global');
+  const roleDir = join(dir, '.config/mev/roles/vscode/global');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'extensions.json'), MANIFEST);
 }
@@ -137,7 +137,7 @@ test('failed when the editor CLI is unavailable', async () => {
 
 test('failed when the extension manifest contains invalid entries', async () => {
   await withSandbox(async (dir) => {
-    const roleDir = join(dir, '.config/mev/roles/editor/vscode/global');
+    const roleDir = join(dir, '.config/mev/roles/vscode/global');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'extensions.json'),

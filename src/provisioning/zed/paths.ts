@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 
 /** Deployed source for the named settings-override fragments. */
-export const OVERRIDES_PREFIX = 'editor/zed/global/overrides';
+export const OVERRIDES_PREFIX = 'zed/global/overrides';
 
 function zedRoot(home: string): string {
   return join(home, '.config', 'mev', 'zed');

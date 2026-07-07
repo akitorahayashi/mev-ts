@@ -1,4 +1,4 @@
-import { ProvisioningError } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
 export interface Label {
@@ -43,7 +43,7 @@ export async function listLabelNames(
     parsed = JSON.parse(result.stdout);
   } catch (error) {
     throw new ProvisioningError(
-      `Failed to parse gh label list output: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to parse gh label list output: ${errorMessage(error)}`,
     );
   }
   if (!Array.isArray(parsed)) {

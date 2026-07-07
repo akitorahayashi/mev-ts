@@ -1,4 +1,5 @@
 import { type InstallReport, installPackages } from '../brew/install';
+import { errorMessage } from '../errors';
 import { type Context, createContext } from '../host/context';
 import {
   type ActivationReport,
@@ -49,21 +50,22 @@ function sameToken(a: PackageToken, b: PackageToken): boolean {
   return a.kind === b.kind && a.name === b.name;
 }
 
+export function formatBlocker(blocker: ActivationBlocker): string {
+  if (blocker.kind === 'deploy') {
+    return `deploy role ${blocker.role}: ${blocker.error}`;
+  }
+  return `${blocker.token.kind} ${blocker.token.name}: ${blocker.error}`;
+}
+
 function blockerReason(blockers: readonly ActivationBlocker[]): string {
-  return blockers
-    .map((blocker) =>
-      blocker.kind === 'deploy'
-        ? `deploy role ${blocker.role}: ${blocker.error}`
-        : `${blocker.token.kind} ${blocker.token.name}: ${blocker.error}`,
-    )
-    .join('; ');
+  return blockers.map(formatBlocker).join('; ');
 }
 
 /**
- * Drive the three provisioning phases in Rust's order: deploy each role's
- * config, resolve required packages, then activate (link) the deployed assets
- * grouped by tag. Phase boundaries fire hooks so the CLI can interleave a live
- * install bar; the returned report carries everything needed to render the log.
+ * Drive the three provisioning phases: deploy each role's config, resolve
+ * required packages, then activate (link) the deployed assets grouped by tag.
+ * Phase boundaries fire hooks so the CLI can interleave a live install bar; the
+ * returned report carries everything needed to render the log.
  */
 export async function runMake(
   request: MakeRequest,
@@ -79,7 +81,7 @@ export async function runMake(
       role,
       deployed: false,
       files: [] as readonly string[],
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     }));
     if (result.error) {
       failedRoles.set(role, result.error);

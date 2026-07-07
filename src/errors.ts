@@ -10,3 +10,7 @@ export class AppError extends Error {
 }
 
 export class ProvisioningError extends AppError {}
+
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

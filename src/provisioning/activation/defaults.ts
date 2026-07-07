@@ -1,14 +1,9 @@
 import { basename, extname } from 'node:path';
-import { ProvisioningError } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import { commandFailureDetail } from '../../host/command';
 import type { Context } from '../../host/context';
 import { loadYaml } from '../../host/yaml';
-import {
-  type Activation,
-  type ActivationReport,
-  type Described,
-  errorMessage,
-} from './contract';
+import type { Activation, ActivationReport, Described } from './contract';
 import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';
 

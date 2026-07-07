@@ -95,10 +95,10 @@ sandboxTest('activations in one target run in declaration order', async () => {
     'UiOrder',
   ];
   const assetKeys = [
-    'editor/xcode/global/behavior.yml',
-    'editor/xcode/global/build.yml',
-    'editor/xcode/global/editor.yml',
-    'editor/xcode/global/ui.yml',
+    'xcode/global/behavior.yml',
+    'xcode/global/build.yml',
+    'xcode/global/editor.yml',
+    'xcode/global/ui.yml',
   ];
   const assets = new Map(
     assetKeys.map((key, index) => [
