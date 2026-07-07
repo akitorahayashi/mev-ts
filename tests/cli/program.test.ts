@@ -177,6 +177,15 @@ test('unknown commands print usage errors to stdout', async () => {
   expect(result.stderr).toBe('');
 });
 
+test('wrapped command usage errors still print guidance to stdout', async () => {
+  const result = await capture(['switch', 'nope']);
+
+  expect(result.code).toBe(1);
+  expect(result.stdout).toContain("Unknown identity 'nope'.");
+  expect(result.stdout).toContain('mev switch');
+  expect(result.stderr).toBe('');
+});
+
 test('domain errors print concise diagnostics to stderr', async () => {
   const originalHome = process.env.HOME;
   await withTemporaryDirectory(async (home) => {
