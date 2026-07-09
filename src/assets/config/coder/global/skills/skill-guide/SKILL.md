@@ -1,45 +1,79 @@
 ---
 name: skill-guide
-description: The user mentions Agent Skills or asks to organize reusable instructions as a skill.
+description: The user mentions Agent Skills or asks to organize reusable instructions, workflows, references, scripts, or templates as an agent skill.
+---
+
 ---
 
 # Agent Skills
 
-Agent Skills are reusable instruction packages for AI agents.
+Agent Skills are reusable instruction packages for AI agents. A skill must be understandable without the original conversation.
 
-A repository-scoped skill is stored at:
+## Location
+
+If the user does not specify a location, create the skill under the current project:
 
 ```text
 .agents/skills/<skill-name>/SKILL.md
 ```
 
-`SKILL.md` contains the skill name, the situations where it is relevant, and the instructions or knowledge the agent should follow.
+If the user specifies a location, create the skill there and put `SKILL.md` inside the skill directory.
 
-Example:
+## Required file
+
+Every skill has a `SKILL.md`:
 
 ```markdown
 ---
 name: <skill-name>
-description: <Describe the situations in which this skill is relevant.>
+description: <When this skill should be used.>
 ---
 
 # <Skill Title>
 
-<Write the skill content here.>
+<Reusable instructions, workflow, rules, or knowledge.>
 ```
 
-A skill may include optional supporting files:
+The `description` should describe when to use the skill.
+
+## Optional supporting files
+
+A skill may include supporting files next to `SKILL.md`:
 
 ```text
-.agents/skills/<skill-name>/
+<skill-name>/
 ├── SKILL.md
 ├── references/  # Documents the agent may read, such as .md, .json, or .yaml
 ├── scripts/     # Programs the agent may run, such as .py, .sh, or .js
 └── assets/      # Files used as input or output materials, such as templates, images, or data
 ```
 
-These directories and file formats are not required. Include only the files needed by the skill, and refer to them from `SKILL.md` using relative paths (which must be resolved relative to the skill's directory, e.g., `.agents/skills/<skill-name>/`).
+Use only what the skill needs.
 
-When asked to organize something as a skill, create the directory `.agents/skills/<skill-name>/` and place the reusable knowledge or procedure in `SKILL.md` inside it.
+- `references/`: detailed rules, specs, schemas, examples, API notes
+- `scripts/`: repeatable validation, conversion, extraction, or generation logic
+- `assets/`: templates, images, logos, sample inputs, configs, data
 
-The skill must be understandable without the original conversation.
+## Path rules
+
+In `SKILL.md`, refer to supporting files relative to the skill directory, meaning the directory that contains `SKILL.md`.
+
+Good:
+
+```markdown
+Read [format rules](references/format-rules.md).
+Use [report template](assets/report-template.md).
+Run [validator](scripts/validate.py).
+```
+
+Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve the script path relative to the skill directory and pass project files as explicit arguments.
+
+## Creating a skill
+
+When asked to organize something as a skill:
+
+1. Choose a clear `<skill-name>`.
+2. Create the skill directory at the requested location, or under `.agents/skills/` if no location is specified.
+3. Write the reusable workflow or knowledge in `SKILL.md`.
+4. Add `references/`, `scripts/`, or `assets/` only when useful.
+5. Link supporting files from `SKILL.md` using paths relative to the skill directory.
