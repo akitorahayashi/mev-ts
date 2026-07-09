@@ -3,8 +3,6 @@ name: skill-guide
 description: The user mentions Agent Skills or asks to organize reusable instructions, workflows, references, scripts, or templates as an agent skill.
 ---
 
----
-
 # Agent Skills
 
 Agent Skills are reusable instruction packages for AI agents. A skill must be understandable without the original conversation.
