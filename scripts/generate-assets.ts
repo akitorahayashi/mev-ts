@@ -26,7 +26,7 @@ for await (const path of glob.scan({
   onlyFiles: true,
   dot: true,
 })) {
-  if (path.split('/').includes('.DS_Store')) continue;
+  if (path === '.DS_Store' || path.endsWith('/.DS_Store')) continue;
   keys.push(path);
 }
 keys.sort();
