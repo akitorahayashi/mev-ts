@@ -2,6 +2,7 @@
   "colorScheme": "light",
   "enableTelemetry": false,
   "enableTerminalSandbox": false,
+  "toolPermission": "always-proceed",
   "statusLine": {
     "type": "command",
     "command": "~/.gemini/antigravity-cli/statusline.sh"
