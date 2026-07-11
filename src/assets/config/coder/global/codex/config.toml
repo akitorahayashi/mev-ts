@@ -35,3 +35,32 @@ exporter = "none"
 metrics_exporter = "none"
 trace_exporter = "none"
 log_user_prompt = false
+
+# Disable OpenAI bundled system skills
+[[skills.config]]
+path = "$CODEX_HOME/skills/.system/imagegen/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "$CODEX_HOME/skills/.system/openai-docs/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "$CODEX_HOME/skills/.system/plugin-creator/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "$CODEX_HOME/skills/.system/skill-creator/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "$CODEX_HOME/skills/.system/skill-installer/SKILL.md"
+enabled = false
+
+# Optional: disable if your Codex build has a system plan skill
+[[skills.config]]
+path = "$CODEX_HOME/skills/.system/plan/SKILL.md"
+enabled = false
+
+[features]
+apps = false
