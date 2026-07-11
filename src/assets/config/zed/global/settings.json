@@ -44,7 +44,11 @@
     "font_size": 12,
     "line_height": "standard",
     "working_directory": "current_project_directory",
-    "path_hyperlink_timeout_ms": 1
+    "path_hyperlink_timeout_ms": 1,
+    "env": {
+      "EDITOR": "zed --wait",
+      "VISUAL": "zed --wait"
+    }
   },
   "load_direnv": "direct",
   "global_lsp_settings": {
