@@ -9,6 +9,8 @@ name = "catppuccin-latte"
 
 [keys]
 prefix = "ctrl+a"
+previous_workspace = "prefix+["
+next_workspace = "prefix+]"
 
 [ui]
 sidebar_width = 30
