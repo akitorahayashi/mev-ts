@@ -1,8 +1,9 @@
 import { chmod } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
-import { commandFailureDetail } from '../host/command';
+import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
+import { isRecord } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
 /**
@@ -16,10 +17,6 @@ export interface ReleaseBinary {
   readonly repo: string;
   readonly tag: string;
   readonly private?: boolean;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function parseReleaseBinaries(
@@ -58,7 +55,12 @@ export function parseReleaseBinaries(
         `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'private' must be a boolean.`,
       );
     }
-    return entry as unknown as ReleaseBinary;
+    return {
+      name: entry.name,
+      repo: entry.repo,
+      tag: entry.tag,
+      private: entry.private,
+    };
   });
 }
 
@@ -75,7 +77,7 @@ export async function detectArch(context: Context): Promise<string> {
   const result = await context.commands.run('uname', ['-m']);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      `uname -m failed: ${commandFailureDetail(result, `exit code ${result.code}`)}`,
+      formatCommandFailure('uname -m failed', result),
     );
   }
   const machine = result.stdout.trim();
@@ -136,15 +138,30 @@ export async function fetchReleaseBinary(
       ]);
       if (r.code !== 0) {
         throw new ProvisioningError(
-          commandFailureDetail(r, `gh release download exit ${r.code}`),
+          formatCommandFailure(
+            `gh release download failed for ${binary.name}`,
+            r,
+          ),
         );
       }
     } else {
       const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
-      const r = await context.commands.run('curl', ['-fsSL', url, '-o', tmp]);
+      // Pin HTTPS on the initial request and across redirects with a TLS floor,
+      // so a redirect to http:// is refused rather than silently followed.
+      const r = await context.commands.run('curl', [
+        '-fsSL',
+        '--proto',
+        '=https',
+        '--proto-redir',
+        '=https',
+        '--tlsv1.2',
+        url,
+        '-o',
+        tmp,
+      ]);
       if (r.code !== 0) {
         throw new ProvisioningError(
-          commandFailureDetail(r, `curl exit ${r.code}`),
+          formatCommandFailure(`curl download failed for ${binary.name}`, r),
         );
       }
     }

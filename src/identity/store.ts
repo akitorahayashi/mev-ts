@@ -1,8 +1,8 @@
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppError, errorMessage } from '../errors';
+import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
+import { allScopes, type IdentityScope } from './scope';
 
 /** A name/email pair applied to global Git configuration. */
 export interface Identity {
@@ -10,11 +10,8 @@ export interface Identity {
   readonly email: string;
 }
 
-/** The persisted set of identities mev can switch between. */
-export interface IdentityState {
-  readonly personal: Identity | null;
-  readonly work: Identity | null;
-}
+/** The persisted identities, one entry per scope (null when unconfigured). */
+export type IdentityState = Record<IdentityScope, Identity | null>;
 
 /** Build a validated identity, or null when either field is blank. */
 export function makeIdentity(name: string, email: string): Identity | null {
@@ -29,24 +26,21 @@ export function identityFilePath(home: string): string {
   return join(home, '.config', 'mev', 'identity.json');
 }
 
-export function stateExists(path: string): boolean {
-  return existsSync(path);
+/** The state with every scope unconfigured. */
+export function emptyState(): IdentityState {
+  return Object.fromEntries(
+    allScopes().map((scope) => [scope, null]),
+  ) as IdentityState;
 }
 
-export async function loadState(path: string): Promise<IdentityState> {
-  let content: string;
-  try {
-    content = await readFile(path, 'utf8');
-  } catch (error) {
-    const code =
-      error instanceof Error ? (error as { code?: string }).code : undefined;
-    if (code === 'ENOENT') {
-      throw new AppError('identity configuration does not exist');
-    }
-    throw new AppError(
-      `failed to read identity config: ${errorMessage(error)}`,
-    );
-  }
+/**
+ * Read the stored identities, or null when the file does not exist. One read
+ * (through `readTextIfPresent`) replaces the former exists-then-read pair, so
+ * there is no time-of-check/time-of-use gap and no sync filesystem probe.
+ */
+export async function readState(path: string): Promise<IdentityState | null> {
+  const content = await readTextIfPresent(path);
+  if (content === null) return null;
 
   let raw: unknown;
   try {
@@ -57,10 +51,9 @@ export async function loadState(path: string): Promise<IdentityState> {
     );
   }
 
-  return {
-    personal: readIdentity(raw, 'personal'),
-    work: readIdentity(raw, 'work'),
-  };
+  return Object.fromEntries(
+    allScopes().map((scope) => [scope, readIdentity(raw, scope)]),
+  ) as IdentityState;
 }
 
 /** Persist state via atomic temp-write + rename. */
@@ -72,7 +65,7 @@ export async function saveState(
   await writeFileAtomically(path, content);
 }
 
-function readIdentity(raw: unknown, key: 'personal' | 'work'): Identity | null {
+function readIdentity(raw: unknown, key: IdentityScope): Identity | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const entry = (raw as Record<string, unknown>)[key];
   if (typeof entry !== 'object' || entry === null) return null;
@@ -83,7 +76,9 @@ function readIdentity(raw: unknown, key: 'personal' | 'work'): Identity | null {
 
 function serialize(state: IdentityState): Record<string, Identity> {
   const out: Record<string, Identity> = {};
-  if (state.personal) out.personal = state.personal;
-  if (state.work) out.work = state.work;
+  for (const scope of allScopes()) {
+    const identity = state[scope];
+    if (identity) out[scope] = identity;
+  }
   return out;
 }

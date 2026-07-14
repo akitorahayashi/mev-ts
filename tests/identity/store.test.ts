@@ -1,65 +1,44 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import { mkdirSync } from 'node:fs';
-import { readdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError } from '../../src/errors';
 import {
   identityFilePath,
-  loadState,
   makeIdentity,
+  readState,
   saveState,
-  stateExists,
 } from '../../src/identity/store';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { sandboxedTest } from '../fixtures/temporary-directory';
 
-let sandbox = '';
+const sandboxTest = sandboxedTest('identity-');
 let counter = 0;
 
-function tempHome(): string {
+function tempHome(base: string): string {
   counter += 1;
-  const dir = join(sandbox, `identity-${counter}`);
+  const dir = join(base, `home-${counter}`);
   mkdirSync(dir);
   return dir;
 }
 
-function sandboxTest(name: string, body: () => Promise<void>): void {
-  test(name, async () => {
-    await withTemporaryDirectory(
-      async (dir) => {
-        sandbox = dir;
-        counter = 0;
-        await body();
-      },
-      { prefix: 'identity-' },
-    );
-  });
-}
-
-sandboxTest('stateExists reflects whether the file is present', async () => {
-  const home = tempHome();
-  const path = identityFilePath(home);
-  expect(stateExists(path)).toBe(false);
-  await saveState(path, {
-    personal: makeIdentity('P', 'p@x.com'),
-    work: null,
-  });
-  expect(stateExists(path)).toBe(true);
+sandboxTest('readState returns null when the file is absent', async (dir) => {
+  const path = identityFilePath(tempHome(dir));
+  expect(await readState(path)).toBeNull();
 });
 
-sandboxTest('saveState then loadState round-trips identities', async () => {
-  const path = identityFilePath(tempHome());
+sandboxTest('saveState then readState round-trips identities', async (dir) => {
+  const path = identityFilePath(tempHome(dir));
   const state = {
     personal: makeIdentity('Personal Name', 'personal@example.com'),
     work: makeIdentity('Work Name', 'work@example.com'),
   };
   await saveState(path, state);
-  expect(await loadState(path)).toEqual(state);
+  expect(await readState(path)).toEqual(state);
 });
 
 sandboxTest(
   'saveState omits null profiles from the serialized file',
-  async () => {
-    const path = identityFilePath(tempHome());
+  async (dir) => {
+    const path = identityFilePath(tempHome(dir));
     await saveState(path, {
       personal: makeIdentity('Only Personal', 'p@example.com'),
       work: null,
@@ -71,20 +50,37 @@ sandboxTest(
   },
 );
 
-sandboxTest('saveState does not leave atomic temp files behind', async () => {
-  const path = identityFilePath(tempHome());
-  await saveState(path, {
-    personal: makeIdentity('Personal', 'p@example.com'),
-    work: null,
-  });
+sandboxTest(
+  'saveState does not leave atomic temp files behind',
+  async (dir) => {
+    const path = identityFilePath(tempHome(dir));
+    await saveState(path, {
+      personal: makeIdentity('Personal', 'p@example.com'),
+      work: null,
+    });
 
-  const names = await readdir(join(path, '..'));
-  expect(names.filter((name) => name.startsWith('.identity.json.'))).toEqual(
-    [],
-  );
-});
+    const names = await readdir(join(path, '..'));
+    expect(names.filter((name) => name.startsWith('.identity.json.'))).toEqual(
+      [],
+    );
+  },
+);
 
-sandboxTest('loadState throws when the file does not exist', async () => {
-  const path = identityFilePath(tempHome());
-  await expect(loadState(path)).rejects.toBeInstanceOf(AppError);
-});
+sandboxTest(
+  'readState parses a pre-existing file in the serialized format',
+  async (dir) => {
+    // Bytes identical to what saveState writes today, proving the on-disk
+    // format is preserved: 2-space JSON, null scopes omitted, trailing newline.
+    const path = identityFilePath(tempHome(dir));
+    await mkdir(join(path, '..'), { recursive: true });
+    await writeFile(
+      path,
+      '{\n  "personal": {\n    "name": "Fixture Person",\n    "email": "fixture@example.com"\n  }\n}\n',
+    );
+
+    expect(await readState(path)).toEqual({
+      personal: { name: 'Fixture Person', email: 'fixture@example.com' },
+      work: null,
+    });
+  },
+);

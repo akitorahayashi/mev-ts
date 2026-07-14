@@ -9,6 +9,8 @@ export interface Context {
   readonly overwrite: boolean;
   readonly commands: CommandRunner;
   readonly assets: AssetSource;
+  /** The inherited PATH, captured once so command steps stay PATH-testable. */
+  readonly basePath: string;
 }
 
 interface ContextOptions {
@@ -31,5 +33,8 @@ export function createContext(options: ContextOptions): Context {
     overwrite: options.overwrite,
     commands: bunCommandRunner,
     assets: embeddedAssets,
+    // The one place mev reads the ambient PATH; the empty-string fallback is the
+    // documented default when PATH is unset.
+    basePath: process.env.PATH ?? '',
   };
 }

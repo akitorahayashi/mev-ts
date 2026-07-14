@@ -1,5 +1,5 @@
 import { Command } from 'clipanion';
-import { writeNamespaceOverview } from '../namespace-overview';
+import { renderNamespaceOverview } from '../../tty/namespace-overview';
 
 export class ConfigHelpCommand extends Command {
   static override paths = [['config'], ['cf']];
@@ -10,6 +10,14 @@ export class ConfigHelpCommand extends Command {
 
   async execute(): Promise<void> {
     const [canonical = []] = ConfigHelpCommand.paths;
-    writeNamespaceOverview(this, 'config', canonical);
+    this.context.stdout.write(
+      renderNamespaceOverview({
+        binaryName: this.cli.binaryName,
+        invokedPath: this.path,
+        canonicalPath: canonical,
+        category: 'config',
+        definitions: this.cli.definitions(),
+      }),
+    );
   }
 }

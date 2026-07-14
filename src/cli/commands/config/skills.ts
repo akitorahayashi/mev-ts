@@ -1,38 +1,16 @@
-import { Command, Option } from 'clipanion';
 import { configSelect, configSelectClear } from '../../../app/coder';
-import { resolveHome } from '../../../host/context';
-import { toggle } from '../../tty/toggle';
-import { runReportingDomainErrors } from '../domain-error';
+import { defineConfigCommand } from './command';
 
-export class ConfigSkillsCommand extends Command {
-  static override paths = [
+export const ConfigSkillsCommand = defineConfigCommand({
+  paths: [
     ['config', 'skills'],
     ['config', 'sk'],
     ['cf', 'skills'],
     ['cf', 'sk'],
-  ];
-  static override usage = Command.Usage({
-    category: 'config',
-    description: 'Interactively select enabled skills. [aliases: sk, cf sk]',
-  });
-
-  clear = Option.Boolean('--clear', false, {
-    description: 'Disable all entries.',
-  });
-
-  async execute() {
-    return runReportingDomainErrors(this.context.stderr, async () => {
-      const home = resolveHome();
-      if (this.clear) {
-        await configSelectClear('skills', home);
-      } else {
-        await configSelect(
-          'skills',
-          home,
-          (m) => process.stdout.write(m),
-          toggle,
-        );
-      }
-    });
-  }
-}
+  ],
+  description: 'Interactively select enabled skills.',
+  clearDescription:
+    'Disable all currently cataloged entries; entries added by later updates start enabled.',
+  runSelect: (home, warn, select) => configSelect('skills', home, warn, select),
+  runClear: (home) => configSelectClear('skills', home),
+});

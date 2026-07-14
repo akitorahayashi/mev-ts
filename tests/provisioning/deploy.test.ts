@@ -1,11 +1,12 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import { lstat, mkdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedPath } from '../../src/assets/ref';
 import type { AssetSource } from '../../src/assets/registry';
 import type { Context } from '../../src/host/context';
 import { deployRole } from '../../src/provisioning/deploy';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { recordingContext } from '../fixtures/fake-context';
+import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const ALL_KEYS = ['git/global/.gitconfig', 'git/global/.gitignore_global'];
 const EXECUTABLE_KEY = 'git/global/post-commit.sh';
@@ -24,47 +25,28 @@ const assets: AssetSource = {
   },
 };
 
-let sandbox: string;
+const sandboxTest = sandboxedTest('deploy-');
 
-function contextFor(homeDir: string, overwrite = false): Context {
-  return {
-    home: homeDir,
-    overwrite,
-    commands: {
-      async run() {
-        return { code: 0, stdout: '', stderr: '' };
-      },
-    },
-    assets,
-  };
-}
+const contextFor = (homeDir: string, overwrite = false): Context =>
+  recordingContext({ home: homeDir, assets, overwrite }).context;
 
-function sandboxTest(name: string, body: () => Promise<void>): void {
-  test(name, async () => {
-    await withTemporaryDirectory(
-      async (dir) => {
-        sandbox = dir;
-        await body();
-      },
-      { prefix: 'deploy-' },
-    );
-  });
-}
+sandboxTest(
+  'deployRole materializes every asset under the role',
+  async (sandbox) => {
+    const result = await deployRole('git', contextFor(sandbox));
 
-sandboxTest('deployRole materializes every asset under the role', async () => {
-  const result = await deployRole('git', contextFor(sandbox));
-
-  expect(result.deployed).toBe(true);
-  for (const key of ALL_KEYS) {
-    expect(await Bun.file(deployedPath({ key }, sandbox)).text()).toBe(
-      `content of ${key}\n`,
-    );
-  }
-});
+    expect(result.deployed).toBe(true);
+    for (const key of ALL_KEYS) {
+      expect(await Bun.file(deployedPath({ key }, sandbox)).text()).toBe(
+        `content of ${key}\n`,
+      );
+    }
+  },
+);
 
 sandboxTest(
   'deployRole restores the owner-execute bit for executable assets',
-  async () => {
+  async (sandbox) => {
     await deployRole('git', contextFor(sandbox));
 
     const executable = await stat(
@@ -79,24 +61,30 @@ sandboxTest(
   },
 );
 
-sandboxTest('deployRole skips a present role without overwrite', async () => {
-  await deployRole('git', contextFor(sandbox));
-  const result = await deployRole('git', contextFor(sandbox, false));
-  expect(result.deployed).toBe(false);
-});
+sandboxTest(
+  'deployRole skips a present role without overwrite',
+  async (sandbox) => {
+    await deployRole('git', contextFor(sandbox));
+    const result = await deployRole('git', contextFor(sandbox, false));
+    expect(result.deployed).toBe(false);
+  },
+);
 
-sandboxTest('deployRole skips roles with no embedded assets', async () => {
-  const result = await deployRole('assetless', contextFor(sandbox));
+sandboxTest(
+  'deployRole skips roles with no embedded assets',
+  async (sandbox) => {
+    const result = await deployRole('assetless', contextFor(sandbox));
 
-  expect(result).toEqual({ role: 'assetless', deployed: false, files: [] });
-  expect(await Bun.file(deployedDir('assetless', sandbox)).exists()).toBe(
-    false,
-  );
-});
+    expect(result).toEqual({ role: 'assetless', deployed: false, files: [] });
+    expect(await Bun.file(deployedDir('assetless', sandbox)).exists()).toBe(
+      false,
+    );
+  },
+);
 
 sandboxTest(
   'deployRole clears a present assetless role when overwrite is set',
-  async () => {
+  async (sandbox) => {
     const dest = deployedDir('assetless', sandbox);
     const stale = join(dest, 'global/stale.txt');
     await mkdir(join(dest, 'global'), { recursive: true });
@@ -110,20 +98,23 @@ sandboxTest(
   },
 );
 
-sandboxTest('deployRole prunes stale files when overwrite is set', async () => {
-  await deployRole('git', contextFor(sandbox));
-  const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
-  await writeFile(stale, 'leftover');
+sandboxTest(
+  'deployRole prunes stale files when overwrite is set',
+  async (sandbox) => {
+    await deployRole('git', contextFor(sandbox));
+    const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
+    await writeFile(stale, 'leftover');
 
-  const result = await deployRole('git', contextFor(sandbox, true));
+    const result = await deployRole('git', contextFor(sandbox, true));
 
-  expect(result.deployed).toBe(true);
-  await expect(lstat(stale)).rejects.toThrow();
-});
+    expect(result.deployed).toBe(true);
+    await expect(lstat(stale)).rejects.toThrow();
+  },
+);
 
 sandboxTest(
   'deployRole keeps the previous role when overwrite staging fails',
-  async () => {
+  async (sandbox) => {
     await deployRole('git', contextFor(sandbox));
     const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
     await writeFile(stale, 'leftover');

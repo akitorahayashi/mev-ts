@@ -1,4 +1,5 @@
 import { Command } from 'clipanion';
+import { resolveIsTTY } from '../tty/style';
 import { renderTargetList } from '../tty/targetlist';
 
 export class ListCommand extends Command {
@@ -8,6 +9,6 @@ export class ListCommand extends Command {
   });
 
   async execute(): Promise<void> {
-    process.stdout.write(renderTargetList());
+    process.stdout.write(renderTargetList(resolveIsTTY()));
   }
 }

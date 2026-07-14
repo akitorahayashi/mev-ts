@@ -1,14 +1,11 @@
 import checkbox from '@inquirer/checkbox';
+import type { SelectEntries } from '../../app/config-selection';
 
 /**
  * Present an interactive multi-select and return the names the user chose to
  * keep enabled, or `null` if the user cancelled (Escape / Ctrl+C).
  */
-export async function toggle(
-  message: string,
-  catalog: readonly string[],
-  enabled: readonly string[],
-): Promise<string[] | null> {
+export const toggle: SelectEntries = async (message, catalog, enabled) => {
   const enabledSet = new Set(enabled);
   try {
     return await checkbox({
@@ -25,4 +22,4 @@ export async function toggle(
     }
     throw err;
   }
-}
+};

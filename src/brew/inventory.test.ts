@@ -1,33 +1,25 @@
 import { expect, test } from 'bun:test';
+import { emptyAssets } from '../../tests/fixtures/fake-context';
 import type { CommandResult } from '../host/command';
 import type { Context } from '../host/context';
 import { packages } from '../provisioning/package';
 import { loadInventory } from './inventory';
 
-function contextWith(
+function inventoryContext(
   respond: (args: readonly string[]) => Promise<CommandResult>,
   calls: string[][] = [],
 ): Context {
   return {
     home: '/sandbox',
     overwrite: false,
+    basePath: '',
     commands: {
       async run(_command, args): Promise<CommandResult> {
         calls.push([...args]);
         return respond(args);
       },
     },
-    assets: {
-      async read() {
-        return '';
-      },
-      keysByPrefix() {
-        return [];
-      },
-      isExecutable() {
-        return false;
-      },
-    },
+    assets: emptyAssets,
   };
 }
 
@@ -41,7 +33,7 @@ test('probes only the kinds the requirement declares', async () => {
   const calls: string[][] = [];
   const inventory = await loadInventory(
     packages({ formulae: ['git'] }),
-    contextWith(listed('git\n'), calls),
+    inventoryContext(listed('git\n'), calls),
   );
 
   expect(calls).toEqual([['list', '--formula', '-1']]);
@@ -54,7 +46,7 @@ test('enumerates each declared kind with its own command', async () => {
   const calls: string[][] = [];
   await loadInventory(
     packages({ taps: ['a/b'], formulae: ['git'], casks: ['zed'] }),
-    contextWith(listed(''), calls),
+    inventoryContext(listed(''), calls),
   );
 
   expect(calls).toEqual([
@@ -67,7 +59,7 @@ test('enumerates each declared kind with its own command', async () => {
 test('parses names per line, ignoring blanks and surrounding whitespace', async () => {
   const inventory = await loadInventory(
     packages({ formulae: ['git'] }),
-    contextWith(listed('git\n\n  gh  \n')),
+    inventoryContext(listed('git\n\n  gh  \n')),
   );
 
   expect(inventory.formula).toEqual({
@@ -79,7 +71,11 @@ test('parses names per line, ignoring blanks and surrounding whitespace', async 
 test('a nonzero enumeration exit is carried as a per-kind error', async () => {
   const inventory = await loadInventory(
     packages({ formulae: ['git'] }),
-    contextWith(async () => ({ code: 1, stdout: '', stderr: 'brew broken' })),
+    inventoryContext(async () => ({
+      code: 1,
+      stdout: '',
+      stderr: 'brew broken',
+    })),
   );
 
   expect(inventory.formula).toEqual({
@@ -91,7 +87,7 @@ test('a nonzero enumeration exit is carried as a per-kind error', async () => {
 test('a throwing runner is carried as a per-kind error', async () => {
   const inventory = await loadInventory(
     packages({ taps: ['a/b'] }),
-    contextWith(async () => {
+    inventoryContext(async () => {
       throw new Error('runner failed');
     }),
   );

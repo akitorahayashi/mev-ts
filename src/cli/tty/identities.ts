@@ -1,64 +1,38 @@
 import type { IdentityView } from '../../app/identity';
-import { makeStyle } from './style';
+import { allScopes } from '../../identity/scope';
+import { makeStyle, type Style } from './style';
+import { renderTable } from './table';
 
-export function renderIdentities(
-  view: IdentityView,
-  isTTY = process.stdout.isTTY ?? false,
-): string {
+export function renderIdentities(view: IdentityView, isTTY: boolean): string {
   const c = makeStyle(isTTY);
 
-  const rows = (['personal', 'work'] as const).map((scope) => {
-    const identity = view[scope];
-    return {
+  const rows = allScopes().map((scope) => {
+    const identity = view.identities[scope];
+    const active =
+      view.current.kind === 'matched' && view.current.scope === scope;
+    return [
       scope,
-      name: identity?.name ?? 'Not configured',
-      email: identity?.email ?? '',
-      active: view.current.kind === 'matched' && view.current.scope === scope,
-    };
+      identity?.name ?? 'Not configured',
+      identity?.email ?? '',
+      active ? c.green('●') : '',
+    ];
   });
 
-  const scopeWidth = Math.max(
-    'PROFILE'.length,
-    ...rows.map((r) => r.scope.length),
+  const table = renderTable(
+    c,
+    [
+      { header: 'PROFILE', style: c.cyan },
+      { header: 'NAME' },
+      { header: 'EMAIL' },
+      { header: 'ACTIVE' },
+    ],
+    rows,
   );
-  const nameWidth = Math.max('NAME'.length, ...rows.map((r) => r.name.length));
-  const emailWidth = Math.max(
-    'EMAIL'.length,
-    ...rows.map((r) => r.email.length),
-  );
 
-  const pad = (s: string, width: number) =>
-    s + ' '.repeat(width - s.length + 1);
-
-  const header =
-    ` ${c.bold(pad('PROFILE', scopeWidth))}` +
-    `${c.bold(pad('NAME', nameWidth))}` +
-    `${c.bold(pad('EMAIL', emailWidth))}` +
-    `${c.bold('ACTIVE')}`;
-
-  const sep =
-    ` ${c.dim(pad('─'.repeat(scopeWidth), scopeWidth))}` +
-    `${c.dim(pad('─'.repeat(nameWidth), nameWidth))}` +
-    `${c.dim(pad('─'.repeat(emailWidth), emailWidth))}` +
-    `${c.dim('─'.repeat('ACTIVE'.length))}`;
-
-  const body = rows.map((r) => {
-    const marker = r.active ? c.green('●') : '';
-    return (
-      ` ${c.cyan(pad(r.scope, scopeWidth))}` +
-      `${pad(r.name, nameWidth)}` +
-      `${pad(r.email, emailWidth)}` +
-      `${marker}`
-    );
-  });
-
-  return `\n Identity file  ${view.path}\n\n${header}\n${sep}\n${body.join('\n')}\n\n${renderCurrent(view, c)}\n`;
+  return `\n Identity file  ${view.path}\n\n${table}\n\n${renderCurrent(view, c)}\n`;
 }
 
-function renderCurrent(
-  view: IdentityView,
-  c: ReturnType<typeof makeStyle>,
-): string {
+function renderCurrent(view: IdentityView, c: Style): string {
   const current = view.current;
   if (current.kind === 'unset') {
     return ` git --global  ${c.dim('not set')}`;

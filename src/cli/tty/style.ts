@@ -16,3 +16,14 @@ export function makeStyle(isTTY: boolean) {
     red: (s: string) => (isTTY ? ansi('31', s) : s),
   };
 }
+
+export type Style = ReturnType<typeof makeStyle>;
+
+/**
+ * Whether stdout is a TTY. Resolved once at the command boundary and threaded
+ * into renderers, which take `isTTY` as a required argument rather than each
+ * reaching for ambient process state.
+ */
+export function resolveIsTTY(): boolean {
+  return process.stdout.isTTY === true;
+}

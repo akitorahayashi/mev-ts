@@ -1,8 +1,7 @@
 import { Command, Option } from 'clipanion';
-import { bunCommandRunner } from '../../../host/command';
 import { buildResetTasks } from '../../../internal/gh/labels';
 import { renderLiveList } from '../../tty/livelist';
-import { runReportingDomainErrors } from '../domain-error';
+import { runInternalCommand } from './command';
 
 export class InternalGhLabelsResetCommand extends Command {
   static override paths = [['internal', 'gh', 'labels', 'reset']];
@@ -10,8 +9,8 @@ export class InternalGhLabelsResetCommand extends Command {
   repo = Option.String('--repo,-R', { required: false });
 
   async execute() {
-    return runReportingDomainErrors(this.context.stderr, async () => {
-      const items = await buildResetTasks(bunCommandRunner, this.repo);
+    return runInternalCommand(this, async (run) => {
+      const items = await buildResetTasks(run, this.repo);
       await renderLiveList(items, { concurrent: true });
     });
   }

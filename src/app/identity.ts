@@ -1,14 +1,13 @@
-import { CommandLineError } from '../errors';
+import { AppError, CommandLineError } from '../errors';
 import type { CommandRunner } from '../host/command';
-import type { IdentityScope } from '../identity/scope';
+import { allScopes, type IdentityScope } from '../identity/scope';
 import {
+  emptyState,
   type Identity,
   type IdentityState,
   identityFilePath,
-  loadState,
-  makeIdentity,
+  readState,
   saveState,
-  stateExists,
 } from '../identity/store';
 import { configGet, configSetGlobal } from '../internal/git/config';
 
@@ -30,8 +29,7 @@ export type CurrentIdentity =
 
 export interface IdentityView {
   readonly path: string;
-  readonly personal: Identity | null;
-  readonly work: Identity | null;
+  readonly identities: IdentityState;
   readonly current: CurrentIdentity;
 }
 
@@ -44,24 +42,22 @@ export interface IdentityInput {
 export async function loadIdentities(deps: {
   readonly home: string;
 }): Promise<IdentityState> {
-  const path = identityFilePath(deps.home);
-  if (!stateExists(path)) return { personal: null, work: null };
-  return loadState(path);
+  const state = await readState(identityFilePath(deps.home));
+  return state ?? emptyState();
 }
 
 /** Stored identities plus the identity Git currently has applied globally. */
 export async function showIdentity(deps: IdentityDeps): Promise<IdentityView> {
   const path = identityFilePath(deps.home);
-  if (!stateExists(path)) {
+  const state = await readState(path);
+  if (state === null) {
     throw new CommandLineError(
       "No identity configuration found. Run 'mev user set' to configure.",
     );
   }
-  const state = await loadState(path);
   return {
     path,
-    personal: state.personal,
-    work: state.work,
+    identities: state,
     current: await readCurrent(deps.run, state),
   };
 }
@@ -69,12 +65,11 @@ export async function showIdentity(deps: IdentityDeps): Promise<IdentityView> {
 /** Persist the given identities, replacing any existing configuration. */
 export async function setIdentity(
   deps: { readonly home: string },
-  inputs: { readonly personal: IdentityInput; readonly work: IdentityInput },
+  inputs: Record<IdentityScope, IdentityInput>,
 ): Promise<{ readonly path: string; readonly state: IdentityState }> {
-  const state: IdentityState = {
-    personal: makeIdentity(inputs.personal.name, inputs.personal.email),
-    work: makeIdentity(inputs.work.name, inputs.work.email),
-  };
+  const state = Object.fromEntries(
+    allScopes().map((scope) => [scope, resolveInput(scope, inputs[scope])]),
+  ) as IdentityState;
   const path = identityFilePath(deps.home);
   await saveState(path, state);
   return { path, state };
@@ -85,14 +80,13 @@ export async function switchIdentity(
   deps: IdentityDeps,
   scope: IdentityScope,
 ): Promise<Identity> {
-  const path = identityFilePath(deps.home);
-  if (!stateExists(path)) {
+  const state = await readState(identityFilePath(deps.home));
+  if (state === null) {
     throw new CommandLineError(
       "No identity configuration found. Run 'mev user set' first to configure identities.",
     );
   }
 
-  const state = await loadState(path);
   const identity = state[scope];
   if (!identity) {
     throw new CommandLineError(
@@ -103,6 +97,27 @@ export async function switchIdentity(
   await configSetGlobal(deps.run, 'user.name', identity.name);
   await configSetGlobal(deps.run, 'user.email', identity.email);
   return identity;
+}
+
+/**
+ * Turn one scope's prompt input into a stored identity. Both fields blank means
+ * "leave the scope unset" (returns null). Exactly one blank is a mistake — the
+ * user meant to configure the scope but left half of it empty — so it fails
+ * loudly rather than silently storing the scope as absent.
+ */
+function resolveInput(
+  scope: IdentityScope,
+  input: IdentityInput,
+): Identity | null {
+  const name = input.name.trim();
+  const email = input.email.trim();
+  if (name === '' && email === '') return null;
+  if (name === '' || email === '') {
+    throw new AppError(
+      `The ${scope} identity needs both a name and an email; leave both blank to clear it.`,
+    );
+  }
+  return { name, email };
 }
 
 async function readCurrent(
@@ -116,7 +131,7 @@ async function readCurrent(
   if (name === '' && email === '') return { kind: 'unset' };
 
   const identity = { name, email };
-  for (const scope of ['personal', 'work'] as const) {
+  for (const scope of allScopes()) {
     const stored = state[scope];
     if (stored && stored.name === name && stored.email === email) {
       return { kind: 'matched', scope, identity };

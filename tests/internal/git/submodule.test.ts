@@ -1,50 +1,19 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import { mkdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../../src/errors';
-import type { CommandResult, CommandRunner } from '../../../src/host/command';
+import type { CommandRunner } from '../../../src/host/command';
 import { deleteSubmodule } from '../../../src/internal/git/submodule';
-import { withTemporaryDirectory } from '../../fixtures/temporary-directory';
+import {
+  type RecordedCall,
+  sequenceRunner,
+} from '../../fixtures/fake-command-runner';
+import { sandboxedTest } from '../../fixtures/temporary-directory';
 
-interface Call {
-  args: string[];
-  stdout?: 'pipe' | 'inherit';
-  stderr?: 'pipe' | 'inherit';
-}
+const sandboxTest = sandboxedTest('submodule-');
 
-function sequenceRunner(
-  responses: CommandResult[],
-  calls: Call[],
-): CommandRunner {
-  let index = 0;
-  return {
-    async run(_command, args, options): Promise<CommandResult> {
-      calls.push({
-        args: [...args],
-        stdout: options?.stdout,
-        stderr: options?.stderr,
-      });
-      return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
-    },
-  };
-}
-
-let sandbox: string;
-
-function sandboxTest(name: string, body: () => Promise<void>): void {
-  test(name, async () => {
-    await withTemporaryDirectory(
-      async (dir) => {
-        sandbox = dir;
-        await body();
-      },
-      { prefix: 'submodule-' },
-    );
-  });
-}
-
-sandboxTest('runs deinit, rm, and config removal in order', async () => {
-  const calls: Call[] = [];
+sandboxTest('runs deinit, rm, and config removal in order', async (sandbox) => {
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: '', stderr: '' },
@@ -83,7 +52,7 @@ sandboxTest('runs deinit, rm, and config removal in order', async () => {
 
 sandboxTest(
   'removes the .git/modules directory for the submodule',
-  async () => {
+  async (sandbox) => {
     const modulesPath = join(sandbox, 'modules', 'vendor/dep');
     await mkdir(modulesPath, { recursive: true });
 
@@ -107,7 +76,7 @@ sandboxTest(
   },
 );
 
-sandboxTest('tolerates a missing config section', async () => {
+sandboxTest('tolerates a missing config section', async (sandbox) => {
   const run = sequenceRunner(
     [
       { code: 0, stdout: '', stderr: '' },
@@ -121,21 +90,24 @@ sandboxTest('tolerates a missing config section', async () => {
   await expect(deleteSubmodule(run, ['vendor/dep'])).resolves.toBeUndefined();
 });
 
-sandboxTest('throws when config removal fails for another reason', async () => {
-  const run = sequenceRunner(
-    [
-      { code: 0, stdout: '', stderr: '' },
-      { code: 0, stdout: '', stderr: '' },
-      { code: 0, stdout: sandbox, stderr: '' },
-      { code: 1, stdout: '', stderr: 'fatal: something else' },
-    ],
-    [],
-  );
+sandboxTest(
+  'throws when config removal fails for another reason',
+  async (sandbox) => {
+    const run = sequenceRunner(
+      [
+        { code: 0, stdout: '', stderr: '' },
+        { code: 0, stdout: '', stderr: '' },
+        { code: 0, stdout: sandbox, stderr: '' },
+        { code: 1, stdout: '', stderr: 'fatal: something else' },
+      ],
+      [],
+    );
 
-  await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toBeInstanceOf(
-    ProvisioningError,
-  );
-});
+    await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toBeInstanceOf(
+      ProvisioningError,
+    );
+  },
+);
 
 sandboxTest('throws when deinit fails', async () => {
   const run = sequenceRunner([{ code: 1, stdout: '', stderr: 'boom' }], []);
@@ -156,7 +128,7 @@ sandboxTest(
   },
 );
 
-sandboxTest('accepts a valid relative path', async () => {
+sandboxTest('accepts a valid relative path', async (sandbox) => {
   const run = sequenceRunner(
     [
       { code: 0, stdout: '', stderr: '' },
@@ -168,3 +140,25 @@ sandboxTest('accepts a valid relative path', async () => {
   );
   await expect(deleteSubmodule(run, ['vendor/dep'])).resolves.toBeUndefined();
 });
+
+sandboxTest(
+  'pins LC_ALL=C for the parsed config-section removal',
+  async (sandbox) => {
+    let configEnv: Readonly<Record<string, string>> | undefined;
+    const run: CommandRunner = {
+      async run(_command, args, options) {
+        if (args[0] === 'rev-parse') {
+          return { code: 0, stdout: sandbox, stderr: '' };
+        }
+        if (args[0] === 'config') {
+          configEnv = options?.env;
+        }
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    };
+
+    await deleteSubmodule(run, ['vendor/dep']);
+
+    expect(configEnv).toEqual({ LC_ALL: 'C' });
+  },
+);

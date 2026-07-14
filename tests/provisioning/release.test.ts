@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import {
   mkdir,
   readdir,
@@ -13,7 +13,8 @@ import {
   releaseBinaries,
   runActivation,
 } from '../../src/provisioning/activation';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { emptyAssets } from '../fixtures/fake-context';
+import { sandboxedTest } from '../fixtures/temporary-directory';
 
 interface Call {
   readonly command: string;
@@ -22,11 +23,11 @@ interface Call {
 
 type Responder = (command: string, args: readonly string[]) => CommandResult;
 
-async function withSandbox(fn: (home: string) => Promise<void>): Promise<void> {
-  await withTemporaryDirectory(fn, { prefix: 'release-' });
-}
+const sandboxTest = sandboxedTest('release-');
 
-function contextWith(
+// A successful download writes the destination file, so the subsequent chmod in
+// fetchReleaseBinary has a real file to mark executable.
+function releaseContext(
   home: string,
   responder: Responder,
 ): { context: Context; calls: Call[] } {
@@ -34,20 +35,9 @@ function contextWith(
   const context: Context = {
     home,
     overwrite: false,
-    assets: {
-      async read() {
-        return '';
-      },
-      keysByPrefix() {
-        return [];
-      },
-      isExecutable() {
-        return false;
-      },
-    },
+    assets: emptyAssets,
+    basePath: '',
     commands: {
-      // A successful download writes the destination file, so the subsequent
-      // chmod in fetchReleaseBinary has a real file to mark executable.
       async run(command, args) {
         calls.push({ command, args });
         const result = responder(command, args);
@@ -97,10 +87,11 @@ const absentProbe = (args: readonly string[]): CommandResult | null =>
       }
     : null;
 
-test('first run: an absent binary is fetched and installed, not aborted', async () => {
-  await withSandbox(async (home) => {
+sandboxTest(
+  'first run: an absent binary is fetched and installed, not aborted',
+  async (home) => {
     await deployBinaries(home, PUBLIC_YAML);
-    const { context, calls } = contextWith(home, (command, args) => {
+    const { context, calls } = releaseContext(home, (command, args) => {
       const probe = absentProbe(args);
       if (probe) return probe;
       if (command === 'uname') return ok('arm64');
@@ -115,44 +106,51 @@ test('first run: an absent binary is fetched and installed, not aborted', async 
       'changed',
       'changed',
     ]);
-    expect(calls.filter((c) => c.command === 'curl')).toHaveLength(2);
+    const curls = calls.filter((c) => c.command === 'curl');
+    expect(curls).toHaveLength(2);
+    // Transport is pinned to HTTPS on request and redirect, with a TLS floor.
+    expect(curls[0]?.args.slice(0, 6)).toEqual([
+      '-fsSL',
+      '--proto',
+      '=https',
+      '--proto-redir',
+      '=https',
+      '--tlsv1.2',
+    ]);
     expect(await readFile(join(home, '.cargo', 'bin', 'kpv'), 'utf8')).toBe(
       'curl',
     );
+  },
+);
+
+sandboxTest('one binary failing still processes its siblings', async (home) => {
+  await deployBinaries(home, PUBLIC_YAML);
+  const { context } = releaseContext(home, (command, args) => {
+    const probe = absentProbe(args);
+    if (probe) return probe;
+    if (command === 'uname') return ok('arm64');
+    if (command === 'curl') {
+      return args.some((a) => a.includes('mx-darwin'))
+        ? fail('404 not found')
+        : ok();
+    }
+    return fail();
   });
+
+  const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+  expect(report.status).toBe('failed');
+  expect(report.entries?.find((e) => e.key === 'kpv')?.status).toBe('changed');
+  const mx = report.entries?.find((e) => e.key === 'mx');
+  expect(mx?.status).toBe('failed');
+  expect(mx?.error).toContain('404 not found');
 });
 
-test('one binary failing still processes its siblings', async () => {
-  await withSandbox(async (home) => {
+sandboxTest(
+  'an up-to-date binary is left unchanged and not re-fetched',
+  async (home) => {
     await deployBinaries(home, PUBLIC_YAML);
-    const { context } = contextWith(home, (command, args) => {
-      const probe = absentProbe(args);
-      if (probe) return probe;
-      if (command === 'uname') return ok('arm64');
-      if (command === 'curl') {
-        return args.some((a) => a.includes('mx-darwin'))
-          ? fail('404 not found')
-          : ok();
-      }
-      return fail();
-    });
-
-    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.find((e) => e.key === 'kpv')?.status).toBe(
-      'changed',
-    );
-    const mx = report.entries?.find((e) => e.key === 'mx');
-    expect(mx?.status).toBe('failed');
-    expect(mx?.error).toBe('404 not found');
-  });
-});
-
-test('an up-to-date binary is left unchanged and not re-fetched', async () => {
-  await withSandbox(async (home) => {
-    await deployBinaries(home, PUBLIC_YAML);
-    const { context, calls } = contextWith(home, (command, args) => {
+    const { context, calls } = releaseContext(home, (command, args) => {
       if (command === 'uname') return ok('arm64');
       if (args[0] === '--version') {
         if (command.endsWith('/kpv')) return ok('kpv 0.6.0');
@@ -166,11 +164,12 @@ test('an up-to-date binary is left unchanged and not re-fetched', async () => {
     expect(report.status).toBe('unchanged');
     expect(report.entries?.every((e) => e.status === 'unchanged')).toBe(true);
     expect(calls.some((c) => c.command === 'curl')).toBe(false);
-  });
-});
+  },
+);
 
-test('a private binary is fetched with an authenticated gh download', async () => {
-  await withSandbox(async (home) => {
+sandboxTest(
+  'a private binary is fetched with an authenticated gh download',
+  async (home) => {
     await deployBinaries(
       home,
       `
@@ -181,7 +180,7 @@ binaries:
     private: true
 `.trimStart(),
     );
-    const { context, calls } = contextWith(home, (command, args) => {
+    const { context, calls } = releaseContext(home, (command, args) => {
       const probe = absentProbe(args);
       if (probe) return probe;
       if (command === 'uname') return ok('arm64');
@@ -215,11 +214,12 @@ binaries:
     expect(await readFile(join(home, '.cargo', 'bin', 'astm'), 'utf8')).toBe(
       'gh',
     );
-  });
-});
+  },
+);
 
-test('a failed download keeps the existing binary and removes temp files', async () => {
-  await withSandbox(async (home) => {
+sandboxTest(
+  'a failed download keeps the existing binary and removes temp files',
+  async (home) => {
     const existing = join(home, '.cargo', 'bin', 'kpv');
     await mkdir(join(existing, '..'), { recursive: true });
     await writeFile(existing, 'old');
@@ -232,7 +232,7 @@ binaries:
     tag: v0.6.0
 `.trimStart(),
     );
-    const { context } = contextWith(home, (command, args) => {
+    const { context } = releaseContext(home, (command, args) => {
       if (command === 'uname') return ok('arm64');
       if (args[0] === '--version') return fail();
       if (command === 'curl') return fail('network down');
@@ -244,5 +244,5 @@ binaries:
     expect(report.status).toBe('failed');
     expect(await readFile(existing, 'utf8')).toBe('old');
     expect(await readdir(join(home, '.cargo', 'bin'))).toEqual(['kpv']);
-  });
-});
+  },
+);

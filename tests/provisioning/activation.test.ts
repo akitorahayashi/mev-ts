@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import {
   lstat,
   mkdir,
@@ -17,7 +17,8 @@ import {
   linkTree,
   runActivation,
 } from '../../src/provisioning/activation';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { recordingContext } from '../fixtures/fake-context';
+import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const aliasPrefix = 'shell/global/alias/';
 const ALIAS_KEYS = [`${aliasPrefix}a.zsh`, `${aliasPrefix}sub/b.zsh`];
@@ -35,20 +36,10 @@ const assets: AssetSource = {
   },
 };
 
-let sandbox: string;
+const sandboxTest = sandboxedTest('activate-');
 
-function contextFor(homeDir: string, overwrite = false): Context {
-  return {
-    home: homeDir,
-    overwrite,
-    commands: {
-      async run() {
-        return { code: 0, stdout: '', stderr: '' };
-      },
-    },
-    assets,
-  };
-}
+const contextFor = (homeDir: string, overwrite = false): Context =>
+  recordingContext({ home: homeDir, assets, overwrite }).context;
 
 async function deploy(context: Context, key: string) {
   const dest = deployedPath({ key }, context.home);
@@ -56,21 +47,9 @@ async function deploy(context: Context, key: string) {
   await writeFile(dest, await context.assets.read(key));
 }
 
-function sandboxTest(name: string, body: () => Promise<void>): void {
-  test(name, async () => {
-    await withTemporaryDirectory(
-      async (dir) => {
-        sandbox = dir;
-        await body();
-      },
-      { prefix: 'activate-' },
-    );
-  });
-}
-
 sandboxTest(
   'link creates a symlink to the deployed asset and is idempotent',
-  async () => {
+  async (sandbox) => {
     const context = contextFor(sandbox);
     const ref = asset('git/global/.gitconfig');
     await deploy(context, ref.key);
@@ -90,7 +69,7 @@ sandboxTest(
 
 sandboxTest(
   'link refuses to replace an unmanaged file without overwrite',
-  async () => {
+  async (sandbox) => {
     const context = contextFor(sandbox);
     const ref = asset('git/global/.gitconfig');
     await deploy(context, ref.key);
@@ -107,7 +86,7 @@ sandboxTest(
 
 sandboxTest(
   'link replaces an unmanaged file when overwrite is set',
-  async () => {
+  async (sandbox) => {
     const context = contextFor(sandbox, true);
     const ref = asset('git/global/.gitconfig');
     await deploy(context, ref.key);
@@ -123,24 +102,47 @@ sandboxTest(
   },
 );
 
-sandboxTest('link surfaces filesystem errors while probing links', async () => {
-  const context = contextFor(sandbox);
-  const ref = asset('git/global/.gitconfig');
-  await deploy(context, ref.key);
-  await writeFile(join(sandbox, '.blocked'), 'not a directory');
+sandboxTest(
+  'link surfaces filesystem errors while probing links',
+  async (sandbox) => {
+    const context = contextFor(sandbox);
+    const ref = asset('git/global/.gitconfig');
+    await deploy(context, ref.key);
+    await writeFile(join(sandbox, '.blocked'), 'not a directory');
 
-  const report = await runActivation(
-    link(ref, home('.blocked/git/config')),
-    context,
-  );
+    const report = await runActivation(
+      link(ref, home('.blocked/git/config')),
+      context,
+    );
 
-  expect(report.status).toBe('failed');
-  expect(report.error).toMatch(/not a directory/i);
-});
+    expect(report.status).toBe('failed');
+    expect(report.error).toMatch(/not a directory/i);
+  },
+);
+
+sandboxTest(
+  'link replaces a symlink that points at the wrong target',
+  async (sandbox) => {
+    const context = contextFor(sandbox);
+    const ref = asset('git/global/.gitconfig');
+    await deploy(context, ref.key);
+    const activation = link(ref, home('.config/git/config'));
+    await runActivation(activation, context);
+
+    const linkPath = join(sandbox, '.config/git/config');
+    await rm(linkPath);
+    await symlink(join(sandbox, 'wrong-target'), linkPath);
+
+    const report = await runActivation(activation, context);
+
+    expect(report.status).toBe('changed');
+    expect(await readlink(linkPath)).toBe(deployedPath(ref, sandbox));
+  },
+);
 
 sandboxTest(
   'linkTree mirrors deployed assets as symlinks and is idempotent',
-  async () => {
+  async (sandbox) => {
     const context = contextFor(sandbox);
     for (const key of ALIAS_KEYS) await deploy(context, key);
     const activation = linkTree(aliasPrefix, home('.mev/alias'));
@@ -161,7 +163,7 @@ sandboxTest(
 
 sandboxTest(
   'linkTree prunes a managed link that is no longer expected',
-  async () => {
+  async (sandbox) => {
     const context = contextFor(sandbox);
     for (const key of ALIAS_KEYS) await deploy(context, key);
     const activation = linkTree(aliasPrefix, home('.mev/alias'));
@@ -180,7 +182,7 @@ sandboxTest(
 
 sandboxTest(
   'linkTree leaves unmanaged files and foreign links untouched',
-  async () => {
+  async (sandbox) => {
     const context = contextFor(sandbox);
     for (const key of ALIAS_KEYS) await deploy(context, key);
     const activation = linkTree(aliasPrefix, home('.mev/alias'));
@@ -198,23 +200,26 @@ sandboxTest(
   },
 );
 
-sandboxTest('linkTree only replaces expected links that drifted', async () => {
-  const context = contextFor(sandbox);
-  for (const key of ALIAS_KEYS) await deploy(context, key);
-  const activation = linkTree(aliasPrefix, home('.mev/alias'));
-  await runActivation(activation, context);
+sandboxTest(
+  'linkTree only replaces expected links that drifted',
+  async (sandbox) => {
+    const context = contextFor(sandbox);
+    for (const key of ALIAS_KEYS) await deploy(context, key);
+    const activation = linkTree(aliasPrefix, home('.mev/alias'));
+    await runActivation(activation, context);
 
-  const correct = join(sandbox, '.mev/alias/a.zsh');
-  const drifted = join(sandbox, '.mev/alias/sub/b.zsh');
-  const before = await lstat(correct);
-  await rm(drifted);
-  await symlink(join(sandbox, 'wrong-target'), drifted);
+    const correct = join(sandbox, '.mev/alias/a.zsh');
+    const drifted = join(sandbox, '.mev/alias/sub/b.zsh');
+    const before = await lstat(correct);
+    await rm(drifted);
+    await symlink(join(sandbox, 'wrong-target'), drifted);
 
-  const report = await runActivation(activation, context);
+    const report = await runActivation(activation, context);
 
-  expect(report.status).toBe('changed');
-  expect((await lstat(correct)).ino).toBe(before.ino);
-  expect(await readlink(drifted)).toBe(
-    deployedPath(asset(`${aliasPrefix}sub/b.zsh`), sandbox),
-  );
-});
+    expect(report.status).toBe('changed');
+    expect((await lstat(correct)).ino).toBe(before.ino);
+    expect(await readlink(drifted)).toBe(
+      deployedPath(asset(`${aliasPrefix}sub/b.zsh`), sandbox),
+    );
+  },
+);

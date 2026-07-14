@@ -1,33 +1,13 @@
 import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../../../src/errors';
-import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { cloneRepositories } from '../../../src/internal/git/clone';
-
-interface Call {
-  args: string[];
-  stdout?: 'pipe' | 'inherit';
-  stderr?: 'pipe' | 'inherit';
-}
-
-function sequenceRunner(
-  responses: CommandResult[],
-  calls: Call[],
-): CommandRunner {
-  let index = 0;
-  return {
-    async run(_command, args, options): Promise<CommandResult> {
-      calls.push({
-        args: [...args],
-        stdout: options?.stdout,
-        stderr: options?.stderr,
-      });
-      return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
-    },
-  };
-}
+import {
+  type RecordedCall,
+  sequenceRunner,
+} from '../../fixtures/fake-command-runner';
 
 test('clones each url in order', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner([], calls);
 
   await cloneRepositories(run, ['urlA', 'urlB']);
@@ -39,7 +19,7 @@ test('clones each url in order', async () => {
 });
 
 test('applies flags after the separator to every clone', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner([], calls);
 
   await cloneRepositories(run, ['urlA', 'urlB', '--', '--depth', '1']);
@@ -59,7 +39,7 @@ test('applies flags after the separator to every clone', async () => {
 });
 
 test('stops at the first failure', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner([{ code: 1, stdout: '', stderr: 'boom' }], calls);
 
   await expect(cloneRepositories(run, ['urlA', 'urlB'])).rejects.toBeInstanceOf(
@@ -69,7 +49,7 @@ test('stops at the first failure', async () => {
 });
 
 test('reports inherited clone failures without pretending output was captured', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], calls);
 
   await expect(cloneRepositories(run, ['urlA'])).rejects.toThrow(
@@ -78,7 +58,7 @@ test('reports inherited clone failures without pretending output was captured', 
 });
 
 test('redacts clone URL credentials from progress and failure output', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const messages: string[] = [];
   const run = sequenceRunner([{ code: 1, stdout: '', stderr: '' }], calls);
   const url = 'https://user:secret@example.com/owner/repo.git';

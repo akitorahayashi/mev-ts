@@ -17,7 +17,7 @@ jobs:
     if: "!startsWith(github.ref, 'refs/tags/')"
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
@@ -28,6 +28,11 @@ jobs:
 
       - name: Build mev
         run: bun run build
+
+      - name: Smoke-test the binary
+        run: |
+          ./dist/mev --version
+          ./dist/mev list
 
   build-release:
     name: Build ${{ matrix.target }}
@@ -40,7 +45,7 @@ jobs:
           - target: bun-darwin-arm64
             artifact: mev-darwin-arm64
 
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
@@ -49,14 +54,17 @@ jobs:
       - name: Setup Development Environment
         uses: ./.github/actions/setup
 
-      - name: Generate Assets
-        run: bun run codegen
-
       - name: Build mev
         run: bun scripts/build.ts --target=${{ matrix.target }} --outfile=${{ matrix.artifact }}
 
+      - name: Smoke-test the host-native binary
+        if: matrix.target == 'bun-darwin-arm64'
+        run: |
+          ./${{ matrix.artifact }} --version
+          ./${{ matrix.artifact }} list
+
       - name: Checksum mev
-        run: sha256sum ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256
+        run: shasum -a 256 ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256
 
       - name: Upload Release Asset
         if: inputs.release_id != ''

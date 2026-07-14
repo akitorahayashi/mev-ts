@@ -2,24 +2,7 @@
 
 import { Builtins, Cli } from 'clipanion';
 import packageMetadata from '../package.json';
-import { ConfigAgentsCommand } from './cli/commands/config/agents';
-import { ConfigHelpCommand } from './cli/commands/config/help';
-import { ConfigSkillsCommand } from './cli/commands/config/skills';
-import { ConfigZedCommand } from './cli/commands/config/zed';
-import { CreateCommand } from './cli/commands/create';
-import { InternalGhLabelsDeployCommand } from './cli/commands/internal/gh-labels-deploy';
-import { InternalGhLabelsResetCommand } from './cli/commands/internal/gh-labels-reset';
-import { InternalGitCloneCommand } from './cli/commands/internal/git-clone';
-import { InternalGitDeleteBranchesCommand } from './cli/commands/internal/git-delete-branches';
-import { InternalGitDeleteSubmoduleCommand } from './cli/commands/internal/git-delete-submodule';
-import { ListCommand } from './cli/commands/list';
-import { MakeCommand } from './cli/commands/make';
-import { SwitchCommand } from './cli/commands/switch';
-import {
-  UserHelpCommand,
-  UserSetCommand,
-  UserShowCommand,
-} from './cli/commands/user';
+import { commands } from './cli/commands/registry';
 
 function createCli(): Cli {
   const cli = new Cli({
@@ -30,39 +13,31 @@ function createCli(): Cli {
 
   cli.register(Builtins.HelpCommand);
   cli.register(Builtins.VersionCommand);
-  cli.register(MakeCommand);
-  cli.register(CreateCommand);
-  cli.register(ConfigHelpCommand);
-  cli.register(ConfigAgentsCommand);
-  cli.register(ConfigSkillsCommand);
-  cli.register(ConfigZedCommand);
-  cli.register(ListCommand);
-  cli.register(SwitchCommand);
-  cli.register(UserHelpCommand);
-  cli.register(UserShowCommand);
-  cli.register(UserSetCommand);
-  cli.register(InternalGitCloneCommand);
-  cli.register(InternalGitDeleteBranchesCommand);
-  cli.register(InternalGitDeleteSubmoduleCommand);
-  cli.register(InternalGhLabelsDeployCommand);
-  cli.register(InternalGhLabelsResetCommand);
+  for (const command of commands) {
+    cli.register(command);
+  }
 
   return cli;
 }
 
 const HELP_FLAGS = new Set(['-h', '--help']);
 
-// `--help` after a namespace token (e.g. `config --help`) always resolves
-// through clipanion's ambiguous-match listing rather than that namespace's
-// own bare command, because clipanion matches `-h`/`--help` against every
-// registered path sharing the prefix instead of the exact typed path. When
-// the ambiguous set includes a command registered bare at that exact token
-// (e.g. `ConfigHelpCommand`, whose own bare form already is that
-// namespace's help), drop the trailing help flag so it resolves there
-// instead of listing every subcommand redundantly.
-function dropRedundantNamespaceHelpFlag(
-  cli: Cli,
+/**
+ * `--help` after a namespace token (e.g. `config --help`) resolves through
+ * clipanion's ambiguous-match listing rather than that namespace's own bare
+ * command, because clipanion matches `-h`/`--help` against every registered
+ * path sharing the prefix. When the namespace has both a bare command (its own
+ * overview) and subcommands, drop the trailing help flag so it resolves to the
+ * overview instead of listing every subcommand redundantly. A leaf command like
+ * `make --help` (a bare command with no subcommands) is left untouched so its
+ * detailed help still shows.
+ *
+ * Decided from the registered command paths (token arrays, including aliases),
+ * not clipanion internals, so a minor clipanion change cannot silently break it.
+ */
+export function rewriteNamespaceHelp(
   args: readonly string[],
+  paths: readonly (readonly string[])[],
 ): readonly string[] {
   const [namespace, flag] = args;
   if (
@@ -73,28 +48,21 @@ function dropRedundantNamespaceHelpFlag(
   ) {
     return args;
   }
-  const resolved = cli.process([...args]) as unknown as {
-    commands?: readonly number[];
-    contexts: readonly {
-      commandClass: { paths?: readonly (readonly string[])[] };
-    }[];
-  };
-  if (!resolved.commands || resolved.commands.length <= 1) {
-    return args;
-  }
-  const hasBareMatch = resolved.commands.some((index) =>
-    (resolved.contexts[index]?.commandClass.paths ?? []).some(
-      (path) => path.length === 1 && path[0] === namespace,
-    ),
+  const hasBare = paths.some(
+    (path) => path.length === 1 && path[0] === namespace,
   );
-  return hasBareMatch ? [namespace] : args;
+  const hasSubcommand = paths.some(
+    (path) => path.length > 1 && path[0] === namespace,
+  );
+  return hasBare && hasSubcommand ? [namespace] : args;
 }
 
 export function runCommandLine(
   args: readonly string[] = Bun.argv.slice(2),
 ): Promise<number> {
   const cli = createCli();
-  return cli.run([...dropRedundantNamespaceHelpFlag(cli, args)]);
+  const paths = commands.flatMap((command) => command.paths ?? []);
+  return cli.run([...rewriteNamespaceHelp(args, paths)]);
 }
 
 if (import.meta.main) {

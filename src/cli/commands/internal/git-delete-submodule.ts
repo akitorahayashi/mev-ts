@@ -1,7 +1,6 @@
 import { Command, Option } from 'clipanion';
-import { bunCommandRunner } from '../../../host/command';
 import { deleteSubmodule } from '../../../internal/git/submodule';
-import { runReportingDomainErrors } from '../domain-error';
+import { runInternalCommand } from './command';
 
 export class InternalGitDeleteSubmoduleCommand extends Command {
   static override paths = [['internal', 'git', 'delete-submodule']];
@@ -9,12 +8,8 @@ export class InternalGitDeleteSubmoduleCommand extends Command {
   submodulePath = Option.String({ required: true });
 
   async execute() {
-    return runReportingDomainErrors(this.context.stderr, () =>
-      deleteSubmodule(
-        bunCommandRunner,
-        [this.submodulePath],
-        process.stdout.write.bind(process.stdout),
-      ),
+    return runInternalCommand(this, (run, write) =>
+      deleteSubmodule(run, [this.submodulePath], write),
     );
   }
 }

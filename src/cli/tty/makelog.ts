@@ -12,7 +12,7 @@ import {
 import { makeStyle } from './style';
 
 interface RenderOptions {
-  readonly isTTY?: boolean;
+  readonly isTTY: boolean;
 }
 
 interface ReportOptions extends RenderOptions {
@@ -22,7 +22,7 @@ interface ReportOptions extends RenderOptions {
 
 export function renderDeployLine(
   result: DeployResult,
-  isTTY = process.stdout.isTTY ?? false,
+  isTTY: boolean,
 ): string | null {
   if (!result.deployed) {
     return null;
@@ -59,8 +59,7 @@ export function renderGroups(
   groups: readonly ActivationGroupReport[],
   options: RenderOptions,
 ): string {
-  const isTTY = options.isTTY ?? process.stdout.isTTY ?? false;
-  const c = makeStyle(isTTY);
+  const c = makeStyle(options.isTTY);
 
   const quietTags = groups.filter(isAllUnchanged).map((g) => g.tag);
   const tagPad = quietTags.reduce((w, tag) => Math.max(w, tag.length), 0);
@@ -175,8 +174,7 @@ export function renderMakeReport(
   report: MakeReport,
   options: ReportOptions,
 ): string {
-  const isTTY = options.isTTY ?? process.stdout.isTTY ?? false;
-  const c = makeStyle(isTTY);
+  const c = makeStyle(options.isTTY);
   const result = report.failed ? 'failed' : 'success';
   const resultText = result === 'failed' ? c.red(result) : c.green(result);
 

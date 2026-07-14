@@ -2,7 +2,14 @@ import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../../errors';
 import { readTextIfPresent } from '../../host/absence';
 import { writeFileAtomically } from '../../host/atomic-file';
+import { isRecord } from '../../host/parse';
 import { combineOverrides, deepMerge, type JsonObject } from './merge';
+
+// JSON.parse only yields JsonValues, so a top-level object is deeply a
+// JsonObject; the shallow record check is therefore a sound narrowing.
+function isJsonObject(value: unknown): value is JsonObject {
+  return isRecord(value);
+}
 
 async function readJson(path: string, label: string): Promise<JsonObject> {
   const raw = await readTextIfPresent(path);
@@ -11,13 +18,20 @@ async function readJson(path: string, label: string): Promise<JsonObject> {
       `${label} not found: ${path}. Run provisioning to deploy it first.`,
     );
   }
+  let value: unknown;
   try {
-    return JSON.parse(raw) as JsonObject;
+    value = JSON.parse(raw);
   } catch (error) {
     throw new ProvisioningError(
       `Failed to parse JSON for ${label} at ${path}: ${errorMessage(error)}`,
     );
   }
+  if (!isJsonObject(value)) {
+    throw new ProvisioningError(
+      `${label} at ${path} must be a JSON object, not an array or primitive.`,
+    );
+  }
+  return value;
 }
 
 /** Render the base settings merged with the enabled overrides, in catalog order. */

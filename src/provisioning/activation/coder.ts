@@ -8,7 +8,7 @@ import { type HostPath, resolveHostPath } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import { buildAgents } from '../coder/agents';
 import { readSections, readSkills } from '../coder/catalog';
-import { readDisabled, resolve } from '../coder/manifest';
+import { readDisabled } from '../coder/manifest';
 import {
   agentsFile,
   agentsManifest,
@@ -16,6 +16,7 @@ import {
   skillsManifest,
 } from '../coder/paths';
 import { buildSkills } from '../coder/skills';
+import { resolveSelection } from '../selection';
 import type { Activation, ActivationReport, Described } from './contract';
 
 type CoderAgentsActivation = Extract<Activation, { kind: 'coderAgents' }>;
@@ -130,7 +131,7 @@ export async function runCoderAgents(
     const sourceDir = deployedDir(activation.sectionsPrefix, context.home);
     const catalog = await readSections(sourceDir);
     const disabled = await readDisabled(agentsManifest(context.home));
-    const { enabled } = resolve(catalog, disabled);
+    const { enabled } = resolveSelection(catalog, disabled, 'opt-out');
     const output = agentsFile(context.home);
     const built = await buildAgents(sourceDir, enabled, output);
     const linked = await fanoutFile(activation.dests, output, context);
@@ -149,7 +150,7 @@ export async function runCoderSkills(
     const sourceDir = deployedDir(activation.skillsPrefix, context.home);
     const catalog = await readSkills(sourceDir);
     const disabled = await readDisabled(skillsManifest(context.home));
-    const { enabled } = resolve(catalog, disabled);
+    const { enabled } = resolveSelection(catalog, disabled, 'opt-out');
     const intermediate = skillsDir(context.home);
     const built = await buildSkills(sourceDir, enabled, intermediate);
     const linked = await fanoutSkills(

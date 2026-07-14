@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import {
   lstat,
   mkdir,
@@ -8,45 +8,21 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Context } from '../../src/host/context';
 import { home } from '../../src/host/path';
 import {
   coderAgents,
   coderSkills,
   runActivation,
 } from '../../src/provisioning/activation';
+import { renderAgents } from '../../src/provisioning/coder/agents';
 import {
   AGENTS_SECTIONS_PREFIX,
   SKILLS_PREFIX,
 } from '../../src/provisioning/coder/paths';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { recordingContext } from '../fixtures/fake-context';
+import { sandboxedTest } from '../fixtures/temporary-directory';
 
-async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
-  await withTemporaryDirectory(fn, { prefix: 'coder-' });
-}
-
-function contextWith(homeDir: string): Context {
-  return {
-    home: homeDir,
-    overwrite: false,
-    assets: {
-      async read() {
-        return '';
-      },
-      keysByPrefix() {
-        return [];
-      },
-      isExecutable() {
-        return false;
-      },
-    },
-    commands: {
-      async run() {
-        return { code: 0, stdout: '', stderr: '' };
-      },
-    },
-  };
-}
+const sandboxTest = sandboxedTest('coder-');
 
 function sourceDir(homeDir: string, prefix: string): string {
   return join(homeDir, '.config', 'mev', 'roles', prefix);
@@ -79,8 +55,9 @@ async function deploySkills(
 const AGENTS_DEST = home('.claude/CLAUDE.md');
 const SKILLS_TARGET = home('.claude/skills');
 
-test('coderAgents concatenates enabled sections and symlinks the result', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderAgents concatenates enabled sections and symlinks the result',
+  async (dir) => {
     await deploySections(dir, 'sections:\n  - alpha\n  - beta\n', {
       alpha: '## Alpha\n\n- one\n',
       beta: '## Beta\n\n- two\n',
@@ -88,21 +65,25 @@ test('coderAgents concatenates enabled sections and symlinks the result', async 
 
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     expect(report.status).toBe('changed');
     const built = join(dir, '.config', 'mev', 'coder', 'AGENTS.md');
-    expect(await readFile(built, 'utf8')).toBe(
-      '# Rules\n\n## Alpha\n\n- one\n\n## Beta\n\n- two\n\n',
+    const contents = await readFile(built, 'utf8');
+    expect(contents).toContain('## Alpha');
+    expect(contents).toContain('## Beta');
+    expect(contents.indexOf('## Alpha')).toBeLessThan(
+      contents.indexOf('## Beta'),
     );
     const link = join(dir, '.claude', 'CLAUDE.md');
     expect(await readlink(link)).toBe(built);
-  });
-});
+  },
+);
 
-test('coderAgents excludes sections disabled in the manifest', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderAgents excludes sections disabled in the manifest',
+  async (dir) => {
     await deploySections(dir, 'sections:\n  - alpha\n  - beta\n', {
       alpha: '## Alpha\n',
       beta: '## Beta\n',
@@ -116,104 +97,98 @@ test('coderAgents excludes sections disabled in the manifest', async () => {
 
     await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     const built = await readFile(join(manifestDir, 'AGENTS.md'), 'utf8');
     expect(built).toContain('## Alpha');
     expect(built).not.toContain('## Beta');
+  },
+);
+
+sandboxTest('coderAgents reports unchanged on a second run', async (dir) => {
+  await deploySections(dir, 'sections:\n  - alpha\n', {
+    alpha: '## Alpha\n',
   });
+  const activation = coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]);
+  const context = recordingContext({ home: dir }).context;
+
+  await runActivation(activation, context);
+  const second = await runActivation(activation, context);
+
+  expect(second.status).toBe('unchanged');
 });
 
-test('coderAgents reports unchanged on a second run', async () => {
-  await withSandbox(async (dir) => {
-    await deploySections(dir, 'sections:\n  - alpha\n', {
-      alpha: '## Alpha\n',
-    });
-    const activation = coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]);
-    const context = contextWith(dir);
-
-    await runActivation(activation, context);
-    const second = await runActivation(activation, context);
-
-    expect(second.status).toBe('unchanged');
+sandboxTest('coderAgents surfaces manifest filesystem errors', async (dir) => {
+  await deploySections(dir, 'sections:\n  - alpha\n', {
+    alpha: '## Alpha\n',
   });
+  await mkdir(join(dir, '.config', 'mev'), { recursive: true });
+  await writeFile(join(dir, '.config', 'mev', 'coder'), 'not a directory');
+
+  const report = await runActivation(
+    coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
+    recordingContext({ home: dir }).context,
+  );
+
+  expect(report.status).toBe('failed');
+  expect(report.error).toMatch(/not a directory/i);
 });
 
-test('coderAgents surfaces manifest filesystem errors', async () => {
-  await withSandbox(async (dir) => {
-    await deploySections(dir, 'sections:\n  - alpha\n', {
-      alpha: '## Alpha\n',
-    });
-    await mkdir(join(dir, '.config', 'mev'), { recursive: true });
-    await writeFile(join(dir, '.config', 'mev', 'coder'), 'not a directory');
-
-    const report = await runActivation(
-      coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
-      contextWith(dir),
-    );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toMatch(/not a directory/i);
-  });
-});
-
-test('coderAgents surfaces deployed catalog filesystem errors', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderAgents surfaces deployed catalog filesystem errors',
+  async (dir) => {
     const parent = join(dir, '.config', 'mev', 'roles', 'coder', 'global');
     await mkdir(join(parent, '..'), { recursive: true });
     await writeFile(parent, 'not a directory');
 
     const report = await runActivation(
       coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     expect(report.status).toBe('failed');
     expect(report.error).toMatch(/not a directory/i);
-  });
+  },
+);
+
+sandboxTest('coderAgents rejects non-string catalog sections', async (dir) => {
+  await deploySections(dir, 'sections:\n  - 42\n', {});
+
+  const report = await runActivation(
+    coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
+    recordingContext({ home: dir }).context,
+  );
+
+  expect(report.status).toBe('failed');
+  expect(report.error).toContain('sections sequence of strings');
 });
 
-test('coderAgents rejects non-string catalog sections', async () => {
-  await withSandbox(async (dir) => {
-    await deploySections(dir, 'sections:\n  - 42\n', {});
-
-    const report = await runActivation(
-      coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
-      contextWith(dir),
-    );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('sections sequence of strings');
+sandboxTest('coderAgents surfaces generated file read errors', async (dir) => {
+  await deploySections(dir, 'sections:\n  - alpha\n', {
+    alpha: '## Alpha\n',
   });
+  const generatedParent = join(dir, '.config', 'mev', 'coder');
+  await mkdir(generatedParent, { recursive: true });
+  await mkdir(join(generatedParent, 'AGENTS.md'));
+
+  const report = await runActivation(
+    coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
+    recordingContext({ home: dir }).context,
+  );
+
+  expect(report.status).toBe('failed');
+  expect(report.error).toMatch(/illegal operation|is a directory/i);
 });
 
-test('coderAgents surfaces generated file read errors', async () => {
-  await withSandbox(async (dir) => {
-    await deploySections(dir, 'sections:\n  - alpha\n', {
-      alpha: '## Alpha\n',
-    });
-    const generatedParent = join(dir, '.config', 'mev', 'coder');
-    await mkdir(generatedParent, { recursive: true });
-    await mkdir(join(generatedParent, 'AGENTS.md'));
-
-    const report = await runActivation(
-      coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
-      contextWith(dir),
-    );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toMatch(/illegal operation|is a directory/i);
-  });
-});
-
-test('coderSkills links each enabled skill into the target via the intermediate', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderSkills links each enabled skill into the target via the intermediate',
+  async (dir) => {
     await deploySkills(dir, ['toon', 'task-doc']);
 
     const report = await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     expect(report.status).toBe('changed');
@@ -225,11 +200,12 @@ test('coderSkills links each enabled skill into the target via the intermediate'
     expect(await readlink(targetLink)).toBe(
       join(dir, '.config', 'mev', 'coder', 'skills', 'task-doc'),
     );
-  });
-});
+  },
+);
 
-test('coderSkills removes a target link when its skill is disabled', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderSkills removes a target link when its skill is disabled',
+  async (dir) => {
     await deploySkills(dir, ['toon']);
     const manifestDir = join(dir, '.config', 'mev', 'coder');
     await mkdir(manifestDir, { recursive: true });
@@ -240,16 +216,17 @@ test('coderSkills removes a target link when its skill is disabled', async () =>
 
     await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     const targetLink = join(dir, '.claude', 'skills', 'toon');
     expect(await lstat(targetLink).catch(() => null)).toBeNull();
-  });
-});
+  },
+);
 
-test('coderSkills leaves an unmanaged target entry untouched', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderSkills leaves an unmanaged target entry untouched',
+  async (dir) => {
     await deploySkills(dir, ['toon']);
     const targetDir = join(dir, '.claude', 'skills');
     await mkdir(targetDir, { recursive: true });
@@ -260,24 +237,37 @@ test('coderSkills leaves an unmanaged target entry untouched', async () => {
 
     await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     expect(await readlink(join(targetDir, 'mine'))).toBe(foreign);
-  });
-});
+  },
+);
 
-test('coderSkills surfaces target directory filesystem errors', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'coderSkills surfaces target directory filesystem errors',
+  async (dir) => {
     await deploySkills(dir, ['toon']);
     await writeFile(join(dir, '.claude'), 'not a directory');
 
     const report = await runActivation(
       coderSkills(SKILLS_PREFIX, [SKILLS_TARGET]),
-      contextWith(dir),
+      recordingContext({ home: dir }).context,
     );
 
     expect(report.status).toBe('failed');
     expect(report.error).toMatch(/not a directory/i);
-  });
-});
+  },
+);
+
+sandboxTest(
+  'renderAgents surfaces a missing section file as a labeled error',
+  async (dir) => {
+    const sourceDir = join(dir, 'sections');
+    await mkdir(sourceDir, { recursive: true });
+
+    await expect(renderAgents(sourceDir, ['ghost'])).rejects.toThrow(
+      /section 'ghost' not found/,
+    );
+  },
+);

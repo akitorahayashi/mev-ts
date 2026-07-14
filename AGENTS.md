@@ -14,17 +14,17 @@ src/
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
   cli/
-    commands/    MakeCommand, CreateCommand, ListCommand, SwitchCommand, UserCommand; internal commands hidden from help
-      config/    ConfigHelpCommand, ConfigAgentsCommand, ConfigSkillsCommand, ConfigZedCommand (aliased `cf`)
-    tty/         ANSI styling, TTY renderers, and the interactive toggle() prompt
+    commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
+      config/    Config toggle commands built by defineConfigCommand (aliased `cf`)
+    tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), and the interactive toggle prompt
   duti/          duti file-association state probes and apply operations
   editor/        Editor extension list and install operations
   github/        GitHub release download
-  host/          CommandRunner interface, Context assembly, HostPath resolution
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), transaction.ts (atomic staging)
   identity/      Git identity scope enum and on-disk store
   internal/
     gh/          GitHub CLI wrappers
-    git/         Git wrappers
+    git/         Git wrappers; run.ts shares the step/capture helpers (LC_ALL-pinned)
   pipx/          pipx install, inject, and post-install operations
   provisioning/
     activation/  Activation DSL vocabulary, per-kind runners, reconcile envelope, manifest loader
@@ -61,11 +61,11 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### CLI
 
-`main.ts` owns the clipanion `Cli`. Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage. Commands that can transitively throw `AppError`/`ProvisioningError` wrap their execute body with `runReportingDomainErrors`, which prints `<name>: <message>` to stderr without stack or usage and returns exit code 1. Pure renderers stay unwrapped.
+`main.ts` owns the clipanion `Cli` and registers the commands enumerated in `cli/commands/registry.ts` (the single registration source; namespace-help routing derives from their paths). Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage. Commands that can transitively throw `AppError`/`ProvisioningError` wrap their execute body with `runReportingDomainErrors`, which prints `<name>: <message>` to stderr without stack or usage and returns exit code 1. Pure renderers stay unwrapped. `src/errors.ts` documents the `AppError`/`ProvisioningError`/`CommandLineError` taxonomy.
 
 ### Key Types
 
-- `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource }`, injected through every provisioning call. Tests supply fakes.
+- `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }`, injected through every provisioning call; `basePath` is the inherited PATH captured once in `createContext` (the sole `process.env` read). Tests supply fakes via `tests/fixtures/`.
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.config/mev/roles`, the sole authority).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
 - `Target` / `MakePlan` — a target groups tags/aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves tag attribution.
@@ -73,7 +73,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Asset Codegen
 
-`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `pree`/`prebuild`/`pretest`/`pretest:unit`/`pretest:integration`/`precheck` hooks.
+`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `pree`/`pretest`/`pretest:unit`/`pretest:integration`/`pretypecheck`/`precheck` hooks, and `buildMev` regenerates it before compiling so the binary never embeds a stale registry.
 
 ## Documentation Responsibilities
 

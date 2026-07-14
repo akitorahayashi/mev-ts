@@ -1,1 +1,1 @@
-bun run test --dots
+bun run test

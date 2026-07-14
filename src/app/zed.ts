@@ -1,48 +1,35 @@
 import { deployedDir } from '../assets/ref';
 import { readOverrides } from '../provisioning/zed/catalog';
-import {
-  readEnabled,
-  resolve,
-  writeEnabled,
-} from '../provisioning/zed/manifest';
+import { readEnabled, writeEnabled } from '../provisioning/zed/manifest';
 import { OVERRIDES_PREFIX, overridesManifest } from '../provisioning/zed/paths';
+import {
+  type ConfigSelection,
+  configClearManifest,
+  configSelectManifest,
+  type SelectEntries,
+} from './config-selection';
 
-export type SelectZedOverrides = (
-  message: string,
-  catalog: readonly string[],
-  enabled: readonly string[],
-) => Promise<string[] | null>;
+async function zedSelection(home: string): Promise<ConfigSelection> {
+  const manifest = overridesManifest(home);
+  return {
+    catalog: await readOverrides(deployedDir(OVERRIDES_PREFIX, home)),
+    read: () => readEnabled(manifest),
+    write: (names) => writeEnabled(manifest, names),
+    message: 'Select enabled Zed setting overrides',
+    mode: 'opt-in',
+  };
+}
 
 export async function configSelectZedOverrides(
   home: string,
   warn: (message: string) => void,
-  select: SelectZedOverrides,
+  select: SelectEntries,
 ): Promise<void> {
-  const sourceDir = deployedDir(OVERRIDES_PREFIX, home);
-  const catalog = await readOverrides(sourceDir);
-  const manifest = overridesManifest(home);
-  const { enabled, unknownEnabled } = resolve(
-    catalog,
-    await readEnabled(manifest),
-  );
-  if (unknownEnabled.length > 0) {
-    warn(
-      `warning: manifest names not in catalog: ${unknownEnabled.join(', ')}\n`,
-    );
-  }
-
-  const chosen = await select(
-    'Select enabled Zed setting overrides',
-    catalog,
-    enabled,
-  );
-  if (chosen === null) return;
-
-  await writeEnabled(manifest, chosen);
+  await configSelectManifest(await zedSelection(home), warn, select);
 }
 
 export async function configSelectZedOverridesClear(
   home: string,
 ): Promise<void> {
-  await writeEnabled(overridesManifest(home), []);
+  await configClearManifest(await zedSelection(home));
 }
