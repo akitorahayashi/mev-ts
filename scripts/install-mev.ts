@@ -3,8 +3,13 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage } from '../src/errors';
 
-async function run(command: string, args: readonly string[]): Promise<void> {
+async function run(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+): Promise<void> {
   const proc = Bun.spawn([command, ...args], {
+    cwd,
     stdout: 'inherit',
     stderr: 'inherit',
   });
@@ -18,11 +23,12 @@ async function run(command: string, args: readonly string[]): Promise<void> {
 }
 
 async function install(): Promise<void> {
-  await run(Bun.argv[0] as string, ['run', 'build']);
+  const projectRoot = join(import.meta.dir, '..');
+  await run(Bun.argv[0] as string, ['run', 'build'], projectRoot);
 
-  // Resolve the artifact from the script location, not the cwd, so `bun run up`
-  // works from any directory.
-  const artifact = join(import.meta.dir, '..', 'dist', 'mev');
+  // The build and artifact are project-relative, so this script works from any
+  // caller directory.
+  const artifact = join(projectRoot, 'dist', 'mev');
   if (!(await Bun.file(artifact).exists())) {
     throw new Error(
       `Build artifact not found at ${artifact}. The build did not produce dist/mev.`,

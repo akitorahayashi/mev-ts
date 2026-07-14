@@ -1,4 +1,4 @@
-import { AppError } from '../../errors';
+import { AppError, errorMessage } from '../../errors';
 
 export async function runReportingDomainErrors(
   stderr: NodeJS.WritableStream,
@@ -10,7 +10,7 @@ export async function runReportingDomainErrors(
     return await body();
   } catch (error) {
     if (error instanceof AppError) {
-      stderr.write(`${error.name}: ${error.message}\n`);
+      stderr.write(`${error.name}: ${errorMessage(error)}\n`);
       return 1;
     }
     throw error;

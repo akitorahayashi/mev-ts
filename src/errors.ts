@@ -28,6 +28,29 @@ export class AppError extends Error {
 
 export class ProvisioningError extends AppError {}
 
+function formatError(error: unknown, seen: Set<Error>): string {
+  if (!(error instanceof Error)) return String(error);
+
+  const message = error.message;
+  if (seen.has(error)) return message;
+  seen.add(error);
+
+  const details: string[] = [];
+  if (error instanceof AggregateError && error.errors.length > 0) {
+    details.push(
+      `causes: ${error.errors
+        .map((cause) => formatError(cause, seen))
+        .join('; ')}`,
+    );
+  }
+  if (Object.hasOwn(error, 'cleanupError')) {
+    const cleanup = (error as Error & { cleanupError: unknown }).cleanupError;
+    details.push(`cleanup failed: ${formatError(cleanup, seen)}`);
+  }
+
+  return details.length === 0 ? message : `${message}; ${details.join('; ')}`;
+}
+
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  return formatError(error, new Set());
 }
