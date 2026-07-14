@@ -16,7 +16,7 @@ binaries:
     tag: v0.6.0
   - name: mx
     repo: akitorahayashi/mx
-    tag: v3.1.0
+    tag: v4.0.0
   - name: prf
     repo: akitorahayashi/prf
     tag: v1.0.0
