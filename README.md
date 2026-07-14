@@ -83,7 +83,7 @@ mev switch work
 ### Document conversion
 
 ```bash
-mev make shell document         # Install aliases and conversion dependencies
+mev make shell                  # Install aliases and conversion dependencies
 md2pdf README.md                # Write README.pdf beside the input
 md2pdf docs -o exported         # Convert a directory recursively
 md2pdf notes.md --css print.css --margin-top 20mm

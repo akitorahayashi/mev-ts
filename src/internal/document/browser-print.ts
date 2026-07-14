@@ -112,7 +112,7 @@ export async function createBrowserPdfPrinter(): Promise<PdfPrinter> {
     browser = await chromium.launch({ channel: 'chrome', headless: true });
   } catch (error) {
     throw new DocumentConversionError(
-      `Unable to launch Google Chrome: ${errorMessage(error)}. Run 'mev make document' to install document dependencies.`,
+      `Unable to launch Google Chrome: ${errorMessage(error)}. Run 'mev make shell' to install shell dependencies.`,
     );
   }
 
