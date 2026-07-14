@@ -1,7 +1,7 @@
 # Default model to use
 model = "gpt-5.5"
 model_provider = "openai"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 # Approval policy for executing commands, Options: "on-request"
 approval_policy = "on-request"
@@ -38,28 +38,23 @@ log_user_prompt = false
 
 # Disable OpenAI bundled system skills
 [[skills.config]]
-path = "$CODEX_HOME/skills/.system/imagegen/SKILL.md"
+path = "~/.codex/skills/.system/imagegen/SKILL.md"
 enabled = false
 
 [[skills.config]]
-path = "$CODEX_HOME/skills/.system/openai-docs/SKILL.md"
+path = "~/.codex/skills/.system/openai-docs/SKILL.md"
 enabled = false
 
 [[skills.config]]
-path = "$CODEX_HOME/skills/.system/plugin-creator/SKILL.md"
+path = "~/.codex/skills/.system/plugin-creator/SKILL.md"
 enabled = false
 
 [[skills.config]]
-path = "$CODEX_HOME/skills/.system/skill-creator/SKILL.md"
+path = "~/.codex/skills/.system/skill-creator/SKILL.md"
 enabled = false
 
 [[skills.config]]
-path = "$CODEX_HOME/skills/.system/skill-installer/SKILL.md"
-enabled = false
-
-# Optional: disable if your Codex build has a system plan skill
-[[skills.config]]
-path = "$CODEX_HOME/skills/.system/plan/SKILL.md"
+path = "~/.codex/skills/.system/skill-installer/SKILL.md"
 enabled = false
 
 [features]

@@ -88,6 +88,10 @@ export async function buildMev(options: BuildOptions): Promise<void> {
         'build',
         resolve(options.projectRoot, 'src/main.ts'),
         '--compile',
+        // Playwright's regular Chrome path does not initialize its optional
+        // BiDi-over-CDP mapper, which is not published with playwright-core.
+        '--external',
+        'chromium-bidi/*',
         '--outfile',
         options.outfile,
       ];

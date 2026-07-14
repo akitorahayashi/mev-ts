@@ -11,14 +11,14 @@ const CONFIG_KEY = 'pipx/global/tools.yml';
 const YAML = `
 tools:
   - package: yt-dlp
-  - package: dcv
-    version: 0.5.0
-    install_spec: git+https://github.com/akitorahayashi/dcv.git@v0.5.0
+  - package: browser-tool
+    version: 1.0.0
+    install_spec: git+https://example.com/browser-tool.git@v1.0.0
     inject:
-      - playwright
+      - browser-driver
     post_install:
-      bin: playwright
-      args: [install, chromium]
+      bin: browser-tool
+      args: [setup]
 `.trimStart();
 
 const sandboxTest = sandboxedTest('pipx-');
@@ -84,11 +84,11 @@ sandboxTest(
         package_or_url: 'yt-dlp',
         package_version: '1.0',
       },
-      dcv: {
-        package: 'dcv',
-        package_or_url: 'git+https://github.com/akitorahayashi/dcv.git@v0.5.0',
-        package_version: '0.5.0',
-        deps: ['playwright'],
+      'browser-tool': {
+        package: 'browser-tool',
+        package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
+        package_version: '1.0.0',
+        deps: ['browser-driver'],
       },
     });
     const { context, calls } = recordingContext({
@@ -116,17 +116,20 @@ sandboxTest(
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('changed');
-    const dcvCalls = calls.filter(
+    const browserToolCalls = calls.filter(
       (c) =>
-        c.args.some((a) => a.includes('dcv')) || c.command.includes('/dcv/'),
+        c.args.some((a) => a.includes('browser-tool')) ||
+        c.command.includes('/browser-tool/'),
     );
-    const verbs = dcvCalls.map((c) =>
-      c.command.endsWith('playwright') ? 'post' : c.args[0],
+    const verbs = browserToolCalls.map((c) =>
+      c.command.endsWith('browser-tool') ? 'post' : c.args[0],
     );
     expect(verbs).toEqual(['install', 'inject', 'post']);
-    const post = calls.find((c) => c.command.endsWith('playwright'));
-    expect(post?.command).toBe(join(VENVS, 'dcv', 'bin', 'playwright'));
-    expect(post?.args).toEqual(['install', 'chromium']);
+    const post = calls.find((c) => c.command.endsWith('browser-tool'));
+    expect(post?.command).toBe(
+      join(VENVS, 'browser-tool', 'bin', 'browser-tool'),
+    );
+    expect(post?.args).toEqual(['setup']);
   },
 );
 
@@ -135,11 +138,11 @@ sandboxTest(
   async (dir) => {
     await deployConfig(dir);
     const listed = listJson({
-      dcv: {
-        package: 'dcv',
-        package_or_url: 'git+https://github.com/akitorahayashi/dcv.git@v0.5.0',
-        package_version: '0.4.0',
-        deps: ['playwright'],
+      'browser-tool': {
+        package: 'browser-tool',
+        package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
+        package_version: '0.9.0',
+        deps: ['browser-driver'],
       },
       'yt-dlp': {
         package: 'yt-dlp',
@@ -154,8 +157,10 @@ sandboxTest(
 
     await runActivation(applyPipx(CONFIG_KEY), context);
 
-    const dcv = calls.filter((c) => c.args.some((a) => a.includes('dcv')));
-    expect(dcv.map((c) => c.args[0])).toEqual([
+    const browserTool = calls.filter((c) =>
+      c.args.some((a) => a.includes('browser-tool')),
+    );
+    expect(browserTool.map((c) => c.args[0])).toEqual([
       'uninstall',
       'install',
       'inject',
@@ -184,7 +189,7 @@ sandboxTest(
     const ytdlp = report.entries?.find((e) => e.key === 'yt-dlp');
     expect(ytdlp?.status).toBe('failed');
     expect(ytdlp?.error).toContain('network error');
-    expect(report.entries?.find((e) => e.key === 'dcv')?.status).toBe(
+    expect(report.entries?.find((e) => e.key === 'browser-tool')?.status).toBe(
       'changed',
     );
   },
@@ -215,11 +220,11 @@ sandboxTest(
     await deployConfig(dir);
     const malformed = JSON.stringify({
       venvs: {
-        dcv: {
+        'broken-tool': {
           metadata: {
             main_package: {
-              package: 'dcv',
-              package_or_url: 'dcv',
+              package: 'broken-tool',
+              package_or_url: 'broken-tool',
             },
           },
         },
@@ -241,7 +246,9 @@ sandboxTest(
   'failed when pipx list JSON contains malformed venv entries',
   async (dir) => {
     await deployConfig(dir);
-    const malformed = JSON.stringify({ venvs: { dcv: 'not an object' } });
+    const malformed = JSON.stringify({
+      venvs: { 'broken-tool': 'not an object' },
+    });
     const { context } = recordingContext({
       home: dir,
       respond: baseResponder(malformed),
@@ -250,6 +257,6 @@ sandboxTest(
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain("venv 'dcv' must be an object");
+    expect(report.error).toContain("venv 'broken-tool' must be an object");
   },
 );

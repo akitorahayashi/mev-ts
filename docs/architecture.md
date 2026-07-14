@@ -17,7 +17,7 @@ src/
   host/         CommandRunner, Context, HostPath
   identity/     Git identity scopes and on-disk store
   assets/       embedded config files and asset registry
-  internal/     gh and git tool-boundary command implementations
+  internal/     document conversion plus gh and git tool-boundary commands
   errors.ts     typed error hierarchy
 ```
 
@@ -124,6 +124,12 @@ Raw config files live under `src/assets/config/` keyed as `{role}/global/{filena
 `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, captured once in `createContext` as the single ambient-environment read, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
 `CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd?, stdout?, stderr? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`; `stdout` and `stderr` each select `'pipe'` (the default, captured into the result) or `'inherit'`. A spawn failure — a missing or otherwise unspawnable executable — resolves as `code 127` with the reason in `stderr` rather than rejecting, so every call site handles it as an ordinary non-zero exit.
+
+## Document Conversion (internal/document/)
+
+The hidden `mev internal document markdown-to-pdf` and `pdf-to-markdown` commands back the `md2pdf` and `pdf2md` shell aliases. The shell target owns both the aliases and their Pandoc, Poppler, and Google Chrome runtime dependencies.
+
+Markdown-to-PDF first asks Pandoc for standalone HTML with Pygments syntax highlighting, MathML, embedded local resources, and the bundled print stylesheet. A Playwright-managed Chrome context blocks HTTP requests, renders fenced `mermaid` blocks from the Mermaid script embedded in the binary, and writes each PDF atomically. PDF-to-Markdown uses `pdftotext` for UTF-8 extraction and does not infer semantic Markdown structure. File and recursive-directory inputs share one planner that preserves relative paths, excludes a nested output directory, and rejects output collisions before conversion starts.
 
 ## Capability Modules
 

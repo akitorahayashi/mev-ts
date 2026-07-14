@@ -12,14 +12,17 @@ export const shellTarget = target('shell', {
   description: 'Shell environment, dotfiles, and aliases',
   aliases: ['sh'],
   role: 'shell',
-  // The interactive-shell toolset .zshrc sources or initializes at startup.
+  // Own every runtime required by the deployed shell config and aliases.
   packages: {
     formulae: [
       'fzf',
+      'pandoc',
+      'poppler',
       'zoxide',
       'zsh-autosuggestions',
       'zsh-syntax-highlighting',
     ],
+    casks: ['google-chrome'],
   },
   activations: [
     ...dotfiles.map((name) => link(asset(`shell/global/${name}`), home(name))),

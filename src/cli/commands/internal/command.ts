@@ -14,12 +14,19 @@ export function runInternalCommand(
   domain: (
     run: CommandRunner,
     write: (message: string) => void,
+    warn: (message: string) => void,
   ) => Promise<void>,
   // biome-ignore lint/suspicious/noConfusingVoidType: mirrors the command boundary's optional exit code.
 ): Promise<number | void> {
   return runReportingDomainErrors(command.context.stderr, () =>
-    domain(bunCommandRunner, (message) => {
-      command.context.stdout.write(message);
-    }),
+    domain(
+      bunCommandRunner,
+      (message) => {
+        command.context.stdout.write(message);
+      },
+      (message) => {
+        command.context.stderr.write(message);
+      },
+    ),
   );
 }

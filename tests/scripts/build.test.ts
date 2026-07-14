@@ -41,6 +41,8 @@ test('buildMev runs bun build from an isolated workspace', async () => {
             'build',
             resolve(process.cwd(), 'src/main.ts'),
             '--compile',
+            '--external',
+            'chromium-bidi/*',
             '--outfile',
             outfile,
           ],

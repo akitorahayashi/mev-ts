@@ -80,6 +80,18 @@ mev switch work
 
 `user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.config/mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
 
+### Document conversion
+
+```bash
+mev make shell                  # Install aliases and conversion dependencies
+md2pdf README.md                # Write README.pdf beside the input
+md2pdf docs -o exported         # Convert a directory recursively
+md2pdf notes.md --css print.css --margin-top 20mm
+pdf2md report.pdf               # Extract UTF-8 text to report.md
+```
+
+`md2pdf` and `pdf2md` are shell aliases for hidden `mev internal document` commands. Directory conversion preserves the relative tree and defaults to `document_outputs` when no output directory is given. Markdown rendering uses Pandoc syntax highlighting and MathML, renders fenced `mermaid` blocks in an isolated Google Chrome page, and prints with the embedded A4 stylesheet. `pdf2md` uses Poppler text extraction; it does not reconstruct semantic Markdown structure from a PDF.
+
 ### Global flags
 
 ```

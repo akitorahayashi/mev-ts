@@ -4,6 +4,8 @@ import { ConfigHelpCommand } from './config/help';
 import { ConfigSkillsCommand } from './config/skills';
 import { ConfigZedCommand } from './config/zed';
 import { CreateCommand } from './create';
+import { InternalDocumentMarkdownToPdfCommand } from './internal/document-markdown-to-pdf';
+import { InternalDocumentPdfToMarkdownCommand } from './internal/document-pdf-to-markdown';
 import { InternalGhLabelsDeployCommand } from './internal/gh-labels-deploy';
 import { InternalGhLabelsResetCommand } from './internal/gh-labels-reset';
 import { InternalGitCloneCommand } from './internal/git-clone';
@@ -32,6 +34,8 @@ export const commands: readonly CommandClass[] = [
   UserHelpCommand,
   UserShowCommand,
   UserSetCommand,
+  InternalDocumentMarkdownToPdfCommand,
+  InternalDocumentPdfToMarkdownCommand,
   InternalGitCloneCommand,
   InternalGitDeleteBranchesCommand,
   InternalGitDeleteSubmoduleCommand,
