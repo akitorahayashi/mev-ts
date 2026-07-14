@@ -22,6 +22,7 @@ interface MermaidPage {
   };
   readonly document: {
     readonly fonts: { readonly ready: Promise<unknown> };
+    querySelector(selector: string): unknown | null;
     querySelectorAll(selector: string): Iterable<{
       textContent: string | null;
       querySelector(selector: string): { textContent: string | null } | null;
@@ -47,38 +48,47 @@ class PlaywrightPdfPrinter implements PdfPrinter {
     await runWithCleanup(
       async () => {
         await page.setContent(html, { waitUntil: 'load' });
-        await page.addScriptTag({ content: mermaidSource });
+        const hasMermaid = await page.evaluate(() => {
+          const page = globalThis as unknown as MermaidPage;
+          return page.document.querySelector('pre.mermaid') !== null;
+        });
+        if (hasMermaid) {
+          await page.addScriptTag({ content: mermaidSource });
+          await page.evaluate(async () => {
+            const page = globalThis as unknown as MermaidPage;
+            try {
+              for (const diagram of page.document.querySelectorAll(
+                'pre.mermaid',
+              )) {
+                const code = diagram.querySelector(':scope > code');
+                if (code) diagram.textContent = code.textContent;
+              }
+              page.mermaid.initialize({
+                securityLevel: 'strict',
+                startOnLoad: false,
+                theme: 'neutral',
+              });
+              await page.mermaid.run({
+                querySelector: 'pre.mermaid',
+                suppressErrors: false,
+              });
+            } catch (error) {
+              let detail: string;
+              if (error instanceof Error) {
+                detail = `${error.name}: ${error.message}`;
+              } else {
+                try {
+                  detail = JSON.stringify(error);
+                } catch {
+                  detail = String(error);
+                }
+              }
+              throw new Error(`Mermaid rendering failed: ${detail}`);
+            }
+          });
+        }
         await page.evaluate(async () => {
           const page = globalThis as unknown as MermaidPage;
-          try {
-            for (const diagram of page.document.querySelectorAll(
-              'pre.mermaid',
-            )) {
-              const code = diagram.querySelector(':scope > code');
-              if (code) diagram.textContent = code.textContent;
-            }
-            page.mermaid.initialize({
-              securityLevel: 'strict',
-              startOnLoad: false,
-              theme: 'neutral',
-            });
-            await page.mermaid.run({
-              querySelector: 'pre.mermaid',
-              suppressErrors: false,
-            });
-          } catch (error) {
-            let detail: string;
-            if (error instanceof Error) {
-              detail = `${error.name}: ${error.message}`;
-            } else {
-              try {
-                detail = JSON.stringify(error);
-              } catch {
-                detail = String(error);
-              }
-            }
-            throw new Error(`Mermaid rendering failed: ${detail}`);
-          }
           await page.document.fonts.ready;
         });
         await page.emulateMedia({ media: 'print' });

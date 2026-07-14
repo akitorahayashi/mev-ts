@@ -1,7 +1,7 @@
 # Default model to use
 model = "gpt-5.5"
 model_provider = "openai"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 
 # Approval policy for executing commands, Options: "on-request"
 approval_policy = "on-request"
