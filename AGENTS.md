@@ -23,6 +23,7 @@ src/
   host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), transaction.ts (atomic staging)
   identity/      Git identity scope enum and on-disk store
   internal/
+    document/    Document conversion command boundary
     gh/          GitHub CLI wrappers
     git/         Git wrappers; run.ts shares the step/capture helpers (LC_ALL-pinned)
   pipx/          pipx install, inject, and post-install operations
