@@ -18,8 +18,6 @@ export const formulaeTarget = target('formulae', {
       'jq',
       'mise',
       'ollama',
-      'pandoc',
-      'poppler',
       'postgresql',
       'rclone',
       'redis',

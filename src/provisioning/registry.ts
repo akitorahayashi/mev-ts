@@ -4,6 +4,7 @@ import { antigravityIdeTarget } from './targets/antigravity-ide';
 import { bunTarget } from './targets/bun';
 import { caskTarget } from './targets/cask';
 import { coderTarget } from './targets/coder';
+import { documentTarget } from './targets/document';
 import { dutiTarget } from './targets/duti';
 import { formulaeTarget } from './targets/formulae';
 import { ghTarget } from './targets/gh';
@@ -30,6 +31,7 @@ const targets: readonly Target[] = [
   caskTarget,
   gitTarget,
   shellTarget,
+  documentTarget,
   ghTarget,
   systemTarget,
   pythonTarget,
