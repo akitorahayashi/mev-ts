@@ -31,9 +31,28 @@ for await (const path of glob.scan({
 }
 keys.sort();
 
+async function readTextAsset(key: string): Promise<string> {
+  let bytes: Uint8Array;
+  try {
+    bytes = await Bun.file(join(filesRoot, key)).bytes();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read asset '${key}': ${detail}`);
+  }
+  try {
+    // Reject non-UTF-8 rather than silently embedding replacement characters:
+    // the registry stores text assets only.
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error(
+      `Asset '${key}' is not valid UTF-8. The codegen embeds text assets only; convert or remove it.`,
+    );
+  }
+}
+
 const entries = await Promise.all(
   keys.map(async (key) => {
-    const content = await Bun.file(join(filesRoot, key)).text();
+    const content = await readTextAsset(key);
     return `  ${JSON.stringify(key)}: ${JSON.stringify(content)},`;
   }),
 );

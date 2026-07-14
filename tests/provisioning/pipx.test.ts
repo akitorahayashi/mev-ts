@@ -1,10 +1,10 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
-import type { Context } from '../../src/host/context';
 import { applyPipx, runActivation } from '../../src/provisioning/activation';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { recordingContext } from '../fixtures/fake-context';
+import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const CONFIG_KEY = 'pipx/global/tools.yml';
 
@@ -21,48 +21,12 @@ tools:
       args: [install, chromium]
 `.trimStart();
 
-async function withSandbox(fn: (dir: string) => Promise<void>): Promise<void> {
-  await withTemporaryDirectory(fn, { prefix: 'pipx-' });
-}
+const sandboxTest = sandboxedTest('pipx-');
 
 async function deployConfig(dir: string): Promise<void> {
   const roleDir = join(dir, '.config', 'mev', 'roles', 'pipx', 'global');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'tools.yml'), YAML);
-}
-
-interface Call {
-  readonly command: string;
-  readonly args: readonly string[];
-}
-
-function contextWith(
-  home: string,
-  responder: (command: string, args: readonly string[]) => CommandResult,
-): { context: Context; calls: Call[] } {
-  const calls: Call[] = [];
-  const context: Context = {
-    home,
-    overwrite: false,
-    assets: {
-      async read() {
-        return '';
-      },
-      keysByPrefix() {
-        return [];
-      },
-      isExecutable() {
-        return false;
-      },
-    },
-    commands: {
-      async run(command, args) {
-        calls.push({ command, args });
-        return responder(command, args);
-      },
-    },
-  };
-  return { context, calls };
 }
 
 const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });
@@ -110,8 +74,9 @@ function baseResponder(listOutput: string) {
   };
 }
 
-test('all tools current: no install/inject/post-install runs', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'all tools current: no install/inject/post-install runs',
+  async (dir) => {
     await deployConfig(dir);
     const listed = listJson({
       'yt-dlp': {
@@ -126,20 +91,27 @@ test('all tools current: no install/inject/post-install runs', async () => {
         deps: ['playwright'],
       },
     });
-    const { context, calls } = contextWith(dir, baseResponder(listed));
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listed),
+    });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('unchanged');
     expect(calls.some((c) => c.args[0] === 'install')).toBe(false);
     expect(calls.some((c) => c.args[0] === 'inject')).toBe(false);
-  });
-});
+  },
+);
 
-test('fresh install runs install, inject, then post-install in order', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'fresh install runs install, inject, then post-install in order',
+  async (dir) => {
     await deployConfig(dir);
-    const { context, calls } = contextWith(dir, baseResponder(listJson({})));
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listJson({})),
+    });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
@@ -155,11 +127,12 @@ test('fresh install runs install, inject, then post-install in order', async () 
     const post = calls.find((c) => c.command.endsWith('playwright'));
     expect(post?.command).toBe(join(VENVS, 'dcv', 'bin', 'playwright'));
     expect(post?.args).toEqual(['install', 'chromium']);
-  });
-});
+  },
+);
 
-test('version mismatch triggers uninstall before install', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'version mismatch triggers uninstall before install',
+  async (dir) => {
     await deployConfig(dir);
     const listed = listJson({
       dcv: {
@@ -174,7 +147,10 @@ test('version mismatch triggers uninstall before install', async () => {
         package_version: '1.0',
       },
     });
-    const { context, calls } = contextWith(dir, baseResponder(listed));
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listed),
+    });
 
     await runActivation(applyPipx(CONFIG_KEY), context);
 
@@ -184,18 +160,22 @@ test('version mismatch triggers uninstall before install', async () => {
       'install',
       'inject',
     ]);
-  });
-});
+  },
+);
 
-test('a failed install marks the tool failed but continues others', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'a failed install marks the tool failed but continues others',
+  async (dir) => {
     await deployConfig(dir);
-    const { context } = contextWith(dir, (cmd, args) => {
-      if (cmd === 'brew') return ok(PREFIX);
-      if (cmd === 'pipx' && args[0] === 'list') return ok(listJson({}));
-      if (cmd === 'pipx' && args[0] === 'install' && args[1] === 'yt-dlp')
-        return fail('network error');
-      return ok('installed package');
+    const { context } = recordingContext({
+      home: dir,
+      respond: (cmd, args) => {
+        if (cmd === 'brew') return ok(PREFIX);
+        if (cmd === 'pipx' && args[0] === 'list') return ok(listJson({}));
+        if (cmd === 'pipx' && args[0] === 'install' && args[1] === 'yt-dlp')
+          return fail('network error');
+        return ok('installed package');
+      },
     });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
@@ -203,30 +183,35 @@ test('a failed install marks the tool failed but continues others', async () => 
     expect(report.status).toBe('failed');
     const ytdlp = report.entries?.find((e) => e.key === 'yt-dlp');
     expect(ytdlp?.status).toBe('failed');
-    expect(ytdlp?.error).toBe('network error');
+    expect(ytdlp?.error).toContain('network error');
     expect(report.entries?.find((e) => e.key === 'dcv')?.status).toBe(
       'changed',
     );
-  });
-});
+  },
+);
 
-test('failed when the pipx manifest contains non-string package names', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'failed when the pipx manifest contains non-string package names',
+  async (dir) => {
     const roleDir = join(dir, '.config', 'mev', 'roles', 'pipx', 'global');
     await mkdir(roleDir, { recursive: true });
     await writeFile(join(roleDir, 'tools.yml'), 'tools:\n  - package: 42\n');
-    const { context, calls } = contextWith(dir, () => ok());
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: () => ok(),
+    });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain('package name');
     expect(calls).toHaveLength(0);
-  });
-});
+  },
+);
 
-test('failed when pipx list JSON omits required package fields', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'failed when pipx list JSON omits required package fields',
+  async (dir) => {
     await deployConfig(dir);
     const malformed = JSON.stringify({
       venvs: {
@@ -240,24 +225,31 @@ test('failed when pipx list JSON omits required package fields', async () => {
         },
       },
     });
-    const { context } = contextWith(dir, baseResponder(malformed));
+    const { context } = recordingContext({
+      home: dir,
+      respond: baseResponder(malformed),
+    });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain('pipx list --json');
-  });
-});
+  },
+);
 
-test('failed when pipx list JSON contains malformed venv entries', async () => {
-  await withSandbox(async (dir) => {
+sandboxTest(
+  'failed when pipx list JSON contains malformed venv entries',
+  async (dir) => {
     await deployConfig(dir);
     const malformed = JSON.stringify({ venvs: { dcv: 'not an object' } });
-    const { context } = contextWith(dir, baseResponder(malformed));
+    const { context } = recordingContext({
+      home: dir,
+      respond: baseResponder(malformed),
+    });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain("venv 'dcv' must be an object");
-  });
-});
+  },
+);

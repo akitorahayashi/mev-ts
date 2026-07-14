@@ -19,6 +19,14 @@ runs:
       with:
         bun-version-file: ${{ inputs.bun-version-file }}
 
+    - name: Cache Bun install cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
     - name: Install dependencies
       run: bun install ${{ inputs.args }}
       shell: bash

@@ -1,7 +1,8 @@
 import { basename, extname } from 'node:path';
 import { errorMessage, ProvisioningError } from '../../errors';
-import { commandFailureDetail } from '../../host/command';
+import { formatCommandFailure } from '../../host/command';
 import type { Context } from '../../host/context';
+import { isRecord } from '../../host/parse';
 import { loadYaml } from '../../host/yaml';
 import type { Activation, ActivationReport, Described } from './contract';
 import { readDeployedManifest } from './manifest';
@@ -29,10 +30,6 @@ interface DefaultsEntry {
 }
 
 const DEFAULTS_TYPES = new Set(['bool', 'int', 'float', 'string']);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function invalidDefaultsEntry(
   path: string,
@@ -192,7 +189,10 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
           key: entry.key,
           value: displayValue,
           status: 'failed',
-          error: commandFailureDetail(result, `exit code ${result.code}`),
+          error: formatCommandFailure(
+            `defaults write failed for ${entry.domain} ${entry.key}`,
+            result,
+          ),
         };
       }
       return { key: entry.key, value: displayValue, status: 'changed' };

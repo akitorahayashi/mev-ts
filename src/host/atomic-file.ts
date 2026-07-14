@@ -1,19 +1,7 @@
-import {
-  mkdir,
-  mkdtemp,
-  realpath,
-  rename,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { rename, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { runWithCleanup } from './cleanup-error';
-
-async function siblingTransactionDirectory(path: string): Promise<string> {
-  await mkdir(dirname(path), { recursive: true });
-  const parent = await realpath(dirname(path));
-  return mkdtemp(join(parent, `.${basename(path)}.`));
-}
+import { transactionDirectory } from './transaction';
 
 export async function writeFileAtomically(
   path: string,
@@ -28,7 +16,7 @@ export async function replaceFileAtomically(
   path: string,
   writeTemp: (tmp: string) => Promise<void>,
 ): Promise<void> {
-  const transaction = await siblingTransactionDirectory(path);
+  const transaction = await transactionDirectory(path);
   const tmp = join(transaction, 'file');
   await runWithCleanup(
     async () => {

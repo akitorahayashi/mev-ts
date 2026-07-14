@@ -1,5 +1,5 @@
 import { errorMessage, ProvisioningError } from '../errors';
-import { commandFailureDetail } from '../host/command';
+import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 
 interface ExtensionsConfig {
@@ -44,9 +44,8 @@ export async function listInstalled(
 ): Promise<Set<string>> {
   const result = await context.commands.run(command, ['--list-extensions']);
   if (result.code !== 0) {
-    const detail = commandFailureDetail(result, `exit code ${result.code}`);
     throw new ProvisioningError(
-      `${command} --list-extensions failed: ${detail}. Is ${command} installed and on PATH?`,
+      `${formatCommandFailure(`${command} --list-extensions failed`, result)}. Is ${command} installed and on PATH?`,
     );
   }
   return new Set(
@@ -69,7 +68,10 @@ export async function installExtension(
   ]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      commandFailureDetail(result, `exit code ${result.code}`),
+      formatCommandFailure(
+        `${command} --install-extension failed for ${extension}`,
+        result,
+      ),
     );
   }
 }

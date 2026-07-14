@@ -1,7 +1,6 @@
 import { Command, Option } from 'clipanion';
-import { bunCommandRunner } from '../../../host/command';
 import { deleteBranches } from '../../../internal/git/branches';
-import { runReportingDomainErrors } from '../domain-error';
+import { runInternalCommand } from './command';
 
 export class InternalGitDeleteBranchesCommand extends Command {
   static override paths = [['internal', 'git', 'delete-branches']];
@@ -9,8 +8,8 @@ export class InternalGitDeleteBranchesCommand extends Command {
   args = Option.Proxy();
 
   async execute() {
-    return runReportingDomainErrors(this.context.stderr, () =>
-      deleteBranches(bunCommandRunner, this.args),
+    return runInternalCommand(this, (run, write) =>
+      deleteBranches(run, this.args, write),
     );
   }
 }

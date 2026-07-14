@@ -1,11 +1,18 @@
 import { Command } from 'clipanion';
-import { loadIdentities, setIdentity, showIdentity } from '../../app/identity';
+import {
+  type IdentityInput,
+  loadIdentities,
+  setIdentity,
+  showIdentity,
+} from '../../app/identity';
 import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
+import { allScopes, type IdentityScope } from '../../identity/scope';
 import { renderIdentities } from '../tty/identities';
+import { renderNamespaceOverview } from '../tty/namespace-overview';
 import { withPrompter } from '../tty/prompt';
+import { resolveIsTTY } from '../tty/style';
 import { runReportingDomainErrors } from './domain-error';
-import { writeNamespaceOverview } from './namespace-overview';
 
 export class UserHelpCommand extends Command {
   static override paths = [['user'], ['us']];
@@ -16,7 +23,15 @@ export class UserHelpCommand extends Command {
 
   async execute(): Promise<void> {
     const [canonical = []] = UserHelpCommand.paths;
-    writeNamespaceOverview(this, 'user', canonical);
+    this.context.stdout.write(
+      renderNamespaceOverview({
+        binaryName: this.cli.binaryName,
+        invokedPath: this.path,
+        canonicalPath: canonical,
+        category: 'user',
+        definitions: this.cli.definitions(),
+      }),
+    );
   }
 }
 
@@ -36,7 +51,7 @@ export class UserShowCommand extends Command {
         run: bunCommandRunner,
         home: resolveHome(),
       });
-      process.stdout.write(`${renderIdentities(view)}\n`);
+      process.stdout.write(`${renderIdentities(view, resolveIsTTY())}\n`);
     });
   }
 }
@@ -63,21 +78,25 @@ async function runSet(home: string): Promise<void> {
   const existing = await loadIdentities({ home });
 
   const inputs = await withPrompter(async (prompter) => {
-    process.stdout.write(
-      'Configure mev Git identities\n\nPersonal identity:\n',
-    );
-    const personal = {
-      name: await prompter.ask('  Name', existing.personal?.name ?? ''),
-      email: await prompter.ask('  Email', existing.personal?.email ?? ''),
-    };
-    process.stdout.write('\nWork identity:\n');
-    const work = {
-      name: await prompter.ask('  Name', existing.work?.name ?? ''),
-      email: await prompter.ask('  Email', existing.work?.email ?? ''),
-    };
-    return { personal, work };
+    process.stdout.write('Configure mev Git identities\n');
+    const entries: [IdentityScope, IdentityInput][] = [];
+    for (const scope of allScopes()) {
+      process.stdout.write(`\n${capitalize(scope)} identity:\n`);
+      entries.push([
+        scope,
+        {
+          name: await prompter.ask('  Name', existing[scope]?.name ?? ''),
+          email: await prompter.ask('  Email', existing[scope]?.email ?? ''),
+        },
+      ]);
+    }
+    return Object.fromEntries(entries) as Record<IdentityScope, IdentityInput>;
   });
 
   const { path } = await setIdentity({ home }, inputs);
   process.stdout.write(`\nIdentity configuration saved to ${path}\n`);
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

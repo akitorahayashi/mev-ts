@@ -10,6 +10,7 @@ import {
   renderHeader,
   renderMakeReport,
 } from '../tty/makelog';
+import { resolveIsTTY } from '../tty/style';
 
 export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 
@@ -26,7 +27,7 @@ interface ProvisioningRunOptions {
 export async function executeProvisioningRun(
   options: ProvisioningRunOptions,
 ): Promise<number> {
-  const isTTY = options.isTTY ?? process.stdout.isTTY ?? false;
+  const isTTY = options.isTTY ?? resolveIsTTY();
   const out =
     options.out ??
     ((text: string) => {

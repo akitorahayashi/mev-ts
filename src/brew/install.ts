@@ -48,7 +48,18 @@ async function withBrewfile<T>(
   );
 }
 
+// Homebrew tap/formula/cask names use only these characters. The emit layer
+// validates before interpolating a name into the Ruby-string Brewfile DSL, so a
+// name containing `"`, a newline, or `#{}` cannot break out or inject a
+// directive regardless of where the name originated.
+const SAFE_TOKEN_NAME = /^[A-Za-z0-9._@/+-]+$/;
+
 function brewfileLine(token: PackageToken): string {
+  if (!SAFE_TOKEN_NAME.test(token.name)) {
+    throw new ProvisioningError(
+      `Refusing to emit unsafe Homebrew token name '${token.name}'; names may contain only letters, digits, and ._@/+- characters.`,
+    );
+  }
   if (token.kind === 'tap') return `tap "${token.name}"`;
   if (token.kind === 'cask') return `cask "${token.name}"`;
   return `brew "${token.name}"`;

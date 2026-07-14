@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { ProvisioningError } from '../../errors';
 import { readTextIfPresent } from '../../host/absence';
 import { writeFileAtomically } from '../../host/atomic-file';
 
@@ -17,7 +17,13 @@ export async function renderAgents(
 ): Promise<string> {
   let document = `${TITLE}\n\n`;
   for (const name of enabled) {
-    const body = await readFile(join(sourceDir, `${name}.md`), 'utf8');
+    const path = join(sourceDir, `${name}.md`);
+    const body = await readTextIfPresent(path);
+    if (body === null) {
+      throw new ProvisioningError(
+        `AGENTS.md section '${name}' not found: ${path}. Run provisioning to deploy it first.`,
+      );
+    }
     document += `${body.trimEnd()}\n\n`;
   }
   return document;

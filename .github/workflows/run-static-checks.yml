@@ -13,7 +13,7 @@ permissions:
 jobs:
   run-static-checks:
     name: Run Static Checks
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository

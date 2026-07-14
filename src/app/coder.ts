@@ -1,72 +1,71 @@
 import { deployedDir } from '../assets/ref';
 import { readSections, readSkills } from '../provisioning/coder/catalog';
-import {
-  readDisabled,
-  resolve,
-  writeDisabled,
-} from '../provisioning/coder/manifest';
+import { readDisabled, writeDisabled } from '../provisioning/coder/manifest';
 import {
   AGENTS_SECTIONS_PREFIX,
   agentsManifest,
   SKILLS_PREFIX,
   skillsManifest,
 } from '../provisioning/coder/paths';
+import {
+  type ConfigSelection,
+  configClearManifest,
+  configSelectManifest,
+  type SelectEntries,
+} from './config-selection';
 
 export type CoderSelectable = 'agents' | 'skills';
-export type SelectConfigEntries = (
-  message: string,
-  catalog: readonly string[],
-  enabled: readonly string[],
-) => Promise<string[] | null>;
 
-function catalogReader(kind: CoderSelectable) {
-  return kind === 'agents' ? readSections : readSkills;
+interface CoderDescriptor {
+  readonly read: (sourceDir: string) => Promise<string[]>;
+  readonly manifest: (home: string) => string;
+  readonly prefix: string;
+  readonly message: string;
 }
 
-function manifestPath(kind: CoderSelectable, home: string): string {
-  return kind === 'agents' ? agentsManifest(home) : skillsManifest(home);
-}
+/** One record per selectable, replacing the parallel per-field ternaries. */
+const DESCRIPTORS: Record<CoderSelectable, CoderDescriptor> = {
+  agents: {
+    read: readSections,
+    manifest: agentsManifest,
+    prefix: AGENTS_SECTIONS_PREFIX,
+    message: 'Select enabled AGENTS.md sections',
+  },
+  skills: {
+    read: readSkills,
+    manifest: skillsManifest,
+    prefix: SKILLS_PREFIX,
+    message: 'Select enabled skills',
+  },
+};
 
-function sourceDir(kind: CoderSelectable, home: string): string {
-  return deployedDir(
-    kind === 'agents' ? AGENTS_SECTIONS_PREFIX : SKILLS_PREFIX,
-    home,
-  );
-}
-
-function selectMessage(kind: CoderSelectable): string {
-  return kind === 'agents'
-    ? 'Select enabled AGENTS.md sections'
-    : 'Select enabled skills';
+async function coderSelection(
+  kind: CoderSelectable,
+  home: string,
+): Promise<ConfigSelection> {
+  const descriptor = DESCRIPTORS[kind];
+  const manifest = descriptor.manifest(home);
+  return {
+    catalog: await descriptor.read(deployedDir(descriptor.prefix, home)),
+    read: () => readDisabled(manifest),
+    write: (names) => writeDisabled(manifest, names),
+    message: descriptor.message,
+    mode: 'opt-out',
+  };
 }
 
 export async function configSelect(
   kind: CoderSelectable,
   home: string,
   warn: (message: string) => void,
-  select: SelectConfigEntries,
+  select: SelectEntries,
 ): Promise<void> {
-  const catalog = await catalogReader(kind)(sourceDir(kind, home));
-  const manifest = manifestPath(kind, home);
-  const disabled = await readDisabled(manifest);
-  const { enabled, unknownDisabled } = resolve(catalog, disabled);
-  if (unknownDisabled.length > 0) {
-    warn(
-      `warning: manifest names not in catalog: ${unknownDisabled.join(', ')}\n`,
-    );
-  }
-
-  const chosen = await select(selectMessage(kind), catalog, enabled);
-  if (chosen === null) return;
-
-  const newDisabled = catalog.filter((n) => !chosen.includes(n));
-  await writeDisabled(manifest, newDisabled);
+  await configSelectManifest(await coderSelection(kind, home), warn, select);
 }
 
 export async function configSelectClear(
   kind: CoderSelectable,
   home: string,
 ): Promise<void> {
-  const catalog = await catalogReader(kind)(sourceDir(kind, home));
-  await writeDisabled(manifestPath(kind, home), catalog);
+  await configClearManifest(await coderSelection(kind, home));
 }

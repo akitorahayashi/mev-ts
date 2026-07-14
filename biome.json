@@ -7,7 +7,6 @@
       "!node_modules",
       "!coverage",
       "!references",
-      "!src/assets/files",
       "!src/assets/registry.generated.ts"
     ]
   },

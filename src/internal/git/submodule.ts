@@ -2,6 +2,7 @@ import { rm, stat } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { CommandLineError, ProvisioningError } from '../../errors';
 import { type CommandRunner, formatCommandFailure } from '../../host/command';
+import { runCapture, runStep } from './run';
 
 /**
  * Delete a git submodule completely from the repository in the current working
@@ -58,7 +59,7 @@ async function removeModuleDir(
   run: CommandRunner,
   submodulePath: string,
 ): Promise<void> {
-  const result = await run.run('git', ['rev-parse', '--git-dir']);
+  const result = await runCapture(run, ['rev-parse', '--git-dir']);
   if (result.code !== 0) {
     throw new ProvisioningError(
       formatCommandFailure('git rev-parse --git-dir failed', result),
@@ -81,37 +82,19 @@ async function removeConfigSection(
   run: CommandRunner,
   submodulePath: string,
 ): Promise<void> {
-  const result = await run.run('git', [
+  const result = await runCapture(run, [
     'config',
     '--remove-section',
     `submodule.${submodulePath}`,
   ]);
   // A missing section means the submodule was already partially removed, which
-  // is an acceptable terminal state rather than a failure.
+  // is an acceptable terminal state rather than a failure. The C locale (pinned
+  // by runCapture) keeps git's "No such section" text stable to match.
   if (result.code !== 0 && !/No such section/.test(result.stderr)) {
     throw new ProvisioningError(
       formatCommandFailure(
         `git config --remove-section submodule.${submodulePath} failed`,
         result,
-      ),
-    );
-  }
-}
-
-async function runStep(
-  run: CommandRunner,
-  args: readonly string[],
-): Promise<void> {
-  const result = await run.run('git', args, {
-    stdout: 'inherit',
-    stderr: 'inherit',
-  });
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(
-        `git ${args.join(' ')} failed`,
-        result,
-        'see command output above',
       ),
     );
   }

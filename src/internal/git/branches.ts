@@ -1,13 +1,11 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
-import {
-  type CommandRunner,
-  commandFailureDetail,
-  formatCommandFailure,
-} from '../../host/command';
+import { type CommandRunner, commandFailureDetail } from '../../host/command';
+import { runCapture, runStep } from './run';
 
 export async function deleteBranches(
   run: CommandRunner,
   tokens: readonly string[],
+  write: (message: string) => void = () => {},
 ): Promise<void> {
   if (tokens.length === 0) {
     throw new CommandLineError('At least one branch to delete is required.');
@@ -20,6 +18,8 @@ export async function deleteBranches(
     throw new CommandLineError(`Cannot delete the default branch '${base}'.`);
   }
 
+  write(`Deleting ${tokens.join(', ')}...\n`);
+
   if (tokens.includes(current)) {
     await runStep(run, ['checkout', base]);
     await runStep(run, ['pull']);
@@ -30,7 +30,7 @@ export async function deleteBranches(
 }
 
 async function resolveCurrentBranch(run: CommandRunner): Promise<string> {
-  const result = await run.run('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  const result = await runCapture(run, ['rev-parse', '--abbrev-ref', 'HEAD']);
   if (result.code !== 0) {
     throw new ProvisioningError(
       `Failed to resolve current branch: ${commandFailureDetail(result)}`,
@@ -40,7 +40,7 @@ async function resolveCurrentBranch(run: CommandRunner): Promise<string> {
 }
 
 async function resolveDefaultBranch(run: CommandRunner): Promise<string> {
-  const result = await run.run('git', [
+  const result = await runCapture(run, [
     'rev-parse',
     '--abbrev-ref',
     'origin/HEAD',
@@ -58,23 +58,4 @@ async function resolveDefaultBranch(run: CommandRunner): Promise<string> {
     );
   }
   return ref.slice(prefix.length);
-}
-
-async function runStep(
-  run: CommandRunner,
-  args: readonly string[],
-): Promise<void> {
-  const result = await run.run('git', args, {
-    stdout: 'inherit',
-    stderr: 'inherit',
-  });
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(
-        `git ${args.join(' ')} failed`,
-        result,
-        'see command output above',
-      ),
-    );
-  }
 }

@@ -4,8 +4,10 @@ import { renderIdentities } from './identities';
 
 const baseView: IdentityView = {
   path: '/Users/test/.config/mev/identity.json',
-  personal: { name: 'Personal Name', email: 'personal@example.com' },
-  work: { name: 'Work Name', email: 'work@example.com' },
+  identities: {
+    personal: { name: 'Personal Name', email: 'personal@example.com' },
+    work: { name: 'Work Name', email: 'work@example.com' },
+  },
   current: { kind: 'unset' },
 };
 
@@ -50,7 +52,10 @@ test('renderIdentities flags an unmanaged current identity', () => {
 });
 
 test('renderIdentities labels missing profiles as Not configured', () => {
-  const output = renderIdentities({ ...baseView, work: null }, false);
+  const output = renderIdentities(
+    { ...baseView, identities: { ...baseView.identities, work: null } },
+    false,
+  );
   expect(output).toContain('Not configured');
 });
 

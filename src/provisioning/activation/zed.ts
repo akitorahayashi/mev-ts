@@ -8,8 +8,9 @@ import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
+import { resolveSelection } from '../selection';
 import { readOverrides } from '../zed/catalog';
-import { readEnabled, resolve } from '../zed/manifest';
+import { readEnabled } from '../zed/manifest';
 import { overridesManifest, settingsFile } from '../zed/paths';
 import { buildSettings } from '../zed/settings';
 import type { Activation, ActivationReport, Described } from './contract';
@@ -48,7 +49,7 @@ export async function runZedSettings(
     const sourceDir = deployedDir(activation.overridesPrefix, context.home);
     const catalog = await readOverrides(sourceDir);
     const enabled = await readEnabled(overridesManifest(context.home));
-    const { enabled: applied } = resolve(catalog, enabled);
+    const { enabled: applied } = resolveSelection(catalog, enabled, 'opt-in');
 
     const output = settingsFile(context.home);
     const built = await buildSettings(basePath, sourceDir, applied, output);

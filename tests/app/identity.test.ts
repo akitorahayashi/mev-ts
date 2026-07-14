@@ -6,12 +6,12 @@ import {
   showIdentity,
   switchIdentity,
 } from '../../src/app/identity';
-import { CommandLineError } from '../../src/errors';
+import { AppError, CommandLineError } from '../../src/errors';
 import type { CommandResult, CommandRunner } from '../../src/host/command';
 import {
   identityFilePath,
-  loadState,
   makeIdentity,
+  readState,
   saveState,
 } from '../../src/identity/store';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -86,7 +86,7 @@ sandboxTest(
 
     const view = await showIdentity({ run, home });
 
-    expect(view.personal?.email).toBe('personal@example.com');
+    expect(view.identities.personal?.email).toBe('personal@example.com');
     expect(view.current).toEqual({
       kind: 'matched',
       scope: 'work',
@@ -197,9 +197,27 @@ sandboxTest(
     );
 
     expect(state.work).toBeNull();
-    expect(await loadState(path)).toEqual({
+    expect(await readState(path)).toEqual({
       personal: { name: 'Jane', email: 'jane@example.com' },
       work: null,
     });
+  },
+);
+
+sandboxTest(
+  'setIdentity rejects a scope with only one field filled',
+  async () => {
+    const home = tempHome();
+    await expect(
+      setIdentity(
+        { home },
+        {
+          personal: { name: 'Jane', email: '' },
+          work: { name: '', email: '' },
+        },
+      ),
+    ).rejects.toBeInstanceOf(AppError);
+    // Nothing is written when validation fails.
+    expect(await readState(identityFilePath(home))).toBeNull();
   },
 );

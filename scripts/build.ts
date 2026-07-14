@@ -71,6 +71,19 @@ export async function buildMev(options: BuildOptions): Promise<void> {
   await runWithCleanup(
     async () => {
       await mkdir(dirname(options.outfile), { recursive: true });
+      const stdio = options.stdio ?? 'inherit';
+
+      // Own the codegen-before-compile invariant here, so the compiled binary
+      // never embeds a stale or missing asset registry regardless of caller.
+      const codegenCode = await runBuildCommand({
+        args: [resolve(options.projectRoot, 'scripts/generate-assets.ts')],
+        cwd: options.projectRoot,
+        stdio,
+      });
+      if (codegenCode !== 0) {
+        throw new Error(`asset codegen failed with exit code ${codegenCode}`);
+      }
+
       const args = [
         'build',
         resolve(options.projectRoot, 'src/main.ts'),
@@ -80,7 +93,6 @@ export async function buildMev(options: BuildOptions): Promise<void> {
       ];
       if (options.target) args.push('--target', options.target);
 
-      const stdio = options.stdio ?? 'inherit';
       const code = await runBuildCommand({ args, cwd: workspace, stdio });
       if (code !== 0) {
         throw new Error(`bun build failed with exit code ${code}`);

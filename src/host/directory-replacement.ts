@@ -1,15 +1,10 @@
-import { mkdir, mkdtemp, realpath, rename, rm } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { mkdir, rename, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
 import { throwWithCleanupError } from './cleanup-error';
+import { transactionDirectory } from './transaction';
 
 const noFailure = Symbol('noFailure');
-
-async function transactionDirectory(path: string): Promise<string> {
-  await mkdir(dirname(path), { recursive: true });
-  const parent = await realpath(dirname(path));
-  return mkdtemp(join(parent, `.${basename(path)}.`));
-}
 
 /**
  * Replaces a directory after its successor has been fully built in a sibling

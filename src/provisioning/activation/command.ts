@@ -67,7 +67,7 @@ function scopeFor(
 ): CommandScope {
   return {
     home: context.home,
-    basePath: process.env.PATH ?? '',
+    basePath: context.basePath,
     ref(name) {
       const value = bindings.get(name);
       if (value === undefined) {

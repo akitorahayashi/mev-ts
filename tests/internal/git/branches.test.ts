@@ -1,33 +1,13 @@
 import { expect, test } from 'bun:test';
 import { CommandLineError, ProvisioningError } from '../../../src/errors';
-import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import { deleteBranches } from '../../../src/internal/git/branches';
-
-interface Call {
-  args: string[];
-  stdout?: 'pipe' | 'inherit';
-  stderr?: 'pipe' | 'inherit';
-}
-
-function sequenceRunner(
-  responses: CommandResult[],
-  calls: Call[],
-): CommandRunner {
-  let index = 0;
-  return {
-    async run(_command, args, options): Promise<CommandResult> {
-      calls.push({
-        args: [...args],
-        stdout: options?.stdout,
-        stderr: options?.stderr,
-      });
-      return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
-    },
-  };
-}
+import {
+  type RecordedCall,
+  sequenceRunner,
+} from '../../fixtures/fake-command-runner';
 
 test('deletes branches and prunes without checkout when not on a deleted branch', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'main\n', stderr: '' }, // current
@@ -63,7 +43,7 @@ test('deletes branches and prunes without checkout when not on a deleted branch'
 });
 
 test('checks out default branch and pulls before deleting when on a deleted branch', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'feature/a\n', stderr: '' }, // current
@@ -85,7 +65,7 @@ test('checks out default branch and pulls before deleting when on a deleted bran
 });
 
 test('rejects deleting the default branch when current branch is not in the delete list', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'feature/b\n', stderr: '' }, // current — not in tokens
@@ -100,7 +80,7 @@ test('rejects deleting the default branch when current branch is not in the dele
 });
 
 test('rejects deleting the default branch when current branch is in the delete list', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'feature/a\n', stderr: '' }, // current — in tokens
@@ -115,7 +95,7 @@ test('rejects deleting the default branch when current branch is in the delete l
 });
 
 test('errors when origin/HEAD is not set', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'feature/a\n', stderr: '' },
@@ -130,7 +110,7 @@ test('errors when origin/HEAD is not set', async () => {
 });
 
 test('stops before delete when pull fails', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'feature/a\n', stderr: '' }, // current
@@ -153,7 +133,7 @@ test('stops before delete when pull fails', async () => {
 });
 
 test('reports inherited command failures without pretending output was captured', async () => {
-  const calls: Call[] = [];
+  const calls: RecordedCall[] = [];
   const run = sequenceRunner(
     [
       { code: 0, stdout: 'feature/a\n', stderr: '' },

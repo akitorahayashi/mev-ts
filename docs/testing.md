@@ -17,10 +17,10 @@ Files under `tests/`. Verify filesystem, CLI routing, subprocess execution, or n
 ## Rules
 
 - New tests: pure logic goes under `src/`; real I/O or full orchestration goes under `tests/`.
-- Integration tests that write to disk use `tests/fixtures/temporary-directory.ts`, which allocates one directory per test under the system temporary root and removes only the directory it created.
-- Never make real HTTP requests or call real external binaries; inject fake contexts or a fake `CommandRunner`.
+- Integration tests that write to disk use `tests/fixtures/temporary-directory.ts`: `withTemporaryDirectory` allocates one directory per test under the system temporary root and removes only what it created, and `sandboxedTest(prefix)` is the `test` variant that passes that directory to the body.
+- Never make real HTTP requests or call real external binaries; inject a fake through the shared fixtures. `tests/fixtures/fake-command-runner.ts` provides `sequenceRunner`/`presetRunner`; `tests/fixtures/fake-context.ts` provides `recordingContext` and `emptyAssets`.
 - Clean up any modified env vars, process flags, or spies; don't let stdout/stderr spillage contaminate the test runner.
 
 ## CI
 
-`run-tests.yml` runs the unit and integration suites as parallel matrix jobs on `ubuntu-latest`.
+Every workflow runs on `macos-latest`, matching the macOS-only product surface. `run-tests.yml` runs the unit and integration suites as parallel matrix jobs; `run-static-checks.yml` runs `bun run check`; `run-build.yml` compiles the binary and smoke-tests it.

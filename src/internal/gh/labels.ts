@@ -1,3 +1,4 @@
+import type { LiveItem } from '../../cli/tty/livelist';
 import type { CommandRunner } from '../../host/command';
 import {
   createLabel,
@@ -68,15 +69,10 @@ export const LABEL_CATALOG: readonly Label[] = [
   { name: 'P-low', description: 'Investment for the future', color: '725d81' },
 ];
 
-export interface LabelTask {
-  readonly label: string;
-  readonly run: () => Promise<void>;
-}
-
 export async function buildDeployTasks(
   run: CommandRunner,
   repo?: string,
-): Promise<LabelTask[]> {
+): Promise<LiveItem[]> {
   const existing = new Set(
     (await listLabelNames(run, repo)).map((n) => n.toLowerCase()),
   );
@@ -92,7 +88,7 @@ export async function buildDeployTasks(
 export async function buildResetTasks(
   run: CommandRunner,
   repo?: string,
-): Promise<LabelTask[]> {
+): Promise<LiveItem[]> {
   const names = await listLabelNames(run, repo);
   return names.map((name) => ({
     label: name,

@@ -1,5 +1,6 @@
-import { CommandLineError, ProvisioningError } from '../../errors';
-import { type CommandRunner, formatCommandFailure } from '../../host/command';
+import { CommandLineError } from '../../errors';
+import type { CommandRunner } from '../../host/command';
+import { runStep } from './run';
 
 function displayCloneUrl(url: string): string {
   try {
@@ -35,18 +36,8 @@ export async function cloneRepositories(
   for (const url of urls) {
     const displayUrl = displayCloneUrl(url);
     write(`Cloning ${displayUrl}...\n`);
-    const result = await run.run('git', ['clone', ...flags, url], {
-      stdout: 'inherit',
-      stderr: 'inherit',
-    });
-    if (result.code !== 0) {
-      throw new ProvisioningError(
-        formatCommandFailure(
-          `git clone ${displayUrl} failed`,
-          result,
-          'see command output above',
-        ),
-      );
-    }
+    // The raw url is passed to git, but the failure label uses the redacted one
+    // so credentials never reach the error output.
+    await runStep(run, ['clone', ...flags, url], `git clone ${displayUrl}`);
   }
 }

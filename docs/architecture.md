@@ -76,7 +76,11 @@ Eleven activation kinds:
 - Per-item isolation — `executeStep` wraps each step's `run()` in a try/catch; a throwing step calls its `onError()` handler and yields a per-item `failed` report without interrupting siblings.
 - Status aggregation — `failed` outranks `changed`; an empty declaration reports `unchanged`.
 
-`manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause.
+`manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause. Every parser narrows parsed-`unknown` data through `host/parse.ts` (`isRecord`, `requireRecord`, `requireStringArray`), so the record predicate lives once and rejection messages share one shape instead of each module re-improvising validation.
+
+### Selection Manifests
+
+`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.config/mev/`. `provisioning/selection.ts` owns the manifest IO (`readNameList`/`writeNameList`) and `resolveSelection(catalog, listed, mode)`: `opt-out` (coder) treats the stored list as disabled, so catalog entries added by later updates stay enabled; `opt-in` (zed) treats it as enabled, so a newly added override never applies itself. `app/config-selection.ts` drives the shared `mev config` toggle flow over that resolver. A present manifest that is not a mapping, or that lacks its key, is rejected rather than read as an empty selection.
 
 ### Command Pipeline
 
@@ -117,7 +121,7 @@ Raw config files live under `src/assets/config/` keyed as `{role}/global/{filena
 
 ## Context (host/)
 
-`Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource }` — is assembled by `createContext()` and injected through every provisioning call. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
+`Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, captured once in `createContext` as the single ambient-environment read, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
 `CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd?, stdout?, stderr? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`; `stdout` and `stderr` each select `'pipe'` (the default, captured into the result) or `'inherit'`. A spawn failure — a missing or otherwise unspawnable executable — resolves as `code 127` with the reason in `stderr` rather than rejecting, so every call site handles it as an ordinary non-zero exit.
 
