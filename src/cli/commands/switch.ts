@@ -4,6 +4,7 @@ import { CommandLineError } from '../../errors';
 import { bunCommandRunner } from '../../host/command';
 import { resolveHome } from '../../host/context';
 import { aliasesOf, allScopes, resolveScope } from '../../identity/scope';
+import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 
 function scopeHint(): string {
@@ -15,7 +16,10 @@ function scopeHint(): string {
 export class SwitchCommand extends Command {
   static override paths = [['switch'], ['sw']];
   static override usage = Command.Usage({
-    description: `Switch the active Git identity (${scopeHint()}). [aliases: sw]`,
+    description: withAliasHint(
+      `Switch the active Git identity (${scopeHint()}).`,
+      SwitchCommand.paths,
+    ),
     details: `Available scopes: ${allScopes().join(', ')}.`,
   });
 
@@ -35,7 +39,7 @@ export class SwitchCommand extends Command {
         { run: bunCommandRunner, home: resolveHome() },
         resolved,
       );
-      process.stdout.write(
+      this.context.stdout.write(
         `Switched to ${resolved} identity\n  Name:  ${identity.name}\n  Email: ${identity.email}\n`,
       );
     });

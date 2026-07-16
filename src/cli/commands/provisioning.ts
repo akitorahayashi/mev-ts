@@ -21,7 +21,7 @@ interface ProvisioningRunOptions {
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
-  readonly out?: (text: string) => void;
+  readonly out: (text: string) => void;
   readonly isTTY?: boolean;
 }
 
@@ -29,11 +29,7 @@ export async function executeProvisioningRun(
   options: ProvisioningRunOptions,
 ): Promise<number> {
   const isTTY = options.isTTY ?? resolveIsTTY();
-  const out =
-    options.out ??
-    ((text: string) => {
-      process.stdout.write(text);
-    });
+  const out = options.out;
   const startedAt = Date.now();
   // `overwrite` lives only on the Context; the default run builds one from the
   // CLI flag. An injected run (tests) receives the request alone.
@@ -61,6 +57,9 @@ export async function executeProvisioningRun(
       onInstallStart(total) {
         if (total > 0 && isTTY) {
           out('\n');
+          // The progress bar needs a real WriteStream (isTTY/columns/cursor),
+          // which the injected text writer is not; it renders only on a live
+          // TTY, so binding it to the process's stdout is correct here.
           bar = createProgressBar({
             total,
             isTty: isTTY,

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { BaseContext } from 'clipanion';
 import packageMetadata from '../../package.json';
 import { runCommandLine } from '../../src/main';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -15,46 +16,39 @@ function stripAnsi(text: string): string {
   return Bun.stripANSI(text);
 }
 
+function memoryWriter(sink: (text: string) => void) {
+  return (chunk: unknown, encoding?: unknown, cb?: unknown): boolean => {
+    sink(
+      chunk instanceof Uint8Array
+        ? Buffer.from(chunk).toString()
+        : String(chunk),
+    );
+    if (typeof encoding === 'function') encoding();
+    if (typeof cb === 'function') cb();
+    return true;
+  };
+}
+
+// Inject in-memory streams through clipanion's context instead of patching the
+// process globals, so capture is isolated and parallel-safe.
 async function capture(args: readonly string[]): Promise<RunResult> {
   let stdout = '';
   let stderr = '';
-  const originalStdout = process.stdout.write;
-  const originalStderr = process.stderr.write;
+  const context = {
+    stdout: {
+      write: memoryWriter((text) => {
+        stdout += text;
+      }),
+    },
+    stderr: {
+      write: memoryWriter((text) => {
+        stderr += text;
+      }),
+    },
+  } as unknown as Partial<BaseContext>;
 
-  process.stdout.write = ((
-    chunk: unknown,
-    encoding?: unknown,
-    cb?: unknown,
-  ) => {
-    stdout +=
-      chunk instanceof Uint8Array
-        ? Buffer.from(chunk).toString()
-        : String(chunk);
-    if (typeof encoding === 'function') encoding();
-    if (typeof cb === 'function') cb();
-    return true;
-  }) as typeof process.stdout.write;
-  process.stderr.write = ((
-    chunk: unknown,
-    encoding?: unknown,
-    cb?: unknown,
-  ) => {
-    stderr +=
-      chunk instanceof Uint8Array
-        ? Buffer.from(chunk).toString()
-        : String(chunk);
-    if (typeof encoding === 'function') encoding();
-    if (typeof cb === 'function') cb();
-    return true;
-  }) as typeof process.stderr.write;
-
-  try {
-    const code = await runCommandLine(args);
-    return { code, stdout, stderr };
-  } finally {
-    process.stdout.write = originalStdout;
-    process.stderr.write = originalStderr;
-  }
+  const code = await runCommandLine(args, context);
+  return { code, stdout, stderr };
 }
 
 test('version prints to stdout and exits successfully', async () => {

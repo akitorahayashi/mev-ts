@@ -2,6 +2,7 @@ import { Command, Option } from 'clipanion';
 import { resolveProfile } from '../../provisioning/profile';
 import { allTargets, fullSetupTargets } from '../../provisioning/registry';
 import type { Target } from '../../provisioning/target';
+import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
 
@@ -19,8 +20,10 @@ function optionalFooter(): readonly string[] | undefined {
 export class CreateCommand extends Command {
   static override paths = [['create'], ['cr']];
   static override usage = Command.Usage({
-    description:
-      'Provision a full environment for a hardware profile. [aliases: cr]',
+    description: withAliasHint(
+      'Provision a full environment for a hardware profile.',
+      CreateCommand.paths,
+    ),
   });
 
   profile = Option.String();
@@ -38,6 +41,7 @@ export class CreateCommand extends Command {
         overwrite: this.overwrite,
         intro: `mev: Creating ${profile} environment`,
         footer: (report) => (report.failed ? undefined : optionalFooter()),
+        out: (text) => this.context.stdout.write(text),
       });
     });
   }

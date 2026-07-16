@@ -1,11 +1,15 @@
 import { Command } from 'clipanion';
 import { renderNamespaceOverview } from '../../tty/namespace-overview';
+import { withAliasHint } from '../alias-hint';
 
 export class ConfigHelpCommand extends Command {
   static override paths = [['config'], ['cf']];
   static override usage = Command.Usage({
     category: 'config',
-    description: 'Show config subcommands. [aliases: cf]',
+    description: withAliasHint(
+      'Show config subcommands.',
+      ConfigHelpCommand.paths,
+    ),
   });
 
   async execute(): Promise<void> {

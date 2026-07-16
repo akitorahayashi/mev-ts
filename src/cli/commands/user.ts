@@ -12,13 +12,17 @@ import { renderIdentities } from '../tty/identities';
 import { renderNamespaceOverview } from '../tty/namespace-overview';
 import { withPrompter } from '../tty/prompt';
 import { resolveIsTTY } from '../tty/style';
+import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 
 export class UserHelpCommand extends Command {
   static override paths = [['user'], ['us']];
   static override usage = Command.Usage({
     category: 'user',
-    description: 'Show git identity subcommands. [aliases: us]',
+    description: withAliasHint(
+      'Show git identity subcommands.',
+      UserHelpCommand.paths,
+    ),
   });
 
   async execute(): Promise<void> {
@@ -42,7 +46,10 @@ export class UserShowCommand extends Command {
   ];
   static override usage = Command.Usage({
     category: 'user',
-    description: 'Show stored Git identities. [aliases: us show]',
+    description: withAliasHint(
+      'Show stored Git identities.',
+      UserShowCommand.paths,
+    ),
   });
 
   async execute() {
@@ -51,7 +58,7 @@ export class UserShowCommand extends Command {
         run: bunCommandRunner,
         home: resolveHome(),
       });
-      process.stdout.write(`${renderIdentities(view, resolveIsTTY())}\n`);
+      this.context.stdout.write(`${renderIdentities(view, resolveIsTTY())}\n`);
     });
   }
 }
@@ -63,25 +70,30 @@ export class UserSetCommand extends Command {
   ];
   static override usage = Command.Usage({
     category: 'user',
-    description:
-      'Configure the stored Git identities interactively. [aliases: us set]',
+    description: withAliasHint(
+      'Configure the stored Git identities interactively.',
+      UserSetCommand.paths,
+    ),
   });
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, () =>
-      runSet(resolveHome()),
+      runSet(resolveHome(), (message) => this.context.stdout.write(message)),
     );
   }
 }
 
-async function runSet(home: string): Promise<void> {
+async function runSet(
+  home: string,
+  write: (message: string) => void,
+): Promise<void> {
   const existing = await loadIdentities({ home });
 
   const inputs = await withPrompter(async (prompter) => {
-    process.stdout.write('Configure mev Git identities\n');
+    write('Configure mev Git identities\n');
     const entries: [IdentityScope, IdentityInput][] = [];
     for (const scope of allScopes()) {
-      process.stdout.write(`\n${capitalize(scope)} identity:\n`);
+      write(`\n${capitalize(scope)} identity:\n`);
       entries.push([
         scope,
         {
@@ -94,7 +106,7 @@ async function runSet(home: string): Promise<void> {
   });
 
   const { path } = await setIdentity({ home }, inputs);
-  process.stdout.write(`\nIdentity configuration saved to ${path}\n`);
+  write(`\nIdentity configuration saved to ${path}\n`);
 }
 
 function capitalize(value: string): string {
