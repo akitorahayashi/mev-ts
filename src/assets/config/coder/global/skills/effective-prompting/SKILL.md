@@ -1,6 +1,6 @@
 ---
 name: effective-prompting
-description: Maximize goal-output alignment with minimal cognitive and maintenance load.
+description: Use when writing, editing, or reviewing prompts, system instructions, or agent instructions for LLMs.
 ---
 
 # Effective Prompting
@@ -15,8 +15,8 @@ Maximize goal-output alignment with minimal cognitive and maintenance load.
 2. Resolve deterministic decisions upstream of the model.
 3. Describe the right method, not micromanaged steps.
 4. Separate always-true rules from situation-specific logic.
-5. Add constraints only for real failure modes.
-6. Remove duplicate or non-contributing instructions.
+5. Apply the constraint discipline to each candidate constraint.
+6. Apply the information density rules.
 7. Validate the prompt against likely failure paths.
 
 ## Upstream Resolution Rule

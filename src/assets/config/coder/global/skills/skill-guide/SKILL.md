@@ -66,6 +66,20 @@ Run [validator](scripts/validate.py).
 
 Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve the script path relative to the skill directory and pass project files as explicit arguments.
 
+## Compact tables
+
+Tables in skill text use fenced TSV by default:
+
+```tsv
+path	purpose	when_to_read
+SKILL.md	Primary skill instructions	Always
+references/	Detailed rules, specs, examples	Only when directly relevant
+scripts/	Repeatable validation or conversion logic	When execution is useful
+assets/	Templates, images, sample inputs	When the task needs material
+```
+
+Use Markdown tables only when rendered visual scanning is part of the skill's purpose. If cells may contain tabs, multiline values, or nested data, use YAML list records instead.
+
 ## Creating a skill
 
 When asked to organize something as a skill:

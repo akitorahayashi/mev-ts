@@ -41,4 +41,4 @@ The file holds only currently-open questions, describing the present set of bloc
 
 ## Template
 
-Follow `assets/template.md`.
+Follow the [template](assets/template.md), translating its headings and labels into the recipients' language.

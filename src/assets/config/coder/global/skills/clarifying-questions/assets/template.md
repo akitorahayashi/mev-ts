@@ -1,13 +1,13 @@
 # <topic>
 
-## 前提
+## Context
 
 <shared context; what has already been confirmed or checked>
 
 ## Q1. <short title>
 
-背景：<why asking; what was already checked; what is blocked without it>
-確認したいこと：
+Background: <why asking; what was already checked; what is blocked without it>
+Questions:
 
 1. <specific point>
 2. <specific point>

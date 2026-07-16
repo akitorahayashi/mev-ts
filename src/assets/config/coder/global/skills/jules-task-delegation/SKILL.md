@@ -22,9 +22,7 @@ The Jules API key is read from `JULES_API_KEY`. When it is not already set, ask 
 Resolve the helper script relative to this `SKILL.md` file, not relative to the repository being delegated. Run it from the target repository so it can detect `remote.origin.url`.
 
 ```sh
-set -a
-source .env
-set +a
+[ -f .env ] && { set -a; source .env; set +a; }
 
 bun <skill-dir>/scripts/create-session.ts \
   --prompt-file <prompt.md> \
@@ -32,6 +30,8 @@ bun <skill-dir>/scripts/create-session.ts \
 ```
 
 Use `--prompt "..."` for short prompts. Use `--repo owner/repo` only when GitHub repository auto-detection is not possible.
+
+Sessions default to automation mode `AUTO_CREATE_PR`, so Jules opens a pull request automatically on completion. Override with `--automation-mode`, gate implementation with `--require-plan-approval`, or set `--title` when needed.
 
 Create multiple sessions serially.
 

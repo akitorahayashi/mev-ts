@@ -13,7 +13,8 @@ function fail(message: string): never {
 
 function usage(): never {
   console.error(
-    'Usage: create-session.ts --prompt <text>|--prompt-file <file> --branch <branch> [--repo <owner/repo>]',
+    'Usage: create-session.ts --prompt <text>|--prompt-file <file> --branch <branch>\n' +
+      '  [--repo <owner/repo>] [--title <title>] [--require-plan-approval] [--automation-mode <mode>]',
   );
   process.exit(1);
 }

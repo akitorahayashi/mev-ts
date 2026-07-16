@@ -1,6 +1,6 @@
 ---
 name: google-jules
-description: Understand Google Jules and Jules API as an asynchronous cloud coding-agent service, including repository-backed and repoless sessions, PR automation, CI repair, and service boundaries.
+description: Use when a task involves Google Jules or the Jules API — evaluating whether work fits Jules, designing sessions, or building Jules-based automation.
 ---
 
 # Google Jules

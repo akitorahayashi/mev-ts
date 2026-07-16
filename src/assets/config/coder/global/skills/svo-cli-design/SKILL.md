@@ -1,9 +1,11 @@
 ---
 name: svo-cli-design
-description: Design CLI surfaces with SVO model (subcommand + object + args). Prevents mandatory-option sprawl, preserves positional-required inputs, keeps hierarchies shallow.
+description: Use when designing or extending a CLI command surface (subcommands, positional arguments, options). Prevents mandatory-option sprawl, preserves positional-required inputs, keeps hierarchies shallow.
 ---
 
 # SVO CLI Design
+
+SVO reads a CLI invocation as a sentence: the tool is the subject, the subcommand the verb, the object the target, and positional args the required complements.
 
 ## Primary Objective
 
