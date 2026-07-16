@@ -3,7 +3,7 @@ import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-import { isRecord } from '../host/parse';
+import { isRecord, requireRecord } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
 /**
@@ -23,8 +23,11 @@ export function parseReleaseBinaries(
   raw: string,
   path: string,
 ): ReleaseBinary[] {
-  const parsed = loadYaml(raw) as { binaries?: unknown };
-  if (!parsed?.binaries || !Array.isArray(parsed.binaries)) {
+  const parsed = requireRecord(
+    loadYaml(raw, path),
+    `Release binaries manifest ${path}`,
+  );
+  if (!Array.isArray(parsed.binaries)) {
     throw new ProvisioningError(
       `Release binaries manifest must contain a binaries sequence: ${path}`,
     );

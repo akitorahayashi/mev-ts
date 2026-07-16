@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import packageMetadata from '../../package.json';
 import { runCommandLine } from '../../src/main';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -200,6 +202,50 @@ test('domain errors print concise diagnostics to stderr', async () => {
       expect(result.stdout).not.toContain(
         'Run provisioning to deploy it first',
       );
+      expect(
+        stripAnsi(result.stderr)
+          .split('\n')
+          .some((line) => line.startsWith('    at ')),
+      ).toBe(false);
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+    }
+  });
+});
+
+test('a corrupt selection manifest exits 1 with a labeled error on stderr', async () => {
+  const originalHome = process.env.HOME;
+  await withTemporaryDirectory(async (home) => {
+    try {
+      process.env.HOME = home;
+      // A valid catalog so selection resolution reaches the manifest read.
+      const catalogDir = join(
+        home,
+        '.config/mev/roles/coder/global/agents-sections',
+      );
+      await mkdir(catalogDir, { recursive: true });
+      await writeFile(
+        join(catalogDir, 'catalog.yml'),
+        'sections:\n  - alpha\n',
+      );
+      await writeFile(join(catalogDir, 'alpha.md'), '## Alpha\n');
+      const manifestDir = join(home, '.config/mev/coder');
+      await mkdir(manifestDir, { recursive: true });
+      await writeFile(
+        join(manifestDir, 'agents-sections.yml'),
+        '{ invalid yaml',
+      );
+
+      const result = await capture(['cf', 'agents']);
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('Failed to parse YAML');
+      expect(result.stderr).toContain('agents-sections.yml');
+      expect(result.stdout).not.toContain('Failed to parse YAML');
       expect(
         stripAnsi(result.stderr)
           .split('\n')

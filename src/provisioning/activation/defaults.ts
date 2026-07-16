@@ -93,7 +93,7 @@ function validateDefaultsEntry(
 }
 
 function parseDefaults(raw: string, path: string): DefaultsEntry[] {
-  const parsed = loadYaml(raw);
+  const parsed = loadYaml(raw, path);
   if (!Array.isArray(parsed)) {
     throw new ProvisioningError(
       `Defaults config file must contain a YAML list: ${path}`,

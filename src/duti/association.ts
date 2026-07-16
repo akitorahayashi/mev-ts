@@ -10,7 +10,7 @@ export interface Association {
 }
 
 export function parseAssociations(raw: string, path: string): Association[] {
-  const parsed = loadYaml(raw);
+  const parsed = loadYaml(raw, path);
   const defaultApps = isRecord(parsed) ? parsed.default_apps : undefined;
   if (!Array.isArray(defaultApps)) {
     throw new ProvisioningError(

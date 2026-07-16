@@ -43,7 +43,7 @@ interface PipxListJson {
 // --- manifest schema --------------------------------------------------------
 
 export function parseTools(raw: string, path: string): PipxTool[] {
-  const parsed = loadYaml(raw);
+  const parsed = loadYaml(raw, path);
   const tools = isRecord(parsed) ? parsed.tools : undefined;
   if (!Array.isArray(tools)) {
     throw new ProvisioningError(
