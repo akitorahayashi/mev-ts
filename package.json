@@ -24,13 +24,13 @@
     "pretypecheck": "bun run codegen",
     "typecheck": "tsc --noEmit",
     "precheck": "bun run codegen",
-    "check": "biome check . && bun run typecheck",
+    "check": "biome check . && tsc --noEmit",
     "fix": "biome check --write .",
     "prepare": "husky"
   },
   "dependencies": {
     "@inquirer/checkbox": "^5.2.1",
-    "clipanion": "^4.0.0-rc.4",
+    "clipanion": "4.0.0-rc.4",
     "js-yaml": "^5.1.0",
     "listr2": "^10.2.1",
     "mermaid": "11.16.0",

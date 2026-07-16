@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - id: prepare
-        uses: akitorahayashi/gh-release@v1
+        uses: akitorahayashi/gh-release@aa696643869780261a02c3f5775f36b32b4faab5 # v1
         with:
           mode: prepare
           token: ${{ github.token }}
@@ -45,7 +45,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: akitorahayashi/gh-release@v1
+      - uses: akitorahayashi/gh-release@aa696643869780261a02c3f5775f36b32b4faab5 # v1
         with:
           mode: publish
           token: ${{ github.token }}
