@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { mkdirSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { AppError } from '../../src/errors';
 import {
   identityFilePath,
   makeIdentity,
@@ -9,6 +10,11 @@ import {
   saveState,
 } from '../../src/identity/store';
 import { sandboxedTest } from '../fixtures/temporary-directory';
+
+async function writeIdentityFile(path: string, content: string): Promise<void> {
+  await mkdir(join(path, '..'), { recursive: true });
+  await writeFile(path, content);
+}
 
 const sandboxTest = sandboxedTest('identity-');
 let counter = 0;
@@ -80,6 +86,39 @@ sandboxTest(
 
     expect(await readState(path)).toEqual({
       personal: { name: 'Fixture Person', email: 'fixture@example.com' },
+      work: null,
+    });
+  },
+);
+
+sandboxTest(
+  'readState rejects a present-but-malformed entry instead of dropping it',
+  async (dir) => {
+    const path = identityFilePath(tempHome(dir));
+    await writeIdentityFile(path, '{"personal": {"name": 42, "email": "x"}}');
+
+    await expect(readState(path)).rejects.toBeInstanceOf(AppError);
+  },
+);
+
+sandboxTest('readState rejects a non-object root', async (dir) => {
+  const path = identityFilePath(tempHome(dir));
+  await writeIdentityFile(path, '["personal"]');
+
+  await expect(readState(path)).rejects.toBeInstanceOf(AppError);
+});
+
+sandboxTest(
+  'readState leaves an absent scope null without erroring',
+  async (dir) => {
+    const path = identityFilePath(tempHome(dir));
+    await writeIdentityFile(
+      path,
+      '{"personal": {"name": "P", "email": "p@example.com"}}',
+    );
+
+    expect(await readState(path)).toEqual({
+      personal: { name: 'P', email: 'p@example.com' },
       work: null,
     });
   },

@@ -119,6 +119,30 @@ sandboxTest('coderAgents reports unchanged on a second run', async (dir) => {
   expect(second.status).toBe('unchanged');
 });
 
+sandboxTest(
+  'coderAgents surfaces a stale disabled manifest entry as unchanged',
+  async (dir) => {
+    await deploySections(dir, 'sections:\n  - alpha\n', {
+      alpha: '## Alpha\n',
+    });
+    const manifestDir = join(dir, '.config', 'mev', 'coder');
+    await mkdir(manifestDir, { recursive: true });
+    await writeFile(
+      join(manifestDir, 'agents-sections.yml'),
+      'disabled:\n  - ghost\n',
+    );
+
+    const report = await runActivation(
+      coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
+      recordingContext({ home: dir }).context,
+    );
+
+    expect(report.status).not.toBe('failed');
+    const ghost = report.entries?.find((e) => e.key === 'ghost');
+    expect(ghost?.status).toBe('unchanged');
+  },
+);
+
 sandboxTest('coderAgents surfaces manifest filesystem errors', async (dir) => {
   await deploySections(dir, 'sections:\n  - alpha\n', {
     alpha: '## Alpha\n',

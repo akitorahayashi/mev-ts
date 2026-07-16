@@ -78,6 +78,32 @@ sandboxTest(
 );
 
 sandboxTest(
+  'unchanged when duti -x returns a bundle_id containing an underscore',
+  async (dir) => {
+    const roleDir = join(dir, '.config', 'mev', 'roles', 'duti', 'global');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(
+      join(roleDir, 'default_apps.yml'),
+      'default_apps:\n  - bundle_id: com.example.my_app\n    extensions: [md]\n',
+    );
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: (cmd, args) => {
+        if (cmd === 'duti' && args[0] === '-x') {
+          return ok('handler info\ncom.example.my_app');
+        }
+        return fail();
+      },
+    });
+
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    expect(calls.some((c) => c.args[0] === '-s')).toBe(false);
+  },
+);
+
+sandboxTest(
   'applies when duti -x fails (extension not yet registered)',
   async (dir) => {
     await deployConfig(dir);

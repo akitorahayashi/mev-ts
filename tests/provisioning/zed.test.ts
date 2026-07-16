@@ -69,6 +69,28 @@ sandboxTest(
 );
 
 sandboxTest(
+  'zedSettings fails and names an enabled override missing from the catalog',
+  async (dir) => {
+    await deployBase(dir, { format_on_save: 'on' });
+    await deployOverrides(dir, { 'no-format': { format_on_save: 'off' } });
+    const manifestDir = join(dir, '.config', 'mev', 'zed');
+    await mkdir(manifestDir, { recursive: true });
+    await writeFile(
+      join(manifestDir, 'overrides-selection.yml'),
+      'enabled:\n  - ghost\n',
+    );
+
+    const report = await runActivation(
+      zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
+      recordingContext({ home: dir }).context,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(report.entries?.some((e) => e.key === 'ghost')).toBe(true);
+  },
+);
+
+sandboxTest(
   'zedSettings leaves the base untouched when no override is enabled',
   async (dir) => {
     await deployBase(dir, { format_on_save: 'on' });
