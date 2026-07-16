@@ -130,6 +130,7 @@
     "default_width": 240
   },
   "auto_install_extensions": {
+    "xml": true,
     "html": true,
     "toml": true,
     "tombi": true,
