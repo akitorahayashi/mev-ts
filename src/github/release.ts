@@ -19,6 +19,17 @@ export interface ReleaseBinary {
   readonly private?: boolean;
 }
 
+// Release fields flow into a tool's argument DSL: `name` becomes the `gh
+// release download --pattern` glob and part of the public download URL, `tag`
+// is passed positionally to `gh` and into the URL path, and `repo` is both a
+// `--repo` value and a URL segment. Validate the repo-owned manifest against
+// explicit character sets (as `brew/install.ts` does for Homebrew tokens) so a
+// glob metacharacter cannot match a different asset and a leading '-' cannot
+// parse as a flag.
+const SAFE_ASSET_NAME = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
+const SAFE_TAG = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
+const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+
 export function parseReleaseBinaries(
   raw: string,
   path: string,
@@ -56,6 +67,21 @@ export function parseReleaseBinaries(
     if (entry.private !== undefined && typeof entry.private !== 'boolean') {
       throw new ProvisioningError(
         `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'private' must be a boolean.`,
+      );
+    }
+    if (!SAFE_ASSET_NAME.test(entry.name)) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'name' may contain only letters, digits, and ._+- and must not start with '-'.`,
+      );
+    }
+    if (!SAFE_TAG.test(entry.tag)) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'tag' may contain only letters, digits, and ._+- and must not start with '-'.`,
+      );
+    }
+    if (!SAFE_REPO.test(entry.repo)) {
+      throw new ProvisioningError(
+        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'repo' must be in 'owner/name' form.`,
       );
     }
     return {

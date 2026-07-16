@@ -129,6 +129,38 @@ sandboxTest(
 );
 
 sandboxTest(
+  'a failed role deploy blocks its group activations',
+  async (sandbox) => {
+    const context: Context = {
+      ...contextFor(sandbox),
+      assets: {
+        read: (key) =>
+          key.startsWith('git/')
+            ? Promise.reject(new Error('deploy boom'))
+            : embeddedAssets.read(key),
+        keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
+        isExecutable: (key) => embeddedAssets.isExecutable(key),
+      },
+    };
+
+    const report = await runMake({ tags: ['git'] }, context);
+    const group = gitGroup(report);
+
+    expect(report.failed).toBe(true);
+    const deploy = report.deploys.find((d) => d.role === 'git');
+    expect(deploy?.deployed).toBe(false);
+    expect(deploy?.error).toContain('deploy boom');
+    expect(group?.blockers).toContainEqual(
+      expect.objectContaining({ kind: 'deploy', role: 'git' }),
+    );
+    expect(group?.reports.length).toBeGreaterThan(0);
+    expect(group?.reports.every((entry) => entry.status === 'blocked')).toBe(
+      true,
+    );
+  },
+);
+
+sandboxTest(
   'a failed package blocks dependent activations',
   async (sandbox) => {
     const commands: string[] = [];
