@@ -1,42 +1,101 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
-import { type CommandRunner, commandFailureDetail } from '../../host/command';
+import type { CommandRunner } from '../../host/command';
 import { runCapture, runStep } from './run';
 
+interface DeletionRequest {
+  readonly branches: readonly string[];
+  readonly to: string | null;
+}
+
+/**
+ * Move to a destination branch, update it, delete the requested local
+ * branches, and prune stale origin refs. The destination is `--to <branch>`
+ * (alias `-t`), defaulting to the default branch resolved from origin/HEAD.
+ * The whole request is validated before any git state changes.
+ */
 export async function deleteBranches(
   run: CommandRunner,
   tokens: readonly string[],
   write: (message: string) => void = () => {},
 ): Promise<void> {
-  if (tokens.length === 0) {
+  const { branches, to } = parseTokens(tokens);
+  if (branches.length === 0) {
     throw new CommandLineError('At least one branch to delete is required.');
   }
 
-  const current = await resolveCurrentBranch(run);
   const base = await resolveDefaultBranch(run);
+  const destination = to ?? base;
 
-  if (tokens.includes(base)) {
+  if (branches.includes(base)) {
     throw new CommandLineError(`Cannot delete the default branch '${base}'.`);
   }
-
-  write(`Deleting ${tokens.join(', ')}...\n`);
-
-  if (tokens.includes(current)) {
-    await runStep(run, ['checkout', base]);
-    await runStep(run, ['pull']);
+  if (branches.includes(destination)) {
+    throw new CommandLineError(
+      `Cannot delete the destination branch '${destination}'.`,
+    );
   }
 
-  await runStep(run, ['branch', '-D', '--', ...tokens]);
+  const missing = await findMissingLocalBranches(run, branches);
+  if (missing.length > 0) {
+    throw new CommandLineError(`No such local branch: ${missing.join(', ')}.`);
+  }
+
+  write(`Moving to ${destination}, deleting ${branches.join(', ')}...\n`);
+
+  await runStep(run, ['checkout', destination]);
+  await runStep(run, ['pull']);
+  await runStep(run, ['branch', '-D', '--', ...branches]);
   await runStep(run, ['remote', 'prune', 'origin']);
 }
 
-async function resolveCurrentBranch(run: CommandRunner): Promise<string> {
-  const result = await runCapture(run, ['rev-parse', '--abbrev-ref', 'HEAD']);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      `Failed to resolve current branch: ${commandFailureDetail(result)}`,
-    );
+function parseTokens(tokens: readonly string[]): DeletionRequest {
+  const branches: string[] = [];
+  let to: string | null = null;
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index] as string;
+    if (token === '--to' || token === '-t') {
+      if (to !== null) {
+        throw new CommandLineError(
+          'The destination may be specified only once.',
+        );
+      }
+      const value = tokens[index + 1];
+      if (value === undefined) {
+        throw new CommandLineError(`${token} requires a branch name.`);
+      }
+      to = value;
+      index += 1;
+      continue;
+    }
+    if (token === '--') {
+      throw new CommandLineError(
+        "'--' is not supported; use --to <branch> to choose the destination.",
+      );
+    }
+    if (!branches.includes(token)) {
+      branches.push(token);
+    }
   }
-  return result.stdout.trim();
+  return { branches, to };
+}
+
+async function findMissingLocalBranches(
+  run: CommandRunner,
+  branches: readonly string[],
+): Promise<string[]> {
+  const missing: string[] = [];
+  for (const branch of branches) {
+    const result = await runCapture(run, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `refs/heads/${branch}`,
+    ]);
+    if (result.code !== 0) {
+      missing.push(branch);
+    }
+  }
+  return missing;
 }
 
 async function resolveDefaultBranch(run: CommandRunner): Promise<string> {
