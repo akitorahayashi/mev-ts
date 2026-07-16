@@ -10,8 +10,11 @@ export class InternalGhLabelsResetCommand extends Command {
 
   async execute() {
     return runInternalCommand(this, async (run) => {
-      const items = await buildResetTasks(run, this.repo);
-      await renderLiveList(items, { concurrent: true });
+      const tasks = await buildResetTasks(run, this.repo);
+      await renderLiveList(
+        tasks.map((task) => ({ label: task.name, run: () => task.apply() })),
+        { concurrent: true },
+      );
     });
   }
 }

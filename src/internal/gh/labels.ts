@@ -1,4 +1,3 @@
-import type { LiveItem } from '../../cli/tty/livelist';
 import type { CommandRunner } from '../../host/command';
 import {
   createLabel,
@@ -7,6 +6,12 @@ import {
   type Label,
   listLabelNames,
 } from './label';
+
+/** One named label reconciliation the caller renders and runs. */
+export interface LabelTask {
+  readonly name: string;
+  apply(): Promise<void>;
+}
 
 export const LABEL_CATALOG: readonly Label[] = [
   { name: 'C-bugs', description: "Something isn't working", color: 'd73a4a' },
@@ -72,13 +77,13 @@ export const LABEL_CATALOG: readonly Label[] = [
 export async function buildDeployTasks(
   run: CommandRunner,
   repo?: string,
-): Promise<LiveItem[]> {
+): Promise<LabelTask[]> {
   const existing = new Set(
     (await listLabelNames(run, repo)).map((n) => n.toLowerCase()),
   );
   return LABEL_CATALOG.map((label) => ({
-    label: label.name,
-    run: () =>
+    name: label.name,
+    apply: () =>
       existing.has(label.name.toLowerCase())
         ? editLabel(run, label, repo)
         : createLabel(run, label, repo),
@@ -88,10 +93,10 @@ export async function buildDeployTasks(
 export async function buildResetTasks(
   run: CommandRunner,
   repo?: string,
-): Promise<LiveItem[]> {
+): Promise<LabelTask[]> {
   const names = await listLabelNames(run, repo);
   return names.map((name) => ({
-    label: name,
-    run: () => deleteLabel(run, name, repo),
+    name,
+    apply: () => deleteLabel(run, name, repo),
   }));
 }

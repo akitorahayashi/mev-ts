@@ -1,5 +1,6 @@
 import { errorMessage, ProvisioningError } from '../../errors';
-import { type CommandRunner, formatCommandFailure } from '../../host/command';
+import type { CommandRunner } from '../../host/command';
+import { runStep } from './run';
 
 export interface Label {
   readonly name: string;
@@ -24,20 +25,11 @@ export async function listLabelNames(
   run: CommandRunner,
   repo?: string,
 ): Promise<string[]> {
-  const result = await run.run('gh', [
-    'label',
-    'list',
-    '--json',
-    'name',
-    '--limit',
-    '1000',
-    ...repoArgs(repo),
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure('gh label list failed', result),
-    );
-  }
+  const result = await runStep(
+    run,
+    ['label', 'list', '--json', 'name', '--limit', '1000', ...repoArgs(repo)],
+    'gh label list failed',
+  );
   let parsed: unknown;
   try {
     parsed = JSON.parse(result.stdout);
@@ -64,21 +56,20 @@ export async function createLabel(
   label: Label,
   repo?: string,
 ): Promise<void> {
-  const result = await run.run('gh', [
-    'label',
-    'create',
-    label.name,
-    '--color',
-    label.color,
-    '--description',
-    label.description,
-    ...repoArgs(repo),
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`gh label create ${label.name} failed`, result),
-    );
-  }
+  await runStep(
+    run,
+    [
+      'label',
+      'create',
+      label.name,
+      '--color',
+      label.color,
+      '--description',
+      label.description,
+      ...repoArgs(repo),
+    ],
+    `gh label create ${label.name} failed`,
+  );
 }
 
 export async function editLabel(
@@ -86,21 +77,20 @@ export async function editLabel(
   label: Label,
   repo?: string,
 ): Promise<void> {
-  const result = await run.run('gh', [
-    'label',
-    'edit',
-    label.name,
-    '--color',
-    label.color,
-    '--description',
-    label.description,
-    ...repoArgs(repo),
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`gh label edit ${label.name} failed`, result),
-    );
-  }
+  await runStep(
+    run,
+    [
+      'label',
+      'edit',
+      label.name,
+      '--color',
+      label.color,
+      '--description',
+      label.description,
+      ...repoArgs(repo),
+    ],
+    `gh label edit ${label.name} failed`,
+  );
 }
 
 export async function deleteLabel(
@@ -108,16 +98,9 @@ export async function deleteLabel(
   name: string,
   repo?: string,
 ): Promise<void> {
-  const result = await run.run('gh', [
-    'label',
-    'delete',
-    name,
-    '--yes',
-    ...repoArgs(repo),
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`gh label delete ${name} failed`, result),
-    );
-  }
+  await runStep(
+    run,
+    ['label', 'delete', name, '--yes', ...repoArgs(repo)],
+    `gh label delete ${name} failed`,
+  );
 }
