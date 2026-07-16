@@ -1,10 +1,8 @@
 import { mkdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
-import { throwWithCleanupError } from './cleanup-error';
+import { runWithCleanup } from './cleanup-error';
 import { transactionDirectory } from './transaction';
-
-const noFailure = Symbol('noFailure');
 
 /**
  * Replaces a directory after its successor has been fully built in a sibling
@@ -23,16 +21,17 @@ export async function replaceDirectoryAfterBuild(
   const staging = join(transaction, 'staging');
   const backup = join(transaction, 'backup');
 
-  let primary: unknown = noFailure;
   let retainTransaction = false;
-  try {
-    await mkdir(staging);
-    await buildDirectory(staging);
+  await runWithCleanup(
+    async () => {
+      await mkdir(staging);
+      await buildDirectory(staging);
 
-    const present = (await lstatIfPresent(path)) !== null;
-    if (!present) {
-      await rename(staging, path);
-    } else {
+      const present = (await lstatIfPresent(path)) !== null;
+      if (!present) {
+        await rename(staging, path);
+        return;
+      }
       await rename(path, backup);
       try {
         await rename(staging, path);
@@ -40,6 +39,8 @@ export async function replaceDirectoryAfterBuild(
         try {
           await rename(backup, path);
         } catch (restoreError) {
+          // The restore failed too: keep the transaction so the previous
+          // contents remain recoverable at `backup`.
           retainTransaction = true;
           throw new AggregateError(
             [error, restoreError],
@@ -48,24 +49,12 @@ export async function replaceDirectoryAfterBuild(
         }
         throw error;
       }
-    }
-  } catch (error) {
-    primary = error;
-  }
-
-  if (!retainTransaction) {
-    try {
-      await rm(transaction, { recursive: true, force: true });
-    } catch (cleanup) {
-      if (primary !== noFailure) {
-        throwWithCleanupError(
-          primary,
-          cleanup,
-          `Failed to clean up directory replacement transaction for ${path}.`,
-        );
+    },
+    async () => {
+      if (!retainTransaction) {
+        await rm(transaction, { recursive: true, force: true });
       }
-      throw cleanup;
-    }
-  }
-  if (primary !== noFailure) throw primary;
+    },
+    `Failed to clean up directory replacement transaction for ${path}.`,
+  );
 }

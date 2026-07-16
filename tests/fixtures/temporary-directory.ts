@@ -2,23 +2,14 @@ import { test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runWithCleanup } from '../../src/host/cleanup-error';
 
 type RemoveDirectory = (path: string) => Promise<void>;
-const noFailure = Symbol('noFailure');
 
 export interface TemporaryDirectoryOptions {
   readonly prefix?: string;
   readonly root?: string;
   readonly removeDirectory?: RemoveDirectory;
-}
-
-function attachCleanupFailure(primary: Error, cleanup: unknown): Error {
-  Object.defineProperty(primary, 'cleanupError', {
-    configurable: true,
-    enumerable: true,
-    value: cleanup,
-  });
-  return primary;
 }
 
 export async function withTemporaryDirectory<T>(
@@ -32,30 +23,11 @@ export async function withTemporaryDirectory<T>(
     options.removeDirectory ??
     ((path) => rm(path, { force: true, recursive: true }));
 
-  let primary: unknown = noFailure;
-  let result: T | undefined;
-  try {
-    result = await body(dir);
-  } catch (error) {
-    primary = error;
-  }
-
-  try {
-    await removeDirectory(dir);
-  } catch (cleanup) {
-    if (primary !== noFailure) {
-      if (primary instanceof Error) {
-        throw attachCleanupFailure(primary, cleanup);
-      }
-      throw new AggregateError(
-        [primary, cleanup],
-        `Failed to remove temporary directory ${dir}.`,
-      );
-    }
-    throw cleanup;
-  }
-  if (primary !== noFailure) throw primary;
-  return result as T;
+  return runWithCleanup(
+    () => body(dir),
+    () => removeDirectory(dir),
+    `Failed to remove temporary directory ${dir}.`,
+  );
 }
 
 /**
