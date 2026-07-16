@@ -19,8 +19,9 @@ export interface ConfigCommandSpec {
 
 /**
  * Build a config toggle command from a spec. The alias hint is derived from the
- * non-canonical paths so it cannot drift from the actual routing, and the
- * stdout warn writer is applied uniformly here rather than per command.
+ * non-canonical paths so it cannot drift from the actual routing, and the warn
+ * writer routes to stderr (diagnostics, matching the internal-command wiring)
+ * uniformly here rather than per command.
  */
 export function defineConfigCommand(spec: ConfigCommandSpec) {
   const aliases = spec.paths.slice(1).map((path) => path.join(' '));
@@ -42,7 +43,11 @@ export function defineConfigCommand(spec: ConfigCommandSpec) {
         if (this.clear) {
           await spec.runClear(home);
         } else {
-          await spec.runSelect(home, (m) => process.stdout.write(m), toggle);
+          await spec.runSelect(
+            home,
+            (m) => this.context.stderr.write(m),
+            toggle,
+          );
         }
       });
     }

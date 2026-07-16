@@ -35,8 +35,12 @@ export function renderNamespaceOverview(overview: NamespaceOverview): string {
   let output = `${invoked} <command>\n\n`;
   for (const entry of entries) {
     output += `  ${entry.usage}\n`;
-    if (entry.description) {
-      output += `    ${entry.description}\n`;
+    // clipanion's `definitions()` returns `description` with a trailing
+    // newline; trim it (as with `category`) so the per-entry blank line below
+    // is not doubled.
+    const description = entry.description?.trim();
+    if (description) {
+      output += `    ${description}\n`;
     }
     output += '\n';
   }
