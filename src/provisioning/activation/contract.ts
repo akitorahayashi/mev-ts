@@ -4,13 +4,10 @@ import type { HostPath } from '../../host/path';
 export type Verb = 'link' | 'apply' | 'run';
 
 /**
- * A single config materialization or host mutation. `file`/`tree` link deployed
- * assets into place; `defaults` applies a macOS `defaults write` list;
- * `editorExtensions` reconciles an editor's installed extensions against a
- * manifest; `command` runs an ordered, idempotent host-command pipeline that
- * shares a derived scope.
- * The union is the source of truth for the activation vocabulary — every kind is
- * dispatched exhaustively by `runActivation` and `describeActivation`.
+ * A single config materialization or host mutation. The union is the source of
+ * truth for the activation vocabulary — every kind is dispatched exhaustively by
+ * `runActivation` and `describeActivation`, and the multi-item kinds share the
+ * `reconcile.ts` envelope. See the per-kind table in docs/architecture.md.
  */
 export type Activation =
   | {

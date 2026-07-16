@@ -66,7 +66,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Key Types
 
-- `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }`, injected through every provisioning call; `basePath` is the inherited PATH captured once in `createContext` (the sole `process.env` read). Tests supply fakes via `tests/fixtures/`.
+- `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }`, injected through every provisioning call; `basePath` is the inherited PATH read once in `createContext`. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient environment at spawn. Tests supply fakes via `tests/fixtures/`.
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.config/mev/roles`, the sole authority).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
 - `Target` / `MakePlan` — a target groups tags/aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves tag attribution.
