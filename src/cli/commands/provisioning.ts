@@ -1,4 +1,5 @@
 import { createProgressBar } from 'tty-prog';
+import { createContext } from '../../host/context';
 import {
   type MakeReport,
   type MakeRequest,
@@ -34,7 +35,12 @@ export async function executeProvisioningRun(
       process.stdout.write(text);
     });
   const startedAt = Date.now();
-  const run = options.run ?? runMake;
+  // `overwrite` lives only on the Context; the default run builds one from the
+  // CLI flag. An injected run (tests) receives the request alone.
+  const run =
+    options.run ??
+    ((request: MakeRequest) =>
+      runMake(request, createContext({ overwrite: options.overwrite })));
 
   if (options.intro) {
     out(`${options.intro}\n`);
@@ -45,7 +51,6 @@ export async function executeProvisioningRun(
   try {
     const report = await run({
       tags: options.tags,
-      overwrite: options.overwrite,
       onDeploy(result) {
         const line = renderDeployLine(result, isTTY);
         if (line) out(`${line}\n`);

@@ -5,7 +5,7 @@ import { writeFileAtomically } from '../host/atomic-file';
 import { isRecord, requireStringArray } from '../host/parse';
 import { dumpYaml, loadYaml } from '../host/yaml';
 
-export interface NameSplit {
+interface NameSplit {
   readonly included: readonly string[];
   readonly excluded: readonly string[];
   readonly unknown: readonly string[];
@@ -98,7 +98,7 @@ export async function writeNameList(
   await writeFileAtomically(manifestPath, dumpYaml({ [key]: [...names] }));
 }
 
-export function splitNames(
+function splitNames(
   catalog: readonly string[],
   includedNames: readonly string[],
 ): NameSplit {
