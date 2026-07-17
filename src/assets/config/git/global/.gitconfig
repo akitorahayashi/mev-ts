@@ -73,8 +73,5 @@
     l = log --oneline --graph --decorate --all -n 15
     lg = l
 
-[core]
-	excludesfile = ~/.gitignore_global
-
 [pull]
     ff = only
