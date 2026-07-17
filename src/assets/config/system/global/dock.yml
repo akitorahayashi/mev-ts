@@ -3,8 +3,26 @@
 - key: tilesize
   domain: com.apple.dock
   type: int
-  value: 50
+  value: 32
   comment: "Dock"
+
+# Positions the Dock on the right edge of the screen.
+- key: orientation
+  domain: com.apple.dock
+  type: string
+  value: "right"
+
+# Enables icon magnification on hover/focus.
+- key: magnification
+  domain: com.apple.dock
+  type: bool
+  value: true
+
+# Sets the magnified icon size (in pixels) used while magnification is on.
+- key: largesize
+  domain: com.apple.dock
+  type: int
+  value: 64
 
 # Enables or disables the auto-hiding feature of the Dock.
 - key: autohide
