@@ -1,36 +1,28 @@
 import { errorMessage, ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-
-interface ExtensionsConfig {
-  readonly extensions: readonly string[];
-}
+import { requireRecord, requireStringArray } from '../host/parse';
 
 export function parseExtensions(raw: string, path: string): string[] {
-  let parsed: ExtensionsConfig;
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw) as ExtensionsConfig;
+    parsed = JSON.parse(raw);
   } catch (error) {
     throw new ProvisioningError(
       `Failed to parse extensions manifest as JSON: ${path}. ${errorMessage(error)}`,
     );
   }
-  if (!parsed?.extensions || !Array.isArray(parsed.extensions)) {
-    throw new ProvisioningError(
-      `Extensions manifest must contain an extensions array: ${path}`,
-    );
-  }
-  if (
-    !parsed.extensions.every(
-      (extension) =>
-        typeof extension === 'string' && extension.trim().length > 0,
-    )
-  ) {
+  const record = requireRecord(parsed, `Extensions manifest ${path}`);
+  const extensions = requireStringArray(
+    record.extensions,
+    `Extensions manifest ${path}: 'extensions'`,
+  );
+  if (!extensions.every((extension) => extension.trim().length > 0)) {
     throw new ProvisioningError(
       `Extensions manifest must contain an extensions array of non-empty strings: ${path}`,
     );
   }
-  return [...parsed.extensions];
+  return [...extensions];
 }
 
 /**

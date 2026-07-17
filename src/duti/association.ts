@@ -10,7 +10,7 @@ export interface Association {
 }
 
 export function parseAssociations(raw: string, path: string): Association[] {
-  const parsed = loadYaml(raw);
+  const parsed = loadYaml(raw, path);
   const defaultApps = isRecord(parsed) ? parsed.default_apps : undefined;
   if (!Array.isArray(defaultApps)) {
     throw new ProvisioningError(
@@ -70,7 +70,7 @@ export async function currentApp(
   const bundleId = result.stdout
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(line))
+    .filter((line) => /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$/.test(line))
     .at(-1);
   return bundleId ?? null;
 }

@@ -1,6 +1,6 @@
 import { type InstallReport, installPackages } from '../brew/install';
 import { errorMessage } from '../errors';
-import { type Context, createContext } from '../host/context';
+import type { Context } from '../host/context';
 import {
   type ActivationReport,
   blockedReport,
@@ -38,7 +38,6 @@ export interface MakeReport {
 
 export interface MakeRequest {
   readonly tags: readonly string[];
-  readonly overwrite: boolean;
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
@@ -69,7 +68,7 @@ function blockerReason(blockers: readonly ActivationBlocker[]): string {
  */
 export async function runMake(
   request: MakeRequest,
-  context: Context = createContext({ overwrite: request.overwrite }),
+  context: Context,
 ): Promise<MakeReport> {
   const selection = planMake(request.tags);
 

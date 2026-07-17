@@ -1,4 +1,7 @@
 import { expect, test } from 'bun:test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { BaseContext } from 'clipanion';
 import packageMetadata from '../../package.json';
 import { runCommandLine } from '../../src/main';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -13,46 +16,39 @@ function stripAnsi(text: string): string {
   return Bun.stripANSI(text);
 }
 
+function memoryWriter(sink: (text: string) => void) {
+  return (chunk: unknown, encoding?: unknown, cb?: unknown): boolean => {
+    sink(
+      chunk instanceof Uint8Array
+        ? Buffer.from(chunk).toString()
+        : String(chunk),
+    );
+    if (typeof encoding === 'function') encoding();
+    if (typeof cb === 'function') cb();
+    return true;
+  };
+}
+
+// Inject in-memory streams through clipanion's context instead of patching the
+// process globals, so capture is isolated and parallel-safe.
 async function capture(args: readonly string[]): Promise<RunResult> {
   let stdout = '';
   let stderr = '';
-  const originalStdout = process.stdout.write;
-  const originalStderr = process.stderr.write;
+  const context = {
+    stdout: {
+      write: memoryWriter((text) => {
+        stdout += text;
+      }),
+    },
+    stderr: {
+      write: memoryWriter((text) => {
+        stderr += text;
+      }),
+    },
+  } as unknown as Partial<BaseContext>;
 
-  process.stdout.write = ((
-    chunk: unknown,
-    encoding?: unknown,
-    cb?: unknown,
-  ) => {
-    stdout +=
-      chunk instanceof Uint8Array
-        ? Buffer.from(chunk).toString()
-        : String(chunk);
-    if (typeof encoding === 'function') encoding();
-    if (typeof cb === 'function') cb();
-    return true;
-  }) as typeof process.stdout.write;
-  process.stderr.write = ((
-    chunk: unknown,
-    encoding?: unknown,
-    cb?: unknown,
-  ) => {
-    stderr +=
-      chunk instanceof Uint8Array
-        ? Buffer.from(chunk).toString()
-        : String(chunk);
-    if (typeof encoding === 'function') encoding();
-    if (typeof cb === 'function') cb();
-    return true;
-  }) as typeof process.stderr.write;
-
-  try {
-    const code = await runCommandLine(args);
-    return { code, stdout, stderr };
-  } finally {
-    process.stdout.write = originalStdout;
-    process.stderr.write = originalStderr;
-  }
+  const code = await runCommandLine(args, context);
+  return { code, stdout, stderr };
 }
 
 test('version prints to stdout and exits successfully', async () => {
@@ -200,6 +196,50 @@ test('domain errors print concise diagnostics to stderr', async () => {
       expect(result.stdout).not.toContain(
         'Run provisioning to deploy it first',
       );
+      expect(
+        stripAnsi(result.stderr)
+          .split('\n')
+          .some((line) => line.startsWith('    at ')),
+      ).toBe(false);
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+    }
+  });
+});
+
+test('a corrupt selection manifest exits 1 with a labeled error on stderr', async () => {
+  const originalHome = process.env.HOME;
+  await withTemporaryDirectory(async (home) => {
+    try {
+      process.env.HOME = home;
+      // A valid catalog so selection resolution reaches the manifest read.
+      const catalogDir = join(
+        home,
+        '.config/mev/roles/coder/global/agents-sections',
+      );
+      await mkdir(catalogDir, { recursive: true });
+      await writeFile(
+        join(catalogDir, 'catalog.yml'),
+        'sections:\n  - alpha\n',
+      );
+      await writeFile(join(catalogDir, 'alpha.md'), '## Alpha\n');
+      const manifestDir = join(home, '.config/mev/coder');
+      await mkdir(manifestDir, { recursive: true });
+      await writeFile(
+        join(manifestDir, 'agents-sections.yml'),
+        '{ invalid yaml',
+      );
+
+      const result = await capture(['cf', 'agents']);
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('Failed to parse YAML');
+      expect(result.stderr).toContain('agents-sections.yml');
+      expect(result.stdout).not.toContain('Failed to parse YAML');
       expect(
         stripAnsi(result.stderr)
           .split('\n')

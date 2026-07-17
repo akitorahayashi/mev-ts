@@ -17,10 +17,28 @@ import {
 } from '../coder/paths';
 import { buildSkills } from '../coder/skills';
 import { resolveSelection } from '../selection';
-import type { Activation, ActivationReport, Described } from './contract';
+import type {
+  Activation,
+  ActivationReport,
+  Described,
+  StepReport,
+} from './contract';
 
 type CoderAgentsActivation = Extract<Activation, { kind: 'coderAgents' }>;
 type CoderSkillsActivation = Extract<Activation, { kind: 'coderSkills' }>;
+
+/**
+ * Report opt-out manifest names the catalog no longer contains. A stale disabled
+ * entry is benign (it applies nothing), so it surfaces as `unchanged` config
+ * drift rather than failing the run.
+ */
+function staleManifestEntries(unknown: readonly string[]): StepReport[] {
+  return unknown.map((name) => ({
+    key: name,
+    value: 'stale manifest entry',
+    status: 'unchanged',
+  }));
+}
 
 /**
  * Build the intermediate AGENTS.md from the enabled sections and symlink it to
@@ -131,11 +149,15 @@ export async function runCoderAgents(
     const sourceDir = deployedDir(activation.sectionsPrefix, context.home);
     const catalog = await readSections(sourceDir);
     const disabled = await readDisabled(agentsManifest(context.home));
-    const { enabled } = resolveSelection(catalog, disabled, 'opt-out');
+    const { enabled, unknown } = resolveSelection(catalog, disabled, 'opt-out');
     const output = agentsFile(context.home);
     const built = await buildAgents(sourceDir, enabled, output);
     const linked = await fanoutFile(activation.dests, output, context);
-    return { ...base, status: built || linked ? 'changed' : 'unchanged' };
+    const status = built || linked ? 'changed' : 'unchanged';
+    const entries = staleManifestEntries(unknown);
+    return entries.length > 0
+      ? { ...base, status, entries }
+      : { ...base, status };
   } catch (error) {
     return { ...base, status: 'failed', error: errorMessage(error) };
   }
@@ -150,7 +172,7 @@ export async function runCoderSkills(
     const sourceDir = deployedDir(activation.skillsPrefix, context.home);
     const catalog = await readSkills(sourceDir);
     const disabled = await readDisabled(skillsManifest(context.home));
-    const { enabled } = resolveSelection(catalog, disabled, 'opt-out');
+    const { enabled, unknown } = resolveSelection(catalog, disabled, 'opt-out');
     const intermediate = skillsDir(context.home);
     const built = await buildSkills(sourceDir, enabled, intermediate);
     const linked = await fanoutSkills(
@@ -159,7 +181,11 @@ export async function runCoderSkills(
       enabled,
       context,
     );
-    return { ...base, status: built || linked ? 'changed' : 'unchanged' };
+    const status = built || linked ? 'changed' : 'unchanged';
+    const entries = staleManifestEntries(unknown);
+    return entries.length > 0
+      ? { ...base, status, entries }
+      : { ...base, status };
   } catch (error) {
     return { ...base, status: 'failed', error: errorMessage(error) };
   }

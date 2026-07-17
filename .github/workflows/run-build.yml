@@ -36,6 +36,8 @@ jobs:
 
   build-release:
     name: Build ${{ matrix.target }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +70,7 @@ jobs:
 
       - name: Upload Release Asset
         if: inputs.release_id != ''
-        uses: akitorahayashi/gh-release@v1
+        uses: akitorahayashi/gh-release@aa696643869780261a02c3f5775f36b32b4faab5 # v1
         with:
           mode: upload
           token: ${{ github.token }}

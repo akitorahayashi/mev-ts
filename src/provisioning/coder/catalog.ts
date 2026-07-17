@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { readDirentsIfPresent, readTextIfPresent } from '../../host/absence';
+import { requireRecord } from '../../host/parse';
 import { loadYaml } from '../../host/yaml';
 
 /**
@@ -10,10 +11,6 @@ import { loadYaml } from '../../host/yaml';
  * Both read the deployed sources, never the embedded assets, so selection and
  * provisioning agree on the same materialized tree.
  */
-
-interface SectionsCatalogFile {
-  readonly sections?: unknown;
-}
 
 /**
  * Validate a section catalog against the section files present beside it.
@@ -59,8 +56,11 @@ export async function readSections(sourceDir: string): Promise<string[]> {
       `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
     );
   }
-  const parsed = loadYaml(raw) as SectionsCatalogFile;
-  if (!Array.isArray(parsed?.sections)) {
+  const parsed = requireRecord(
+    loadYaml(raw, catalogPath),
+    `AGENTS.md section catalog ${catalogPath}`,
+  );
+  if (!Array.isArray(parsed.sections)) {
     throw new ProvisioningError(
       `AGENTS.md section catalog must contain a sections sequence: ${catalogPath}.`,
     );

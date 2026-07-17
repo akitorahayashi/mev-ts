@@ -13,7 +13,12 @@ import { readOverrides } from '../zed/catalog';
 import { readEnabled } from '../zed/manifest';
 import { overridesManifest, settingsFile } from '../zed/paths';
 import { buildSettings } from '../zed/settings';
-import type { Activation, ActivationReport, Described } from './contract';
+import type {
+  Activation,
+  ActivationReport,
+  Described,
+  StepReport,
+} from './contract';
 
 type ZedSettingsActivation = Extract<Activation, { kind: 'zedSettings' }>;
 
@@ -49,7 +54,11 @@ export async function runZedSettings(
     const sourceDir = deployedDir(activation.overridesPrefix, context.home);
     const catalog = await readOverrides(sourceDir);
     const enabled = await readEnabled(overridesManifest(context.home));
-    const { enabled: applied } = resolveSelection(catalog, enabled, 'opt-in');
+    const { enabled: applied, unknown } = resolveSelection(
+      catalog,
+      enabled,
+      'opt-in',
+    );
 
     const output = settingsFile(context.home);
     const built = await buildSettings(basePath, sourceDir, applied, output);
@@ -59,6 +68,18 @@ export async function runZedSettings(
     if (!(await isSymlinkTo(link, output))) {
       await placeSymlink(link, output, context.overwrite);
       linked = true;
+    }
+
+    // Under opt-in, an enabled override the catalog no longer contains cannot
+    // apply — a misconfiguration, so fail the activation and name each one
+    // rather than silently reporting success.
+    if (unknown.length > 0) {
+      const entries: StepReport[] = unknown.map((name) => ({
+        key: name,
+        value: 'not in catalog',
+        status: 'failed',
+      }));
+      return { ...base, status: 'failed', entries };
     }
     return { ...base, status: built || linked ? 'changed' : 'unchanged' };
   } catch (error) {

@@ -2,10 +2,10 @@ import { unlink } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
 import { isNotFound, readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
-import { isRecord } from '../host/parse';
+import { isRecord, requireStringArray } from '../host/parse';
 import { dumpYaml, loadYaml } from '../host/yaml';
 
-export interface NameSplit {
+interface NameSplit {
   readonly included: readonly string[];
   readonly excluded: readonly string[];
   readonly unknown: readonly string[];
@@ -60,7 +60,7 @@ export async function readNameList(
   if (raw === null) {
     return [];
   }
-  const parsed = loadYaml(raw);
+  const parsed = loadYaml(raw, `${label} ${manifestPath}`);
   // A present file that is not a mapping, or one missing the key, is a hand-edit
   // or corruption — surfaced rather than silently read as an empty selection
   // (which, under opt-out, would re-enable everything).
@@ -74,18 +74,10 @@ export async function readNameList(
       `Invalid ${label} ${manifestPath}: missing '${key}' sequence.`,
     );
   }
-  const value = parsed[key];
-  if (!Array.isArray(value)) {
-    throw new ProvisioningError(
-      `Invalid ${label} ${manifestPath}: '${key}' must be a sequence.`,
-    );
-  }
-  if (!value.every((entry) => typeof entry === 'string')) {
-    throw new ProvisioningError(
-      `Invalid ${label} ${manifestPath}: '${key}' must be a sequence of strings.`,
-    );
-  }
-  return value;
+  return requireStringArray(
+    parsed[key],
+    `Invalid ${label} ${manifestPath}: '${key}'`,
+  );
 }
 
 export async function writeNameList(
@@ -106,7 +98,7 @@ export async function writeNameList(
   await writeFileAtomically(manifestPath, dumpYaml({ [key]: [...names] }));
 }
 
-export function splitNames(
+function splitNames(
   catalog: readonly string[],
   includedNames: readonly string[],
 ): NameSplit {

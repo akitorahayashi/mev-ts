@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { AppError, errorMessage } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
+import { isRecord } from '../host/parse';
 import { allScopes, type IdentityScope } from './scope';
 
 /** A name/email pair applied to global Git configuration. */
@@ -51,8 +52,12 @@ export async function readState(path: string): Promise<IdentityState | null> {
     );
   }
 
+  if (!isRecord(raw)) {
+    throw new AppError(`identity config at ${path} is not a JSON object.`);
+  }
+
   return Object.fromEntries(
-    allScopes().map((scope) => [scope, readIdentity(raw, scope)]),
+    allScopes().map((scope) => [scope, readIdentity(raw, scope, path)]),
   ) as IdentityState;
 }
 
@@ -65,13 +70,38 @@ export async function saveState(
   await writeFileAtomically(path, content);
 }
 
-function readIdentity(raw: unknown, key: IdentityScope): Identity | null {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const entry = (raw as Record<string, unknown>)[key];
-  if (typeof entry !== 'object' || entry === null) return null;
-  const { name, email } = entry as Record<string, unknown>;
-  if (typeof name !== 'string' || typeof email !== 'string') return null;
-  return makeIdentity(name, email);
+/**
+ * Read one scope's identity. An absent scope (or an explicit null) is the
+ * unconfigured state and yields null. A present-but-malformed entry — wrong
+ * types, a non-object, or a blank name/email that `saveState` would never write
+ * — is a corrupted-but-recoverable file, surfaced as an `AppError` rather than
+ * silently read as null (which a later `saveState` would then delete).
+ */
+function readIdentity(
+  raw: Record<string, unknown>,
+  scope: IdentityScope,
+  path: string,
+): Identity | null {
+  const entry = raw[scope];
+  if (entry === undefined || entry === null) return null;
+  if (!isRecord(entry)) {
+    throw new AppError(
+      `identity config at ${path} has a malformed '${scope}' entry: expected an object.`,
+    );
+  }
+  const { name, email } = entry;
+  if (typeof name !== 'string' || typeof email !== 'string') {
+    throw new AppError(
+      `identity config at ${path} has a malformed '${scope}' entry: 'name' and 'email' must be strings.`,
+    );
+  }
+  const identity = makeIdentity(name, email);
+  if (identity === null) {
+    throw new AppError(
+      `identity config at ${path} has a blank name or email in the '${scope}' entry.`,
+    );
+  }
+  return identity;
 }
 
 function serialize(state: IdentityState): Record<string, Identity> {

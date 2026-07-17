@@ -2,6 +2,7 @@ import { Command, Option } from 'clipanion';
 import type { SelectEntries } from '../../../app/config-selection';
 import { resolveHome } from '../../../host/context';
 import { toggle } from '../../tty/toggle';
+import { withAliasHint } from '../alias-hint';
 import { runReportingDomainErrors } from '../domain-error';
 
 /** One config toggle surface: its routing, help text, and the two operations. */
@@ -19,14 +20,12 @@ export interface ConfigCommandSpec {
 
 /**
  * Build a config toggle command from a spec. The alias hint is derived from the
- * non-canonical paths so it cannot drift from the actual routing, and the
- * stdout warn writer is applied uniformly here rather than per command.
+ * non-canonical paths so it cannot drift from the actual routing, and the warn
+ * writer routes to stderr (diagnostics, matching the internal-command wiring)
+ * uniformly here rather than per command.
  */
 export function defineConfigCommand(spec: ConfigCommandSpec) {
-  const aliases = spec.paths.slice(1).map((path) => path.join(' '));
-  const description = aliases.length
-    ? `${spec.description} [aliases: ${aliases.join(', ')}]`
-    : spec.description;
+  const description = withAliasHint(spec.description, spec.paths);
 
   return class extends Command {
     static override paths = spec.paths;
@@ -42,7 +41,11 @@ export function defineConfigCommand(spec: ConfigCommandSpec) {
         if (this.clear) {
           await spec.runClear(home);
         } else {
-          await spec.runSelect(home, (m) => process.stdout.write(m), toggle);
+          await spec.runSelect(
+            home,
+            (m) => this.context.stderr.write(m),
+            toggle,
+          );
         }
       });
     }

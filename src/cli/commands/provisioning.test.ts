@@ -97,7 +97,6 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
 
   expect(result.code).toBe(0);
   expect(requests[0]?.tags).toEqual(['shell']);
-  expect(requests[0]?.overwrite).toBe(true);
   expect(result.stdout).toContain('mev: Creating personal environment');
   expect(result.stdout).toContain('Deployed config for shell  .zshenv');
   expect(result.stdout).toContain('Running tags: shell');

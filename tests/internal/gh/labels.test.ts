@@ -10,8 +10,8 @@ import {
   sequenceRunner,
 } from '../../fixtures/fake-command-runner';
 
-async function runAllTasks(tasks: { run: () => Promise<void> }[]) {
-  await Promise.all(tasks.map((task) => task.run()));
+async function runAllTasks(tasks: { apply: () => Promise<void> }[]) {
+  await Promise.all(tasks.map((task) => task.apply()));
 }
 
 test('buildDeployTasks creates labels absent from the repository', async () => {

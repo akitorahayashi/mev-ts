@@ -16,7 +16,6 @@ The repository owns:
 
 The repository-owned tasks are:
 
-- `bun run mev <command>`
 - `bun e <command>`
 - `bun run build`
 - `bun run fix`

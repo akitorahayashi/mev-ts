@@ -21,15 +21,12 @@ function gitGroup(report: Awaited<ReturnType<typeof runMake>>) {
 
 sandboxTest('an unknown tag is rejected', async (sandbox) => {
   await expect(
-    runMake({ tags: ['nope'], overwrite: false }, contextFor(sandbox)),
+    runMake({ tags: ['nope'] }, contextFor(sandbox)),
   ).rejects.toBeInstanceOf(CommandLineError);
 });
 
 sandboxTest('apply deploys and links the git target', async (sandbox) => {
-  const report = await runMake(
-    { tags: ['git'], overwrite: false },
-    contextFor(sandbox),
-  );
+  const report = await runMake({ tags: ['git'] }, contextFor(sandbox));
 
   expect(report.failed).toBe(false);
   expect(report.deploys.some((d) => d.role === 'git' && d.deployed)).toBe(true);
@@ -42,7 +39,7 @@ sandboxTest(
   'an alias and its tag select the same target once',
   async (sandbox) => {
     const report = await runMake(
-      { tags: ['sh', 'shell'], overwrite: false },
+      { tags: ['sh', 'shell'] },
       contextFor(sandbox),
     );
     expect(report.selection.tags).toEqual(['shell']);
@@ -57,7 +54,6 @@ sandboxTest(
     await runMake(
       {
         tags: ['git'],
-        overwrite: false,
         onDeploy: (r) => deployed.push(r.role),
         onInstallStart: (n) => {
           installTotal = n;
@@ -126,9 +122,41 @@ sandboxTest(
       },
     };
 
-    await runMake({ tags: ['xcode'], overwrite: false }, context);
+    await runMake({ tags: ['xcode'] }, context);
 
     expect(writes).toEqual(defaultsKeys);
+  },
+);
+
+sandboxTest(
+  'a failed role deploy blocks its group activations',
+  async (sandbox) => {
+    const context: Context = {
+      ...contextFor(sandbox),
+      assets: {
+        read: (key) =>
+          key.startsWith('git/')
+            ? Promise.reject(new Error('deploy boom'))
+            : embeddedAssets.read(key),
+        keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
+        isExecutable: (key) => embeddedAssets.isExecutable(key),
+      },
+    };
+
+    const report = await runMake({ tags: ['git'] }, context);
+    const group = gitGroup(report);
+
+    expect(report.failed).toBe(true);
+    const deploy = report.deploys.find((d) => d.role === 'git');
+    expect(deploy?.deployed).toBe(false);
+    expect(deploy?.error).toContain('deploy boom');
+    expect(group?.blockers).toContainEqual(
+      expect.objectContaining({ kind: 'deploy', role: 'git' }),
+    );
+    expect(group?.reports.length).toBeGreaterThan(0);
+    expect(group?.reports.every((entry) => entry.status === 'blocked')).toBe(
+      true,
+    );
   },
 );
 
@@ -160,10 +188,7 @@ sandboxTest(
       },
     };
 
-    const report = await runMake(
-      { tags: ['python'], overwrite: false },
-      context,
-    );
+    const report = await runMake({ tags: ['python'] }, context);
     const group = report.groups.find((entry) => entry.tag === 'python');
 
     expect(report.failed).toBe(true);

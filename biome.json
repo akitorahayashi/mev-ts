@@ -7,7 +7,8 @@
       "!node_modules",
       "!coverage",
       "!references",
-      "!src/assets/registry.generated.ts"
+      "!src/assets/registry.generated.ts",
+      "!src/assets/config"
     ]
   },
   "formatter": {

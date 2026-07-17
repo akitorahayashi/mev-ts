@@ -1,4 +1,5 @@
 import { createProgressBar } from 'tty-prog';
+import { createContext } from '../../host/context';
 import {
   type MakeReport,
   type MakeRequest,
@@ -20,7 +21,7 @@ interface ProvisioningRunOptions {
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
-  readonly out?: (text: string) => void;
+  readonly out: (text: string) => void;
   readonly isTTY?: boolean;
 }
 
@@ -28,13 +29,14 @@ export async function executeProvisioningRun(
   options: ProvisioningRunOptions,
 ): Promise<number> {
   const isTTY = options.isTTY ?? resolveIsTTY();
-  const out =
-    options.out ??
-    ((text: string) => {
-      process.stdout.write(text);
-    });
+  const out = options.out;
   const startedAt = Date.now();
-  const run = options.run ?? runMake;
+  // `overwrite` lives only on the Context; the default run builds one from the
+  // CLI flag. An injected run (tests) receives the request alone.
+  const run =
+    options.run ??
+    ((request: MakeRequest) =>
+      runMake(request, createContext({ overwrite: options.overwrite })));
 
   if (options.intro) {
     out(`${options.intro}\n`);
@@ -45,7 +47,6 @@ export async function executeProvisioningRun(
   try {
     const report = await run({
       tags: options.tags,
-      overwrite: options.overwrite,
       onDeploy(result) {
         const line = renderDeployLine(result, isTTY);
         if (line) out(`${line}\n`);
@@ -56,6 +57,9 @@ export async function executeProvisioningRun(
       onInstallStart(total) {
         if (total > 0 && isTTY) {
           out('\n');
+          // The progress bar needs a real WriteStream (isTTY/columns/cursor),
+          // which the injected text writer is not; it renders only on a live
+          // TTY, so binding it to the process's stdout is correct here.
           bar = createProgressBar({
             total,
             isTty: isTTY,

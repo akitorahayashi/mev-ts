@@ -1,5 +1,6 @@
 import { asset } from '../../assets/ref';
 import { errorMessage, ProvisioningError } from '../../errors';
+import { isRecord } from '../../host/parse';
 import { home } from '../../host/path';
 import type { CommandScope } from '../activation';
 import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
@@ -12,9 +13,7 @@ const pnpmEnv = (s: CommandScope) => ({
 
 function isPackageMap(value: unknown): value is Record<string, string> {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
+    isRecord(value) &&
     Object.values(value).every((version) => typeof version === 'string')
   );
 }
@@ -28,32 +27,23 @@ export function globalPackageArgs(raw: string): string[] {
       `Failed to parse pnpm global packages manifest as JSON: ${errorMessage(error)}`,
     );
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+  if (!isRecord(parsed)) {
     throw new ProvisioningError(
       'pnpm global packages manifest must be an object.',
     );
   }
-  const manifest = parsed as {
-    readonly dependencies?: unknown;
-    readonly globalPackages?: unknown;
-  };
-  if (
-    manifest.dependencies !== undefined &&
-    !isPackageMap(manifest.dependencies)
-  ) {
+  const { dependencies, globalPackages } = parsed;
+  if (dependencies !== undefined && !isPackageMap(dependencies)) {
     throw new ProvisioningError(
       'pnpm global packages manifest dependencies must be an object of string versions.',
     );
   }
-  if (
-    manifest.globalPackages !== undefined &&
-    !isPackageMap(manifest.globalPackages)
-  ) {
+  if (globalPackages !== undefined && !isPackageMap(globalPackages)) {
     throw new ProvisioningError(
       'pnpm global packages manifest globalPackages must be an object of string versions.',
     );
   }
-  const all = { ...manifest.dependencies, ...manifest.globalPackages };
+  const all = { ...dependencies, ...globalPackages };
   const pkgArgs = Object.entries(all).map(([name, version]) =>
     version ? `${name}@${version}` : name,
   );

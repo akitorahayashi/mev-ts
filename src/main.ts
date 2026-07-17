@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { Builtins, Cli } from 'clipanion';
+import { type BaseContext, Builtins, Cli } from 'clipanion';
 import packageMetadata from '../package.json';
 import { commands } from './cli/commands/registry';
 
@@ -59,10 +59,14 @@ export function rewriteNamespaceHelp(
 
 export function runCommandLine(
   args: readonly string[] = Bun.argv.slice(2),
+  context?: Partial<BaseContext>,
 ): Promise<number> {
   const cli = createCli();
   const paths = commands.flatMap((command) => command.paths ?? []);
-  return cli.run([...rewriteNamespaceHelp(args, paths)]);
+  const input = [...rewriteNamespaceHelp(args, paths)];
+  // Forward an injected context (tests, embedders) to clipanion; with none, its
+  // default context binds the real process streams — byte-identical to before.
+  return context ? cli.run(input, context) : cli.run(input);
 }
 
 if (import.meta.main) {

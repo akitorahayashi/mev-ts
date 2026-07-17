@@ -1,11 +1,15 @@
 import { Command, Option } from 'clipanion';
+import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
 
 export class MakeCommand extends Command {
   static override paths = [['make'], ['mk']];
   static override usage = Command.Usage({
-    description: 'Apply provisioning for one or more tags. [aliases: mk]',
+    description: withAliasHint(
+      'Apply provisioning for one or more tags.',
+      MakeCommand.paths,
+    ),
   });
 
   tags = Option.Rest({ required: 1 });
@@ -18,6 +22,7 @@ export class MakeCommand extends Command {
       executeProvisioningRun({
         tags: this.tags,
         overwrite: this.overwrite,
+        out: (text) => this.context.stdout.write(text),
       }),
     );
   }
