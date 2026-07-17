@@ -3,7 +3,7 @@ import type { IdentityView } from '../../app/identity';
 import { renderIdentities } from './identities';
 
 const baseView: IdentityView = {
-  path: '/Users/test/.config/mev/identity.json',
+  path: '/Users/test/.mev/identity.json',
   identities: {
     personal: { name: 'Personal Name', email: 'personal@example.com' },
     work: { name: 'Work Name', email: 'work@example.com' },

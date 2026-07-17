@@ -217,17 +217,14 @@ test('a corrupt selection manifest exits 1 with a labeled error on stderr', asyn
     try {
       process.env.HOME = home;
       // A valid catalog so selection resolution reaches the manifest read.
-      const catalogDir = join(
-        home,
-        '.config/mev/roles/coder/global/agents-sections',
-      );
+      const catalogDir = join(home, '.mev/roles/coder/global/agents-sections');
       await mkdir(catalogDir, { recursive: true });
       await writeFile(
         join(catalogDir, 'catalog.yml'),
         'sections:\n  - alpha\n',
       );
       await writeFile(join(catalogDir, 'alpha.md'), '## Alpha\n');
-      const manifestDir = join(home, '.config/mev/coder');
+      const manifestDir = join(home, '.mev/coder');
       await mkdir(manifestDir, { recursive: true });
       await writeFile(
         join(manifestDir, 'agents-sections.yml'),

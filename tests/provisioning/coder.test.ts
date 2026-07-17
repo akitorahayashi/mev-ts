@@ -25,7 +25,7 @@ import { sandboxedTest } from '../fixtures/temporary-directory';
 const sandboxTest = sandboxedTest('coder-');
 
 function sourceDir(homeDir: string, prefix: string): string {
-  return join(homeDir, '.config', 'mev', 'roles', prefix);
+  return join(homeDir, '.mev', 'roles', prefix);
 }
 
 async function deploySections(
@@ -69,7 +69,7 @@ sandboxTest(
     );
 
     expect(report.status).toBe('changed');
-    const built = join(dir, '.config', 'mev', 'coder', 'AGENTS.md');
+    const built = join(dir, '.mev', 'coder', 'AGENTS.md');
     const contents = await readFile(built, 'utf8');
     expect(contents).toContain('## Alpha');
     expect(contents).toContain('## Beta');
@@ -88,7 +88,7 @@ sandboxTest(
       alpha: '## Alpha\n',
       beta: '## Beta\n',
     });
-    const manifestDir = join(dir, '.config', 'mev', 'coder');
+    const manifestDir = join(dir, '.mev', 'coder');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'agents-sections.yml'),
@@ -125,7 +125,7 @@ sandboxTest(
     await deploySections(dir, 'sections:\n  - alpha\n', {
       alpha: '## Alpha\n',
     });
-    const manifestDir = join(dir, '.config', 'mev', 'coder');
+    const manifestDir = join(dir, '.mev', 'coder');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'agents-sections.yml'),
@@ -147,8 +147,8 @@ sandboxTest('coderAgents surfaces manifest filesystem errors', async (dir) => {
   await deploySections(dir, 'sections:\n  - alpha\n', {
     alpha: '## Alpha\n',
   });
-  await mkdir(join(dir, '.config', 'mev'), { recursive: true });
-  await writeFile(join(dir, '.config', 'mev', 'coder'), 'not a directory');
+  await mkdir(join(dir, '.mev'), { recursive: true });
+  await writeFile(join(dir, '.mev', 'coder'), 'not a directory');
 
   const report = await runActivation(
     coderAgents(AGENTS_SECTIONS_PREFIX, [AGENTS_DEST]),
@@ -162,7 +162,7 @@ sandboxTest('coderAgents surfaces manifest filesystem errors', async (dir) => {
 sandboxTest(
   'coderAgents surfaces deployed catalog filesystem errors',
   async (dir) => {
-    const parent = join(dir, '.config', 'mev', 'roles', 'coder', 'global');
+    const parent = join(dir, '.mev', 'roles', 'coder', 'global');
     await mkdir(join(parent, '..'), { recursive: true });
     await writeFile(parent, 'not a directory');
 
@@ -192,7 +192,7 @@ sandboxTest('coderAgents surfaces generated file read errors', async (dir) => {
   await deploySections(dir, 'sections:\n  - alpha\n', {
     alpha: '## Alpha\n',
   });
-  const generatedParent = join(dir, '.config', 'mev', 'coder');
+  const generatedParent = join(dir, '.mev', 'coder');
   await mkdir(generatedParent, { recursive: true });
   await mkdir(join(generatedParent, 'AGENTS.md'));
 
@@ -216,13 +216,13 @@ sandboxTest(
     );
 
     expect(report.status).toBe('changed');
-    const intermediate = join(dir, '.config', 'mev', 'coder', 'skills', 'toon');
+    const intermediate = join(dir, '.mev', 'coder', 'skills', 'toon');
     expect(await readlink(intermediate)).toBe(
       join(sourceDir(dir, SKILLS_PREFIX), 'toon'),
     );
     const targetLink = join(dir, '.claude', 'skills', 'task-doc');
     expect(await readlink(targetLink)).toBe(
-      join(dir, '.config', 'mev', 'coder', 'skills', 'task-doc'),
+      join(dir, '.mev', 'coder', 'skills', 'task-doc'),
     );
   },
 );
@@ -231,7 +231,7 @@ sandboxTest(
   'coderSkills removes a target link when its skill is disabled',
   async (dir) => {
     await deploySkills(dir, ['toon']);
-    const manifestDir = join(dir, '.config', 'mev', 'coder');
+    const manifestDir = join(dir, '.mev', 'coder');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'skills-selection.yml'),

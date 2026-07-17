@@ -88,7 +88,7 @@ sandboxTest(
   'configSelect warns about manifest names absent from the catalog',
   async (dir) => {
     await deploySections(dir, ['alpha', 'beta']);
-    await mkdir(join(dir, '.config', 'mev', 'coder'), { recursive: true });
+    await mkdir(join(dir, '.mev', 'coder'), { recursive: true });
     await writeFile(agentsManifest(dir), 'disabled:\n  - ghost\n');
     const { select, seen } = capturingSelect(['alpha', 'beta']);
     const { warn, warnings } = collectWarnings();
@@ -105,7 +105,7 @@ sandboxTest(
   'configSelect leaves the manifest untouched on cancel',
   async (dir) => {
     await deploySections(dir, ['alpha', 'beta']);
-    await mkdir(join(dir, '.config', 'mev', 'coder'), { recursive: true });
+    await mkdir(join(dir, '.mev', 'coder'), { recursive: true });
     await writeFile(agentsManifest(dir), 'disabled:\n  - beta\n');
     const { select } = capturingSelect(null);
     const { warn } = collectWarnings();

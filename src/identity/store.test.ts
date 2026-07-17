@@ -10,8 +10,8 @@ test('makeIdentity trims and validates non-empty fields', () => {
   expect(makeIdentity('Jane', '  ')).toBeNull();
 });
 
-test('identityFilePath resolves under ~/.config/mev', () => {
+test('identityFilePath resolves under ~/.mev', () => {
   expect(identityFilePath('/Users/test')).toBe(
-    '/Users/test/.config/mev/identity.json',
+    '/Users/test/.mev/identity.json',
   );
 });

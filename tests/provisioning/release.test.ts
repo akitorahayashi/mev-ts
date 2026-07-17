@@ -59,7 +59,7 @@ const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
 const CONFIG_KEY = 'rust-cli/global/binaries.yml';
 
 async function deployBinaries(home: string, yaml: string): Promise<void> {
-  const roleDir = join(home, '.config', 'mev', 'roles', 'rust-cli', 'global');
+  const roleDir = join(home, '.mev', 'roles', 'rust-cli', 'global');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'binaries.yml'), yaml);
 }

@@ -1,10 +1,11 @@
 import { join } from 'node:path';
+import { mevRoot } from '../../host/path';
 
 /** Deployed source for the named settings-override fragments. */
 export const OVERRIDES_PREFIX = 'zed/global/overrides';
 
 function zedRoot(home: string): string {
-  return join(home, '.config', 'mev', 'zed');
+  return join(home, mevRoot, 'zed');
 }
 
 /** The generated settings.json built from the base asset plus enabled overrides. */

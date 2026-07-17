@@ -73,7 +73,7 @@ sandboxTest(
   'configSelectZedOverrides warns about enabled names absent from the catalog',
   async (dir) => {
     await deployOverrides(dir, ['aaa']);
-    await mkdir(join(dir, '.config', 'mev', 'zed'), { recursive: true });
+    await mkdir(join(dir, '.mev', 'zed'), { recursive: true });
     await writeFile(overridesManifest(dir), 'enabled:\n  - ghost\n');
     const { select } = capturingSelect(['aaa']);
     const { warn, warnings } = collectWarnings();
@@ -89,7 +89,7 @@ sandboxTest(
   'configSelectZedOverrides leaves the manifest untouched on cancel',
   async (dir) => {
     await deployOverrides(dir, ['aaa', 'bbb']);
-    await mkdir(join(dir, '.config', 'mev', 'zed'), { recursive: true });
+    await mkdir(join(dir, '.mev', 'zed'), { recursive: true });
     await writeFile(overridesManifest(dir), 'enabled:\n  - aaa\n');
     const { select } = capturingSelect(null);
     const { warn } = collectWarnings();
@@ -106,7 +106,7 @@ sandboxTest(
   'configSelectZedOverridesClear empties the enabled list',
   async (dir) => {
     await deployOverrides(dir, ['aaa', 'bbb']);
-    await mkdir(join(dir, '.config', 'mev', 'zed'), { recursive: true });
+    await mkdir(join(dir, '.mev', 'zed'), { recursive: true });
     await writeFile(overridesManifest(dir), 'enabled:\n  - aaa\n');
 
     await configSelectZedOverridesClear(dir);

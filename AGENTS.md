@@ -45,7 +45,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### 3-Phase Provisioning
 
-`runMake()` drives three sequential phases: deploy embedded assets into `~/.config/mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply activations in declaration order (`runActivation()`). `overwrite` stages a replacement role before removing the old deploy, with best-effort rollback for in-process failures; otherwise existing deploys are skipped.
+`runMake()` drives three sequential phases: deploy embedded assets into `~/.mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply activations in declaration order (`runActivation()`). `overwrite` stages a replacement role before removing the old deploy, with best-effort rollback for in-process failures; otherwise existing deploys are skipped.
 
 ### Activation DSL
 
@@ -67,8 +67,9 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 ### Key Types
 
 - `Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }`, injected through every provisioning call; `basePath` is the inherited PATH read once in `createContext`. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient environment at spawn. Tests supply fakes via `tests/fixtures/`.
-- `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.config/mev/roles`, the sole authority).
+- `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
+- `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). Every mev-managed host path derives from it; none hardcodes `.mev` or a parallel root.
 - `Target` / `MakePlan` — a target groups tags/aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves tag attribution.
 - `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
 

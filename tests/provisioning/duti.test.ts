@@ -19,7 +19,7 @@ default_apps:
 const sandboxTest = sandboxedTest('duti-');
 
 async function deployConfig(dir: string): Promise<void> {
-  const roleDir = join(dir, '.config', 'mev', 'roles', 'duti', 'global');
+  const roleDir = join(dir, '.mev', 'roles', 'duti', 'global');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'default_apps.yml'), YAML);
 }
@@ -80,7 +80,7 @@ sandboxTest(
 sandboxTest(
   'unchanged when duti -x returns a bundle_id containing an underscore',
   async (dir) => {
-    const roleDir = join(dir, '.config', 'mev', 'roles', 'duti', 'global');
+    const roleDir = join(dir, '.mev', 'roles', 'duti', 'global');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'default_apps.yml'),
@@ -125,7 +125,7 @@ sandboxTest(
 sandboxTest(
   'failed when a duti config extension is not a string',
   async (dir) => {
-    const roleDir = join(dir, '.config', 'mev', 'roles', 'duti', 'global');
+    const roleDir = join(dir, '.mev', 'roles', 'duti', 'global');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'default_apps.yml'),
