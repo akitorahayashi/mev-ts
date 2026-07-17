@@ -3,7 +3,7 @@ import { home } from '../../host/path';
 import { link, linkTree } from '../activation';
 import { target } from '../target';
 
-const dotfiles = ['.zshenv', '.zprofile', '.zshrc'];
+const dotfiles = ['.zshenv', '.zprofile', '.zshrc', '.p10k.zsh'];
 
 // Alias fragments are mirrored under ~/.mev/alias as a single tree activation,
 // sourced recursively by .zshrc. The fragment set is resolved from the embedded
@@ -18,6 +18,7 @@ export const shellTarget = target('shell', {
       'fzf',
       'pandoc',
       'poppler',
+      'powerlevel10k',
       'zoxide',
       'zsh-autosuggestions',
       'zsh-syntax-highlighting',

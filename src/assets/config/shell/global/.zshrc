@@ -37,6 +37,10 @@ fi
 
 if [[ -n "${HOMEBREW_PREFIX:-}" ]] || command -v brew >/dev/null 2>&1; then
   BREW_PREFIX="${HOMEBREW_PREFIX:-$(brew --prefix)}"
+  if [[ -r "$BREW_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme" ]]; then
+    source "$BREW_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme"
+    [[ -r "$HOME/.p10k.zsh" ]] && source "$HOME/.p10k.zsh"
+  fi
   [[ -r "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] &&
     source "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
   [[ -r "$BREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] &&
