@@ -9,9 +9,6 @@ export const ghosttyTarget = target('ghostty', {
   role: 'ghostty',
   packages: { casks: ['ghostty'] },
   activations: [
-    link(
-      asset('ghostty/global/config'),
-      home('Library/Application Support/com.mitchellh.ghostty/config'),
-    ),
+    link(asset('ghostty/global/config'), home('.config/ghostty/config')),
   ],
 });

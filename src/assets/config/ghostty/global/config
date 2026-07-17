@@ -1,4 +1,4 @@
-theme = Github Dark Default
+theme = GitHub Dark Default
 
 font-family = "JetBrainsMono Nerd Font"
 font-size = 13
@@ -12,7 +12,7 @@ cursor-color = #7FFFD4
 minimum-contrast = 1.1
 mouse-hide-while-typing = true
 
-background-opacity = 0.5
+background-opacity = 0.8
 background-opacity-cells = true
 unfocused-split-opacity = 0.7
 split-divider-color = #2F3A4A

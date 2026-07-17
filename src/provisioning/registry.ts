@@ -3,7 +3,6 @@ import type { Target } from './target';
 import { antigravityIdeTarget } from './targets/antigravity-ide';
 import { bunTarget } from './targets/bun';
 import { caskTarget } from './targets/cask';
-import { cmuxTarget } from './targets/cmux';
 import { coderTarget } from './targets/coder';
 import { dutiTarget } from './targets/duti';
 import { formulaeTarget } from './targets/formulae';
@@ -43,7 +42,6 @@ const targets: readonly Target[] = [
   rustCliTarget,
   nvimTarget,
   ghosttyTarget,
-  cmuxTarget,
   herdrTarget,
   coderTarget,
   dutiTarget,
