@@ -3,6 +3,7 @@ import { AppError, errorMessage } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
 import { isRecord } from '../host/parse';
+import { mevRoot } from '../host/path';
 import { allScopes, type IdentityScope } from './scope';
 
 /** A name/email pair applied to global Git configuration. */
@@ -22,9 +23,9 @@ export function makeIdentity(name: string, email: string): Identity | null {
   return { name: trimmedName, email: trimmedEmail };
 }
 
-/** Resolve `~/.config/mev/identity.json` under the given home directory. */
+/** Resolve `~/.mev/identity.json` under the given home directory. */
 export function identityFilePath(home: string): string {
-  return join(home, '.config', 'mev', 'identity.json');
+  return join(home, mevRoot, 'identity.json');
 }
 
 /** The state with every scope unconfigured. */

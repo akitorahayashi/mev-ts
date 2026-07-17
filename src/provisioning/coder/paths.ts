@@ -1,17 +1,18 @@
 import { join } from 'node:path';
+import { mevRoot } from '../../host/path';
 
 export const AGENTS_SECTIONS_PREFIX = 'coder/global/agents-sections';
 export const SKILLS_PREFIX = 'coder/global/skills';
 
 /**
- * The coder intermediate-entity root `~/.config/mev/coder/`, a sibling of the
- * deploy store `~/.config/mev/roles/`. It holds generated entities — the
- * concatenated AGENTS.md, the skills directory, and the selection manifests —
- * kept apart from the deployed sources so re-deploying coder never overwrites
- * them. Agent tools symlink to entities under this root.
+ * The coder intermediate-entity root `~/.mev/coder/`, a sibling of the deploy
+ * store `~/.mev/roles/`. It holds generated entities — the concatenated
+ * AGENTS.md, the skills directory, and the selection manifests — kept apart
+ * from the deployed sources so re-deploying coder never overwrites them. Agent
+ * tools symlink to entities under this root.
  */
 function coderRoot(home: string): string {
-  return join(home, '.config', 'mev', 'coder');
+  return join(home, mevRoot, 'coder');
 }
 
 /** The generated AGENTS.md, built by concatenating the enabled sections. */

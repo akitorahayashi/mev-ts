@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { mevRoot } from '../host/path';
 
 /**
  * Reference to an embedded configuration asset. The key doubles as the asset
@@ -14,7 +15,7 @@ export function asset(key: string): AssetRef {
 }
 
 /** Root, relative to the user's home, where assets are materialized. */
-export const deployRoot = '.config/mev/roles';
+export const deployRoot = `${mevRoot}/roles`;
 
 /** Concrete path where the asset is materialized before it is symlinked. */
 export function deployedPath(ref: AssetRef, homeDir: string): string {

@@ -25,7 +25,7 @@ src/
 
 `runMake()` drives three sequential phases per make request:
 
-1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.config/mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case replacement is built in a sibling staging directory before the old role is moved aside and removed. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
+1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case replacement is built in a sibling staging directory before the old role is moved aside and removed. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
 2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
 3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
 
@@ -80,7 +80,7 @@ Eleven activation kinds:
 
 ### Selection Manifests
 
-`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.config/mev/`. `provisioning/selection.ts` owns the manifest IO (`readNameList`/`writeNameList`) and `resolveSelection(catalog, listed, mode)`: `opt-out` (coder) treats the stored list as disabled, so catalog entries added by later updates stay enabled; `opt-in` (zed) treats it as enabled, so a newly added override never applies itself. `app/config-selection.ts` drives the shared `mev config` toggle flow over that resolver. A present manifest that is not a mapping, or that lacks its key, is rejected rather than read as an empty selection.
+`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.mev/`. `provisioning/selection.ts` owns the manifest IO (`readNameList`/`writeNameList`) and `resolveSelection(catalog, listed, mode)`: `opt-out` (coder) treats the stored list as disabled, so catalog entries added by later updates stay enabled; `opt-in` (zed) treats it as enabled, so a newly added override never applies itself. `app/config-selection.ts` drives the shared `mev config` toggle flow over that resolver. A present manifest that is not a mapping, or that lacks its key, is rejected rather than read as an empty selection.
 
 ### Command Pipeline
 
@@ -117,7 +117,7 @@ Raw config files live under `src/assets/config/` keyed as `{role}/global/{filena
 
 `assets/registry.ts` wraps the generated map as `AssetSource`. An unknown key throws `ProvisioningError`. `keysByPrefix` lets targets derive their file lists from the embedded set rather than enumerating them by hand.
 
-`AssetRef` keys double as sub-paths under the deploy root (`~/.config/mev/roles/`), so the deployed filename preserves the original dotfile name without a separate mapping.
+`AssetRef` keys double as sub-paths under the deploy root (`~/.mev/roles/`), so the deployed filename preserves the original dotfile name without a separate mapping.
 
 ## Context (host/)
 
@@ -146,8 +146,8 @@ Several activation kinds delegate external-tool protocol and state detection to 
 
 ## Identity (identity/)
 
-The identity domain owns Git identity switching independently of the provisioning engine. `identity/scope.ts` is the authority for switchable scopes and their aliases. `identity/store.ts` persists a profile pair to `~/.config/mev/identity.json` via atomic temp-write + rename. `app/identity.ts` orchestrates the show/set/switch use cases.
+The identity domain owns Git identity switching independently of the provisioning engine. `identity/scope.ts` is the authority for switchable scopes and their aliases. `identity/store.ts` persists a profile pair to `~/.mev/identity.json` via atomic temp-write + rename. `app/identity.ts` orchestrates the show/set/switch use cases.
 
 ## Deploy Store Layout
 
-All deployed assets land at `~/.config/mev/roles/{key}`. The constant `deployRoot = '.config/mev/roles'` in `assets/ref.ts` is the sole authority for this path. Symlinks created by `file` and `tree` activations point into this store.
+All deployed assets land at `~/.mev/roles/{key}`. The constant `deployRoot = '${mevRoot}/roles'` (built from `mevRoot = '.mev'` in `host/path.ts`, the sole authority for the mev-managed root) in `assets/ref.ts` is the sole authority for this path. Symlinks created by `file` and `tree` activations point into this store.

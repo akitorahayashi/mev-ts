@@ -1,6 +1,14 @@
 import { join } from 'node:path';
 
 /**
+ * Root, relative to the user's home, under which mev owns every path it
+ * manages: the deploy store, generated entities, selection manifests, identity
+ * state, and the symlink surface consumer configs reference. Sole authority for
+ * that root; every mev-managed sub-path derives from it.
+ */
+export const mevRoot = '.mev';
+
+/**
  * A destination path on the host, kept symbolic until execution so that
  * manifests stay pure and reports are stable regardless of the running user's
  * home directory.

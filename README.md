@@ -41,7 +41,7 @@ mev make git shell              # Provision multiple targets at once
 mev make shell -o               # Replace existing unmanaged files when linking
 ```
 
-`make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.config/mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. Activations report `changed`, `unchanged`, or `failed` per item.
+`make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. Activations report `changed`, `unchanged`, or `failed` per item.
 Each run ends with a report that summarizes required action, phase counts, changed targets, and retry tags.
 
 ```bash
@@ -78,7 +78,7 @@ mev switch personal             # Switch active Git identity (alias: mev sw)
 mev switch work
 ```
 
-`user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.config/mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
+`user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
 
 ### Document conversion
 

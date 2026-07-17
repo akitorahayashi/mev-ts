@@ -35,7 +35,7 @@ alias cdx-u="codex update"
 alias cpt="copilot"
 alias cpt-ln=cpt_ln
 cpt_ln() {
-  local source_path="${MEV_CODER_AGENTS_PATH:-$HOME/.config/mev/coder/AGENTS.md}"
+  local source_path="${MEV_CODER_AGENTS_PATH:-$HOME/.mev/coder/AGENTS.md}"
   source_path="${source_path:A}"
 
   if [ ! -e "$source_path" ]; then

@@ -15,7 +15,7 @@ const BASE_ASSET = asset(BASE_KEY);
 const DEST = home('.config/zed/settings.json');
 
 function rolesDir(homeDir: string, key: string): string {
-  return join(homeDir, '.config', 'mev', 'roles', key);
+  return join(homeDir, '.mev', 'roles', key);
 }
 
 async function deployBase(
@@ -45,7 +45,7 @@ sandboxTest(
     await deployOverrides(dir, {
       'no-format': { format_on_save: 'off' },
     });
-    const manifestDir = join(dir, '.config', 'mev', 'zed');
+    const manifestDir = join(dir, '.mev', 'zed');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'overrides-selection.yml'),
@@ -73,7 +73,7 @@ sandboxTest(
   async (dir) => {
     await deployBase(dir, { format_on_save: 'on' });
     await deployOverrides(dir, { 'no-format': { format_on_save: 'off' } });
-    const manifestDir = join(dir, '.config', 'mev', 'zed');
+    const manifestDir = join(dir, '.mev', 'zed');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'overrides-selection.yml'),
@@ -101,7 +101,7 @@ sandboxTest(
       recordingContext({ home: dir }).context,
     );
 
-    const built = join(dir, '.config', 'mev', 'zed', 'settings.json');
+    const built = join(dir, '.mev', 'zed', 'settings.json');
     expect(JSON.parse(await readFile(built, 'utf8'))).toEqual({
       format_on_save: 'on',
     });
@@ -128,7 +128,7 @@ sandboxTest(
       loose: { format_on_save: 'off' },
       strict: { format_on_save: 'on' },
     });
-    const manifestDir = join(dir, '.config', 'mev', 'zed');
+    const manifestDir = join(dir, '.mev', 'zed');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'overrides-selection.yml'),
@@ -202,7 +202,7 @@ sandboxTest(
     const overridesDir = rolesDir(dir, OVERRIDES_PREFIX);
     await mkdir(overridesDir, { recursive: true });
     await writeFile(join(overridesDir, 'broken.json'), '{ not valid json');
-    const manifestDir = join(dir, '.config', 'mev', 'zed');
+    const manifestDir = join(dir, '.mev', 'zed');
     await mkdir(manifestDir, { recursive: true });
     await writeFile(
       join(manifestDir, 'overrides-selection.yml'),
