@@ -14,6 +14,7 @@ import { InternalGitDeleteSubmoduleCommand } from './internal/git-delete-submodu
 import { ListCommand } from './list';
 import { MakeCommand } from './make';
 import { SwitchCommand } from './switch';
+import { SyncCommand } from './sync';
 import { UserHelpCommand, UserSetCommand, UserShowCommand } from './user';
 
 /**
@@ -25,6 +26,7 @@ import { UserHelpCommand, UserSetCommand, UserShowCommand } from './user';
 export const commands: readonly CommandClass[] = [
   MakeCommand,
   CreateCommand,
+  SyncCommand,
   ConfigHelpCommand,
   ConfigAgentsCommand,
   ConfigSkillsCommand,

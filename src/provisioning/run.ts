@@ -1,14 +1,18 @@
 import { type InstallReport, installPackages } from '../brew/install';
-import { errorMessage } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import type { Context } from '../host/context';
 import {
   type ActivationReport,
   blockedReport,
   runActivation,
 } from './activation';
+import { appliedPath, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
 import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
+import { allTargets } from './registry';
+import { targetSignature } from './signature';
+import type { Target } from './target';
 
 export type ActivationBlocker =
   | {
@@ -58,6 +62,37 @@ export function formatBlocker(blocker: ActivationBlocker): string {
 
 function blockerReason(blockers: readonly ActivationBlocker[]): string {
   return blockers.map(formatBlocker).join('; ');
+}
+
+function targetNamed(name: string): Target {
+  const match = allTargets().find((target) => target.name === name);
+  if (!match) {
+    throw new ProvisioningError(
+      `Provisioning plan referenced unknown target '${name}'.`,
+    );
+  }
+  return match;
+}
+
+function groupSucceeded(group: ActivationGroupReport): boolean {
+  return (
+    group.blockers.length === 0 &&
+    group.reports.every(
+      (report) => report.status !== 'failed' && report.status !== 'blocked',
+    )
+  );
+}
+
+async function recordSuccessfulTargets(
+  groups: readonly ActivationGroupReport[],
+  context: Context,
+): Promise<void> {
+  for (const group of groups) {
+    if (!groupSucceeded(group)) continue;
+    const target = targetNamed(group.tag);
+    const signature = await targetSignature(target, context.assets);
+    await writeApplied(appliedPath(context.home, target.name), signature);
+  }
 }
 
 /**
@@ -149,6 +184,8 @@ export async function runMake(
       (g) =>
         g.blockers.length > 0 || g.reports.some((r) => r.status === 'failed'),
     );
+
+  await recordSuccessfulTargets(groups, context);
 
   return { selection, deploys, install, groups, failed };
 }

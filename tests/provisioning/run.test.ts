@@ -2,7 +2,10 @@ import { expect } from 'bun:test';
 import { embeddedAssets } from '../../src/assets/registry';
 import { CommandLineError } from '../../src/errors';
 import type { Context } from '../../src/host/context';
+import { appliedPath, readApplied } from '../../src/provisioning/applied';
+import { resolveTarget } from '../../src/provisioning/registry';
 import { runMake } from '../../src/provisioning/run';
+import { targetSignature } from '../../src/provisioning/signature';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -31,6 +34,9 @@ sandboxTest('apply deploys and links the git target', async (sandbox) => {
   expect(report.deploys.some((d) => d.role === 'git' && d.deployed)).toBe(true);
   expect(gitGroup(report)?.reports.every((r) => r.status === 'changed')).toBe(
     true,
+  );
+  expect(await readApplied(appliedPath(sandbox, 'git'))).toBe(
+    await targetSignature(resolveTarget('git'), embeddedAssets),
   );
 });
 
@@ -207,5 +213,6 @@ sandboxTest(
       true,
     );
     expect(commands.some((command) => command === 'brew --prefix')).toBe(false);
+    expect(await readApplied(appliedPath(sandbox, 'python'))).toBeNull();
   },
 );

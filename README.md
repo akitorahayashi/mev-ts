@@ -50,9 +50,13 @@ Each run ends with a report that summarizes required action, phase counts, chang
 ```bash
 mev create mbk                  # Provision a full MacBook environment
 mev create mac-mini             # Profiles: macbook/mbk, mac-mini/mmn
+mev sync mbk                    # Apply changed MacBook full-setup targets
+mev sync mmn                    # Apply changed Mac mini full-setup targets
 ```
 
 `create` (alias `cr`) provisions a full environment for a hardware profile by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`.
+
+`sync <profile>` scans the same non-optional target set and runs only targets whose declared packages, activation intent, or embedded assets changed since their last successful application, plus targets whose deployed role assets drifted. Internal activation implementation changes do not trigger synchronization. Successful target signatures are stored under `~/.mev/applied/`; optional targets remain explicit `make` operations.
 
 ### Listing targets
 
