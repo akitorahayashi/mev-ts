@@ -11,7 +11,6 @@ function inventoryContext(
 ): Context {
   return {
     home: '/sandbox',
-    overwrite: false,
     basePath: '',
     commands: {
       async run(_command, args): Promise<CommandResult> {

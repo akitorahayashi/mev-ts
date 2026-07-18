@@ -42,10 +42,9 @@ mev --version
 ```bash
 mev make git                   # Provision the git target
 mev make git shell              # Provision multiple targets at once
-mev make shell -o               # Replace existing unmanaged files when linking
 ```
 
-`make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. Activations report `changed`, `unchanged`, or `failed` per item.
+`make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. The repository config is the source of truth for declared outputs, so existing files, directories, or symlinks at those destinations are replaced by the current config. Activations report `changed`, `unchanged`, or `failed` per item.
 Each run ends with a report that summarizes required action, phase counts, changed targets, and retry tags.
 
 ```bash
@@ -99,7 +98,6 @@ pdf2md report.pdf               # Extract UTF-8 text to report.md
 ### Global flags
 
 ```
--o, --overwrite  Replace existing unmanaged files when linking configs
 --help         Show command help
 --version      Print the binary version
 ```

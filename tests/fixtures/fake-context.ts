@@ -32,7 +32,6 @@ export type Responder = (
 export interface RecordingContextOptions {
   readonly home: string;
   readonly assets?: AssetSource;
-  readonly overwrite?: boolean;
   readonly basePath?: string;
   readonly respond?: Responder;
 }
@@ -52,7 +51,6 @@ export function recordingContext(options: RecordingContextOptions): {
   const respond = options.respond ?? succeed;
   const context: Context = {
     home: options.home,
-    overwrite: options.overwrite ?? false,
     assets: options.assets ?? emptyAssets,
     basePath: options.basePath ?? '',
     commands: {

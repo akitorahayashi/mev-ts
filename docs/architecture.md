@@ -2,7 +2,7 @@
 
 ## Overview
 
-`mev` is Local IaC for macOS, compiled to a standalone binary via `bun build --compile`. The binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
+`mev` is Local IaC for macOS, compiled to a standalone binary via `bun build --compile`. The repository config is the source of truth for personal machine setup, and the binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
 
 The execution model is three sequential phases: deploy role assets to the deploy store → install required Homebrew packages → activate each asset (symlink, defaults write, or host-command pipeline).
 
@@ -25,7 +25,7 @@ src/
 
 `runMake()` drives three sequential phases per make request:
 
-1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.mev/roles/{role}/`. Skips if already present unless `overwrite` is set, in which case replacement is built in a sibling staging directory before the old role is moved aside and removed. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
+1. Deploy — `deployRole()` writes every embedded asset for the selected roles into `~/.mev/roles/{role}/`. A present role is rebuilt through a sibling staging directory before the old role is moved aside and removed. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
 2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
 3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
 
@@ -55,8 +55,8 @@ Eleven activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
-| `file` | `link(source, dest)` | Symlinks one deployed asset to a host path |
-| `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; prunes managed stale links |
+| `file` | `link(source, dest)` | Symlinks one deployed asset to a host path, replacing the declared destination |
+| `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; replaces declared destinations and prunes managed stale links |
 | `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
 | `duti` | `applyDuti(configKey)` | Reads a YAML list of `{bundle_id, extension}` pairs; applies `duti -s` for each that differs |
 | `pipx` | `applyPipx(configKey)` | Reconciles pipx-managed tools against a YAML manifest; installs, injects, and post-installs |
@@ -121,7 +121,7 @@ Raw config files live under `src/assets/config/` keyed as `{role}/global/{filena
 
 ## Context (host/)
 
-`Context` — `{ home, overwrite, commands: CommandRunner, assets: AssetSource, basePath }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, read once in `createContext`, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient `Bun.env` at spawn. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
+`Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, read once in `createContext`, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient `Bun.env` at spawn. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
 `CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd?, stdout?, stderr? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`; `stdout` and `stderr` each select `'pipe'` (the default, captured into the result) or `'inherit'`. A spawn failure — a missing or otherwise unspawnable executable — resolves as `code 127` with the reason in `stderr` rather than rejecting, so every call site handles it as an ordinary non-zero exit.
 
@@ -150,4 +150,4 @@ The identity domain owns Git identity switching independently of the provisionin
 
 ## Deploy Store Layout
 
-All deployed assets land at `~/.mev/roles/{key}`. The constant `deployRoot = '${mevRoot}/roles'` (built from `mevRoot = '.mev'` in `host/path.ts`, the sole authority for the mev-managed root) in `assets/ref.ts` is the sole authority for this path. Symlinks created by `file` and `tree` activations point into this store.
+All deployed assets land at `~/.mev/roles/{key}`. The constant `deployRoot = '${mevRoot}/roles'` (built from `mevRoot = '.mev'` in `host/path.ts`, the sole authority for the mev-managed root) in `assets/ref.ts` is the sole authority for this path. Symlinks created by `file` and `tree` activations point into this store, and declared symlink destinations are reconciled from the current repository config.

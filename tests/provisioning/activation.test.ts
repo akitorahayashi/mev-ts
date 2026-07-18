@@ -38,8 +38,8 @@ const assets: AssetSource = {
 
 const sandboxTest = sandboxedTest('activate-');
 
-const contextFor = (homeDir: string, overwrite = false): Context =>
-  recordingContext({ home: homeDir, assets, overwrite }).context;
+const contextFor = (homeDir: string): Context =>
+  recordingContext({ home: homeDir, assets }).context;
 
 async function deploy(context: Context, key: string) {
   const dest = deployedPath({ key }, context.home);
@@ -67,40 +67,20 @@ sandboxTest(
   },
 );
 
-sandboxTest(
-  'link refuses to replace an unmanaged file without overwrite',
-  async (sandbox) => {
-    const context = contextFor(sandbox);
-    const ref = asset('git/global/.gitconfig');
-    await deploy(context, ref.key);
-    await writeFile(join(sandbox, '.config-target'), 'user content');
+sandboxTest('link replaces an existing file', async (sandbox) => {
+  const context = contextFor(sandbox);
+  const ref = asset('git/global/.gitconfig');
+  await deploy(context, ref.key);
+  const dest = join(sandbox, '.config-target');
+  await writeFile(dest, 'user content');
 
-    const report = await runActivation(
-      link(ref, home('.config-target')),
-      context,
-    );
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('--overwrite');
-  },
-);
-
-sandboxTest(
-  'link replaces an unmanaged file when overwrite is set',
-  async (sandbox) => {
-    const context = contextFor(sandbox, true);
-    const ref = asset('git/global/.gitconfig');
-    await deploy(context, ref.key);
-    const dest = join(sandbox, '.config-target');
-    await writeFile(dest, 'user content');
-
-    const report = await runActivation(
-      link(ref, home('.config-target')),
-      context,
-    );
-    expect(report.status).toBe('changed');
-    expect(await readlink(dest)).toBe(deployedPath(ref, sandbox));
-  },
-);
+  const report = await runActivation(
+    link(ref, home('.config-target')),
+    context,
+  );
+  expect(report.status).toBe('changed');
+  expect(await readlink(dest)).toBe(deployedPath(ref, sandbox));
+});
 
 sandboxTest(
   'link surfaces filesystem errors while probing links',

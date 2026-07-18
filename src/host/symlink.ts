@@ -1,6 +1,5 @@
 import { readlink, rename, rm, symlink } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { ProvisioningError } from '../errors';
 import { lstatIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
 import { transactionDirectory } from './transaction';
@@ -19,8 +18,8 @@ export async function isSymlinkTo(
 
 /**
  * Replace `link` with a symlink to `target`. A pre-existing symlink is
- * replaced; a pre-existing regular file or directory is preserved unless
- * `overwrite` is set, so unmanaged user files are never silently destroyed.
+ * replaced; a pre-existing regular file or directory is removed before the new
+ * symlink is moved into place.
  *
  * The new symlink is staged under a sibling temporary directory and renamed
  * over the destination, so a crash mid-operation leaves either the old link or
@@ -29,22 +28,15 @@ export async function isSymlinkTo(
 export async function placeSymlink(
   link: string,
   target: string,
-  overwrite: boolean,
 ): Promise<void> {
   const stats = await lstatIfPresent(link);
-  if (stats && !stats.isSymbolicLink() && !overwrite) {
-    throw new ProvisioningError(
-      `Refusing to replace unmanaged file at ${link}; re-run with --overwrite to replace it.`,
-    );
-  }
   const staging = await transactionDirectory(link);
   await runWithCleanup(
     async () => {
       const staged = join(staging, basename(link));
       await symlink(target, staged);
-      // A real file or directory (overwrite is set, per the guard above) cannot
-      // be atomically replaced by rename, so remove it first; a symlink or absent
-      // destination is replaced atomically by the rename.
+      // A real file or directory cannot be atomically replaced by rename, so
+      // remove it first; a symlink or absent destination is replaced atomically.
       if (stats && !stats.isSymbolicLink()) {
         await rm(link, { force: true, recursive: true });
       }

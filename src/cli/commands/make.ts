@@ -13,15 +13,11 @@ export class MakeCommand extends Command {
   });
 
   tags = Option.Rest({ required: 1 });
-  overwrite = Option.Boolean('-o,--overwrite', false, {
-    description: 'Replace unmanaged files when linking configs.',
-  });
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, () =>
       executeProvisioningRun({
         tags: this.tags,
-        overwrite: this.overwrite,
         out: (text) => this.context.stdout.write(text),
       }),
     );

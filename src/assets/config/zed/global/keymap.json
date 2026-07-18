@@ -4,7 +4,8 @@
     "use_key_equivalents": true,
     "bindings": {
       "ctrl-r": "workspace::CopyRelativePath",
-      "ctrl-a": "workspace::CopyPath"
+      "ctrl-a": "workspace::CopyPath",
+      "ctrl-f": "project_panel::RevealInFileManager"
     }
   },
   {

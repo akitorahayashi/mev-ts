@@ -27,9 +27,6 @@ export class CreateCommand extends Command {
   });
 
   profile = Option.String();
-  overwrite = Option.Boolean('-o,--overwrite', false, {
-    description: 'Replace unmanaged files when linking configs.',
-  });
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
@@ -38,7 +35,6 @@ export class CreateCommand extends Command {
 
       return executeProvisioningRun({
         tags,
-        overwrite: this.overwrite,
         intro: `mev: Creating ${profile} environment`,
         footer: (report) => (report.failed ? undefined : optionalFooter()),
         out: (text) => this.context.stdout.write(text),
