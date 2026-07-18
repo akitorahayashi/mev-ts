@@ -3,7 +3,7 @@ name: skill-guide
 description: The user mentions Agent Skills or asks to organize reusable instructions, workflows, references, scripts, or templates as an agent skill.
 ---
 
-# Agent Skills
+## Agent Skills
 
 Agent Skills are reusable instruction packages for AI agents. A skill must be understandable without the original conversation.
 
@@ -51,6 +51,12 @@ Use only what the skill needs.
 - `references/`: detailed rules, specs, schemas, examples, API notes
 - `scripts/`: repeatable validation, conversion, extraction, or generation logic
 - `assets/`: templates, images, logos, sample inputs, configs, data
+
+## Scope discipline
+
+- Match additions to the skill's existing level of detail.
+- Place new rules in the nearest owning section.
+- Prefer tightening an existing rule over adding a parallel rule or section.
 
 ## Path rules
 

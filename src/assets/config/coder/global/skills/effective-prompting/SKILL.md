@@ -24,6 +24,7 @@ Maximize goal-output alignment with minimal cognitive and maintenance load.
 If a decision can be resolved deterministically by non-model layers, resolve it before prompt delivery.
 
 Examples of non-model layers:
+
 - schema and output contracts
 - runtime context injection
 - assembly/template selection
@@ -34,6 +35,7 @@ The model should receive resolved context, not meta-instructions about how to br
 ## Constraint Discipline
 
 A constraint is justified only when both are true:
+
 1. The model would plausibly violate it without the constraint.
 2. The violation is not already prevented by output shape, context, or goal framing.
 
@@ -55,7 +57,8 @@ If either condition is false, remove the constraint.
 
 - State each rule once in its proper place.
 - Do not repeat the same rule across sections.
-- Remove any sentence that does not improve output quality or safety.
+- Match additions to the document's existing granularity.
+- Prefer replacing or tightening the nearest owning rule over adding a new section.
 
 ## Flexibility in Application
 

@@ -20,7 +20,7 @@ Prioritize SVO structure. Use positional arguments for primary required inputs. 
    - Additive behaviors based on user preference
    - Limited usages and edge cases not needed daily
    - Modifiers for specific parts or numerical values of regular behavior
-   - Output modes and safety flags
+   - Output modes users actually choose
    - Context overrides: Use options (e.g., `--flag <value>`) instead of positional arguments to explicitly force a different value for something that can be automatically resolved via environment variables, system information, or configuration files.
 4. Mandatory options allowed only when:
    - Order-independence needed
@@ -33,7 +33,7 @@ Prioritize SVO structure. Use positional arguments for primary required inputs. 
    - `stdout`: result data
    - `stderr`: warnings/logs/errors
    - `--json`: machine output when needed
-8. Destructive ops: Require confirmation/dry-run, `--yes`/`--force` override, `stderr` warning, non-zero exit on failure
+8. Safety model: Define command preconditions and enforce them with state validation. Commands run directly when the current state satisfies their preconditions. Failed preconditions produce a clear reason and recovery action.
 
 ## Existing CLI Rule
 
