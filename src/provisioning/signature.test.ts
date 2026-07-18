@@ -36,29 +36,34 @@ test('declared assets, packages, and activation destinations affect the signatur
     packages: { formulae: ['fd'] },
     activations: [link(config, home('.config/demo'))],
   });
-  const moved = target('demo', {
-    description: 'changed display text',
-    aliases: ['d'],
+  const packageChanged = target('demo', {
+    description: 'original',
     role: 'demo',
     packages: { formulae: ['fd', 'ripgrep'] },
+    activations: [link(config, home('.config/demo'))],
+  });
+  const destinationChanged = target('demo', {
+    description: 'original',
+    role: 'demo',
+    packages: { formulae: ['fd'] },
     activations: [link(config, home('.config/demo/config'))],
   });
+  const assets = assetSource({ [config.key]: 'one\n' });
 
-  const originalSignature = await targetSignature(
-    original,
-    assetSource({ [config.key]: 'one\n' }),
-  );
+  const originalSignature = await targetSignature(original, assets);
   const changedAssetSignature = await targetSignature(
     original,
     assetSource({ [config.key]: 'two\n' }),
   );
-  const movedSignature = await targetSignature(
-    moved,
-    assetSource({ [config.key]: 'one\n' }),
+  const packageChangedSignature = await targetSignature(packageChanged, assets);
+  const destinationChangedSignature = await targetSignature(
+    destinationChanged,
+    assets,
   );
 
   expect(changedAssetSignature).not.toBe(originalSignature);
-  expect(movedSignature).not.toBe(originalSignature);
+  expect(packageChangedSignature).not.toBe(originalSignature);
+  expect(destinationChangedSignature).not.toBe(originalSignature);
 });
 
 test('package ordering and target display metadata do not affect the signature', async () => {
