@@ -1,5 +1,8 @@
 import { Command, Option } from 'clipanion';
-import { resolveProfile } from '../../provisioning/profile';
+import {
+  profileArgumentName,
+  resolveProfile,
+} from '../../provisioning/profile';
 import { allTargets, fullSetupTargets } from '../../provisioning/registry';
 import type { Target } from '../../provisioning/target';
 import { withAliasHint } from './alias-hint';
@@ -26,7 +29,7 @@ export class CreateCommand extends Command {
     ),
   });
 
-  profile = Option.String();
+  profile = Option.String({ name: profileArgumentName(), required: true });
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {

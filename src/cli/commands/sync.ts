@@ -1,6 +1,9 @@
 import { Command, Option } from 'clipanion';
 import { createContext } from '../../host/context';
-import { resolveProfile } from '../../provisioning/profile';
+import {
+  profileArgumentName,
+  resolveProfile,
+} from '../../provisioning/profile';
 import { fullSetupTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import { scanTargets } from '../../provisioning/scan';
@@ -8,13 +11,13 @@ import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
 
 export class SyncCommand extends Command {
-  static override paths = [['sync']];
+  static override paths = [['sync'], ['s']];
   static override usage = Command.Usage({
     description:
       'Apply changed full-environment targets for a hardware profile.',
   });
 
-  profile = Option.String();
+  profile = Option.String({ name: profileArgumentName(), required: true });
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
