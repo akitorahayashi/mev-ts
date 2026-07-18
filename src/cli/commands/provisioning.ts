@@ -17,7 +17,6 @@ export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 
 interface ProvisioningRunOptions {
   readonly tags: readonly string[];
-  readonly overwrite: boolean;
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
@@ -31,12 +30,9 @@ export async function executeProvisioningRun(
   const isTTY = options.isTTY ?? resolveIsTTY();
   const out = options.out;
   const startedAt = Date.now();
-  // `overwrite` lives only on the Context; the default run builds one from the
-  // CLI flag. An injected run (tests) receives the request alone.
   const run =
     options.run ??
-    ((request: MakeRequest) =>
-      runMake(request, createContext({ overwrite: options.overwrite })));
+    ((request: MakeRequest) => runMake(request, createContext()));
 
   if (options.intro) {
     out(`${options.intro}\n`);

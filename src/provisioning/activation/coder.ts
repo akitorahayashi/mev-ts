@@ -94,7 +94,7 @@ async function fanoutFile(
     if (await isSymlinkTo(link, target)) {
       continue;
     }
-    await placeSymlink(link, target, context.overwrite);
+    await placeSymlink(link, target);
     changed = true;
   }
   return changed;
@@ -133,7 +133,7 @@ async function fanoutSkills(
       if (await isSymlinkTo(link, target)) {
         continue;
       }
-      await placeSymlink(link, target, context.overwrite);
+      await placeSymlink(link, target);
       changed = true;
     }
   }

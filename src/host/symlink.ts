@@ -1,6 +1,5 @@
 import { readlink, rename, rm, symlink } from 'node:fs/promises';
-import { basename, join } from 'node:path';
-import { ProvisioningError } from '../errors';
+import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
 import { transactionDirectory } from './transaction';
@@ -18,39 +17,51 @@ export async function isSymlinkTo(
 }
 
 /**
- * Replace `link` with a symlink to `target`. A pre-existing symlink is
- * replaced; a pre-existing regular file or directory is preserved unless
- * `overwrite` is set, so unmanaged user files are never silently destroyed.
+ * Replace `link` with a symlink to `target`. Files and symlinks are replaced by
+ * one atomic rename. Directories are moved to a sibling backup first, with
+ * best-effort rollback if installing the symlink fails.
  *
- * The new symlink is staged under a sibling temporary directory and renamed
- * over the destination, so a crash mid-operation leaves either the old link or
- * the new one, never a missing link (same-directory rename is atomic on APFS).
+ * A crash during directory replacement can leave the destination absent with
+ * its previous contents retained in the transaction directory.
  */
 export async function placeSymlink(
   link: string,
   target: string,
-  overwrite: boolean,
 ): Promise<void> {
   const stats = await lstatIfPresent(link);
-  if (stats && !stats.isSymbolicLink() && !overwrite) {
-    throw new ProvisioningError(
-      `Refusing to replace unmanaged file at ${link}; re-run with --overwrite to replace it.`,
-    );
-  }
-  const staging = await transactionDirectory(link);
+  const transaction = await transactionDirectory(link);
+  const staged = join(transaction, 'staged');
+  const backup = join(transaction, 'backup');
+  let retainTransaction = false;
   await runWithCleanup(
     async () => {
-      const staged = join(staging, basename(link));
       await symlink(target, staged);
-      // A real file or directory (overwrite is set, per the guard above) cannot
-      // be atomically replaced by rename, so remove it first; a symlink or absent
-      // destination is replaced atomically by the rename.
-      if (stats && !stats.isSymbolicLink()) {
-        await rm(link, { force: true, recursive: true });
+      if (!stats?.isDirectory()) {
+        await rename(staged, link);
+        return;
       }
-      await rename(staged, link);
+
+      await rename(link, backup);
+      try {
+        await rename(staged, link);
+      } catch (error) {
+        try {
+          await rename(backup, link);
+        } catch (restoreError) {
+          retainTransaction = true;
+          throw new AggregateError(
+            [error, restoreError],
+            `Failed to replace ${link} and restore its previous contents. Previous contents remain in ${backup}.`,
+          );
+        }
+        throw error;
+      }
     },
-    () => rm(staging, { force: true, recursive: true }),
+    async () => {
+      if (!retainTransaction) {
+        await rm(transaction, { force: true, recursive: true });
+      }
+    },
     `Failed to clean up symlink transaction for ${link}.`,
   );
 }

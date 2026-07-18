@@ -34,10 +34,9 @@ function topLevelFiles(
 }
 
 /**
- * Materialize every embedded asset under a role into the deploy store. A present
- * role is left untouched unless `overwrite` is set, in which case replacement
- * is staged before the old directory is removed so build failures keep the
- * previous deploy intact.
+ * Materialize every embedded asset under a role into the deploy store. Desired
+ * state is staged first; an equivalent role remains in place, while drift is
+ * replaced with best-effort rollback for in-process failures.
  */
 export async function deployRole(
   role: string,
@@ -46,14 +45,11 @@ export async function deployRole(
   const keys = context.assets.keysByPrefix(`${role}/`);
   const destDir = deployedDir(role, context.home);
   const present = await exists(destDir);
-  if (keys.length === 0 && (!present || !context.overwrite)) {
-    return { role, deployed: false, files: [] };
-  }
-  if (present && !context.overwrite) {
+  if (keys.length === 0 && !present) {
     return { role, deployed: false, files: [] };
   }
 
-  await replaceDirectoryAfterBuild(destDir, async (tmp) => {
+  const deployed = await replaceDirectoryAfterBuild(destDir, async (tmp) => {
     const createdDirs = new Set<string>();
     for (const key of keys) {
       const relative = key.slice(`${role}/`.length);
@@ -70,5 +66,5 @@ export async function deployRole(
     }
   });
 
-  return { role, deployed: true, files: topLevelFiles(role, keys) };
+  return { role, deployed, files: topLevelFiles(role, keys) };
 }

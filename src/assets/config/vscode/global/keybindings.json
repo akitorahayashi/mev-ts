@@ -10,6 +10,11 @@
     "when": "explorerViewletVisible && filesExplorerFocus"
   },
   {
+    "key": "ctrl+f",
+    "command": "revealFileInOS",
+    "when": "explorerViewletVisible && filesExplorerFocus"
+  },
+  {
     "key": "ctrl+w",
     "command": "workbench.action.closeActiveEditor"
   },

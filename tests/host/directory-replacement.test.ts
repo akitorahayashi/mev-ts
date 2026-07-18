@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test';
-import { chmod, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { replaceDirectoryAfterBuild } from '../../src/host/directory-replacement';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -36,6 +43,23 @@ test('replaces an existing directory and removes stale contents', async () => {
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('new');
     expect(await Bun.file(join(dest, 'stale.txt')).exists()).toBe(false);
+    expect(await runOwnedSiblings(dest)).toEqual([]);
+  });
+});
+
+test('leaves an equivalent existing directory in place', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const dest = join(dir, 'role');
+    await mkdir(dest);
+    await writeFile(join(dest, 'file.txt'), 'same');
+    const before = await stat(dest);
+
+    const replaced = await replaceDirectoryAfterBuild(dest, async (staging) => {
+      await writeFile(join(staging, 'file.txt'), 'same');
+    });
+
+    expect(replaced).toBe(false);
+    expect((await stat(dest)).ino).toBe(before.ino);
     expect(await runOwnedSiblings(dest)).toEqual([]);
   });
 });

@@ -1,7 +1,5 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ProvisioningError } from '../../errors';
-import { lstatIfPresent } from '../../host/absence';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 
 /**
@@ -37,13 +35,7 @@ export async function buildSkills(
     if (await isSymlinkTo(link, target)) {
       continue;
     }
-    const stats = await lstatIfPresent(link);
-    if (stats && !stats.isSymbolicLink()) {
-      throw new ProvisioningError(
-        `Skills entry '${link}' already exists and is not a managed symlink.`,
-      );
-    }
-    await placeSymlink(link, target, false);
+    await placeSymlink(link, target);
     changed = true;
   }
 

@@ -101,7 +101,7 @@ export async function runFile(
     if (await isSymlinkTo(link, target)) {
       return { ...base, status: 'unchanged' };
     }
-    await placeSymlink(link, target, context.overwrite);
+    await placeSymlink(link, target);
     return { ...base, status: 'changed' };
   } catch (error) {
     return { ...base, status: 'failed', error: errorMessage(error) };
@@ -136,7 +136,7 @@ export async function runTree(
     }
 
     for (const { link, target } of drifted) {
-      await placeSymlink(link, target, context.overwrite);
+      await placeSymlink(link, target);
     }
     for (const link of stale) {
       await rm(link, { force: true });

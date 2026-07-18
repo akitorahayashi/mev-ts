@@ -89,7 +89,6 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
 
   const result = await capture({
     tags: ['shell'],
-    overwrite: true,
     intro: 'mev: Creating personal environment',
     footer: () => ['Optional', 'Baseline Homebrew casks: mev make br-c'],
     run,
@@ -111,7 +110,6 @@ test('executeProvisioningRun renders failed runs without success footer', async 
 
   const result = await capture({
     tags: ['shell'],
-    overwrite: false,
     footer: (report) =>
       report.failed
         ? undefined

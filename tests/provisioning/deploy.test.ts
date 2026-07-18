@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { lstat, mkdir, stat, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedPath } from '../../src/assets/ref';
 import type { AssetSource } from '../../src/assets/registry';
@@ -27,8 +27,8 @@ const assets: AssetSource = {
 
 const sandboxTest = sandboxedTest('deploy-');
 
-const contextFor = (homeDir: string, overwrite = false): Context =>
-  recordingContext({ home: homeDir, assets, overwrite }).context;
+const contextFor = (homeDir: string): Context =>
+  recordingContext({ home: homeDir, assets }).context;
 
 sandboxTest(
   'deployRole materializes every asset under the role',
@@ -61,14 +61,43 @@ sandboxTest(
   },
 );
 
+sandboxTest('deployRole regenerates a present role', async (sandbox) => {
+  await deployRole('git', contextFor(sandbox));
+  const deployed = deployedPath({ key: 'git/global/.gitconfig' }, sandbox);
+  await writeFile(deployed, 'stale');
+
+  const result = await deployRole('git', contextFor(sandbox));
+
+  expect(result.deployed).toBe(true);
+  expect(await Bun.file(deployed).text()).toBe(
+    'content of git/global/.gitconfig\n',
+  );
+});
+
 sandboxTest(
-  'deployRole skips a present role without overwrite',
+  'deployRole leaves an equivalent role in place',
   async (sandbox) => {
     await deployRole('git', contextFor(sandbox));
-    const result = await deployRole('git', contextFor(sandbox, false));
+    const dest = deployedDir('git', sandbox);
+    const before = await stat(dest);
+
+    const result = await deployRole('git', contextFor(sandbox));
+
     expect(result.deployed).toBe(false);
+    expect((await stat(dest)).ino).toBe(before.ino);
   },
 );
+
+sandboxTest('deployRole repairs executable-mode drift', async (sandbox) => {
+  await deployRole('git', contextFor(sandbox));
+  const executable = deployedPath({ key: EXECUTABLE_KEY }, sandbox);
+  await chmod(executable, 0o644);
+
+  const result = await deployRole('git', contextFor(sandbox));
+
+  expect(result.deployed).toBe(true);
+  expect((await stat(executable)).mode & 0o100).not.toBe(0);
+});
 
 sandboxTest(
   'deployRole skips roles with no embedded assets',
@@ -82,38 +111,32 @@ sandboxTest(
   },
 );
 
-sandboxTest(
-  'deployRole clears a present assetless role when overwrite is set',
-  async (sandbox) => {
-    const dest = deployedDir('assetless', sandbox);
-    const stale = join(dest, 'global/stale.txt');
-    await mkdir(join(dest, 'global'), { recursive: true });
-    await writeFile(stale, 'leftover');
+sandboxTest('deployRole clears a present assetless role', async (sandbox) => {
+  const dest = deployedDir('assetless', sandbox);
+  const stale = join(dest, 'global/stale.txt');
+  await mkdir(join(dest, 'global'), { recursive: true });
+  await writeFile(stale, 'leftover');
 
-    const result = await deployRole('assetless', contextFor(sandbox, true));
+  const result = await deployRole('assetless', contextFor(sandbox));
 
-    expect(result).toEqual({ role: 'assetless', deployed: true, files: [] });
-    expect((await lstat(dest)).isDirectory()).toBe(true);
-    await expect(lstat(stale)).rejects.toThrow();
-  },
-);
+  expect(result).toEqual({ role: 'assetless', deployed: true, files: [] });
+  expect((await lstat(dest)).isDirectory()).toBe(true);
+  await expect(lstat(stale)).rejects.toThrow();
+});
 
-sandboxTest(
-  'deployRole prunes stale files when overwrite is set',
-  async (sandbox) => {
-    await deployRole('git', contextFor(sandbox));
-    const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
-    await writeFile(stale, 'leftover');
+sandboxTest('deployRole prunes stale files', async (sandbox) => {
+  await deployRole('git', contextFor(sandbox));
+  const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
+  await writeFile(stale, 'leftover');
 
-    const result = await deployRole('git', contextFor(sandbox, true));
+  const result = await deployRole('git', contextFor(sandbox));
 
-    expect(result.deployed).toBe(true);
-    await expect(lstat(stale)).rejects.toThrow();
-  },
-);
+  expect(result.deployed).toBe(true);
+  await expect(lstat(stale)).rejects.toThrow();
+});
 
 sandboxTest(
-  'deployRole keeps the previous role when overwrite staging fails',
+  'deployRole keeps the previous role when replacement staging fails',
   async (sandbox) => {
     await deployRole('git', contextFor(sandbox));
     const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
@@ -131,7 +154,7 @@ sandboxTest(
 
     await expect(
       deployRole('git', {
-        ...contextFor(sandbox, true),
+        ...contextFor(sandbox),
         assets: failingAssets,
       }),
     ).rejects.toThrow('asset unavailable');

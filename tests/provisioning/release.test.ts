@@ -34,7 +34,6 @@ function releaseContext(
   const calls: Call[] = [];
   const context: Context = {
     home,
-    overwrite: false,
     assets: emptyAssets,
     basePath: '',
     commands: {

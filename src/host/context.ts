@@ -6,15 +6,10 @@ import { bunCommandRunner, type CommandRunner } from './command';
 /** Live execution context bound to the current user's environment. */
 export interface Context {
   readonly home: string;
-  readonly overwrite: boolean;
   readonly commands: CommandRunner;
   readonly assets: AssetSource;
   /** The inherited PATH, captured once so command steps stay PATH-testable. */
   readonly basePath: string;
-}
-
-interface ContextOptions {
-  readonly overwrite: boolean;
 }
 
 /** Resolve the current user's home directory or surface a typed failure. */
@@ -27,10 +22,9 @@ export function resolveHome(): string {
 }
 
 /** Build the live execution context bound to the current user's environment. */
-export function createContext(options: ContextOptions): Context {
+export function createContext(): Context {
   return {
     home: resolveHome(),
-    overwrite: options.overwrite,
     commands: bunCommandRunner,
     assets: embeddedAssets,
     // The one place mev reads the ambient PATH; the empty-string fallback is the

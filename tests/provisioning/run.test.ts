@@ -11,9 +11,8 @@ const sandboxTest = sandboxedTest('run-');
 // Real embedded assets, sandboxed home, and a brew runner that reports an
 // empty inventory and successful installs, so the run exercises deploy +
 // activation without touching Homebrew.
-const contextFor = (homeDir: string, overwrite = false): Context =>
-  recordingContext({ home: homeDir, assets: embeddedAssets, overwrite })
-    .context;
+const contextFor = (homeDir: string): Context =>
+  recordingContext({ home: homeDir, assets: embeddedAssets }).context;
 
 function gitGroup(report: Awaited<ReturnType<typeof runMake>>) {
   return report.groups.find((g) => g.tag === 'git');
