@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`mev` is Local IaC for macOS, built with Bun and TypeScript. It deploys role-based configuration assets (dotfiles, tool configs) to a deploy store, installs required Homebrew packages, and activates them by creating symlinks or running idempotent host-command pipelines. The CLI is distributed as a single compiled binary.
+`mev` is Local IaC for macOS, built with Bun and TypeScript. It deploys role-based configuration assets (dotfiles, tool configs) to a deploy store, installs required Homebrew packages, and activates them by creating symlinks or running idempotent host-command pipelines. Release installs distribute a single compiled binary; `bun run up` from a clone installs a Bun-targeted single-file JavaScript bundle as `mev`.
 
 ## Directory Structure
 
