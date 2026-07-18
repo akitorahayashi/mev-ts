@@ -1,10 +1,18 @@
 import { expect } from 'bun:test';
+import { writeFile } from 'node:fs/promises';
+import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { CommandLineError } from '../../src/errors';
 import type { Context } from '../../src/host/context';
-import { appliedPath, readApplied } from '../../src/provisioning/applied';
+import {
+  appliedPath,
+  readApplied,
+  writeApplied,
+} from '../../src/provisioning/applied';
+import { deployRole } from '../../src/provisioning/deploy';
 import { resolveTarget } from '../../src/provisioning/registry';
 import { runMake } from '../../src/provisioning/run';
+import { scanTargets } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
@@ -193,6 +201,17 @@ sandboxTest(
       },
     };
 
+    const python = resolveTarget('python');
+    const marker = appliedPath(sandbox, python.name);
+    await deployRole(python.role, context);
+    await writeApplied(marker, await targetSignature(python, embeddedAssets));
+    const driftedKey = embeddedAssets.keysByPrefix(`${python.role}/`)[0];
+    if (!driftedKey) throw new Error('python target has no embedded assets');
+    await writeFile(deployedPath({ key: driftedKey }, sandbox), 'drift\n');
+    expect((await scanTargets([python], context))[0]?.reasons).toEqual([
+      'drift',
+    ]);
+
     const report = await runMake({ tags: ['python'] }, context);
     const group = report.groups.find((entry) => entry.tag === 'python');
 
@@ -213,6 +232,9 @@ sandboxTest(
       true,
     );
     expect(commands.some((command) => command === 'brew --prefix')).toBe(false);
-    expect(await readApplied(appliedPath(sandbox, 'python'))).toBeNull();
+    expect(await readApplied(marker)).toBeNull();
+    expect((await scanTargets([python], context))[0]?.reasons).toEqual([
+      'unapplied',
+    ]);
   },
 );

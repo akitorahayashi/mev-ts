@@ -6,7 +6,7 @@ import {
   blockedReport,
   runActivation,
 } from './activation';
-import { appliedPath, writeApplied } from './applied';
+import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
 import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
@@ -83,6 +83,17 @@ function groupSucceeded(group: ActivationGroupReport): boolean {
   );
 }
 
+async function invalidateSelectedTargets(
+  targets: readonly string[],
+  context: Context,
+): Promise<void> {
+  await Promise.all(
+    targets.map((target) =>
+      invalidateApplied(appliedPath(context.home, target)),
+    ),
+  );
+}
+
 async function recordSuccessfulTargets(
   groups: readonly ActivationGroupReport[],
   context: Context,
@@ -106,6 +117,7 @@ export async function runMake(
   context: Context,
 ): Promise<MakeReport> {
   const selection = planMake(request.tags);
+  await invalidateSelectedTargets(selection.tags, context);
 
   // Phase 1: deploy configs for each role.
   const deploys: DeployResult[] = [];

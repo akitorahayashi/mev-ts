@@ -1,6 +1,7 @@
+import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../errors';
-import { readTextIfPresent } from '../host/absence';
+import { isNotFound, readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
 import { mevRoot } from '../host/path';
 
@@ -38,6 +39,18 @@ export async function readApplied(path: string): Promise<string | null> {
     if (error instanceof ProvisioningError) throw error;
     throw new ProvisioningError(
       `Failed to read applied signature at ${path}: ${errorMessage(error)}`,
+    );
+  }
+}
+
+/** Remove a target's proof of successful application when a new run starts. */
+export async function invalidateApplied(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch (error) {
+    if (isNotFound(error)) return;
+    throw new ProvisioningError(
+      `Failed to invalidate applied signature at ${path}: ${errorMessage(error)}`,
     );
   }
 }

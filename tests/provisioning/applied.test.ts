@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { ProvisioningError } from '../../src/errors';
 import {
   appliedPath,
+  invalidateApplied,
   readApplied,
   writeApplied,
 } from '../../src/provisioning/applied';
@@ -20,6 +21,9 @@ sandboxTest(
     expect(await readApplied(path)).toBeNull();
     await writeApplied(path, signature);
     expect(await readApplied(path)).toBe(signature);
+    await invalidateApplied(path);
+    await invalidateApplied(path);
+    expect(await readApplied(path)).toBeNull();
   },
 );
 
