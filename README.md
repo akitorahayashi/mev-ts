@@ -85,7 +85,7 @@ mev switch personal             # Switch active Git identity (alias: mev sw)
 mev switch work
 ```
 
-`user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.mev/identity.json`. `switch` writes the selected name and email to `~/.gitconfig`.
+`user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.mev/identity.json`. `switch` writes the selected name and email to the mutable `~/.gitconfig`; `make git` manages the separate static config at `~/.config/git/config`.
 
 ### Document conversion
 

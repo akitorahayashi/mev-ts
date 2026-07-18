@@ -19,15 +19,40 @@ export async function configGet(
   return result.stdout.trim();
 }
 
-export async function configSetGlobal(
+export async function configGetFile(
   run: CommandRunner,
+  path: string,
+  name: string,
+): Promise<string | null> {
+  const result = await runCapture(run, [
+    'config',
+    '--file',
+    path,
+    '--get',
+    name,
+  ]);
+  if (result.code === 1) return null;
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      formatCommandFailure(
+        `git config --file ${path} --get ${name} failed`,
+        result,
+      ),
+    );
+  }
+  return result.stdout.trim();
+}
+
+export async function configSetFile(
+  run: CommandRunner,
+  path: string,
   name: string,
   value: string,
 ): Promise<void> {
-  const result = await runCapture(run, ['config', '--global', name, value]);
+  const result = await runCapture(run, ['config', '--file', path, name, value]);
   if (result.code !== 0) {
     throw new ProvisioningError(
-      formatCommandFailure(`git config --global ${name} failed`, result),
+      formatCommandFailure(`git config --file ${path} ${name} failed`, result),
     );
   }
 }

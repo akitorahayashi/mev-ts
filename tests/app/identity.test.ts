@@ -39,11 +39,10 @@ function sandboxTest(name: string, body: () => Promise<void>): void {
   });
 }
 
-/** Runner that answers `git config --global --get <key>` from a map and
- * records every `git config --global <key> <value>` write. */
+/** Runner that answers global reads from a map and records explicit-file writes. */
 function gitRunner(
   globals: Record<string, string>,
-  writes: { key: string; value: string }[] = [],
+  writes: { path: string; key: string; value: string }[] = [],
 ): CommandRunner {
   return {
     async run(_command, args): Promise<CommandResult> {
@@ -58,8 +57,12 @@ function gitRunner(
           ? { code: 1, stdout: '', stderr: '' }
           : { code: 0, stdout: `${value}\n`, stderr: '' };
       }
-      if (rest[0] === 'config' && rest[1] === '--global') {
-        writes.push({ key: rest[2] ?? '', value: rest[3] ?? '' });
+      if (rest[0] === 'config' && rest[1] === '--file') {
+        writes.push({
+          path: rest[2] ?? '',
+          key: rest[3] ?? '',
+          value: rest[4] ?? '',
+        });
         return { code: 0, stdout: '', stderr: '' };
       }
       return { code: 0, stdout: '', stderr: '' };
@@ -146,7 +149,7 @@ sandboxTest(
   async () => {
     const home = tempHome();
     await seed(home);
-    const writes: { key: string; value: string }[] = [];
+    const writes: { path: string; key: string; value: string }[] = [];
     const run = gitRunner({}, writes);
 
     const applied = await switchIdentity({ run, home }, 'personal');
@@ -156,8 +159,16 @@ sandboxTest(
       email: 'personal@example.com',
     });
     expect(writes).toEqual([
-      { key: 'user.name', value: 'Personal Name' },
-      { key: 'user.email', value: 'personal@example.com' },
+      {
+        path: join(home, '.gitconfig'),
+        key: 'user.name',
+        value: 'Personal Name',
+      },
+      {
+        path: join(home, '.gitconfig'),
+        key: 'user.email',
+        value: 'personal@example.com',
+      },
     ]);
   },
 );

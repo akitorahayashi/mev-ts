@@ -1,3 +1,4 @@
+import type { Context } from '../host/context';
 import type { Activation } from './activation';
 import {
   type PackageInput,
@@ -7,8 +8,8 @@ import {
 
 /**
  * A named unit of provisioning. A target owns the tags and aliases that select
- * it, the role whose assets it deploys, the packages it requires, and the
- * activations that link those assets into place. `optional` targets are still
+ * it, the role whose assets it deploys, protection required before replacing
+ * that role, its packages, and its activations. `optional` targets are still
  * selectable by tag but excluded from a full-environment `create`.
  */
 export interface Target {
@@ -18,6 +19,7 @@ export interface Target {
   readonly aliases: readonly string[];
   readonly role: string;
   readonly packages: PackageRequirement;
+  readonly preserveBeforeDeploy?: (context: Context) => Promise<void>;
   readonly activations: readonly Activation[];
   readonly optional: boolean;
 }
@@ -28,6 +30,7 @@ interface TargetDefinition {
   readonly aliases?: readonly string[];
   readonly role: string;
   readonly packages?: PackageInput;
+  readonly preserveBeforeDeploy?: (context: Context) => Promise<void>;
   readonly activations: readonly Activation[];
   readonly optional?: boolean;
 }
@@ -40,6 +43,7 @@ export function target(name: string, definition: TargetDefinition): Target {
     aliases: definition.aliases ?? [],
     role: definition.role,
     packages: packages(definition.packages),
+    preserveBeforeDeploy: definition.preserveBeforeDeploy,
     activations: definition.activations,
     optional: definition.optional ?? false,
   };

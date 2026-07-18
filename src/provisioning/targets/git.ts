@@ -1,5 +1,6 @@
 import { asset } from '../../assets/ref';
-import { home } from '../../host/path';
+import { home, resolveHostPath } from '../../host/path';
+import { preserveIdentityOverlay } from '../../identity/overlay';
 import { link } from '../activation';
 import { target } from '../target';
 
@@ -10,6 +11,11 @@ export const gitTarget = target('git', {
   description: 'Git configuration and global gitignore',
   role: 'git',
   packages: { formulae: ['git'] },
+  preserveBeforeDeploy: (context) =>
+    preserveIdentityOverlay(
+      { home: context.home, run: context.commands },
+      resolveHostPath(home('.config/git/config'), context.home),
+    ),
   activations: [
     link(asset('git/global/.gitconfig'), home('.config/git/config')),
     link(asset('git/global/.gitignore_global'), home('.config/git/ignore')),

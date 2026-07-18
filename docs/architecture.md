@@ -4,7 +4,7 @@
 
 `mev` is Local IaC for macOS, compiled to a standalone binary via `bun build --compile`. The repository config is the source of truth for personal machine setup, and the binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
 
-The execution model is three sequential phases: deploy role assets to the deploy store → install required Homebrew packages → activate each asset (symlink, defaults write, or host-command pipeline).
+The execution model protects target-declared mutable host state, then runs three sequential phases: deploy role assets to the deploy store → install required Homebrew packages → activate each asset (symlink, defaults write, or host-command pipeline).
 
 ## Layer Map
 
@@ -24,6 +24,8 @@ src/
 ## 3-Phase Provisioning (provisioning/run.ts)
 
 `runMake()` drives three sequential phases per make request:
+
+Before invalidating applied signatures or entering the phases, each selected target's `preserveBeforeDeploy` operation protects mutable host state that its role replacement could otherwise destroy. A preservation failure aborts before provisioning-managed state changes. The Git target uses this boundary to move legacy identity keys out of its managed XDG config.
 
 1. Deploy — `deployRole()` stages every embedded asset for the selected roles under a sibling directory. If the staged contents and executable attributes match the present role, the role remains in place; otherwise the old role is moved aside and the staged role replaces it. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
 2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
@@ -104,6 +106,7 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 - `tags` and `aliases` for selector resolution
 - `role` — the asset namespace under `src/assets/config/`
 - `packages` — Homebrew formulae, taps, and casks required before activation
+- `preserveBeforeDeploy` — optional protection for mutable host state that role replacement would destroy
 - `activations` — ordered list of `Activation` values
 - `optional` — when set, the target is selectable by tag but excluded from a full-environment `create`
 
@@ -154,7 +157,7 @@ Several activation kinds delegate external-tool protocol and state detection to 
 
 ## Identity (identity/)
 
-The identity domain owns Git identity switching independently of the provisioning engine. `identity/scope.ts` is the authority for switchable scopes and their aliases. `identity/store.ts` persists a profile pair to `~/.mev/identity.json` via atomic temp-write + rename. `app/identity.ts` orchestrates the show/set/switch use cases.
+The identity domain owns Git identity switching independently of the provisioning engine. `identity/scope.ts` is the authority for switchable scopes and their aliases. `identity/store.ts` persists a profile pair to `~/.mev/identity.json` via atomic temp-write + rename. `app/identity.ts` orchestrates the show/set/switch use cases. The managed static Git config is the XDG file at `~/.config/git/config`; `switch` writes the active `user.name` and `user.email` explicitly to the higher-precedence mutable overlay at `~/.gitconfig`. `identity/overlay.ts` preserves legacy identity keys into that overlay before the Git role is replaced, leaving existing overlay values unchanged.
 
 ## Deploy Store Layout
 
