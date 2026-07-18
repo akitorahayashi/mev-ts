@@ -1,5 +1,6 @@
 import { AppError, CommandLineError } from '../errors';
 import type { CommandRunner } from '../host/command';
+import { identityOverlayPath } from '../identity/overlay';
 import { allScopes, type IdentityScope } from '../identity/scope';
 import {
   emptyState,
@@ -9,7 +10,7 @@ import {
   readState,
   saveState,
 } from '../identity/store';
-import { configGet, configSetGlobal } from '../internal/git/config';
+import { configGet, configSetFile } from '../internal/git/config';
 
 export interface IdentityDeps {
   readonly run: CommandRunner;
@@ -94,8 +95,9 @@ export async function switchIdentity(
     );
   }
 
-  await configSetGlobal(deps.run, 'user.name', identity.name);
-  await configSetGlobal(deps.run, 'user.email', identity.email);
+  const overlay = identityOverlayPath(deps.home);
+  await configSetFile(deps.run, overlay, 'user.name', identity.name);
+  await configSetFile(deps.run, overlay, 'user.email', identity.email);
   return identity;
 }
 

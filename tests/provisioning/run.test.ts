@@ -1,8 +1,9 @@
 import { expect } from 'bun:test';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
-import { CommandLineError } from '../../src/errors';
+import { CommandLineError, ProvisioningError } from '../../src/errors';
 import type { Context } from '../../src/host/context';
 import {
   appliedPath,
@@ -47,6 +48,43 @@ sandboxTest('apply deploys and links the git target', async (sandbox) => {
     await targetSignature(resolveTarget('git'), embeddedAssets),
   );
 });
+
+sandboxTest(
+  'a git identity preservation failure stops before invalidation and deploy',
+  async (sandbox) => {
+    const managedConfig = join(sandbox, '.config/git/config');
+    await mkdir(join(managedConfig, '..'), { recursive: true });
+    await writeFile(managedConfig, '[user]\n\tname = Legacy Name\n');
+
+    const marker = appliedPath(sandbox, 'git');
+    const existingSignature = `sha256:${'a'.repeat(64)}`;
+    await writeApplied(marker, existingSignature);
+    const deployedConfig = deployedPath(
+      { key: 'git/global/.gitconfig' },
+      sandbox,
+    );
+    await mkdir(join(deployedConfig, '..'), { recursive: true });
+    await writeFile(deployedConfig, 'previous deployed content\n');
+
+    const context = recordingContext({
+      home: sandbox,
+      assets: embeddedAssets,
+      respond(command) {
+        return command === 'git'
+          ? { code: 127, stdout: '', stderr: 'git unavailable' }
+          : { code: 0, stdout: '', stderr: '' };
+      },
+    }).context;
+
+    await expect(runMake({ tags: ['git'] }, context)).rejects.toBeInstanceOf(
+      ProvisioningError,
+    );
+    expect(await readApplied(marker)).toBe(existingSignature);
+    expect(await readFile(deployedConfig, 'utf8')).toBe(
+      'previous deployed content\n',
+    );
+  },
+);
 
 sandboxTest(
   'an alias and its tag select the same target once',

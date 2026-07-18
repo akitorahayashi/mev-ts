@@ -48,7 +48,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### 3-Phase Provisioning
 
-`runMake()` drives three sequential phases: deploy embedded assets into `~/.mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply activations in declaration order (`runActivation()`). Deploys stage the selected role and replace it only when its contents or executable attributes drift; declared symlink destinations are replaced with the current repository-defined target.
+`runMake()` protects target-declared mutable host state, then drives three sequential phases: deploy embedded assets into `~/.mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply activations in declaration order (`runActivation()`). Preservation runs before applied-state invalidation and role replacement. Deploys stage the selected role and replace it only when its contents or executable attributes drift; declared symlink destinations are replaced with the current repository-defined target.
 
 ### Activation DSL
 
@@ -77,7 +77,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
 - `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). Every mev-managed host path derives from it; none hardcodes `.mev` or a parallel root.
-- `Target` / `MakePlan` — a target groups tags/aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves tag attribution.
+- `Target` / `MakePlan` — a target groups tags/aliases, role, packages, optional pre-deploy preservation, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves tag attribution.
 - `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
 
 ### Asset Codegen

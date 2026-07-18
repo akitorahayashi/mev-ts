@@ -107,16 +107,25 @@ async function recordSuccessfulTargets(
 }
 
 /**
- * Drive the three provisioning phases: deploy each role's config, resolve
- * required packages, then activate (link) the deployed assets grouped by tag.
- * Phase boundaries fire hooks so the CLI can interleave a live install bar; the
- * returned report carries everything needed to render the log.
+ * Protect target-declared mutable state, then drive the three provisioning
+ * phases: deploy each role's config, resolve required packages, and activate
+ * the deployed assets grouped by tag. Phase boundaries fire hooks so the CLI
+ * can interleave a live install bar; the returned report carries everything
+ * needed to render the log.
  */
 export async function runMake(
   request: MakeRequest,
   context: Context,
 ): Promise<MakeReport> {
   const selection = planMake(request.tags);
+
+  // Preserve mutable host state before invalidating applied markers or
+  // replacing deployed roles. A preservation failure leaves provisioning's
+  // managed state untouched.
+  for (const tag of selection.tags) {
+    await targetNamed(tag).preserveBeforeDeploy?.(context);
+  }
+
   await invalidateSelectedTargets(selection.tags, context);
 
   // Phase 1: deploy configs for each role.

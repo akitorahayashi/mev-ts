@@ -44,7 +44,7 @@ const failedReport: MakeReport = {
         {
           verb: 'link',
           source: 'git/global/.gitconfig',
-          dest: '~/.gitconfig',
+          dest: '~/.config/git/config',
           status: 'failed',
           error: 'unmanaged file exists',
         },

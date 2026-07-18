@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../../../src/errors';
-import { configGet, configSetGlobal } from '../../../src/internal/git/config';
+import {
+  configGet,
+  configGetFile,
+  configSetFile,
+} from '../../../src/internal/git/config';
 import { presetRunner } from '../../fixtures/fake-command-runner';
 
 test('configGet returns trimmed value on exit 0', async () => {
@@ -39,16 +43,42 @@ test('configGet passes correct argv', async () => {
   ]);
 });
 
-test('configSetGlobal passes correct argv', async () => {
+test('configGetFile passes the explicit path', async () => {
   const sink: { args?: string[] } = {};
-  const run = presetRunner({ code: 0, stdout: '', stderr: '' }, sink);
-  await configSetGlobal(run, 'user.name', 'Example');
-  expect(sink.args).toEqual(['config', '--global', 'user.name', 'Example']);
+  const run = presetRunner({ code: 0, stdout: 'Example\n', stderr: '' }, sink);
+  await configGetFile(run, '/home/test/.gitconfig', 'user.name');
+  expect(sink.args).toEqual([
+    'config',
+    '--file',
+    '/home/test/.gitconfig',
+    '--get',
+    'user.name',
+  ]);
 });
 
-test('configSetGlobal throws ProvisioningError on non-zero exit', async () => {
+test('configGetFile returns null on exit 1', async () => {
+  const run = presetRunner({ code: 1, stdout: '', stderr: '' });
+  expect(
+    await configGetFile(run, '/home/test/.gitconfig', 'user.name'),
+  ).toBeNull();
+});
+
+test('configSetFile passes the explicit path', async () => {
+  const sink: { args?: string[] } = {};
+  const run = presetRunner({ code: 0, stdout: '', stderr: '' }, sink);
+  await configSetFile(run, '/home/test/.gitconfig', 'user.name', 'Example');
+  expect(sink.args).toEqual([
+    'config',
+    '--file',
+    '/home/test/.gitconfig',
+    'user.name',
+    'Example',
+  ]);
+});
+
+test('configSetFile throws ProvisioningError on non-zero exit', async () => {
   const run = presetRunner({ code: 1, stdout: '', stderr: 'error' });
   await expect(
-    configSetGlobal(run, 'user.name', 'Example'),
+    configSetFile(run, '/home/test/.gitconfig', 'user.name', 'Example'),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });
