@@ -82,6 +82,23 @@ sandboxTest('link replaces an existing file', async (sandbox) => {
   expect(await readlink(dest)).toBe(deployedPath(ref, sandbox));
 });
 
+sandboxTest('link replaces an existing directory', async (sandbox) => {
+  const context = contextFor(sandbox);
+  const ref = asset('git/global/.gitconfig');
+  await deploy(context, ref.key);
+  const dest = join(sandbox, '.config-target');
+  await mkdir(dest);
+  await writeFile(join(dest, 'stale'), 'stale');
+
+  const report = await runActivation(
+    link(ref, home('.config-target')),
+    context,
+  );
+
+  expect(report.status).toBe('changed');
+  expect(await readlink(dest)).toBe(deployedPath(ref, sandbox));
+});
+
 sandboxTest(
   'link surfaces filesystem errors while probing links',
   async (sandbox) => {

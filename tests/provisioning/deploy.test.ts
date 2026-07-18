@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { lstat, mkdir, stat, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedPath } from '../../src/assets/ref';
 import type { AssetSource } from '../../src/assets/registry';
@@ -72,6 +72,31 @@ sandboxTest('deployRole regenerates a present role', async (sandbox) => {
   expect(await Bun.file(deployed).text()).toBe(
     'content of git/global/.gitconfig\n',
   );
+});
+
+sandboxTest(
+  'deployRole leaves an equivalent role in place',
+  async (sandbox) => {
+    await deployRole('git', contextFor(sandbox));
+    const dest = deployedDir('git', sandbox);
+    const before = await stat(dest);
+
+    const result = await deployRole('git', contextFor(sandbox));
+
+    expect(result.deployed).toBe(false);
+    expect((await stat(dest)).ino).toBe(before.ino);
+  },
+);
+
+sandboxTest('deployRole repairs executable-mode drift', async (sandbox) => {
+  await deployRole('git', contextFor(sandbox));
+  const executable = deployedPath({ key: EXECUTABLE_KEY }, sandbox);
+  await chmod(executable, 0o644);
+
+  const result = await deployRole('git', contextFor(sandbox));
+
+  expect(result.deployed).toBe(true);
+  expect((await stat(executable)).mode & 0o100).not.toBe(0);
 });
 
 sandboxTest(
