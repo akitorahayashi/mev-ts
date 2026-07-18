@@ -1,4 +1,4 @@
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   type AssetRef,
@@ -14,6 +14,7 @@ import {
   readlinkIfPresent,
 } from '../../host/absence';
 import type { Context } from '../../host/context';
+import { replaceDirectoryAfterBuild } from '../../host/directory-replacement';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type { Activation, ActivationReport, Described } from './contract';
@@ -90,6 +91,18 @@ async function staleLinks(
   return stale;
 }
 
+async function ensureTreeRoot(root: string): Promise<boolean> {
+  const stats = await lstatIfPresent(root);
+  if (!stats) {
+    await mkdir(root, { recursive: true });
+    return true;
+  }
+  if (stats.isDirectory() && !stats.isSymbolicLink()) {
+    return false;
+  }
+  return replaceDirectoryAfterBuild(root, async () => {});
+}
+
 export async function runFile(
   activation: FileActivation,
   context: Context,
@@ -121,6 +134,8 @@ export async function runTree(
     const managedRoot = deployedDir(activation.prefix, context.home);
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
+    const rootChanged = await ensureTreeRoot(root);
+
     const drifted: TreeEntry[] = [];
     for (const { link, target } of entries) {
       if (await isSymlinkTo(link, target)) {
@@ -131,7 +146,7 @@ export async function runTree(
     const expected = new Set(entries.map((entry) => entry.link));
     const stale = await staleLinks(root, managedRoot, expected);
 
-    if (drifted.length === 0 && stale.length === 0) {
+    if (!rootChanged && drifted.length === 0 && stale.length === 0) {
       return { ...base, status: 'unchanged' };
     }
 

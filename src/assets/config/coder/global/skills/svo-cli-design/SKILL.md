@@ -28,7 +28,7 @@ Prioritize SVO structure. Use positional arguments for primary required inputs. 
    - Payload too large/externalized
    - Omission is normal (explicit toggle safer)
 5. Command tree: Shallow depth, stable vocabulary, no synonyms
-6. Aliases: Provide short forms for commands and options (e.g., `init`→`i`, `update`→`u`, `--output`→`-o`)
+6. Aliases: Consider an alias for every command by default, and provide short forms when they are memorable and unambiguous; also consider aliases for options (e.g., `init`→`i`, `update`→`u`, `--output`→`-o`)
 7. Operational contracts:
    - `stdout`: result data
    - `stderr`: warnings/logs/errors

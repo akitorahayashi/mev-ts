@@ -19,6 +19,11 @@ export function availableProfiles(): string[] {
   return PROFILES.flatMap((p) => [p.id, ...p.aliases]);
 }
 
+/** Positional argument syntax containing every accepted profile identifier. */
+export function profileArgumentName(): string {
+  return availableProfiles().join('|');
+}
+
 /** Resolve a profile identifier or alias to its canonical `Profile`. */
 export function resolveProfile(input: string): Profile {
   const match = PROFILES.find(

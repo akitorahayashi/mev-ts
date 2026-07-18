@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { rewriteNamespaceHelp } from './main';
+import { rewriteNamespaceHelp, runCommandLine } from './main';
 
 const paths = [
   ['config'],
@@ -39,4 +39,39 @@ test('leaves non-help and non-two-token invocations untouched', () => {
     '--help',
   ]);
   expect(rewrite(['make', 'git'])).toEqual(['make', 'git']);
+});
+
+async function captureCommandLine(args: readonly string[]) {
+  let stdout = '';
+  const code = await runCommandLine(args, {
+    colorDepth: 1,
+    stdout: {
+      write(chunk: string | Uint8Array) {
+        stdout += String(chunk);
+        return true;
+      },
+    } as NodeJS.WriteStream,
+  });
+  return { code, stdout: Bun.stripANSI(stdout) };
+}
+
+test('profile command help lists every accepted profile identifier', async () => {
+  const sync = await captureCommandLine(['s', '-h']);
+  const create = await captureCommandLine(['cr', '-h']);
+
+  expect(sync.code).toBe(0);
+  expect(sync.stdout).toContain('$ mev sync <macbook|mbk|mac-mini|mmn>');
+  expect(sync.stdout).toContain('[aliases: s]');
+  expect(create.code).toBe(0);
+  expect(create.stdout).toContain('$ mev create <macbook|mbk|mac-mini|mmn>');
+});
+
+test('missing profile errors show every accepted profile identifier', async () => {
+  const sync = await captureCommandLine(['sync']);
+  const create = await captureCommandLine(['create']);
+
+  expect(sync.code).toBe(1);
+  expect(sync.stdout).toContain('$ mev sync <macbook|mbk|mac-mini|mmn>');
+  expect(create.code).toBe(1);
+  expect(create.stdout).toContain('$ mev create <macbook|mbk|mac-mini|mmn>');
 });
