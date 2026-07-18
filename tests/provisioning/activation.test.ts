@@ -159,6 +159,36 @@ sandboxTest(
 );
 
 sandboxTest(
+  'linkTree replaces a symlinked destination root with a real directory',
+  async (sandbox) => {
+    const context = contextFor(sandbox);
+    for (const key of ALIAS_KEYS) await deploy(context, key);
+    const root = join(sandbox, '.mev/alias');
+    const legacyRoot = join(sandbox, 'legacy-alias');
+    await mkdir(join(sandbox, '.mev'), { recursive: true });
+    await mkdir(join(legacyRoot, 'sub'), { recursive: true });
+    await symlink(join(legacyRoot, 'a.zsh'), join(legacyRoot, 'a.zsh'));
+    await symlink(legacyRoot, root);
+
+    const report = await runActivation(
+      linkTree(aliasPrefix, home('.mev/alias')),
+      context,
+    );
+
+    const rootStats = await lstat(root);
+    expect(report.status).toBe('changed');
+    expect(rootStats.isDirectory()).toBe(true);
+    expect(rootStats.isSymbolicLink()).toBe(false);
+    expect(await readlink(join(root, 'a.zsh'))).toBe(
+      deployedPath(asset(`${aliasPrefix}a.zsh`), sandbox),
+    );
+    expect(await readlink(join(root, 'sub/b.zsh'))).toBe(
+      deployedPath(asset(`${aliasPrefix}sub/b.zsh`), sandbox),
+    );
+  },
+);
+
+sandboxTest(
   'linkTree prunes a managed link that is no longer expected',
   async (sandbox) => {
     const context = contextFor(sandbox);
