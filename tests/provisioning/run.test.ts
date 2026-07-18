@@ -1,9 +1,10 @@
 import { expect } from 'bun:test';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { CommandLineError, ProvisioningError } from '../../src/errors';
+import { bunCommandRunner } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import {
   appliedPath,
@@ -48,6 +49,72 @@ sandboxTest('apply deploys and links the git target', async (sandbox) => {
     await targetSignature(resolveTarget('git'), embeddedAssets),
   );
 });
+
+sandboxTest(
+  'git identity survives repeated provisioning from the managed XDG layout',
+  async (sandbox) => {
+    const context: Context = {
+      ...contextFor(sandbox),
+      commands: {
+        async run(command, args, options) {
+          if (command !== 'git') {
+            return { code: 0, stdout: '', stderr: '' };
+          }
+          return bunCommandRunner.run(command, args, {
+            ...options,
+            env: {
+              ...options?.env,
+              HOME: sandbox,
+              XDG_CONFIG_HOME: join(sandbox, '.config'),
+            },
+          });
+        },
+      },
+    };
+    await deployRole('git', context);
+
+    const deployedConfig = deployedPath(
+      { key: 'git/global/.gitconfig' },
+      sandbox,
+    );
+    await writeFile(
+      deployedConfig,
+      `${await readFile(deployedConfig, 'utf8')}\n[user]\n\tname = Legacy Name\n\temail = legacy@example.com\n`,
+    );
+    const managedConfig = join(sandbox, '.config/git/config');
+    await mkdir(join(managedConfig, '..'), { recursive: true });
+    await symlink(deployedConfig, managedConfig);
+
+    for (let run = 0; run < 2; run += 1) {
+      const report = await runMake({ tags: ['git'] }, context);
+      expect(report.failed).toBe(false);
+
+      const name = await context.commands.run('git', [
+        'config',
+        '--global',
+        '--get',
+        'user.name',
+      ]);
+      const email = await context.commands.run('git', [
+        'config',
+        '--global',
+        '--get',
+        'user.email',
+      ]);
+      expect(name).toEqual({ code: 0, stdout: 'Legacy Name\n', stderr: '' });
+      expect(email).toEqual({
+        code: 0,
+        stdout: 'legacy@example.com\n',
+        stderr: '',
+      });
+    }
+
+    const overlayStats = await lstat(join(sandbox, '.gitconfig'));
+    expect(overlayStats.isFile()).toBe(true);
+    expect(overlayStats.isSymbolicLink()).toBe(false);
+    expect(await readFile(deployedConfig, 'utf8')).not.toContain('Legacy Name');
+  },
+);
 
 sandboxTest(
   'a git identity preservation failure stops before invalidation and deploy',
