@@ -17,6 +17,7 @@ The repository owns:
 The repository-owned tasks are:
 
 - `bun e <command>`
+- `bun run up`
 - `bun run build`
 - `bun run fix`
 - `bun run check`
@@ -25,6 +26,7 @@ The repository-owned tasks are:
 - `bun run test:integration`
 
 `bun run fix` applies Biome formatting and safe lint fixes. Run it before `check`; `check` is read-only and fails on unformatted code.
+`bun run up` regenerates the asset registry, builds a Bun-targeted single-file JavaScript bundle, and installs it as `mev` into `MEV_INSTALL_DIR` or `~/.local/bin`.
 `bun run build` compiles a standalone executable with `bun build --compile`
 without leaving intermediate files in the repository root.
 `bun run check` runs Biome validation and TypeScript typechecking.

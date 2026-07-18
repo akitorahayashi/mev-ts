@@ -29,7 +29,11 @@ From a clone, install dependencies and run from source:
 ```bash
 bun install
 bun e --version
+MEV_INSTALL_DIR="$HOME/.local/bin" bun run up
+mev --version
 ```
+
+`bun run up` is the local self-update path for a development clone. It regenerates the embedded asset registry, builds a Bun-targeted single-file JavaScript bundle, and installs it as `mev`. This replaces any previously installed standalone release binary at that path; the release installer remains the clean-install path for machines that do not yet have Bun.
 
 ## Usage
 

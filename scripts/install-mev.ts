@@ -1,54 +1,114 @@
-import { chmod, copyFile, mkdir } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { errorMessage } from '../src/errors';
+import { runWithCleanup } from '../src/host/cleanup-error';
 
-async function run(
-  command: string,
-  args: readonly string[],
-  cwd: string,
-): Promise<void> {
-  const proc = Bun.spawn([command, ...args], {
-    cwd,
-    stdout: 'inherit',
-    stderr: 'inherit',
+type InstallStdio = 'inherit' | 'ignore';
+
+interface InstallInvocation {
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly stdio: InstallStdio;
+}
+
+interface InstallOptions {
+  readonly projectRoot: string;
+  readonly installDir?: string;
+  readonly stdio?: InstallStdio;
+  readonly runBuildCommand?: (invocation: InstallInvocation) => Promise<number>;
+}
+
+async function runBunBuild(invocation: InstallInvocation): Promise<number> {
+  const proc = Bun.spawn(['bun', ...invocation.args], {
+    cwd: invocation.cwd,
+    stderr: invocation.stdio,
+    stdout: invocation.stdio,
   });
+  return proc.exited;
+}
 
-  const code = await proc.exited;
+async function runBuildCommand(
+  invocation: InstallInvocation,
+  runCommand: (invocation: InstallInvocation) => Promise<number>,
+  failureLabel: string,
+): Promise<void> {
+  const code = await runCommand(invocation);
   if (code !== 0) {
-    throw new Error(
-      `${command} ${args.join(' ')} failed with exit code ${code}`,
-    );
+    throw new Error(`${failureLabel} failed with exit code ${code}`);
   }
+}
+
+function defaultInstallDir(): string {
+  return process.env.MEV_INSTALL_DIR ?? join(homedir(), '.local', 'bin');
+}
+
+export async function installLocalMev(
+  options: InstallOptions,
+): Promise<string> {
+  const installDir = options.installDir ?? defaultInstallDir();
+  await mkdir(installDir, { recursive: true });
+  const dest = join(installDir, 'mev');
+  const stageDir = await mkdtemp(join(installDir, '.mev-up-'));
+  const stageDest = join(stageDir, 'mev');
+
+  await runWithCleanup(
+    async () => {
+      const runCommand = options.runBuildCommand ?? runBunBuild;
+      const stdio = options.stdio ?? 'inherit';
+      const projectRoot = options.projectRoot;
+
+      await runBuildCommand(
+        {
+          args: [resolve(projectRoot, 'scripts/generate-assets.ts')],
+          cwd: projectRoot,
+          stdio,
+        },
+        runCommand,
+        'asset codegen',
+      );
+
+      await runBuildCommand(
+        {
+          args: [
+            'build',
+            resolve(projectRoot, 'src/main.ts'),
+            '--target',
+            'bun',
+            '--external',
+            'chromium-bidi/*',
+            '--outfile',
+            stageDest,
+          ],
+          cwd: projectRoot,
+          stdio,
+        },
+        runCommand,
+        'bun build',
+      );
+
+      await chmod(stageDest, 0o755);
+      await rename(stageDest, dest);
+    },
+    () => rm(stageDir, { force: true, recursive: true }),
+    `Failed to clean up install workspace ${stageDir}.`,
+  );
+
+  return dest;
 }
 
 async function install(): Promise<void> {
   const projectRoot = join(import.meta.dir, '..');
-  await run(Bun.argv[0] as string, ['run', 'build'], projectRoot);
-
-  // The build and artifact are project-relative, so this script works from any
-  // caller directory.
-  const artifact = join(projectRoot, 'dist', 'mev');
-  if (!(await Bun.file(artifact).exists())) {
-    throw new Error(
-      `Build artifact not found at ${artifact}. The build did not produce dist/mev.`,
-    );
-  }
-
-  // Honor MEV_INSTALL_DIR to match install.sh; default to ~/.local/bin.
-  const installDir =
-    process.env.MEV_INSTALL_DIR ?? join(homedir(), '.local', 'bin');
-  await mkdir(installDir, { recursive: true });
-  const dest = join(installDir, 'mev');
-  await copyFile(artifact, dest);
-  await chmod(dest, 0o755);
+  const dest = await installLocalMev({ projectRoot });
 
   console.log(`Installed to ${dest}`);
 }
 
-try {
-  await install();
-} catch (error) {
-  console.error(errorMessage(error));
-  process.exit(1);
+if (import.meta.main) {
+  try {
+    await install();
+  } catch (error) {
+    console.error(errorMessage(error));
+    process.exit(1);
+  }
 }
