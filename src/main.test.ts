@@ -61,6 +61,7 @@ test('profile command help lists every accepted profile identifier', async () =>
 
   expect(sync.code).toBe(0);
   expect(sync.stdout).toContain('$ mev sync <macbook|mbk|mac-mini|mmn>');
+  expect(sync.stdout).toContain('[aliases: s]');
   expect(create.code).toBe(0);
   expect(create.stdout).toContain('$ mev create <macbook|mbk|mac-mini|mmn>');
 });

@@ -189,6 +189,22 @@ sandboxTest(
 );
 
 sandboxTest(
+  'linkTree reports changed when it creates an empty destination root',
+  async (sandbox) => {
+    const context = contextFor(sandbox);
+    const activation = linkTree('empty/global/', home('.empty-root'));
+    const root = join(sandbox, '.empty-root');
+
+    const first = await runActivation(activation, context);
+    const second = await runActivation(activation, context);
+
+    expect(first.status).toBe('changed');
+    expect(second.status).toBe('unchanged');
+    expect((await lstat(root)).isDirectory()).toBe(true);
+  },
+);
+
+sandboxTest(
   'linkTree prunes a managed link that is no longer expected',
   async (sandbox) => {
     const context = contextFor(sandbox);

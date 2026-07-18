@@ -91,16 +91,16 @@ async function staleLinks(
   return stale;
 }
 
-async function ensureTreeRoot(root: string): Promise<void> {
+async function ensureTreeRoot(root: string): Promise<boolean> {
   const stats = await lstatIfPresent(root);
   if (!stats) {
     await mkdir(root, { recursive: true });
-    return;
+    return true;
   }
   if (stats.isDirectory() && !stats.isSymbolicLink()) {
-    return;
+    return false;
   }
-  await replaceDirectoryAfterBuild(root, async () => {});
+  return replaceDirectoryAfterBuild(root, async () => {});
 }
 
 export async function runFile(
@@ -134,7 +134,7 @@ export async function runTree(
     const managedRoot = deployedDir(activation.prefix, context.home);
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
-    await ensureTreeRoot(root);
+    const rootChanged = await ensureTreeRoot(root);
 
     const drifted: TreeEntry[] = [];
     for (const { link, target } of entries) {
@@ -146,7 +146,7 @@ export async function runTree(
     const expected = new Set(entries.map((entry) => entry.link));
     const stale = await staleLinks(root, managedRoot, expected);
 
-    if (drifted.length === 0 && stale.length === 0) {
+    if (!rootChanged && drifted.length === 0 && stale.length === 0) {
       return { ...base, status: 'unchanged' };
     }
 
