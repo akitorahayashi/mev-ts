@@ -52,7 +52,7 @@ async function captureCommandLine(args: readonly string[]) {
       },
     } as NodeJS.WriteStream,
   });
-  return { code, stdout };
+  return { code, stdout: Bun.stripANSI(stdout) };
 }
 
 test('profile command help lists every accepted profile identifier', async () => {
