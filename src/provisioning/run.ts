@@ -1,14 +1,18 @@
 import { type InstallReport, installPackages } from '../brew/install';
-import { errorMessage } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import type { Context } from '../host/context';
 import {
   type ActivationReport,
   blockedReport,
   runActivation,
 } from './activation';
+import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
 import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
+import { allTargets } from './registry';
+import { targetSignature } from './signature';
+import type { Target } from './target';
 
 export type ActivationBlocker =
   | {
@@ -60,6 +64,48 @@ function blockerReason(blockers: readonly ActivationBlocker[]): string {
   return blockers.map(formatBlocker).join('; ');
 }
 
+function targetNamed(name: string): Target {
+  const match = allTargets().find((target) => target.name === name);
+  if (!match) {
+    throw new ProvisioningError(
+      `Provisioning plan referenced unknown target '${name}'.`,
+    );
+  }
+  return match;
+}
+
+function groupSucceeded(group: ActivationGroupReport): boolean {
+  return (
+    group.blockers.length === 0 &&
+    group.reports.every(
+      (report) => report.status !== 'failed' && report.status !== 'blocked',
+    )
+  );
+}
+
+async function invalidateSelectedTargets(
+  targets: readonly string[],
+  context: Context,
+): Promise<void> {
+  await Promise.all(
+    targets.map((target) =>
+      invalidateApplied(appliedPath(context.home, target)),
+    ),
+  );
+}
+
+async function recordSuccessfulTargets(
+  groups: readonly ActivationGroupReport[],
+  context: Context,
+): Promise<void> {
+  for (const group of groups) {
+    if (!groupSucceeded(group)) continue;
+    const target = targetNamed(group.tag);
+    const signature = await targetSignature(target, context.assets);
+    await writeApplied(appliedPath(context.home, target.name), signature);
+  }
+}
+
 /**
  * Drive the three provisioning phases: deploy each role's config, resolve
  * required packages, then activate (link) the deployed assets grouped by tag.
@@ -71,6 +117,7 @@ export async function runMake(
   context: Context,
 ): Promise<MakeReport> {
   const selection = planMake(request.tags);
+  await invalidateSelectedTargets(selection.tags, context);
 
   // Phase 1: deploy configs for each role.
   const deploys: DeployResult[] = [];
@@ -149,6 +196,8 @@ export async function runMake(
       (g) =>
         g.blockers.length > 0 || g.reports.some((r) => r.status === 'failed'),
     );
+
+  await recordSuccessfulTargets(groups, context);
 
   return { selection, deploys, install, groups, failed };
 }

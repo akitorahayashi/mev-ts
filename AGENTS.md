@@ -30,6 +30,9 @@ src/
   provisioning/
     activation/  Activation DSL vocabulary, per-kind runners, reconcile envelope, manifest loader
     targets/     One file per provisioning target
+    signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
+    applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
+    scan.ts      Concurrent signature and deployed-role drift classification
 scripts/
   generate-assets.ts  Asset codegen: walks src/assets/config/, emits registry.generated.ts
 tests/                Integration tests for CLI, filesystem, subprocess, and network behavior
@@ -59,6 +62,10 @@ See docs/architecture.md for the per-kind table and the reconcile/manifest mecha
 ### Provisioning Targets
 
 Each target is a file in `provisioning/targets/` registered in `provisioning/registry.ts`. The registry test (`src/provisioning/registry.test.ts`) validates asset existence and selector uniqueness for every registered target, so adding a target needs no new test file.
+
+### Semantic Sync
+
+`sync <profile>` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command implementation functions are excluded from the signature. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
 
 ### CLI
 

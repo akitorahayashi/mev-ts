@@ -3,7 +3,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { BaseContext } from 'clipanion';
 import packageMetadata from '../../package.json';
+import { embeddedAssets } from '../../src/assets/registry';
 import { runCommandLine } from '../../src/main';
+import { appliedPath, writeApplied } from '../../src/provisioning/applied';
+import { deployRole } from '../../src/provisioning/deploy';
+import { fullSetupTargets } from '../../src/provisioning/registry';
+import { targetSignature } from '../../src/provisioning/signature';
+import { recordingContext } from '../fixtures/fake-context';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 interface RunResult {
@@ -66,7 +72,58 @@ test('help prints command usage to stdout', async () => {
   expect(result.code).toBe(0);
   expect(stdout).toContain('$ mev <command>');
   expect(stdout).toContain('make');
+  expect(stdout).toContain('sync');
   expect(result.stderr).toBe('');
+});
+
+test('sync requires a profile', async () => {
+  const result = await capture(['sync']);
+
+  expect(result.code).toBe(1);
+  expect(result.stdout).toContain('Not enough positional arguments');
+  expect(result.stdout).toContain('mev sync');
+  expect(result.stderr).toBe('');
+});
+
+test('sync rejects an unknown profile as a usage error', async () => {
+  const result = await capture(['sync', 'desktop']);
+
+  expect(result.code).toBe(1);
+  expect(result.stdout).toContain("Unknown profile 'desktop'.");
+  expect(result.stdout).toContain('mev sync');
+  expect(result.stderr).toBe('');
+});
+
+test('sync exits without provisioning when the full setup is current', async () => {
+  const originalHome = process.env.HOME;
+  await withTemporaryDirectory(async (home) => {
+    const context = recordingContext({ home, assets: embeddedAssets }).context;
+    for (const target of fullSetupTargets()) {
+      await deployRole(target.role, context);
+      await writeApplied(
+        appliedPath(home, target.name),
+        await targetSignature(target, embeddedAssets),
+      );
+    }
+
+    try {
+      process.env.HOME = home;
+      const result = await capture(['sync', 'mbk']);
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain(
+        'mev: macbook environment is synchronized',
+      );
+      expect(result.stdout).not.toContain('Running tags:');
+      expect(result.stderr).toBe('');
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+    }
+  });
 });
 
 test('list alias routes to the target list', async () => {

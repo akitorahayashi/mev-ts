@@ -95,6 +95,11 @@ test('no tag or alias is shared between targets', () => {
   expect(new Set(selectors).size).toBe(selectors.length);
 });
 
+test('every deployed role is owned by one target', () => {
+  const roles = allTargets().map((target) => target.role);
+  expect(new Set(roles).size).toBe(roles.length);
+});
+
 test('an alias resolves to its owning target', () => {
   expect(resolveTarget('sh')).toBe(resolveTarget('shell'));
 });
