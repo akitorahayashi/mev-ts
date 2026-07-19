@@ -1,4 +1,5 @@
 import { expect } from 'bun:test';
+import { mkdirSync } from 'node:fs';
 import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
@@ -185,6 +186,94 @@ sandboxTest(
 );
 
 sandboxTest(
+  'activation hooks report phase progress in order',
+  async (sandbox) => {
+    const events: string[] = [];
+    const report = await runMake(
+      {
+        tags: ['git'],
+        onActivationPhaseStart: (event) => {
+          events.push(`phase:${event.totalTargets}`);
+        },
+        onActivationStart: (event) => {
+          events.push(
+            `start:${event.tag}:${event.activation.verb}:${event.activation.source}`,
+          );
+        },
+        onActivationTargetComplete: (group) => {
+          events.push(`complete:${group.tag}:${group.reports.length}`);
+        },
+      },
+      contextFor(sandbox),
+    );
+
+    expect(report.failed).toBe(false);
+    expect(events[0]).toBe('phase:1');
+    expect(events.some((event) => event.startsWith('start:git:'))).toBe(true);
+    expect(events.at(-1)).toBe(
+      `complete:git:${gitGroup(report)?.reports.length}`,
+    );
+  },
+);
+
+sandboxTest(
+  'empty activation targets still complete the progress lifecycle',
+  async (sandbox) => {
+    const events: string[] = [];
+    const report = await runMake(
+      {
+        tags: ['formulae'],
+        onActivationPhaseStart: (event) => {
+          events.push(`phase:${event.totalTargets}`);
+        },
+        onActivationStart: () => {
+          events.push('start');
+        },
+        onActivationTargetComplete: (group) => {
+          events.push(`complete:${group.tag}:${group.reports.length}`);
+        },
+      },
+      contextFor(sandbox),
+    );
+
+    expect(report.failed).toBe(false);
+    expect(events).toEqual(['phase:1', 'complete:formulae:0']);
+    expect(await readApplied(appliedPath(sandbox, 'formulae'))).toBe(
+      await targetSignature(resolveTarget('formulae'), embeddedAssets),
+    );
+  },
+);
+
+sandboxTest(
+  'successful target completion is not reported before applied state is persisted',
+  async (sandbox) => {
+    const events: string[] = [];
+    await expect(
+      runMake(
+        {
+          tags: ['git'],
+          onActivationPhaseStart: () => {
+            events.push('phase');
+          },
+          onActivationStart: (event) => {
+            events.push(`start:${event.tag}`);
+            mkdirSync(appliedPath(sandbox, event.tag), { recursive: true });
+          },
+          onActivationTargetComplete: (group) => {
+            events.push(`complete:${group.tag}`);
+          },
+        },
+        contextFor(sandbox),
+      ),
+    ).rejects.toBeInstanceOf(ProvisioningError);
+
+    expect(events[0]).toBe('phase');
+    expect(events.some((event) => event === 'start:git')).toBe(true);
+    expect(events.some((event) => event === 'complete:git')).toBe(false);
+  },
+);
+
+sandboxTest(
   'activations in one target run in declaration order',
   async (sandbox) => {
     const defaultsKeys = [
@@ -249,6 +338,7 @@ sandboxTest(
 sandboxTest(
   'a failed role deploy blocks its group activations',
   async (sandbox) => {
+    const events: string[] = [];
     const context: Context = {
       ...contextFor(sandbox),
       assets: {
@@ -261,7 +351,15 @@ sandboxTest(
       },
     };
 
-    const report = await runMake({ tags: ['git'] }, context);
+    const report = await runMake(
+      {
+        tags: ['git'],
+        onActivationPhaseStart: () => events.push('phase'),
+        onActivationTargetComplete: (entry) =>
+          events.push(`complete:${entry.tag}`),
+      },
+      context,
+    );
     const group = gitGroup(report);
 
     expect(report.failed).toBe(true);
@@ -275,6 +373,7 @@ sandboxTest(
     expect(group?.reports.every((entry) => entry.status === 'blocked')).toBe(
       true,
     );
+    expect(events).toEqual(['phase', 'complete:git']);
   },
 );
 

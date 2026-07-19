@@ -79,6 +79,20 @@ function runReturning(report: MakeReport): {
       request.onInstallStart?.(1);
       request.onInstallTokenStart?.({ kind: 'formula', name: 'git' });
       request.onInstallTick?.({ kind: 'formula', name: 'git' });
+      request.onActivationPhaseStart?.({ totalTargets: report.groups.length });
+      for (const group of report.groups) {
+        for (const activation of group.reports) {
+          request.onActivationStart?.({
+            tag: group.tag,
+            activation: {
+              verb: activation.verb,
+              source: activation.source,
+              dest: activation.dest,
+            },
+          });
+        }
+        request.onActivationTargetComplete?.(group);
+      }
       return report;
     },
   };
@@ -99,8 +113,12 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   expect(result.stdout).toContain('mev: Creating personal environment');
   expect(result.stdout).toContain('Deployed config for shell  .zshenv');
   expect(result.stdout).toContain('Running tags: shell');
-  expect(result.stdout).toContain('shell  1 unchanged');
+  expect(result.stdout).toContain(
+    'Activating shell: link shell/global/.zshenv -> ~/.zshenv',
+  );
+  expect(result.stdout).toContain('shell: unchanged');
   expect(result.stdout).toContain('Result: success');
+  expect(result.stdout).not.toContain('Summary');
   expect(result.stdout).toContain('Optional');
   expect(result.stdout).toContain('Baseline Homebrew casks: mev make br-c');
 });

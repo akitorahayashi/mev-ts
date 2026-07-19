@@ -6,8 +6,11 @@ import {
   runMake,
 } from '../../provisioning/run';
 import {
+  type ActivationProgress,
+  createActivationProgress,
+} from '../tty/activation-progress';
+import {
   renderDeployLine,
-  renderGroups,
   renderHeader,
   renderMakeReport,
 } from '../tty/makelog';
@@ -39,6 +42,12 @@ export async function executeProvisioningRun(
   }
 
   let bar: ReturnType<typeof createProgressBar> | undefined;
+  let activation: ActivationProgress | undefined;
+
+  const finishInstallBar = () => {
+    bar?.finish();
+    bar = undefined;
+  };
 
   try {
     const report = await run({
@@ -72,11 +81,26 @@ export async function executeProvisioningRun(
         bar?.setLabel('');
         bar?.advance();
       },
+      onActivationPhaseStart(event) {
+        finishInstallBar();
+        activation = createActivationProgress({
+          isTTY,
+          out,
+          stream: process.stdout,
+        });
+        activation.start(event);
+      },
+      onActivationStart(event) {
+        activation?.startActivation(event);
+      },
+      onActivationTargetComplete(group) {
+        activation?.completeTarget(group);
+      },
     });
 
-    bar?.finish();
-    bar = undefined;
-    out(`\n${renderGroups(report.groups, { isTTY })}\n`);
+    finishInstallBar();
+    activation?.finish();
+    activation = undefined;
     out(
       `\n${renderMakeReport(report, {
         isTTY,
@@ -88,6 +112,7 @@ export async function executeProvisioningRun(
   } finally {
     // Guarantee the spinner interval is cleared even if runMake throws, so
     // the event loop is not kept alive and the cursor is not left dirty.
-    bar?.finish();
+    finishInstallBar();
+    activation?.finish();
   }
 }
