@@ -108,16 +108,14 @@ async function invalidateSelectedTargets(
   );
 }
 
-async function recordSuccessfulTargets(
-  groups: readonly ActivationGroupReport[],
+async function recordSuccessfulTarget(
+  group: ActivationGroupReport,
   context: Context,
 ): Promise<void> {
-  for (const group of groups) {
-    if (!groupSucceeded(group)) continue;
-    const target = targetNamed(group.tag);
-    const signature = await targetSignature(target, context.assets);
-    await writeApplied(appliedPath(context.home, target.name), signature);
-  }
+  if (!groupSucceeded(group)) return;
+  const target = targetNamed(group.tag);
+  const signature = await targetSignature(target, context.assets);
+  await writeApplied(appliedPath(context.home, target.name), signature);
 }
 
 /**
@@ -171,14 +169,11 @@ export async function runMake(
 
   // Phase 3: activate deployed assets, grouped and attributed by tag.
   const groups: ActivationGroupReport[] = [];
-  let activationPhaseStarted = false;
-  const startActivationPhase = () => {
-    if (activationPhaseStarted) return;
-    activationPhaseStarted = true;
+  if (selection.groups.length > 0) {
     request.onActivationPhaseStart?.({
       totalTargets: selection.groups.length,
     });
-  };
+  }
   for (const group of selection.groups) {
     const blockers: ActivationBlocker[] = [];
     const deployError = failedRoles.get(group.role);
@@ -212,13 +207,11 @@ export async function runMake(
         ),
       };
       groups.push(groupReport);
-      startActivationPhase();
       request.onActivationTargetComplete?.(groupReport);
       continue;
     }
     const reports: ActivationReport[] = [];
     for (const activation of group.activations) {
-      startActivationPhase();
       request.onActivationStart?.({
         tag: group.tag,
         activation: describeActivation(activation),
@@ -227,9 +220,8 @@ export async function runMake(
     }
     const groupReport = { tag: group.tag, blockers, reports };
     groups.push(groupReport);
-    if (group.activations.length > 0) {
-      request.onActivationTargetComplete?.(groupReport);
-    }
+    await recordSuccessfulTarget(groupReport, context);
+    request.onActivationTargetComplete?.(groupReport);
   }
 
   const failed =
@@ -239,8 +231,6 @@ export async function runMake(
       (g) =>
         g.blockers.length > 0 || g.reports.some((r) => r.status === 'failed'),
     );
-
-  await recordSuccessfulTargets(groups, context);
 
   return { selection, deploys, install, groups, failed };
 }
