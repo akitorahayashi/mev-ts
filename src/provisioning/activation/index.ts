@@ -8,6 +8,7 @@ export type {
   ChangedWhen,
   CommandScope,
   CommandStep,
+  Described,
   StepGuard,
   StepReport,
   Verb,

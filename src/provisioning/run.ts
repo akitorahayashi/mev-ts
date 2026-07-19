@@ -4,6 +4,8 @@ import type { Context } from '../host/context';
 import {
   type ActivationReport,
   blockedReport,
+  type Described,
+  describeActivation,
   runActivation,
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
@@ -40,6 +42,15 @@ export interface MakeReport {
   readonly failed: boolean;
 }
 
+export interface ActivationPhaseEvent {
+  readonly totalTargets: number;
+}
+
+export interface ActivationStartEvent {
+  readonly tag: string;
+  readonly activation: Described;
+}
+
 export interface MakeRequest {
   readonly tags: readonly string[];
   readonly onDeploy?: (result: DeployResult) => void;
@@ -47,6 +58,9 @@ export interface MakeRequest {
   readonly onInstallStart?: (total: number) => void;
   readonly onInstallTokenStart?: (token: PackageToken) => void;
   readonly onInstallTick?: (token: PackageToken) => void;
+  readonly onActivationPhaseStart?: (event: ActivationPhaseEvent) => void;
+  readonly onActivationStart?: (event: ActivationStartEvent) => void;
+  readonly onActivationTargetComplete?: (group: ActivationGroupReport) => void;
 }
 
 function sameToken(a: PackageToken, b: PackageToken): boolean {
@@ -157,6 +171,14 @@ export async function runMake(
 
   // Phase 3: activate deployed assets, grouped and attributed by tag.
   const groups: ActivationGroupReport[] = [];
+  let activationPhaseStarted = false;
+  const startActivationPhase = () => {
+    if (activationPhaseStarted) return;
+    activationPhaseStarted = true;
+    request.onActivationPhaseStart?.({
+      totalTargets: selection.groups.length,
+    });
+  };
   for (const group of selection.groups) {
     const blockers: ActivationBlocker[] = [];
     const deployError = failedRoles.get(group.role);
@@ -182,20 +204,32 @@ export async function runMake(
 
     if (blockers.length > 0) {
       const reason = blockerReason(blockers);
-      groups.push({
+      const groupReport = {
         tag: group.tag,
         blockers,
         reports: group.activations.map((activation) =>
           blockedReport(activation, reason),
         ),
-      });
+      };
+      groups.push(groupReport);
+      startActivationPhase();
+      request.onActivationTargetComplete?.(groupReport);
       continue;
     }
     const reports: ActivationReport[] = [];
     for (const activation of group.activations) {
+      startActivationPhase();
+      request.onActivationStart?.({
+        tag: group.tag,
+        activation: describeActivation(activation),
+      });
       reports.push(await runActivation(activation, context));
     }
-    groups.push({ tag: group.tag, blockers, reports });
+    const groupReport = { tag: group.tag, blockers, reports };
+    groups.push(groupReport);
+    if (group.activations.length > 0) {
+      request.onActivationTargetComplete?.(groupReport);
+    }
   }
 
   const failed =

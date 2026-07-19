@@ -1,11 +1,13 @@
 import type {
   ActivationReport,
-  StepReport,
+  Described,
+  Verb,
 } from '../../provisioning/activation';
 import type { DeployResult } from '../../provisioning/deploy';
 import type { MakePlan } from '../../provisioning/plan';
 import {
   type ActivationGroupReport,
+  type ActivationStartEvent,
   formatBlocker,
   type MakeReport,
 } from '../../provisioning/run';
@@ -47,90 +49,6 @@ function isBlocked(group: ActivationGroupReport): boolean {
   return group.blockers.length > 0;
 }
 
-function isAllUnchanged(group: ActivationGroupReport): boolean {
-  return (
-    !isBlocked(group) &&
-    group.reports.length > 0 &&
-    group.reports.every((r) => r.status === 'unchanged')
-  );
-}
-
-export function renderGroups(
-  groups: readonly ActivationGroupReport[],
-  options: RenderOptions,
-): string {
-  const c = makeStyle(options.isTTY);
-
-  const quietTags = groups.filter(isAllUnchanged).map((g) => g.tag);
-  const tagPad = quietTags.reduce((w, tag) => Math.max(w, tag.length), 0);
-
-  const verbCol = (report: ActivationReport): string =>
-    c.dim(report.verb.padEnd(4));
-
-  const arrow = c.dim('→');
-
-  const renderEntries = (entries: readonly StepReport[]): string[] => {
-    const keyPad = entries.reduce((w, e) => Math.max(w, e.key.length), 0);
-    return entries.map((e) => {
-      const line = `      ${e.key.padEnd(keyPad)}  ${arrow}  ${e.value}`;
-      return e.status === 'failed' ? c.red(`${line}  (${e.error})`) : line;
-    });
-  };
-
-  const renderActive = (reports: readonly ActivationReport[]): string[] => {
-    const plainReports = reports.filter((r) => !r.entries);
-    const srcPad = plainReports.reduce(
-      (w, r) => Math.max(w, r.source.length),
-      0,
-    );
-    return reports.flatMap((r) => {
-      if (r.entries) {
-        const header = `  ${verbCol(r)}  ${r.source}`;
-        const headerLine =
-          r.status === 'blocked' ? c.yellow(`${header}  (blocked)`) : header;
-        return [headerLine, ...renderEntries(r.entries)];
-      }
-      const body = `  ${verbCol(r)}  ${r.source.padEnd(srcPad)}  ${arrow}  ${r.dest}`;
-      if (r.status === 'failed') return [c.red(`${body}  (${r.error})`)];
-      if (r.status === 'blocked') return [c.yellow(`${body}  (blocked)`)];
-      return [body];
-    });
-  };
-
-  const blocks: string[] = [];
-  for (const group of groups) {
-    if (isAllUnchanged(group)) {
-      const label = group.tag.padEnd(tagPad);
-      blocks.push(c.dim(`${label}  ${group.reports.length} unchanged`));
-      continue;
-    }
-
-    if (isBlocked(group)) {
-      blocks.push(
-        [
-          c.yellow(group.tag),
-          ...group.blockers.map((blocker) =>
-            c.yellow(`  blocked by ${formatBlocker(blocker)}`),
-          ),
-          c.dim(`  ${group.reports.length} blocked`),
-        ].join('\n'),
-      );
-      continue;
-    }
-
-    const active = group.reports.filter((r) => r.status !== 'unchanged');
-    const unchanged = group.reports.length - active.length;
-    const header = c.bold(group.tag);
-    const lines = [header, ...renderActive(active)];
-    if (unchanged > 0) {
-      lines.push(c.dim(`  ${unchanged} unchanged`));
-    }
-    blocks.push(lines.join('\n'));
-  }
-
-  return blocks.join('\n\n');
-}
-
 function formatDuration(durationMs: number | undefined): string | null {
   if (durationMs === undefined) return null;
   const seconds = Math.max(0, Math.round(durationMs / 1000));
@@ -144,8 +62,122 @@ function formatDuration(durationMs: number | undefined): string | null {
   return `${hours}h${minuteRest}m${rest}s`;
 }
 
-function activationLine(report: ActivationReport): string {
+function activationLine(report: Described): string {
   return `${report.verb} ${report.source} -> ${report.dest}`;
+}
+
+export function renderActivationDescription(activation: Described): string {
+  return activationLine(activation);
+}
+
+export function renderActivationStartLine(event: ActivationStartEvent): string {
+  return `${event.tag}  ${renderActivationDescription(event.activation)}`;
+}
+
+type TargetStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
+
+function targetStatus(group: ActivationGroupReport): TargetStatus {
+  if (isBlocked(group)) return 'blocked';
+  if (group.reports.some((report) => report.status === 'failed')) {
+    return 'failed';
+  }
+  if (group.reports.some((report) => report.status === 'changed')) {
+    return 'changed';
+  }
+  return 'unchanged';
+}
+
+function pastTense(verb: Verb): string {
+  switch (verb) {
+    case 'link':
+      return 'linked';
+    case 'apply':
+      return 'applied';
+    case 'run':
+      return 'ran';
+  }
+}
+
+function countChanged(report: ActivationReport): number {
+  if (!report.entries) return report.status === 'changed' ? 1 : 0;
+  return report.entries.filter((entry) => entry.status === 'changed').length;
+}
+
+function changedSummary(group: ActivationGroupReport): string | null {
+  const counts = new Map<Verb, number>();
+  for (const report of group.reports) {
+    const count = countChanged(report);
+    if (count === 0) continue;
+    counts.set(report.verb, (counts.get(report.verb) ?? 0) + count);
+  }
+
+  const parts: string[] = [];
+  for (const verb of ['link', 'apply', 'run'] as const) {
+    const count = counts.get(verb);
+    if (count) parts.push(`${count} ${pastTense(verb)}`);
+  }
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+function failedSummary(group: ActivationGroupReport): string | null {
+  const failed = group.reports.find((report) => report.status === 'failed');
+  return failed ? activationLine(failed) : null;
+}
+
+function blockedSummary(group: ActivationGroupReport): string | null {
+  if (group.blockers.length === 0) return null;
+  if (group.blockers.length > 1) return 'prerequisites failed';
+  const blocker = group.blockers[0];
+  if (!blocker) return null;
+  if (blocker.kind === 'deploy') return `deploy role ${blocker.role} failed`;
+  return `${blocker.token.kind} ${blocker.token.name} failed`;
+}
+
+export function summarizeActivationGroup(
+  group: ActivationGroupReport,
+): string | null {
+  switch (targetStatus(group)) {
+    case 'changed':
+      return changedSummary(group);
+    case 'failed':
+      return failedSummary(group);
+    case 'blocked':
+      return blockedSummary(group);
+    case 'unchanged':
+      return null;
+  }
+}
+
+export function renderTargetCompletionLine(
+  group: ActivationGroupReport,
+  options: RenderOptions,
+): string {
+  const status = targetStatus(group);
+  const summary = summarizeActivationGroup(group);
+  if (!options.isTTY) {
+    const line = `${group.tag}: ${status}`;
+    return summary ? `${line}  ${summary}` : line;
+  }
+
+  const c = makeStyle(options.isTTY);
+  const prefix =
+    status === 'failed'
+      ? c.red('✗')
+      : status === 'blocked'
+        ? c.yellow('!')
+        : c.green('✓');
+  const statusText =
+    status === 'failed'
+      ? c.red(status)
+      : status === 'blocked'
+        ? c.yellow(status)
+        : status === 'unchanged'
+          ? c.dim(status)
+          : c.green(status);
+  const plainBody = `✓ ${group.tag.padEnd(7)}  ${status}`;
+  const body = `${prefix} ${group.tag.padEnd(7)}  ${statusText}`;
+  const padding = summary ? ' '.repeat(Math.max(0, 22 - plainBody.length)) : '';
+  return summary ? `${body}${padding}  ${summary}` : body;
 }
 
 function failedEntryLines(report: ActivationReport): string[] {
@@ -159,17 +191,6 @@ function failedEntryLines(report: ActivationReport): string[] {
   );
 }
 
-function countStatus(
-  reports: readonly ActivationReport[],
-  status: ActivationReport['status'],
-): number {
-  return reports.filter((report) => report.status === status).length;
-}
-
-function appendCount(parts: string[], count: number, label: string): void {
-  if (count > 0) parts.push(`${count} ${label}`);
-}
-
 export function renderMakeReport(
   report: MakeReport,
   options: ReportOptions,
@@ -178,26 +199,10 @@ export function renderMakeReport(
   const result = report.failed ? 'failed' : 'success';
   const resultText = result === 'failed' ? c.red(result) : c.green(result);
 
-  const blockedTargets = report.groups.filter(isBlocked);
-  const failedTargets = report.groups.filter(
-    (group) =>
-      !isBlocked(group) &&
-      group.reports.some((activation) => activation.status === 'failed'),
-  );
-  const completedTargets =
-    report.groups.length - blockedTargets.length - failedTargets.length;
-
   const lines = ['mev report', `Result: ${resultText}`];
   const duration = formatDuration(options.durationMs);
   if (duration) lines.push(`Duration: ${duration}`);
   lines.push('Mode: apply');
-  if (report.failed) {
-    lines.push(
-      `Targets: ${report.groups.length} selected, ${completedTargets} completed, ${failedTargets.length} failed, ${blockedTargets.length} blocked`,
-    );
-  } else {
-    lines.push(`Targets: ${completedTargets} completed`);
-  }
 
   const actionLines: string[] = [];
   let actionNumber = 0;
@@ -230,54 +235,6 @@ export function renderMakeReport(
   if (actionLines.length > 0) {
     while (actionLines.at(-1) === '') actionLines.pop();
     lines.push('', 'Action required', ...actionLines);
-  }
-
-  const deployFailed = report.deploys.filter((deploy) => deploy.error).length;
-  const deployed = report.deploys.filter(
-    (deploy) => deploy.deployed && !deploy.error,
-  ).length;
-  const deployPresent = report.deploys.length - deployed - deployFailed;
-
-  const brewInstalled = report.install.filter(
-    (install) => install.status === 'installed',
-  ).length;
-  const brewPresent = report.install.filter(
-    (install) => install.status === 'present',
-  ).length;
-  const brewFailed = report.install.filter(
-    (install) => install.status === 'failed',
-  ).length;
-
-  const activations = report.groups.flatMap((group) => group.reports);
-  const changed = countStatus(activations, 'changed');
-  const unchanged = countStatus(activations, 'unchanged');
-  const failed = countStatus(activations, 'failed');
-  const blocked = countStatus(activations, 'blocked');
-
-  const activationParts: string[] = [];
-  appendCount(activationParts, changed, 'changed');
-  appendCount(activationParts, unchanged, 'unchanged');
-  appendCount(activationParts, failed, 'failed');
-  appendCount(activationParts, blocked, 'blocked');
-
-  lines.push('', 'Summary');
-  lines.push(
-    `Deploy: ${deployed} deployed, ${deployPresent} already present, ${deployFailed} failed`,
-  );
-  lines.push(
-    `Brew: ${brewInstalled} installed, ${brewPresent} already present, ${brewFailed} failed`,
-  );
-  lines.push(
-    `Activation: ${activationParts.length > 0 ? activationParts.join(', ') : 'none'}`,
-  );
-
-  const changedTargets = report.groups
-    .filter((group) =>
-      group.reports.some((activation) => activation.status === 'changed'),
-    )
-    .map((group) => group.tag);
-  if (changedTargets.length > 0) {
-    lines.push('', 'Changed targets', changedTargets.join(', '));
   }
 
   const retryTags = report.groups

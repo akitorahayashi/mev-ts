@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
 import type { MakeReport } from '../../provisioning/run';
-import { renderGroups, renderMakeReport } from './makelog';
+import {
+  renderMakeReport,
+  renderTargetCompletionLine,
+  summarizeActivationGroup,
+} from './makelog';
 
 const emptyPackages = { taps: [], formulae: [], casks: [] };
 
@@ -73,15 +77,48 @@ const failedReport: MakeReport = {
   failed: true,
 };
 
-test('renderGroups collapses blocked groups with the blocker reason', () => {
-  const rendered = renderGroups(failedReport.groups, {
-    isTTY: false,
-  });
+test('renderTargetCompletionLine summarizes changed groups by outcome kind', () => {
+  const rendered = renderTargetCompletionLine(
+    {
+      tag: 'shell',
+      blockers: [],
+      reports: [
+        {
+          verb: 'link',
+          source: 'shell/global/.zshenv',
+          dest: '~/.zshenv',
+          status: 'changed',
+        },
+        {
+          verb: 'apply',
+          source: 'macos/defaults',
+          dest: 'defaults',
+          status: 'changed',
+          entries: [
+            { key: 'Dock autohide', value: 'true', status: 'changed' },
+            { key: 'Key repeat', value: 'fast', status: 'changed' },
+            { key: 'Finder path bar', value: 'true', status: 'unchanged' },
+          ],
+        },
+      ],
+    },
+    { isTTY: false },
+  );
 
-  expect(rendered).toContain('python');
-  expect(rendered).toContain('blocked by formula uv: uv unavailable');
-  expect(rendered).toContain('1 blocked');
-  expect(rendered).not.toContain('python/global/uv.toml');
+  expect(rendered).toBe('shell: changed  1 linked, 2 applied');
+});
+
+test('renderTargetCompletionLine summarizes failed and blocked groups', () => {
+  const [git, python] = failedReport.groups;
+  if (!git || !python) throw new Error('failed report fixture is incomplete');
+
+  expect(renderTargetCompletionLine(git, { isTTY: false })).toBe(
+    'git: failed  link git/global/.gitconfig -> ~/.config/git/config',
+  );
+  expect(renderTargetCompletionLine(python, { isTTY: false })).toBe(
+    'python: blocked  formula uv failed',
+  );
+  expect(summarizeActivationGroup(python)).toBe('formula uv failed');
 });
 
 test('renderMakeReport summarizes failed and blocked targets', () => {
@@ -92,16 +129,13 @@ test('renderMakeReport summarizes failed and blocked targets', () => {
 
   expect(rendered).toContain('Result: failed');
   expect(rendered).toContain('Duration: 2m03s');
-  expect(rendered).toContain(
-    'Targets: 2 selected, 0 completed, 1 failed, 1 blocked',
-  );
   expect(rendered).toContain('git failed during activation');
   expect(rendered).toContain('unmanaged file exists');
   expect(rendered).toContain('python blocked by failed package');
   expect(rendered).toContain('formula uv: uv unavailable');
-  expect(rendered).toContain('Brew: 0 installed, 1 already present, 1 failed');
-  expect(rendered).toContain('Activation: 1 failed, 1 blocked');
   expect(rendered).toContain('mev make git python');
+  expect(rendered).not.toContain('Targets:');
+  expect(rendered).not.toContain('Summary');
 });
 
 test('renderMakeReport renders concise successful summaries', () => {
@@ -140,12 +174,15 @@ test('renderMakeReport renders concise successful summaries', () => {
 
   const rendered = renderMakeReport(report, {
     isTTY: false,
-    durationMs: 999,
+    durationMs: 1,
   });
 
   expect(rendered).toContain('Result: success');
-  expect(rendered).toContain('Targets: 1 completed');
-  expect(rendered).toContain('Activation: 1 unchanged');
+  expect(rendered).toContain('Duration: <1s');
+  expect(rendered).toContain('Mode: apply');
+  expect(rendered).not.toContain('Targets:');
+  expect(rendered).not.toContain('Summary');
+  expect(rendered).not.toContain('Activation:');
   expect(rendered).not.toContain('Action required');
   expect(rendered).not.toContain('Retry');
 });
