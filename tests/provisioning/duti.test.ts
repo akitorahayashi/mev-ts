@@ -6,7 +6,7 @@ import { applyDuti, runActivation } from '../../src/provisioning/activation';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const CONFIG_KEY = 'duti/global/default_apps.yml';
+const CONFIG_KEY = 'duti/default_apps.yml';
 
 const YAML = `
 default_apps:
@@ -19,7 +19,7 @@ default_apps:
 const sandboxTest = sandboxedTest('duti-');
 
 async function deployConfig(dir: string): Promise<void> {
-  const roleDir = join(dir, '.mev', 'roles', 'duti', 'global');
+  const roleDir = join(dir, '.mev', 'roles', 'duti');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'default_apps.yml'), YAML);
 }
@@ -80,7 +80,7 @@ sandboxTest(
 sandboxTest(
   'unchanged when duti -x returns a bundle_id containing an underscore',
   async (dir) => {
-    const roleDir = join(dir, '.mev', 'roles', 'duti', 'global');
+    const roleDir = join(dir, '.mev', 'roles', 'duti');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'default_apps.yml'),
@@ -125,7 +125,7 @@ sandboxTest(
 sandboxTest(
   'failed when a duti config extension is not a string',
   async (dir) => {
-    const roleDir = join(dir, '.mev', 'roles', 'duti', 'global');
+    const roleDir = join(dir, '.mev', 'roles', 'duti');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'default_apps.yml'),

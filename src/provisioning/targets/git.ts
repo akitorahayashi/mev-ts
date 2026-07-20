@@ -17,7 +17,7 @@ export const gitTarget = target('git', {
       resolveHostPath(home('.config/git/config'), context.home),
     ),
   activations: [
-    link(asset('git/global/.gitconfig'), home('.config/git/config')),
-    link(asset('git/global/.gitignore_global'), home('.config/git/ignore')),
+    link(asset('git/.gitconfig'), home('.config/git/config')),
+    link(asset('git/.gitignore_global'), home('.config/git/ignore')),
   ],
 });

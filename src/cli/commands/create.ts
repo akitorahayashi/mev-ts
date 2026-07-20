@@ -1,8 +1,4 @@
-import { Command, Option } from 'clipanion';
-import {
-  profileArgumentName,
-  resolveProfile,
-} from '../../provisioning/profile';
+import { Command } from 'clipanion';
 import { allTargets, fullSetupTargets } from '../../provisioning/registry';
 import type { Target } from '../../provisioning/target';
 import { withAliasHint } from './alias-hint';
@@ -24,21 +20,18 @@ export class CreateCommand extends Command {
   static override paths = [['create'], ['cr']];
   static override usage = Command.Usage({
     description: withAliasHint(
-      'Provision a full environment for a hardware profile.',
+      'Provision the full environment.',
       CreateCommand.paths,
     ),
   });
 
-  profile = Option.String({ name: profileArgumentName(), required: true });
-
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const profile = resolveProfile(this.profile);
       const tags = fullSetupTargets().map((t) => t.tags[0]);
 
       return executeProvisioningRun({
         tags,
-        intro: `mev: Creating ${profile} environment`,
+        intro: 'mev: Creating environment',
         footer: (report) => (report.failed ? undefined : optionalFooter()),
         out: (text) => this.context.stdout.write(text),
       });

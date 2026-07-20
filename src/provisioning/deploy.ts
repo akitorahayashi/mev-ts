@@ -9,7 +9,7 @@ export interface DeployResult {
   readonly role: string;
   /** True when the role's assets were (re)written; false when left untouched. */
   readonly deployed: boolean;
-  /** Top-level file/dir names under `role/global/`, e.g. `.zshenv`, `alias/`. */
+  /** Top-level file/dir names under the role, e.g. `.zshenv`, `alias/`. */
   readonly files: readonly string[];
   readonly error?: string;
 }
@@ -22,7 +22,7 @@ function topLevelFiles(
   role: string,
   keys: readonly string[],
 ): readonly string[] {
-  const prefix = `${role}/global/`;
+  const prefix = `${role}/`;
   const seen = new Set<string>();
   for (const key of keys) {
     if (!key.startsWith(prefix)) continue;

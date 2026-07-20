@@ -8,7 +8,7 @@ export const bunTarget = target('bun', {
   aliases: ['b'],
   role: 'bun',
   activations: [
-    link(asset('bun/global/.bunfig.toml'), home('.bunfig.toml')),
+    link(asset('bun/.bunfig.toml'), home('.bunfig.toml')),
     runCommand({
       label: 'bun toolchain',
       steps: [

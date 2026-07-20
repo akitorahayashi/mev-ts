@@ -38,7 +38,7 @@ function reportWithStatus(
         reports: [
           {
             verb: 'link',
-            source: 'shell/global/.zshenv',
+            source: 'shell/.zshenv',
             dest: '~/.zshenv',
             status,
             error: failed ? 'link failed' : undefined,
@@ -114,7 +114,7 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   expect(result.stdout).toContain('Deployed config for shell  .zshenv');
   expect(result.stdout).toContain('Running tags: shell');
   expect(result.stdout).toContain(
-    'Activating shell: link shell/global/.zshenv -> ~/.zshenv',
+    'Activating shell: link shell/.zshenv -> ~/.zshenv',
   );
   expect(result.stdout).toContain('shell: unchanged');
   expect(result.stdout).toContain('Result: success');

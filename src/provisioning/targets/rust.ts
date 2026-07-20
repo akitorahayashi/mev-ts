@@ -14,9 +14,9 @@ export const rustTarget = target('rust', {
     runCommand({
       label: 'rust toolchain',
       reads: {
-        version: 'rust/global/.rust-version',
-        targets: 'rust/global/targets',
-        components: 'rust/global/components',
+        version: 'rust/.rust-version',
+        targets: 'rust/targets',
+        components: 'rust/components',
       },
       steps: [
         {

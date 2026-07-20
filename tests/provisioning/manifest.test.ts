@@ -5,7 +5,7 @@ import { deployedPath } from '../../src/assets/ref';
 import { readDeployedManifest } from '../../src/provisioning/activation/manifest';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const CONFIG_KEY = 'sample/global/manifest.json';
+const CONFIG_KEY = 'sample/manifest.json';
 
 const sandboxTest = sandboxedTest('manifest-');
 

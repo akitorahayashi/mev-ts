@@ -48,13 +48,12 @@ mev make git shell              # Provision multiple targets at once
 Each run ends with a report that summarizes required action, phase counts, changed targets, and retry tags.
 
 ```bash
-mev create mbk                  # Provision a full MacBook environment
-mev create mac-mini             # Profiles: macbook/mbk, mac-mini/mmn
-mev sync mbk                    # Apply changed MacBook full-setup targets
-mev s mmn                       # Apply changed Mac mini full-setup targets
+mev create                      # Provision the full environment
+mev sync                        # Apply changed full-setup targets
+mev s                           # Alias for sync
 ```
 
-`create` (alias `cr`) provisions a full environment for a hardware profile by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`.
+`create` (alias `cr`) provisions the full environment by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`.
 
 `sync` (alias `s`) scans the same non-optional target set and runs only targets whose declared packages, activation intent, or embedded assets changed since their last successful application, plus targets whose deployed role assets drifted. Internal activation implementation changes do not trigger synchronization. Successful target signatures are stored under `~/.mev/applied/`; optional targets remain explicit `make` operations.
 
@@ -73,7 +72,7 @@ mev config zed                   # Toggle enabled Zed settings overrides (alias:
 mev config zed --clear           # Disable all Zed settings overrides
 ```
 
-`config` (alias `cf`) groups interactive selection commands. `config zed` merges the enabled override fragments in `src/assets/config/zed/global/overrides/` onto the base `settings.json`, failing loudly if two enabled overrides set the same key; adding a new override is a matter of dropping another `<name>.json` file into that directory.
+`config` (alias `cf`) groups interactive selection commands. `config zed` merges the enabled override fragments in `src/assets/config/zed/overrides/` onto the base `settings.json`, failing loudly if two enabled overrides set the same key; adding a new override is a matter of dropping another `<name>.json` file into that directory.
 
 ### Git identity
 

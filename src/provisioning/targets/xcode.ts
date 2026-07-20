@@ -8,7 +8,5 @@ export const xcodeTarget = target('xcode', {
   aliases: ['xc'],
   role: 'xcode',
   packages: { formulae: ['mint', 'xcbeautify', 'xcodes'] },
-  activations: DEFAULTS.map((name) =>
-    applyDefaults(`xcode/global/${name}.yml`),
-  ),
+  activations: DEFAULTS.map((name) => applyDefaults(`xcode/${name}.yml`)),
 });

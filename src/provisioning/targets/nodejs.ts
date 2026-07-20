@@ -9,10 +9,10 @@ export const nodejsTarget = target('nodejs', {
   role: 'nodejs',
   packages: { formulae: ['fnm'] },
   activations: [
-    link(asset('nodejs/global/.npmrc'), home('.npmrc')),
+    link(asset('nodejs/.npmrc'), home('.npmrc')),
     runCommand({
       label: 'nodejs toolchain',
-      reads: { version: 'nodejs/global/.node-version' },
+      reads: { version: 'nodejs/.node-version' },
       steps: [
         brewPrefixCapture(),
         {

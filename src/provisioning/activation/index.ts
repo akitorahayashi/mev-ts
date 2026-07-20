@@ -19,5 +19,5 @@ export { applyDuti } from './duti';
 export { installExtensions } from './extensions';
 export { applyPipx } from './pipx';
 export { releaseBinaries } from './release';
-export { link, linkTree } from './symlink';
+export { link, linkTree, migrateLegacySymlinks } from './symlink';
 export { zedSettings } from './zed';

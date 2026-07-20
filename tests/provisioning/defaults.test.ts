@@ -9,12 +9,12 @@ import {
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const CONFIG_KEY = 'system/global/defaults.yml';
+const CONFIG_KEY = 'system/defaults.yml';
 
 const sandboxTest = sandboxedTest('defaults-');
 
 async function deploy(dir: string, yaml: string): Promise<void> {
-  const roleDir = join(dir, '.mev', 'roles', 'system', 'global');
+  const roleDir = join(dir, '.mev', 'roles', 'system');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'defaults.yml'), yaml);
 }

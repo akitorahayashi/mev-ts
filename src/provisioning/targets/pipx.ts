@@ -6,5 +6,5 @@ export const pipxTarget = target('pipx', {
   aliases: ['px'],
   role: 'pipx',
   packages: { formulae: ['pipx'] },
-  activations: [applyPipx('pipx/global/tools.yml')],
+  activations: [applyPipx('pipx/tools.yml')],
 });
