@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { type AssetSource, embeddedAssets } from '../../src/assets/registry';
 import { ProvisioningError } from '../../src/errors';
-import { runCommand } from '../../src/provisioning/activation';
+import { coderAgents, runCommand } from '../../src/provisioning/activation';
 import { validateEmbeddedAssets } from '../../src/provisioning/preflight';
 import { target } from '../../src/provisioning/target';
 
@@ -46,5 +46,41 @@ test('embedded asset preflight invokes command read validators', async () => {
 
   await expect(
     validateEmbeddedAssets(assets({ 'demo/manifest.json': '{' }), [demo]),
+  ).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+test('embedded asset preflight rejects a coder catalog missing a section file', async () => {
+  const demo = target('demo', {
+    description: 'demo',
+    role: 'demo',
+    activations: [coderAgents('coder/agents-sections', [])],
+  });
+
+  await expect(
+    validateEmbeddedAssets(
+      assets({
+        'coder/agents-sections/catalog.yml': 'sections:\n  - communication\n',
+      }),
+      [demo],
+    ),
+  ).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+test('embedded asset preflight rejects an unlisted coder section file', async () => {
+  const demo = target('demo', {
+    description: 'demo',
+    role: 'demo',
+    activations: [coderAgents('coder/agents-sections', [])],
+  });
+
+  await expect(
+    validateEmbeddedAssets(
+      assets({
+        'coder/agents-sections/catalog.yml': 'sections:\n  - communication\n',
+        'coder/agents-sections/communication.md': '## Communication\n',
+        'coder/agents-sections/testing.md': '## Testing\n',
+      }),
+      [demo],
+    ),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });

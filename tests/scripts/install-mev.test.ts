@@ -33,15 +33,20 @@ test('installLocalMev installs a Bun-targeted JavaScript bundle', async () => {
       });
 
       expect(dest).toBe(join(installDir, 'mev'));
-      expect(invocations).toHaveLength(2);
+      expect(invocations).toHaveLength(3);
       expect(invocations[0]).toEqual({
         args: [resolve(process.cwd(), 'scripts/generate-assets.ts')],
         cwd: process.cwd(),
         stdio: 'ignore',
       });
-      expect(invocations[1]?.args).toContain('--target');
-      expect(invocations[1]?.args).toContain('bun');
-      expect(invocations[1]?.args).not.toContain('--compile');
+      expect(invocations[1]).toEqual({
+        args: [resolve(process.cwd(), 'scripts/validate-assets.ts')],
+        cwd: process.cwd(),
+        stdio: 'ignore',
+      });
+      expect(invocations[2]?.args).toContain('--target');
+      expect(invocations[2]?.args).toContain('bun');
+      expect(invocations[2]?.args).not.toContain('--compile');
       expect(await readFile(dest, 'utf8')).toBe(
         '#!/usr/bin/env bun\nconsole.log("mev")\n',
       );

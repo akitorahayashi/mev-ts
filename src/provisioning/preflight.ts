@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import type { AssetSource } from '../assets/registry';
-import { parseSectionCatalog } from '../coder/catalog';
+import { parseSectionCatalog, reconcileSections } from '../coder/catalog';
 import { parseDefaults } from '../defaults/manifest';
 import { parseAssociations } from '../duti/association';
 import { parseExtensions } from '../editor/extension';
@@ -37,8 +37,15 @@ function validatorFor(activation: Activation): AssetValidator | null {
         parseReleaseBinaries(raw, key);
       };
     case 'coderAgents':
-      return (raw, key) => {
-        parseSectionCatalog(raw, key);
+      return (raw, key, assets) => {
+        const listed = parseSectionCatalog(raw, key);
+        const prefix = `${activation.sectionsPrefix}/`;
+        const presentStems = assets
+          .keysByPrefix(prefix)
+          .map((assetKey) => assetKey.slice(prefix.length))
+          .filter((name) => name.endsWith('.md') && !name.includes('/'))
+          .map((name) => name.slice(0, -'.md'.length));
+        reconcileSections(listed, presentStems);
       };
     case 'zedSettings':
       return (raw, key) => {

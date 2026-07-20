@@ -67,11 +67,15 @@ export async function installLocalMev(
         runCommand,
         'asset codegen',
       );
-      const { embeddedAssets } = await import('../src/assets/registry');
-      const { validateEmbeddedAssets } = await import(
-        '../src/provisioning/preflight'
+      await runBuildCommand(
+        {
+          args: [resolve(projectRoot, 'scripts/validate-assets.ts')],
+          cwd: projectRoot,
+          stdio,
+        },
+        runCommand,
+        'asset validation',
       );
-      await validateEmbeddedAssets(embeddedAssets);
 
       await runBuildCommand(
         {

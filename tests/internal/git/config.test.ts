@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { lstat, readFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppError } from '../../../src/errors';
 import {
@@ -116,5 +117,22 @@ test('configSetFileValues applies values to one staging file', async () => {
       ]);
     },
     { prefix: 'git-config-' },
+  );
+});
+
+test('configSetFileValues preserves a dangling config symlink', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const link = join(dir, '.gitconfig');
+      const target = join(dir, 'identity', 'gitconfig');
+      await symlink('identity/gitconfig', link);
+      const run = presetRunner({ code: 0, stdout: '', stderr: '' });
+
+      await configSetFileValues(run, link, [['user.name', 'Example']]);
+
+      expect((await lstat(link)).isSymbolicLink()).toBe(true);
+      expect(await readFile(target, 'utf8')).toBe('');
+    },
+    { prefix: 'git-config-dangling-symlink-' },
   );
 });

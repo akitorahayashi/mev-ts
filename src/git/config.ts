@@ -2,12 +2,13 @@ import {
   copyFile,
   lstat,
   mkdir,
+  readlink,
   realpath,
   rename,
   unlink,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { AppError } from '../errors';
 import { isNotFound } from '../host/absence';
 import { type CommandRunner, formatCommandFailure } from '../host/command';
@@ -121,7 +122,13 @@ async function writableConfigTarget(path: string): Promise<string> {
   try {
     const stat = await lstat(path);
     if (!stat.isSymbolicLink()) return path;
-    return await realpath(path);
+    try {
+      return await realpath(path);
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      const target = await readlink(path);
+      return isAbsolute(target) ? target : resolve(dirname(path), target);
+    }
   } catch (error) {
     if (isNotFound(error)) return path;
     throw new AppError(
