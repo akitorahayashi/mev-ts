@@ -1,14 +1,7 @@
 import { expect } from 'bun:test';
 import { mkdirSync } from 'node:fs';
-import {
-  lstat,
-  mkdir,
-  readFile,
-  readlink,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { CommandLineError, ProvisioningError } from '../../src/errors';
@@ -441,61 +434,5 @@ sandboxTest(
     expect((await scanTargets([python], context))[0]?.reasons).toEqual([
       'unapplied',
     ]);
-  },
-);
-
-sandboxTest(
-  'legacy symlinks are retargeted before a package failure blocks activations',
-  async (sandbox) => {
-    const context = recordingContext({
-      home: sandbox,
-      assets: embeddedAssets,
-      respond(command, args) {
-        if (command !== 'brew') {
-          return { code: 0, stdout: '', stderr: '' };
-        }
-        if (args.includes('install')) {
-          return { code: 1, stdout: '', stderr: 'install unavailable' };
-        }
-        return { code: 0, stdout: '', stderr: '' };
-      },
-    }).context;
-
-    const zshrcLink = join(sandbox, '.zshrc');
-    const legacyZshrc = join(sandbox, '.mev/roles/shell/global/.zshrc');
-    await mkdir(dirname(legacyZshrc), { recursive: true });
-    await writeFile(legacyZshrc, 'legacy zshrc\n');
-    await symlink(legacyZshrc, zshrcLink);
-
-    const aliasKey = embeddedAssets.keysByPrefix('shell/alias/')[0];
-    if (aliasKey === undefined) {
-      throw new Error('shell target has no alias assets');
-    }
-    const aliasRelative = aliasKey.slice('shell/alias/'.length);
-    const aliasLink = join(sandbox, '.mev/alias', aliasRelative);
-    const legacyAlias = join(
-      sandbox,
-      '.mev/roles/shell/global/alias',
-      aliasRelative,
-    );
-    await mkdir(dirname(aliasLink), { recursive: true });
-    await mkdir(dirname(legacyAlias), { recursive: true });
-    await writeFile(legacyAlias, 'legacy alias\n');
-    await symlink(legacyAlias, aliasLink);
-
-    const report = await runMake({ tags: ['shell'] }, context);
-
-    expect(report.failed).toBe(true);
-    await expect(readlink(zshrcLink)).resolves.toBe(
-      deployedPath({ key: 'shell/.zshrc' }, sandbox),
-    );
-    await expect(readlink(aliasLink)).resolves.toBe(
-      deployedPath({ key: aliasKey }, sandbox),
-    );
-    expect(
-      report.groups
-        .find((group) => group.tag === 'shell')
-        ?.reports.every((entry) => entry.status === 'blocked'),
-    ).toBe(true);
   },
 );

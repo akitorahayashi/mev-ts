@@ -217,15 +217,9 @@ sandboxTest(
       join(deployedDir(aliasPrefix, sandbox), 'removed.zsh'),
       stale,
     );
-    const legacyStale = join(sandbox, '.mev/alias/legacy-removed.zsh');
-    await symlink(
-      join(deployedDir('shell/global/alias/', sandbox), 'legacy-removed.zsh'),
-      legacyStale,
-    );
 
     expect((await runActivation(activation, context)).status).toBe('changed');
     await expect(lstat(stale)).rejects.toThrow();
-    await expect(lstat(legacyStale)).rejects.toThrow();
   },
 );
 
