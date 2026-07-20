@@ -1,12 +1,13 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { errorMessage, ProvisioningError } from '../../errors';
+import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
 import { formatCommandFailure } from '../../host/command';
 import type { Context } from '../../host/context';
 import { resolveHostPath, symbolic } from '../../host/path';
 import type { Activation, ActivationReport, Described } from './contract';
+import { guarded } from './reconcile';
 
 type RemoteInstallerActivation = Extract<
   Activation,
@@ -164,7 +165,7 @@ export async function runRemoteInstaller(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeRemoteInstaller(activation);
-  try {
+  return guarded(base, async () => {
     if (
       await lstatIfPresent(resolveHostPath(activation.creates, context.home))
     ) {
@@ -187,7 +188,5 @@ export async function runRemoteInstaller(
       `Failed to clean up remote installer workspace ${workspace}.`,
     );
     return { ...base, status: 'changed' };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  });
 }

@@ -68,6 +68,11 @@ function sameToken(a: PackageToken, b: PackageToken): boolean {
   return a.kind === b.kind && a.name === b.name;
 }
 
+/**
+ * Render a blocker as a single line. Part of the report model, not pure
+ * presentation: `blockerReason` feeds this into each blocked activation's
+ * report, and the TTY layer reuses it for the action-required section.
+ */
 export function formatBlocker(blocker: ActivationBlocker): string {
   if (blocker.kind === 'deploy') {
     return `deploy role ${blocker.role}: ${blocker.error}`;
@@ -102,11 +107,89 @@ async function invalidateSelectedTargets(
   targets: readonly string[],
   context: Context,
 ): Promise<void> {
+  // Promise.all, so a single invalidation failure rejects the batch. Accepted:
+  // partial invalidation would only over-select on the next run, which is the
+  // safe direction (a stale applied marker never suppresses a needed re-apply).
   await Promise.all(
     targets.map((target) =>
       invalidateApplied(appliedPath(context.home, target)),
     ),
   );
+}
+
+type MakeGroup = MakePlan['groups'][number];
+
+interface DeployPhaseResult {
+  readonly deploys: readonly DeployResult[];
+  /** Role -> failure message; a group whose role failed cannot activate. */
+  readonly failedRoles: ReadonlyMap<string, string>;
+}
+
+/**
+ * Phase 1: deploy each role's config, then migrate any legacy symlinks for the
+ * groups whose role deployed cleanly. Deploy and migration failures are keyed by
+ * role so a downstream group can be blocked with the cause.
+ */
+async function runDeployPhase(
+  selection: MakePlan,
+  context: Context,
+  onDeploy?: (result: DeployResult) => void,
+): Promise<DeployPhaseResult> {
+  const deploys: DeployResult[] = [];
+  const failedRoles = new Map<string, string>();
+  for (const role of selection.roles) {
+    const result = await deployRole(role, context).catch((error) => ({
+      role,
+      deployed: false,
+      files: [] as readonly string[],
+      error: errorMessage(error),
+    }));
+    if (result.error) {
+      failedRoles.set(role, result.error);
+    }
+    deploys.push(result);
+    onDeploy?.(result);
+  }
+
+  for (const group of selection.groups) {
+    if (failedRoles.has(group.role)) {
+      continue;
+    }
+    await migrateLegacySymlinks(group.activations, context).catch((error) => {
+      failedRoles.set(
+        group.role,
+        `legacy link migration: ${errorMessage(error)}`,
+      );
+    });
+  }
+
+  return { deploys, failedRoles };
+}
+
+/** The deploy and package failures that prevent a group from activating. */
+function computeBlockers(
+  group: MakeGroup,
+  failedRoles: ReadonlyMap<string, string>,
+  failedPackages: readonly InstallReport[],
+): ActivationBlocker[] {
+  const blockers: ActivationBlocker[] = [];
+  const deployError = failedRoles.get(group.role);
+  if (deployError) {
+    blockers.push({ kind: 'deploy', role: group.role, error: deployError });
+  }
+  const requiredPackages = tokens(group.packages);
+  for (const failedPackage of failedPackages) {
+    if (
+      requiredPackages.some((token) => sameToken(token, failedPackage.token))
+    ) {
+      blockers.push({
+        kind: 'package',
+        token: failedPackage.token,
+        error: failedPackage.error ?? 'unknown error',
+      });
+    }
+  }
+  return blockers;
 }
 
 async function recordSuccessfulTarget(
@@ -141,34 +224,12 @@ export async function runMake(
 
   await invalidateSelectedTargets(selection.targetNames, context);
 
-  // Phase 1: deploy configs for each role.
-  const deploys: DeployResult[] = [];
-  const failedRoles = new Map<string, string>();
-  for (const role of selection.roles) {
-    const result = await deployRole(role, context).catch((error) => ({
-      role,
-      deployed: false,
-      files: [] as readonly string[],
-      error: errorMessage(error),
-    }));
-    if (result.error) {
-      failedRoles.set(role, result.error);
-    }
-    deploys.push(result);
-    request.onDeploy?.(result);
-  }
-
-  for (const group of selection.groups) {
-    if (failedRoles.has(group.role)) {
-      continue;
-    }
-    await migrateLegacySymlinks(group.activations, context).catch((error) => {
-      failedRoles.set(
-        group.role,
-        `legacy link migration: ${errorMessage(error)}`,
-      );
-    });
-  }
+  // Phase 1: deploy configs for each role and migrate legacy symlinks.
+  const { deploys, failedRoles } = await runDeployPhase(
+    selection,
+    context,
+    request.onDeploy,
+  );
 
   request.onHeader?.(selection);
 
@@ -188,27 +249,7 @@ export async function runMake(
     });
   }
   for (const group of selection.groups) {
-    const blockers: ActivationBlocker[] = [];
-    const deployError = failedRoles.get(group.role);
-    if (deployError) {
-      blockers.push({
-        kind: 'deploy',
-        role: group.role,
-        error: deployError,
-      });
-    }
-    const requiredPackages = tokens(group.packages);
-    for (const failedPackage of failedPackages) {
-      if (
-        requiredPackages.some((token) => sameToken(token, failedPackage.token))
-      ) {
-        blockers.push({
-          kind: 'package',
-          token: failedPackage.token,
-          error: failedPackage.error ?? 'unknown error',
-        });
-      }
-    }
+    const blockers = computeBlockers(group, failedRoles, failedPackages);
 
     if (blockers.length > 0) {
       const reason = blockerReason(blockers);

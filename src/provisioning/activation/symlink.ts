@@ -7,7 +7,6 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
-import { errorMessage } from '../../errors';
 import {
   lstatIfPresent,
   readDirectoryIfPresent,
@@ -18,6 +17,7 @@ import { replaceDirectoryAfterBuild } from '../../host/directory-replacement';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type { Activation, ActivationReport, Described } from './contract';
+import { guarded } from './reconcile';
 
 type FileActivation = Extract<Activation, { kind: 'file' }>;
 type TreeActivation = Extract<Activation, { kind: 'tree' }>;
@@ -118,7 +118,7 @@ export async function runFile(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeFile(activation);
-  try {
+  return guarded(base, async () => {
     const link = resolveHostPath(activation.dest, context.home);
     const target = deployedPath(activation.source, context.home);
     if (await isSymlinkTo(link, target)) {
@@ -126,9 +126,7 @@ export async function runFile(
     }
     await placeSymlink(link, target);
     return { ...base, status: 'changed' };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  });
 }
 
 export async function runTree(
@@ -136,7 +134,7 @@ export async function runTree(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeTree(activation);
-  try {
+  return guarded(base, async () => {
     const refs = context.assets
       .keysByPrefix(activation.prefix)
       .map((key) => asset(key));
@@ -173,9 +171,7 @@ export async function runTree(
       await rm(link, { force: true });
     }
     return { ...base, status: 'changed' };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  });
 }
 
 export async function migrateLegacySymlinks(

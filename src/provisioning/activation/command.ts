@@ -1,4 +1,4 @@
-import { errorMessage, ProvisioningError } from '../../errors';
+import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
 import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
@@ -13,6 +13,7 @@ import type {
   StepGuard,
   StepReport,
 } from './contract';
+import { aggregateStatus, guarded } from './reconcile';
 
 type CommandActivation = Extract<Activation, { kind: 'command' }>;
 
@@ -122,11 +123,9 @@ export async function runCommandActivation(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeCommand(activation);
-  try {
+  return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
     const entries: StepReport[] = [];
-    let failed = false;
-    let changed = false;
 
     for (const step of activation.steps) {
       const scope = scopeFor(context, bindings);
@@ -160,7 +159,6 @@ export async function runCommandActivation(
           status: 'failed',
           error: result.stderr.trim() || `exit code ${result.code}`,
         });
-        failed = true;
         break;
       }
 
@@ -173,7 +171,6 @@ export async function runCommandActivation(
         result.stdout,
         result.stderr,
       );
-      changed = changed || didChange;
       entries.push({
         key: label,
         value: step.capture ? captured : argv.join(' '),
@@ -181,9 +178,6 @@ export async function runCommandActivation(
       });
     }
 
-    const status = failed ? 'failed' : changed ? 'changed' : 'unchanged';
-    return { ...base, status, entries };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+    return { ...base, status: aggregateStatus(entries), entries };
+  });
 }

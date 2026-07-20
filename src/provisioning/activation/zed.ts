@@ -5,7 +5,6 @@ import {
   deployedSymbolic,
 } from '../../assets/ref';
 import { resolveSelection } from '../../config-selection/selection';
-import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
@@ -19,6 +18,7 @@ import type {
   Described,
   StepReport,
 } from './contract';
+import { guarded } from './reconcile';
 
 type ZedSettingsActivation = Extract<Activation, { kind: 'zedSettings' }>;
 
@@ -49,7 +49,7 @@ export async function runZedSettings(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeZedSettings(activation);
-  try {
+  return guarded(base, async () => {
     const basePath = deployedPath(activation.base, context.home);
     const sourceDir = deployedDir(activation.overridesPrefix, context.home);
     const catalog = await readOverrides(sourceDir);
@@ -83,7 +83,5 @@ export async function runZedSettings(
     }
 
     return { ...base, status: built || linked ? 'changed' : 'unchanged' };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  });
 }

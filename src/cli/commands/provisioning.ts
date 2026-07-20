@@ -43,6 +43,7 @@ export async function executeProvisioningRun(
 
   let bar: ReturnType<typeof createProgressBar> | undefined;
   let activation: ActivationProgress | undefined;
+  let nameWidth = 0;
 
   const finishInstallBar = () => {
     bar?.finish();
@@ -57,6 +58,10 @@ export async function executeProvisioningRun(
         if (line) out(`${line}\n`);
       },
       onHeader(selection) {
+        nameWidth = Math.max(
+          0,
+          ...selection.targetNames.map((name) => name.length),
+        );
         out(`${renderHeader(selection)}\n`);
       },
       onInstallStart(total) {
@@ -87,6 +92,7 @@ export async function executeProvisioningRun(
           isTTY,
           out,
           stream: process.stdout,
+          nameWidth,
         });
         activation.start(event);
       },
