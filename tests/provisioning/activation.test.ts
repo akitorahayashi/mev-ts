@@ -217,9 +217,15 @@ sandboxTest(
       join(deployedDir(aliasPrefix, sandbox), 'removed.zsh'),
       stale,
     );
+    const legacyStale = join(sandbox, '.mev/alias/legacy-removed.zsh');
+    await symlink(
+      join(deployedDir('shell/global/alias/', sandbox), 'legacy-removed.zsh'),
+      legacyStale,
+    );
 
     expect((await runActivation(activation, context)).status).toBe('changed');
     await expect(lstat(stale)).rejects.toThrow();
+    await expect(lstat(legacyStale)).rejects.toThrow();
   },
 );
 
@@ -235,11 +241,15 @@ sandboxTest(
     await writeFile(userFile, 'user content');
     const foreignLink = join(sandbox, '.mev/alias/foreign.zsh');
     await symlink(join(sandbox, 'elsewhere/x.zsh'), foreignLink);
+    const sameRoleForeignLink = join(sandbox, '.mev/alias/same-role.zsh');
+    const sameRoleForeignTarget = deployedPath(asset('shell/.zshrc'), sandbox);
+    await symlink(sameRoleForeignTarget, sameRoleForeignLink);
 
     await runActivation(activation, context);
 
     expect(await Bun.file(userFile).text()).toBe('user content');
     expect(await readlink(foreignLink)).toBe(join(sandbox, 'elsewhere/x.zsh'));
+    expect(await readlink(sameRoleForeignLink)).toBe(sameRoleForeignTarget);
   },
 );
 

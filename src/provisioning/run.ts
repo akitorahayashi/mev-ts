@@ -6,6 +6,7 @@ import {
   blockedReport,
   type Described,
   describeActivation,
+  migrateLegacySymlinks,
   runActivation,
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
@@ -155,6 +156,18 @@ export async function runMake(
     }
     deploys.push(result);
     request.onDeploy?.(result);
+  }
+
+  for (const group of selection.groups) {
+    if (failedRoles.has(group.role)) {
+      continue;
+    }
+    await migrateLegacySymlinks(group.activations, context).catch((error) => {
+      failedRoles.set(
+        group.role,
+        `legacy link migration: ${errorMessage(error)}`,
+      );
+    });
   }
 
   request.onHeader?.(selection);

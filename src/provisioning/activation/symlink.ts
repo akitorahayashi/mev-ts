@@ -63,21 +63,26 @@ function treeEntries(
   }));
 }
 
-function roleFromPrefix(prefix: string): string {
-  const slash = prefix.indexOf('/');
-  return slash === -1 ? prefix : prefix.slice(0, slash);
+function legacyKey(key: string): string | null {
+  const slash = key.indexOf('/');
+  if (slash === -1 || slash === key.length - 1) {
+    return null;
+  }
+  return `${key.slice(0, slash)}/global/${key.slice(slash + 1)}`;
 }
 
 async function staleLinks(
   root: string,
-  managedRoot: string,
+  managedRoots: readonly string[],
   expected: ReadonlySet<string>,
 ): Promise<string[]> {
   const names = await readDirectoryIfPresent(root);
   if (names === null) {
     return [];
   }
-  const base = managedRoot.endsWith('/') ? managedRoot : `${managedRoot}/`;
+  const bases = managedRoots.map((managedRoot) =>
+    managedRoot.endsWith('/') ? managedRoot : `${managedRoot}/`,
+  );
   const stale: string[] = [];
   for (const name of names) {
     const path = join(root, name);
@@ -89,7 +94,7 @@ async function staleLinks(
       continue;
     }
     const target = await readlinkIfPresent(path);
-    if (target?.startsWith(base)) {
+    if (target && bases.some((base) => target.startsWith(base))) {
       stale.push(path);
     }
   }
@@ -136,10 +141,13 @@ export async function runTree(
       .keysByPrefix(activation.prefix)
       .map((key) => asset(key));
     const root = resolveHostPath(activation.dest, context.home);
-    const managedRoot = deployedDir(
-      roleFromPrefix(activation.prefix),
-      context.home,
-    );
+    const legacyPrefix = legacyKey(activation.prefix);
+    const managedRoots = [
+      deployedDir(activation.prefix, context.home),
+      ...(legacyPrefix === null
+        ? []
+        : [deployedDir(legacyPrefix, context.home)]),
+    ];
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
     const rootChanged = await ensureTreeRoot(root);
@@ -152,7 +160,7 @@ export async function runTree(
       drifted.push({ link, target });
     }
     const expected = new Set(entries.map((entry) => entry.link));
-    const stale = await staleLinks(root, managedRoot, expected);
+    const stale = await staleLinks(root, managedRoots, expected);
 
     if (!rootChanged && drifted.length === 0 && stale.length === 0) {
       return { ...base, status: 'unchanged' };
@@ -167,5 +175,53 @@ export async function runTree(
     return { ...base, status: 'changed' };
   } catch (error) {
     return { ...base, status: 'failed', error: errorMessage(error) };
+  }
+}
+
+export async function migrateLegacySymlinks(
+  activations: readonly Activation[],
+  context: Context,
+): Promise<void> {
+  for (const activation of activations) {
+    if (activation.kind === 'file') {
+      const legacy = legacyKey(activation.source.key);
+      if (legacy === null) {
+        continue;
+      }
+      const link = resolveHostPath(activation.dest, context.home);
+      const target = deployedPath(activation.source, context.home);
+      const legacyTarget = deployedPath({ key: legacy }, context.home);
+      if (await isSymlinkTo(link, legacyTarget)) {
+        await placeSymlink(link, target);
+      }
+      continue;
+    }
+
+    if (activation.kind !== 'tree') {
+      continue;
+    }
+    const legacyPrefix = legacyKey(activation.prefix);
+    if (legacyPrefix === null) {
+      continue;
+    }
+    const refs = context.assets
+      .keysByPrefix(activation.prefix)
+      .map((key) => asset(key));
+    const root = resolveHostPath(activation.dest, context.home);
+    for (const { link, target } of treeEntries(
+      refs,
+      activation.prefix,
+      root,
+      context.home,
+    )) {
+      const relative = link.slice(root.length + 1);
+      const legacyTarget = deployedPath(
+        { key: `${legacyPrefix}${relative}` },
+        context.home,
+      );
+      if (await isSymlinkTo(link, legacyTarget)) {
+        await placeSymlink(link, target);
+      }
+    }
   }
 }
