@@ -1,18 +1,26 @@
-import { expect, mock, test } from 'bun:test';
+import { expect, test } from 'bun:test';
+import { createToggle } from '../../src/cli/tty/toggle';
 
 // The only interactive branch worth asserting: an Escape / Ctrl+C surfaces from
-// @inquirer/checkbox as an ExitPromptError, which toggle maps to null (cancel)
-// rather than letting it abort the command.
+// the prompt as an ExitPromptError, which toggle maps to null (cancel) rather
+// than letting it abort the command. Injecting the prompt avoids a process-wide
+// module mock that would leak into sibling test files.
 test('toggle maps an ExitPromptError cancellation to null', async () => {
-  mock.module('@inquirer/checkbox', () => ({
-    default: async () => {
-      const error = new Error('User force closed the prompt');
-      error.name = 'ExitPromptError';
-      throw error;
-    },
-  }));
-
-  const { toggle } = await import('../../src/cli/tty/toggle');
+  const toggle = createToggle(async () => {
+    const error = new Error('User force closed the prompt');
+    error.name = 'ExitPromptError';
+    throw error;
+  });
 
   expect(await toggle('Pick', ['a', 'b'], ['a'])).toBeNull();
+});
+
+test('toggle rethrows a non-cancellation prompt error', async () => {
+  const toggle = createToggle(async () => {
+    throw new Error('prompt exploded');
+  });
+
+  await expect(toggle('Pick', ['a', 'b'], ['a'])).rejects.toThrow(
+    'prompt exploded',
+  );
 });

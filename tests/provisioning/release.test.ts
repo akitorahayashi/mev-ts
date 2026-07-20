@@ -8,48 +8,34 @@ import {
 } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
-import type { Context } from '../../src/host/context';
 import {
   releaseBinaries,
   runActivation,
 } from '../../src/provisioning/activation';
-import { emptyAssets } from '../fixtures/fake-context';
+import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
-
-interface Call {
-  readonly command: string;
-  readonly args: readonly string[];
-}
 
 type Responder = (command: string, args: readonly string[]) => CommandResult;
 
 const sandboxTest = sandboxedTest('release-');
 
 // A successful download writes the destination file, so the subsequent chmod in
-// fetchReleaseBinary has a real file to mark executable.
-function releaseContext(
-  home: string,
-  responder: Responder,
-): { context: Context; calls: Call[] } {
-  const calls: Call[] = [];
-  const context: Context = {
+// fetchReleaseBinary has a real file to mark executable. The async responder
+// performs that side effect, so no bespoke Context is needed.
+function releaseContext(home: string, responder: Responder) {
+  return recordingContext({
     home,
     assets: emptyAssets,
-    basePath: '',
-    commands: {
-      async run(command, args) {
-        calls.push({ command, args });
-        const result = responder(command, args);
-        if (result.code === 0 && (command === 'curl' || command === 'gh')) {
-          const flag = command === 'curl' ? '-o' : '--output';
-          const i = args.indexOf(flag);
-          if (i >= 0) await writeFile(args[i + 1] as string, command);
-        }
-        return result;
-      },
+    async respond(command, args) {
+      const result = responder(command, args);
+      if (result.code === 0 && (command === 'curl' || command === 'gh')) {
+        const flag = command === 'curl' ? '-o' : '--output';
+        const i = args.indexOf(flag);
+        if (i >= 0) await writeFile(args[i + 1] as string, command);
+      }
+      return result;
     },
-  };
-  return { context, calls };
+  });
 }
 
 const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });

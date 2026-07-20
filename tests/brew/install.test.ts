@@ -3,9 +3,8 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { installPackages } from '../../src/brew/install';
 import { type PackageToken, packages } from '../../src/brew/package';
-import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
-import { emptyAssets } from '../fixtures/fake-context';
+import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 interface Sink {
@@ -24,29 +23,26 @@ interface BrewState {
 // Answers enumeration probes from the declared installed state and captures
 // `brew bundle` invocations (with their temporary Brewfile) into the sink.
 function brewContext(state: BrewState, sink: Sink = {}): Context {
-  return {
+  return recordingContext({
     home: '/sandbox',
-    basePath: '',
-    commands: {
-      async run(_command, args): Promise<CommandResult> {
-        if (args[0] === 'tap') {
-          return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
-        }
-        if (args[0] === 'list') {
-          const names = args.includes('--cask') ? state.casks : state.formulae;
-          return { code: 0, stdout: (names ?? []).join('\n'), stderr: '' };
-        }
-        sink.bundleArgs = [...args];
-        const fileArg = args.find((arg) => arg.startsWith('--file='));
-        if (fileArg) {
-          sink.brewfilePath = fileArg.slice('--file='.length);
-          sink.brewfile = await readFile(sink.brewfilePath, 'utf8');
-        }
-        return { code: state.installCode ?? 0, stdout: '', stderr: '' };
-      },
-    },
     assets: emptyAssets,
-  };
+    async respond(_command, args) {
+      if (args[0] === 'tap') {
+        return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
+      }
+      if (args[0] === 'list') {
+        const names = args.includes('--cask') ? state.casks : state.formulae;
+        return { code: 0, stdout: (names ?? []).join('\n'), stderr: '' };
+      }
+      sink.bundleArgs = [...args];
+      const fileArg = args.find((arg) => arg.startsWith('--file='));
+      if (fileArg) {
+        sink.brewfilePath = fileArg.slice('--file='.length);
+        sink.brewfile = await readFile(sink.brewfilePath, 'utf8');
+      }
+      return { code: state.installCode ?? 0, stdout: '', stderr: '' };
+    },
+  }).context;
 }
 
 const oneFormula = packages({ formulae: ['git'] });
@@ -80,21 +76,20 @@ test('installs a missing formula through a temporary Brewfile', async () => {
 
 test('removes the Brewfile directory when the install runner throws', async () => {
   const sink: Sink = {};
-  const context: Context = {
-    ...brewContext({}),
-    commands: {
-      async run(_command, args) {
-        if (args[0] === 'list') {
-          return { code: 0, stdout: '', stderr: '' };
-        }
-        const fileArg = args.find((arg) => arg.startsWith('--file='));
-        if (fileArg) {
-          sink.brewfilePath = fileArg.slice('--file='.length);
-        }
-        throw new Error('runner failed');
-      },
+  const context = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond(_command, args) {
+      if (args[0] === 'list') {
+        return { code: 0, stdout: '', stderr: '' };
+      }
+      const fileArg = args.find((arg) => arg.startsWith('--file='));
+      if (fileArg) {
+        sink.brewfilePath = fileArg.slice('--file='.length);
+      }
+      throw new Error('runner failed');
     },
-  };
+  }).context;
 
   const reports = await installPackages(oneFormula, context);
 
@@ -104,14 +99,11 @@ test('removes the Brewfile directory when the install runner throws', async () =
 });
 
 test('reports failure when the enumeration rejects without a reason', async () => {
-  const context: Context = {
-    ...brewContext({}),
-    commands: {
-      async run(): Promise<CommandResult> {
-        return Promise.reject();
-      },
-    },
-  };
+  const context = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => Promise.reject(),
+  }).context;
 
   const reports = await installPackages(oneFormula, context);
 
@@ -121,18 +113,17 @@ test('reports failure when the enumeration rejects without a reason', async () =
 
 test('a failed enumeration fails every token of that kind without installing', async () => {
   const sink: Sink = {};
-  const context: Context = {
-    ...brewContext({}, sink),
-    commands: {
-      async run(_command, args): Promise<CommandResult> {
-        if (args[0] === 'list') {
-          return { code: 1, stdout: '', stderr: 'brew broken' };
-        }
-        sink.bundleArgs = [...args];
-        return { code: 0, stdout: '', stderr: '' };
-      },
+  const context = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond(_command, args) {
+      if (args[0] === 'list') {
+        return { code: 1, stdout: '', stderr: 'brew broken' };
+      }
+      sink.bundleArgs = [...args];
+      return { code: 0, stdout: '', stderr: '' };
     },
-  };
+  }).context;
 
   const reports = await installPackages(
     packages({ formulae: ['git', 'gh'] }),

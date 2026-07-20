@@ -1,5 +1,4 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
@@ -171,7 +170,7 @@ export async function runRemoteInstaller(
     ) {
       return { ...base, status: 'unchanged' };
     }
-    const workspace = await mkdtemp(join(tmpdir(), 'mev-installer-'));
+    const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));
     await runWithCleanup(
       async () => {
         const script = join(workspace, 'install');
