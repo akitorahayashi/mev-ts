@@ -6,7 +6,7 @@ import { applyPipx, runActivation } from '../../src/provisioning/activation';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const CONFIG_KEY = 'pipx/global/tools.yml';
+const CONFIG_KEY = 'pipx/tools.yml';
 
 const YAML = `
 tools:
@@ -24,7 +24,7 @@ tools:
 const sandboxTest = sandboxedTest('pipx-');
 
 async function deployConfig(dir: string): Promise<void> {
-  const roleDir = join(dir, '.mev', 'roles', 'pipx', 'global');
+  const roleDir = join(dir, '.mev', 'roles', 'pipx');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'tools.yml'), YAML);
 }
@@ -198,7 +198,7 @@ sandboxTest(
 sandboxTest(
   'failed when the pipx manifest contains non-string package names',
   async (dir) => {
-    const roleDir = join(dir, '.mev', 'roles', 'pipx', 'global');
+    const roleDir = join(dir, '.mev', 'roles', 'pipx');
     await mkdir(roleDir, { recursive: true });
     await writeFile(join(roleDir, 'tools.yml'), 'tools:\n  - package: 42\n');
     const { context, calls } = recordingContext({

@@ -74,10 +74,7 @@ sandboxTest(
     };
     await deployRole('git', context);
 
-    const deployedConfig = deployedPath(
-      { key: 'git/global/.gitconfig' },
-      sandbox,
-    );
+    const deployedConfig = deployedPath({ key: 'git/.gitconfig' }, sandbox);
     await writeFile(
       deployedConfig,
       `${await readFile(deployedConfig, 'utf8')}\n[user]\n\tname = Legacy Name\n\temail = legacy@example.com\n`,
@@ -127,10 +124,7 @@ sandboxTest(
     const marker = appliedPath(sandbox, 'git');
     const existingSignature = `sha256:${'a'.repeat(64)}`;
     await writeApplied(marker, existingSignature);
-    const deployedConfig = deployedPath(
-      { key: 'git/global/.gitconfig' },
-      sandbox,
-    );
+    const deployedConfig = deployedPath({ key: 'git/.gitconfig' }, sandbox);
     await mkdir(join(deployedConfig, '..'), { recursive: true });
     await writeFile(deployedConfig, 'previous deployed content\n');
 
@@ -283,10 +277,10 @@ sandboxTest(
       'UiOrder',
     ];
     const assetKeys = [
-      'xcode/global/behavior.yml',
-      'xcode/global/build.yml',
-      'xcode/global/editor.yml',
-      'xcode/global/ui.yml',
+      'xcode/behavior.yml',
+      'xcode/build.yml',
+      'xcode/editor.yml',
+      'xcode/ui.yml',
     ];
     const assets = new Map(
       assetKeys.map((key, index) => [

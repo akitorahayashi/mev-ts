@@ -9,10 +9,10 @@ export const pythonTarget = target('python', {
   role: 'python',
   packages: { formulae: ['uv'] },
   activations: [
-    link(asset('python/global/uv.toml'), home('.config/uv/uv.toml')),
+    link(asset('python/uv.toml'), home('.config/uv/uv.toml')),
     runCommand({
       label: 'python toolchain',
-      reads: { version: 'python/global/.python-version' },
+      reads: { version: 'python/.python-version' },
       steps: [
         brewPrefixCapture(),
         {

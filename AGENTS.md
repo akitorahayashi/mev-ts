@@ -65,7 +65,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Semantic Sync
 
-`sync <profile>` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command implementation functions are excluded from the signature. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
+`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command implementation functions are excluded from the signature. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
 
 ### CLI
 

@@ -47,10 +47,7 @@ const demoTarget = target('demo', {
 sandboxTest(
   'missing state and deployed config select the target',
   async (home) => {
-    const context = contextFor(
-      home,
-      assets({ 'demo/global/config': 'value\n' }),
-    );
+    const context = contextFor(home, assets({ 'demo/config': 'value\n' }));
 
     const [scan] = await scanTargets([demoTarget], context);
 
@@ -59,9 +56,7 @@ sandboxTest(
 );
 
 sandboxTest('matching applied and deployed state is current', async (home) => {
-  const source = assets({ 'demo/global/script': '#!/bin/sh\n' }, [
-    'demo/global/script',
-  ]);
+  const source = assets({ 'demo/script': '#!/bin/sh\n' }, ['demo/script']);
   const context = contextFor(home, source);
   await deployRole('demo', context);
   await writeApplied(
@@ -77,16 +72,14 @@ sandboxTest('matching applied and deployed state is current', async (home) => {
 sandboxTest(
   'content, executable, and extra-path drift is detected',
   async (home) => {
-    const source = assets({ 'demo/global/script': '#!/bin/sh\n' }, [
-      'demo/global/script',
-    ]);
+    const source = assets({ 'demo/script': '#!/bin/sh\n' }, ['demo/script']);
     const context = contextFor(home, source);
     await deployRole('demo', context);
     await writeApplied(
       appliedPath(home, demoTarget.name),
       await targetSignature(demoTarget, source),
     );
-    const script = join(home, '.mev/roles/demo/global/script');
+    const script = join(home, '.mev/roles/demo/script');
     await writeFile(script, '#!/bin/sh\necho drift\n');
     await chmod(script, 0o644);
     const extra = join(home, '.mev/roles/demo/extra/file');

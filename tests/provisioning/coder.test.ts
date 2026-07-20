@@ -162,7 +162,7 @@ sandboxTest('coderAgents surfaces manifest filesystem errors', async (dir) => {
 sandboxTest(
   'coderAgents surfaces deployed catalog filesystem errors',
   async (dir) => {
-    const parent = join(dir, '.mev', 'roles', 'coder', 'global');
+    const parent = join(dir, '.mev', 'roles', 'coder');
     await mkdir(join(parent, '..'), { recursive: true });
     await writeFile(parent, 'not a directory');
 

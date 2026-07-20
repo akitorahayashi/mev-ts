@@ -63,6 +63,11 @@ function treeEntries(
   }));
 }
 
+function roleFromPrefix(prefix: string): string {
+  const slash = prefix.indexOf('/');
+  return slash === -1 ? prefix : prefix.slice(0, slash);
+}
+
 async function staleLinks(
   root: string,
   managedRoot: string,
@@ -131,7 +136,10 @@ export async function runTree(
       .keysByPrefix(activation.prefix)
       .map((key) => asset(key));
     const root = resolveHostPath(activation.dest, context.home);
-    const managedRoot = deployedDir(activation.prefix, context.home);
+    const managedRoot = deployedDir(
+      roleFromPrefix(activation.prefix),
+      context.home,
+    );
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
     const rootChanged = await ensureTreeRoot(root);

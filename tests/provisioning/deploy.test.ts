@@ -8,8 +8,8 @@ import { deployRole } from '../../src/provisioning/deploy';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const ALL_KEYS = ['git/global/.gitconfig', 'git/global/.gitignore_global'];
-const EXECUTABLE_KEY = 'git/global/post-commit.sh';
+const ALL_KEYS = ['git/.gitconfig', 'git/.gitignore_global'];
+const EXECUTABLE_KEY = 'git/post-commit.sh';
 
 const assets: AssetSource = {
   async read(key) {
@@ -54,24 +54,20 @@ sandboxTest(
     );
     expect(executable.mode & 0o100).not.toBe(0);
 
-    const plain = await stat(
-      deployedPath({ key: 'git/global/.gitconfig' }, sandbox),
-    );
+    const plain = await stat(deployedPath({ key: 'git/.gitconfig' }, sandbox));
     expect(plain.mode & 0o100).toBe(0);
   },
 );
 
 sandboxTest('deployRole regenerates a present role', async (sandbox) => {
   await deployRole('git', contextFor(sandbox));
-  const deployed = deployedPath({ key: 'git/global/.gitconfig' }, sandbox);
+  const deployed = deployedPath({ key: 'git/.gitconfig' }, sandbox);
   await writeFile(deployed, 'stale');
 
   const result = await deployRole('git', contextFor(sandbox));
 
   expect(result.deployed).toBe(true);
-  expect(await Bun.file(deployed).text()).toBe(
-    'content of git/global/.gitconfig\n',
-  );
+  expect(await Bun.file(deployed).text()).toBe('content of git/.gitconfig\n');
 });
 
 sandboxTest(
@@ -113,8 +109,8 @@ sandboxTest(
 
 sandboxTest('deployRole clears a present assetless role', async (sandbox) => {
   const dest = deployedDir('assetless', sandbox);
-  const stale = join(dest, 'global/stale.txt');
-  await mkdir(join(dest, 'global'), { recursive: true });
+  const stale = join(dest, 'stale.txt');
+  await mkdir(dest, { recursive: true });
   await writeFile(stale, 'leftover');
 
   const result = await deployRole('assetless', contextFor(sandbox));
@@ -126,7 +122,7 @@ sandboxTest('deployRole clears a present assetless role', async (sandbox) => {
 
 sandboxTest('deployRole prunes stale files', async (sandbox) => {
   await deployRole('git', contextFor(sandbox));
-  const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
+  const stale = join(deployedDir('git', sandbox), 'stale.txt');
   await writeFile(stale, 'leftover');
 
   const result = await deployRole('git', contextFor(sandbox));
@@ -139,13 +135,13 @@ sandboxTest(
   'deployRole keeps the previous role when replacement staging fails',
   async (sandbox) => {
     await deployRole('git', contextFor(sandbox));
-    const stale = join(deployedDir('git', sandbox), 'global/stale.txt');
+    const stale = join(deployedDir('git', sandbox), 'stale.txt');
     await writeFile(stale, 'leftover');
 
     const failingAssets: AssetSource = {
       ...assets,
       async read(key) {
-        if (key === 'git/global/.gitignore_global') {
+        if (key === 'git/.gitignore_global') {
           throw new Error('asset unavailable');
         }
         return assets.read(key);
@@ -160,10 +156,8 @@ sandboxTest(
     ).rejects.toThrow('asset unavailable');
 
     expect(
-      await Bun.file(
-        deployedPath({ key: 'git/global/.gitconfig' }, sandbox),
-      ).text(),
-    ).toBe('content of git/global/.gitconfig\n');
+      await Bun.file(deployedPath({ key: 'git/.gitconfig' }, sandbox)).text(),
+    ).toBe('content of git/.gitconfig\n');
     expect(await Bun.file(stale).text()).toBe('leftover');
   },
 );

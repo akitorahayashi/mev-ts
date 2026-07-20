@@ -45,7 +45,7 @@ sandboxTest(
     process.env.HOME = sandbox;
     process.env.PATH = bin;
     try {
-      const code = await runCommandLine(['sync', 'mbk'], {
+      const code = await runCommandLine(['sync'], {
         colorDepth: 1,
         stdout: {
           write(chunk: string | Uint8Array) {
@@ -62,7 +62,7 @@ sandboxTest(
       });
 
       expect(code).toBe(0);
-      expect(stdout).toBe('mev: macbook environment is synchronized\n');
+      expect(stdout).toBe('mev: environment is synchronized\n');
       expect(stderr).toBe('');
     } finally {
       restoreEnv('HOME', previousHome);

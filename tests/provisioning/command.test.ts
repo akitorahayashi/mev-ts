@@ -9,7 +9,7 @@ import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 const rubyAssets: AssetSource = {
   ...emptyAssets,
   async read(key) {
-    if (key === 'ruby/global/.ruby-version') return '3.3.3\n';
+    if (key === 'ruby/.ruby-version') return '3.3.3\n';
     throw new Error(`unexpected asset ${key}`);
   },
 };
@@ -29,7 +29,7 @@ test('reads inject asset values and captures feed later steps', async () => {
   });
   const activation = runCommand({
     label: 'demo',
-    reads: { version: 'ruby/global/.ruby-version' },
+    reads: { version: 'ruby/.ruby-version' },
     steps: [
       {
         argv: () => ['brew', '--prefix'],

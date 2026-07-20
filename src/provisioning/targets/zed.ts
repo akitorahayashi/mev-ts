@@ -11,10 +11,10 @@ export const zedTarget = target('zed', {
   packages: { casks: ['zed'] },
   activations: [
     zedSettings(
-      asset('zed/global/settings.json'),
+      asset('zed/settings.json'),
       OVERRIDES_PREFIX,
       home('.config/zed/settings.json'),
     ),
-    link(asset('zed/global/keymap.json'), home('.config/zed/keymap.json')),
+    link(asset('zed/keymap.json'), home('.config/zed/keymap.json')),
   ],
 });

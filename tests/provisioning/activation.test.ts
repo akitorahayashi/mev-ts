@@ -20,9 +20,9 @@ import {
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const aliasPrefix = 'shell/global/alias/';
+const aliasPrefix = 'shell/alias/';
 const ALIAS_KEYS = [`${aliasPrefix}a.zsh`, `${aliasPrefix}sub/b.zsh`];
-const ALL_KEYS = ['git/global/.gitconfig', ...ALIAS_KEYS];
+const ALL_KEYS = ['git/.gitconfig', ...ALIAS_KEYS];
 
 const assets: AssetSource = {
   async read(key) {
@@ -51,7 +51,7 @@ sandboxTest(
   'link creates a symlink to the deployed asset and is idempotent',
   async (sandbox) => {
     const context = contextFor(sandbox);
-    const ref = asset('git/global/.gitconfig');
+    const ref = asset('git/.gitconfig');
     await deploy(context, ref.key);
     const activation = link(ref, home('.config/git/config'));
 
@@ -69,7 +69,7 @@ sandboxTest(
 
 sandboxTest('link replaces an existing file', async (sandbox) => {
   const context = contextFor(sandbox);
-  const ref = asset('git/global/.gitconfig');
+  const ref = asset('git/.gitconfig');
   await deploy(context, ref.key);
   const dest = join(sandbox, '.config-target');
   await writeFile(dest, 'user content');
@@ -84,7 +84,7 @@ sandboxTest('link replaces an existing file', async (sandbox) => {
 
 sandboxTest('link replaces an existing directory', async (sandbox) => {
   const context = contextFor(sandbox);
-  const ref = asset('git/global/.gitconfig');
+  const ref = asset('git/.gitconfig');
   await deploy(context, ref.key);
   const dest = join(sandbox, '.config-target');
   await mkdir(dest);
@@ -103,7 +103,7 @@ sandboxTest(
   'link surfaces filesystem errors while probing links',
   async (sandbox) => {
     const context = contextFor(sandbox);
-    const ref = asset('git/global/.gitconfig');
+    const ref = asset('git/.gitconfig');
     await deploy(context, ref.key);
     await writeFile(join(sandbox, '.blocked'), 'not a directory');
 
@@ -121,7 +121,7 @@ sandboxTest(
   'link replaces a symlink that points at the wrong target',
   async (sandbox) => {
     const context = contextFor(sandbox);
-    const ref = asset('git/global/.gitconfig');
+    const ref = asset('git/.gitconfig');
     await deploy(context, ref.key);
     const activation = link(ref, home('.config/git/config'));
     await runActivation(activation, context);
@@ -192,7 +192,7 @@ sandboxTest(
   'linkTree reports changed when it creates an empty destination root',
   async (sandbox) => {
     const context = contextFor(sandbox);
-    const activation = linkTree('empty/global/', home('.empty-root'));
+    const activation = linkTree('empty/', home('.empty-root'));
     const root = join(sandbox, '.empty-root');
 
     const first = await runActivation(activation, context);

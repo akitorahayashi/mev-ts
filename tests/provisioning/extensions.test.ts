@@ -9,7 +9,7 @@ import {
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
-const CONFIG_KEY = 'vscode/global/extensions.json';
+const CONFIG_KEY = 'vscode/extensions.json';
 
 const MANIFEST = JSON.stringify({
   extensions: ['publisher.alpha', 'publisher.Beta', 'publisher.gamma'],
@@ -18,7 +18,7 @@ const MANIFEST = JSON.stringify({
 const sandboxTest = sandboxedTest('extensions-');
 
 async function deployManifest(dir: string): Promise<void> {
-  const roleDir = join(dir, '.mev/roles/vscode/global');
+  const roleDir = join(dir, '.mev/roles/vscode');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'extensions.json'), MANIFEST);
 }
@@ -116,7 +116,7 @@ sandboxTest('failed when the editor CLI is unavailable', async (dir) => {
 sandboxTest(
   'failed when the extension manifest contains invalid entries',
   async (dir) => {
-    const roleDir = join(dir, '.mev/roles/vscode/global');
+    const roleDir = join(dir, '.mev/roles/vscode');
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'extensions.json'),

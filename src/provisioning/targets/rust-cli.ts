@@ -8,5 +8,5 @@ export const rustCliTarget = target('rust-cli', {
   description: 'Prebuilt Rust CLI binaries from GitHub Releases',
   aliases: ['rs-cli'],
   role: 'rust-cli',
-  activations: [releaseBinaries('rust-cli/global/binaries.yml')],
+  activations: [releaseBinaries('rust-cli/binaries.yml')],
 });

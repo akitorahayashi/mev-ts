@@ -11,14 +11,11 @@ export const vscodeTarget = target('vscode', {
   role: 'vscode',
   packages: { casks: ['visual-studio-code'] },
   activations: [
+    link(asset('vscode/settings.json'), home(`${USER_DIR}/settings.json`)),
     link(
-      asset('vscode/global/settings.json'),
-      home(`${USER_DIR}/settings.json`),
-    ),
-    link(
-      asset('vscode/global/keybindings.json'),
+      asset('vscode/keybindings.json'),
       home(`${USER_DIR}/keybindings.json`),
     ),
-    installExtensions('code', 'vscode/global/extensions.json'),
+    installExtensions('code', 'vscode/extensions.json'),
   ],
 });

@@ -6,5 +6,5 @@ export const dutiTarget = target('duti', {
   aliases: ['du'],
   role: 'duti',
   packages: { formulae: ['duti'], casks: ['zed'] },
-  activations: [applyDuti('duti/global/default_apps.yml')],
+  activations: [applyDuti('duti/default_apps.yml')],
 });

@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { mevRoot } from '../../host/path';
 
 /** Deployed source for the named settings-override fragments. */
-export const OVERRIDES_PREFIX = 'zed/global/overrides';
+export const OVERRIDES_PREFIX = 'zed/overrides';
 
 function zedRoot(home: string): string {
   return join(home, mevRoot, 'zed');

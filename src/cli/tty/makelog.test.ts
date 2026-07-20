@@ -47,7 +47,7 @@ const failedReport: MakeReport = {
       reports: [
         {
           verb: 'link',
-          source: 'git/global/.gitconfig',
+          source: 'git/.gitconfig',
           dest: '~/.config/git/config',
           status: 'failed',
           error: 'unmanaged file exists',
@@ -66,7 +66,7 @@ const failedReport: MakeReport = {
       reports: [
         {
           verb: 'link',
-          source: 'python/global/uv.toml',
+          source: 'python/uv.toml',
           dest: '~/.config/uv/uv.toml',
           status: 'blocked',
           error: 'formula uv: uv unavailable',
@@ -85,7 +85,7 @@ test('renderTargetCompletionLine summarizes changed groups by outcome kind', () 
       reports: [
         {
           verb: 'link',
-          source: 'shell/global/.zshenv',
+          source: 'shell/.zshenv',
           dest: '~/.zshenv',
           status: 'changed',
         },
@@ -113,7 +113,7 @@ test('renderTargetCompletionLine summarizes failed and blocked groups', () => {
   if (!git || !python) throw new Error('failed report fixture is incomplete');
 
   expect(renderTargetCompletionLine(git, { isTTY: false })).toBe(
-    'git: failed  link git/global/.gitconfig -> ~/.config/git/config',
+    'git: failed  link git/.gitconfig -> ~/.config/git/config',
   );
   expect(renderTargetCompletionLine(python, { isTTY: false })).toBe(
     'python: blocked  formula uv failed',
@@ -162,7 +162,7 @@ test('renderMakeReport renders concise successful summaries', () => {
         reports: [
           {
             verb: 'link',
-            source: 'shell/global/.zshenv',
+            source: 'shell/.zshenv',
             dest: '~/.zshenv',
             status: 'unchanged',
           },

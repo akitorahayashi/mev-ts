@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../errors';
 import { parseReleaseBinaries } from './release';
 
-const CONFIG = 'rust-cli/global/binaries.yml';
+const CONFIG = 'rust-cli/binaries.yml';
 
 function entry(fields: string): string {
   return `binaries:\n  - ${fields}\n`;

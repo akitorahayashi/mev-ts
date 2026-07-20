@@ -55,23 +55,23 @@ async function captureCommandLine(args: readonly string[]) {
   return { code, stdout: Bun.stripANSI(stdout) };
 }
 
-test('profile command help lists every accepted profile identifier', async () => {
+test('full-environment command help has no profile argument', async () => {
   const sync = await captureCommandLine(['s', '-h']);
   const create = await captureCommandLine(['cr', '-h']);
 
   expect(sync.code).toBe(0);
-  expect(sync.stdout).toContain('$ mev sync <macbook|mbk|mac-mini|mmn>');
+  expect(sync.stdout).toContain('$ mev sync');
   expect(sync.stdout).toContain('[aliases: s]');
   expect(create.code).toBe(0);
-  expect(create.stdout).toContain('$ mev create <macbook|mbk|mac-mini|mmn>');
+  expect(create.stdout).toContain('$ mev create');
 });
 
-test('missing profile errors show every accepted profile identifier', async () => {
-  const sync = await captureCommandLine(['sync']);
-  const create = await captureCommandLine(['create']);
+test('full-environment commands reject stale profile arguments', async () => {
+  const sync = await captureCommandLine(['sync', 'extra']);
+  const create = await captureCommandLine(['create', 'extra']);
 
   expect(sync.code).toBe(1);
-  expect(sync.stdout).toContain('$ mev sync <macbook|mbk|mac-mini|mmn>');
+  expect(sync.stdout).toContain('$ mev sync');
   expect(create.code).toBe(1);
-  expect(create.stdout).toContain('$ mev create <macbook|mbk|mac-mini|mmn>');
+  expect(create.stdout).toContain('$ mev create');
 });

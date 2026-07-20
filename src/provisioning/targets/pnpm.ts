@@ -62,12 +62,12 @@ export const pnpmTarget = target('pnpm', {
   packages: { formulae: ['pnpm'] },
   activations: [
     link(
-      asset('pnpm/global/config.yaml'),
+      asset('pnpm/config.yaml'),
       home('Library/Preferences/pnpm/config.yaml'),
     ),
     runCommand({
       label: 'pnpm global packages',
-      reads: { globalPackages: 'pnpm/global/global-packages.json' },
+      reads: { globalPackages: 'pnpm/global-packages.json' },
       steps: [
         brewPrefixCapture(),
         {

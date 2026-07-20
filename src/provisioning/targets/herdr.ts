@@ -9,6 +9,6 @@ export const herdrTarget = target('herdr', {
   role: 'herdr',
   packages: { formulae: ['herdr'] },
   activations: [
-    link(asset('herdr/global/config.toml'), home('.config/herdr/config.toml')),
+    link(asset('herdr/config.toml'), home('.config/herdr/config.toml')),
   ],
 });

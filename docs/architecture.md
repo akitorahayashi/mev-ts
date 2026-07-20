@@ -110,7 +110,7 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 - `activations` — ordered list of `Activation` values
 - `optional` — when set, the target is selectable by tag but excluded from a full-environment `create`
 
-`make` resolves explicit selectors; `create <profile>` resolves a hardware profile (`macbook`/`mbk`, `mac-mini`/`mmn`) and provisions `fullSetupTargets()` — every registered target except the optional ones, in declaration order — through the same three phases. `sync <profile>` scans that same selection and submits only changed targets to one `runMake()` call. The set derives from the registry, so a new target joins both full-environment commands without a separate list. The profile gates the commands to a hardware machine; it does not change the selection.
+`make` resolves explicit selectors; `create` provisions `fullSetupTargets()` — every registered target except the optional ones, in declaration order — through the same three phases. `sync` scans that same selection and submits only changed targets to one `runMake()` call. The set derives from the registry, so a new target joins both full-environment commands without a separate list.
 
 ### Semantic synchronization
 
@@ -124,7 +124,7 @@ The registry test (`src/provisioning/registry.test.ts`) validates asset existenc
 
 ## Asset Embedding (assets/)
 
-Raw config files live under `src/assets/config/` keyed as `{role}/global/{filename}`. `scripts/generate-assets.ts` walks the tree and inlines every file's content as a string, emitting `assets/registry.generated.ts`. The content is embedded in the compiled binary; no per-file imports or filesystem access occur at runtime.
+Raw config files live under `src/assets/config/` keyed as `{role}/{filename}`. `scripts/generate-assets.ts` walks the tree and inlines every file's content as a string, emitting `assets/registry.generated.ts`. The content is embedded in the compiled binary; no per-file imports or filesystem access occur at runtime.
 
 `assets/registry.ts` wraps the generated map as `AssetSource`. An unknown key throws `ProvisioningError`. `keysByPrefix` lets targets derive their file lists from the embedded set rather than enumerating them by hand.
 

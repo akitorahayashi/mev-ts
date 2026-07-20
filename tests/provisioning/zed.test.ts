@@ -10,7 +10,7 @@ import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('zed-');
 
-const BASE_KEY = 'zed/global/settings.json';
+const BASE_KEY = 'zed/settings.json';
 const BASE_ASSET = asset(BASE_KEY);
 const DEST = home('.config/zed/settings.json');
 

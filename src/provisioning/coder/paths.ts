@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import { mevRoot } from '../../host/path';
 
-export const AGENTS_SECTIONS_PREFIX = 'coder/global/agents-sections';
-export const SKILLS_PREFIX = 'coder/global/skills';
+export const AGENTS_SECTIONS_PREFIX = 'coder/agents-sections';
+export const SKILLS_PREFIX = 'coder/skills';
 
 /**
  * The coder intermediate-entity root `~/.mev/coder/`, a sibling of the deploy

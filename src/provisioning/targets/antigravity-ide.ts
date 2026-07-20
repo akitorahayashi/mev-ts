@@ -12,13 +12,13 @@ export const antigravityIdeTarget = target('antigravity_ide', {
   packages: { casks: ['antigravity-ide'] },
   activations: [
     link(
-      asset('antigravity_ide/global/settings.json'),
+      asset('antigravity_ide/settings.json'),
       home(`${USER_DIR}/settings.json`),
     ),
     link(
-      asset('antigravity_ide/global/keybindings.json'),
+      asset('antigravity_ide/keybindings.json'),
       home(`${USER_DIR}/keybindings.json`),
     ),
-    installExtensions('agy-ide', 'antigravity_ide/global/extensions.json'),
+    installExtensions('agy-ide', 'antigravity_ide/extensions.json'),
   ],
 });

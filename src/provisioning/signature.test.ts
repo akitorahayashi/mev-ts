@@ -27,7 +27,7 @@ function assetSource(
   };
 }
 
-const config = { key: 'demo/global/config' };
+const config = { key: 'demo/config' };
 
 test('declared assets, packages, and activation destinations affect the signature', async () => {
   const original = target('demo', {
@@ -95,7 +95,7 @@ test('command implementation functions do not affect the signature', async () =>
     activations: [
       runCommand({
         label: 'demo command',
-        reads: { version: 'demo/global/version' },
+        reads: { version: 'demo/version' },
         steps: [{ argv: () => ['demo', 'slow'] }],
       }),
     ],
@@ -106,7 +106,7 @@ test('command implementation functions do not affect the signature', async () =>
     activations: [
       runCommand({
         label: 'demo command',
-        reads: { version: 'demo/global/version' },
+        reads: { version: 'demo/version' },
         steps: [
           {
             argv: () => ['demo', 'fast'],
@@ -117,7 +117,7 @@ test('command implementation functions do not affect the signature', async () =>
       }),
     ],
   });
-  const assets = assetSource({ 'demo/global/version': '1.0.0\n' });
+  const assets = assetSource({ 'demo/version': '1.0.0\n' });
 
   expect(await targetSignature(first, assets)).toBe(
     await targetSignature(optimized, assets),
@@ -138,23 +138,23 @@ test('command label and read declarations affect the signature', async () => {
       ],
     });
   const assets = assetSource({
-    'demo/global/version': '1\n',
-    'demo/global/next-version': '2\n',
+    'demo/version': '1\n',
+    'demo/next-version': '2\n',
   });
   const original = await targetSignature(
-    commandTarget('demo command', 'demo/global/version'),
+    commandTarget('demo command', 'demo/version'),
     assets,
   );
 
   expect(
     await targetSignature(
-      commandTarget('renamed command', 'demo/global/version'),
+      commandTarget('renamed command', 'demo/version'),
       assets,
     ),
   ).not.toBe(original);
   expect(
     await targetSignature(
-      commandTarget('demo command', 'demo/global/next-version'),
+      commandTarget('demo command', 'demo/next-version'),
       assets,
     ),
   ).not.toBe(original);
