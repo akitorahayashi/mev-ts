@@ -5,6 +5,7 @@
 # listing, is a startup error.
 sections:
   - communication
+  - user-specific
   - rtk
   - coding
   - documentation
