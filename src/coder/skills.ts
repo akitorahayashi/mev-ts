@@ -1,12 +1,13 @@
-import { mkdir, readdir, rm } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isSymlinkTo, placeSymlink } from '../host/symlink';
+import { reconcileManagedLinks } from '../host/managed-links';
 
 /**
  * Reconcile `skillsDir` to hold exactly one symlink per enabled skill, each
- * pointing at the deployed source `sourceDir/<name>`. Symlinks for disabled or
- * removed skills are dropped. Agent skill directories symlink to these entries,
- * so updating this directory reflects everywhere without re-provisioning.
+ * pointing at the deployed source `sourceDir/<name>`. Symlinks into `sourceDir`
+ * for disabled or removed skills are dropped (unmanaged symlinks are left
+ * alone). Agent skill directories symlink to these entries, so updating this
+ * directory reflects everywhere without re-provisioning.
  *
  * Returns whether any entry was created, retargeted, or removed.
  */
@@ -16,28 +17,12 @@ export async function buildSkills(
   skillsDir: string,
 ): Promise<boolean> {
   await mkdir(skillsDir, { recursive: true });
-  let changed = false;
-
-  const entries = await readdir(skillsDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isSymbolicLink()) {
-      continue;
-    }
-    if (!enabled.includes(entry.name)) {
-      await rm(join(skillsDir, entry.name), { force: true });
-      changed = true;
-    }
-  }
-
-  for (const name of enabled) {
-    const link = join(skillsDir, name);
-    const target = join(sourceDir, name);
-    if (await isSymlinkTo(link, target)) {
-      continue;
-    }
-    await placeSymlink(link, target);
-    changed = true;
-  }
-
-  return changed;
+  return reconcileManagedLinks(
+    skillsDir,
+    [`${sourceDir}/`],
+    enabled.map((name) => ({
+      path: join(skillsDir, name),
+      target: join(sourceDir, name),
+    })),
+  );
 }

@@ -1,4 +1,4 @@
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   type AssetRef,
@@ -7,13 +7,10 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
-import {
-  lstatIfPresent,
-  readDirectoryIfPresent,
-  readlinkIfPresent,
-} from '../../host/absence';
+import { lstatIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
 import { replaceDirectoryAfterBuild } from '../../host/directory-replacement';
+import { reconcileManagedLinks } from '../../host/managed-links';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type { Activation, ActivationReport, Described } from './contract';
@@ -71,36 +68,6 @@ function legacyKey(key: string): string | null {
   return `${key.slice(0, slash)}/global/${key.slice(slash + 1)}`;
 }
 
-async function staleLinks(
-  root: string,
-  managedRoots: readonly string[],
-  expected: ReadonlySet<string>,
-): Promise<string[]> {
-  const names = await readDirectoryIfPresent(root);
-  if (names === null) {
-    return [];
-  }
-  const bases = managedRoots.map((managedRoot) =>
-    managedRoot.endsWith('/') ? managedRoot : `${managedRoot}/`,
-  );
-  const stale: string[] = [];
-  for (const name of names) {
-    const path = join(root, name);
-    if (expected.has(path)) {
-      continue;
-    }
-    const stats = await lstatIfPresent(path);
-    if (!stats?.isSymbolicLink()) {
-      continue;
-    }
-    const target = await readlinkIfPresent(path);
-    if (target && bases.some((base) => target.startsWith(base))) {
-      stale.push(path);
-    }
-  }
-  return stale;
-}
-
 async function ensureTreeRoot(root: string): Promise<boolean> {
   const stats = await lstatIfPresent(root);
   if (!stats) {
@@ -149,28 +116,16 @@ export async function runTree(
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
     const rootChanged = await ensureTreeRoot(root);
+    const linksChanged = await reconcileManagedLinks(
+      root,
+      managedRoots,
+      entries.map((entry) => ({ path: entry.link, target: entry.target })),
+    );
 
-    const drifted: TreeEntry[] = [];
-    for (const { link, target } of entries) {
-      if (await isSymlinkTo(link, target)) {
-        continue;
-      }
-      drifted.push({ link, target });
-    }
-    const expected = new Set(entries.map((entry) => entry.link));
-    const stale = await staleLinks(root, managedRoots, expected);
-
-    if (!rootChanged && drifted.length === 0 && stale.length === 0) {
-      return { ...base, status: 'unchanged' };
-    }
-
-    for (const { link, target } of drifted) {
-      await placeSymlink(link, target);
-    }
-    for (const link of stale) {
-      await rm(link, { force: true });
-    }
-    return { ...base, status: 'changed' };
+    return {
+      ...base,
+      status: rootChanged || linksChanged ? 'changed' : 'unchanged',
+    };
   });
 }
 
