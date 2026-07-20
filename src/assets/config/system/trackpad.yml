@@ -4,7 +4,6 @@
   domain: NSGlobalDomain
   type: float
   value: 1.5
-  comment: "Trackpad"
 
 # Enables or disables tap to click. (0: disabled, 1: enabled)
 - key: Clicking

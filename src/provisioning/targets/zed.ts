@@ -1,8 +1,8 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
+import { OVERRIDES_PREFIX } from '../../zed/paths';
 import { link, zedSettings } from '../activation';
 import { target } from '../target';
-import { OVERRIDES_PREFIX } from '../zed/paths';
 
 export const zedTarget = target('zed', {
   description: 'Zed editor configuration',

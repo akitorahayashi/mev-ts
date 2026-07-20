@@ -217,6 +217,31 @@ binaries:
 );
 
 sandboxTest(
+  'duplicate release names fail before architecture probing',
+  async (home) => {
+    await deployBinaries(
+      home,
+      `
+binaries:
+  - name: kpv
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+  - name: KPV
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+`.trimStart(),
+    );
+    const { context, calls } = releaseContext(home, () => ok());
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('duplicate');
+    expect(calls).toHaveLength(0);
+  },
+);
+
+sandboxTest(
   'a failed download keeps the existing binary and removes temp files',
   async (home) => {
     const existing = join(home, '.cargo', 'bin', 'kpv');

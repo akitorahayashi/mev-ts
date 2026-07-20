@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Setup Development Environment
         uses: ./.github/actions/setup
@@ -37,7 +37,7 @@ jobs:
   build-release:
     name: Build ${{ matrix.target }}
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Setup Development Environment
         uses: ./.github/actions/setup
@@ -68,9 +68,38 @@ jobs:
       - name: Checksum mev
         run: shasum -a 256 ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256
 
-      - name: Upload Release Asset
+      - name: Upload Build Artifact
         if: inputs.release_id != ''
-        uses: akitorahayashi/gh-release@aa696643869780261a02c3f5775f36b32b4faab5 # v1
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
+
+  upload-release-assets:
+    name: Upload ${{ matrix.artifact }}
+    if: inputs.release_id != ''
+    needs:
+      - build-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact:
+          - mev-darwin-x64
+          - mev-darwin-arm64
+    runs-on: macos-latest
+
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: ${{ matrix.artifact }}
+
+      - name: Upload Release Asset
+        uses: akitorahayashi/gh-release@v1
         with:
           mode: upload
           token: ${{ github.token }}

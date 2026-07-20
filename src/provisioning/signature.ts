@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import type { AssetSource } from '../assets/registry';
-import type { Activation } from './activation/contract';
-import type { PackageRequirement } from './package';
+import type { PackageRequirement } from '../brew/package';
+import { commandReadKey } from './activation/command';
+import type { Activation, ChangedWhen } from './activation/contract';
 import type { Target } from './target';
 
 type ActivationIntent =
@@ -43,8 +44,33 @@ type ActivationIntent =
   | {
       readonly kind: 'command';
       readonly label: string;
+      readonly intentVersion: number;
       readonly reads: readonly (readonly [string, string])[];
+      readonly steps: readonly CommandStepIntent[];
+    }
+  | {
+      readonly kind: 'remoteInstaller';
+      readonly label: string;
+      readonly url: string;
+      readonly checksumUrl: string | null;
+      readonly interpreter: string;
+      readonly args: readonly string[];
+      readonly creates: string;
+      readonly env: readonly (readonly [string, string])[];
+      readonly pathPrefix: readonly string[];
     };
+
+type ChangedWhenIntent =
+  | 'always'
+  | 'never'
+  | { readonly outputContains: string }
+  | { readonly outputNotContains: string };
+
+interface CommandStepIntent {
+  readonly label: string;
+  readonly capture: string | null;
+  readonly changedWhen: ChangedWhenIntent;
+}
 
 interface AssetIntent {
   readonly key: string;
@@ -70,6 +96,10 @@ function packageIntent(packages: PackageRequirement): PackageRequirement {
     formulae: sortedUnique(packages.formulae),
     casks: sortedUnique(packages.casks),
   };
+}
+
+function changedWhenIntent(rule: ChangedWhen | undefined): ChangedWhenIntent {
+  return rule ?? 'always';
 }
 
 function activationIntent(activation: Activation): ActivationIntent {
@@ -123,9 +153,29 @@ function activationIntent(activation: Activation): ActivationIntent {
       return {
         kind: activation.kind,
         label: activation.label,
-        reads: Object.entries(activation.reads ?? {}).sort(([left], [right]) =>
+        intentVersion: activation.intentVersion,
+        reads: Object.entries(activation.reads ?? {})
+          .map(([name, read]) => [name, commandReadKey(read)] as const)
+          .sort(([left], [right]) => left.localeCompare(right)),
+        steps: activation.steps.map((step) => ({
+          label: step.label,
+          capture: step.capture ?? null,
+          changedWhen: changedWhenIntent(step.changedWhen),
+        })),
+      };
+    case 'remoteInstaller':
+      return {
+        kind: activation.kind,
+        label: activation.label,
+        url: activation.url,
+        checksumUrl: activation.checksumUrl ?? null,
+        interpreter: activation.interpreter,
+        args: activation.args,
+        creates: activation.creates.rel,
+        env: Object.entries(activation.env ?? {}).sort(([left], [right]) =>
           left.localeCompare(right),
         ),
+        pathPrefix: (activation.pathPrefix ?? []).map((path) => path.rel),
       };
   }
 }

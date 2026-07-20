@@ -14,6 +14,7 @@ test('buildMev runs bun build from an isolated workspace', async () => {
   await withTemporaryDirectory(
     async (dir) => {
       const outfile = join(dir, 'mev');
+      const projectRoot = join(dir, 'project');
       const invocations: Array<{
         args: readonly string[];
         cwd: string;
@@ -21,7 +22,7 @@ test('buildMev runs bun build from an isolated workspace', async () => {
       }> = [];
 
       await buildMev({
-        projectRoot: process.cwd(),
+        projectRoot,
         outfile,
         stdio: 'ignore',
         async runBuildCommand(invocation) {
@@ -32,14 +33,19 @@ test('buildMev runs bun build from an isolated workspace', async () => {
 
       expect(invocations).toEqual([
         {
-          args: [resolve(process.cwd(), 'scripts/generate-assets.ts')],
-          cwd: process.cwd(),
+          args: [resolve(projectRoot, 'scripts/generate-assets.ts')],
+          cwd: projectRoot,
+          stdio: 'ignore',
+        },
+        {
+          args: [resolve(projectRoot, 'scripts/validate-assets.ts')],
+          cwd: projectRoot,
           stdio: 'ignore',
         },
         {
           args: [
             'build',
-            resolve(process.cwd(), 'src/main.ts'),
+            resolve(projectRoot, 'src/main.ts'),
             '--compile',
             '--external',
             'chromium-bidi/*',
@@ -50,7 +56,7 @@ test('buildMev runs bun build from an isolated workspace', async () => {
           stdio: 'ignore',
         },
       ]);
-      expect(invocations[1]?.cwd).not.toBe(process.cwd());
+      expect(invocations[2]?.cwd).not.toBe(projectRoot);
       expect(await rootCompilerWorkFiles()).toEqual([]);
     },
     { prefix: 'build-' },
@@ -109,9 +115,9 @@ test('buildMev preserves build failure when cleanup also fails', async () => {
           outfile: join(dir, 'mev'),
           stdio: 'ignore',
           async runBuildCommand() {
-            // Codegen (first) succeeds; the compile (second) fails.
+            // Codegen and validation succeed; the compile fails.
             calls += 1;
-            return calls === 1 ? 0 : 1;
+            return calls < 3 ? 0 : 1;
           },
           async removeWorkspace() {
             throw cleanupError;

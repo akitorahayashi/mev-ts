@@ -4,7 +4,6 @@
   domain: com.apple.systemsound
   type: int
   value: 0
-  comment: "Sound"
 
 # Enables or disables feedback when volume is changed.
 - key: com.apple.sound.beep.feedback

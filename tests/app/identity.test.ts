@@ -6,7 +6,7 @@ import {
   showIdentity,
   switchIdentity,
 } from '../../src/app/identity';
-import { AppError, CommandLineError } from '../../src/errors';
+import { AppError } from '../../src/errors';
 import type { CommandResult, CommandRunner } from '../../src/host/command';
 import {
   identityFilePath,
@@ -140,7 +140,7 @@ sandboxTest(
 sandboxTest('showIdentity throws when no configuration exists', async () => {
   const run = gitRunner({});
   await expect(showIdentity({ run, home: tempHome() })).rejects.toBeInstanceOf(
-    CommandLineError,
+    AppError,
   );
 });
 
@@ -158,18 +158,12 @@ sandboxTest(
       name: 'Personal Name',
       email: 'personal@example.com',
     });
-    expect(writes).toEqual([
-      {
-        path: join(home, '.gitconfig'),
-        key: 'user.name',
-        value: 'Personal Name',
-      },
-      {
-        path: join(home, '.gitconfig'),
-        key: 'user.email',
-        value: 'personal@example.com',
-      },
+    expect(writes.map(({ key, value }) => ({ key, value }))).toEqual([
+      { key: 'user.name', value: 'Personal Name' },
+      { key: 'user.email', value: 'personal@example.com' },
     ]);
+    expect(writes[0]?.path).toBe(writes[1]?.path);
+    expect(writes[0]?.path).not.toBe(join(home, '.gitconfig'));
   },
 );
 
@@ -177,7 +171,7 @@ sandboxTest('switchIdentity throws when no configuration exists', async () => {
   const run = gitRunner({});
   await expect(
     switchIdentity({ run, home: tempHome() }, 'work'),
-  ).rejects.toBeInstanceOf(CommandLineError);
+  ).rejects.toBeInstanceOf(AppError);
 });
 
 sandboxTest(
@@ -190,7 +184,7 @@ sandboxTest(
     });
     const run = gitRunner({});
     await expect(switchIdentity({ run, home }, 'work')).rejects.toBeInstanceOf(
-      CommandLineError,
+      AppError,
     );
   },
 );

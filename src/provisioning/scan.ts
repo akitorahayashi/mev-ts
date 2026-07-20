@@ -5,6 +5,7 @@ import type { AssetSource } from '../assets/registry';
 import { errorMessage, ProvisioningError } from '../errors';
 import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
+import { mapWithConcurrency } from '../host/task-pool';
 import { appliedPath, readApplied } from './applied';
 import { targetSignature } from './signature';
 import type { Target } from './target';
@@ -16,6 +17,8 @@ export interface TargetScan {
   readonly signature: string;
   readonly reasons: readonly SyncReason[];
 }
+
+const SCAN_CONCURRENCY = 8;
 
 type RoleEntry =
   | { readonly kind: 'directory'; readonly path: string }
@@ -149,5 +152,7 @@ export function scanTargets(
   targets: readonly Target[],
   context: Context,
 ): Promise<readonly TargetScan[]> {
-  return Promise.all(targets.map((target) => scanTarget(target, context)));
+  return mapWithConcurrency(targets, SCAN_CONCURRENCY, (target) =>
+    scanTarget(target, context),
+  );
 }

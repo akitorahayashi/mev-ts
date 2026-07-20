@@ -1,4 +1,4 @@
-import { readNameList, writeNameList } from '../selection';
+import { readNameList, writeNameList } from '../config-selection/selection';
 
 /**
  * The AGENTS.md/skills selection manifest records only what the user turned off.

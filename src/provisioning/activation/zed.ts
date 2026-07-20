@@ -4,15 +4,15 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
+import { resolveSelection } from '../../config-selection/selection';
 import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
-import { resolveSelection } from '../selection';
-import { readOverrides } from '../zed/catalog';
-import { readEnabled } from '../zed/manifest';
-import { overridesManifest, settingsFile } from '../zed/paths';
-import { buildSettings } from '../zed/settings';
+import { readOverrides } from '../../zed/catalog';
+import { readEnabled } from '../../zed/manifest';
+import { overridesManifest, settingsFile } from '../../zed/paths';
+import { buildSettings } from '../../zed/settings';
 import type {
   Activation,
   ActivationReport,

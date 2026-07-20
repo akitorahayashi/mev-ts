@@ -6,7 +6,7 @@ import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
 
 function optionalTargetLine(target: Target): string {
-  return `${target.description}: mev make ${target.aliases[0] ?? target.tags[0]}`;
+  return `${target.description}: mev make ${target.aliases[0] ?? target.name}`;
 }
 
 function optionalFooter(): readonly string[] | undefined {
@@ -27,10 +27,10 @@ export class CreateCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const tags = fullSetupTargets().map((t) => t.tags[0]);
+      const selectors = fullSetupTargets().map((target) => target.name);
 
       return executeProvisioningRun({
-        tags,
+        selectors,
         intro: 'mev: Creating environment',
         footer: (report) => (report.failed ? undefined : optionalFooter()),
         out: (text) => this.context.stdout.write(text),

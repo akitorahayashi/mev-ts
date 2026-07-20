@@ -1,7 +1,12 @@
 import { errorMessage, ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-import { requireRecord, requireStringArray } from '../host/parse';
+import {
+  requireExactKeys,
+  requireRecord,
+  requireStringArray,
+  requireUniqueBy,
+} from '../host/parse';
 
 export function parseExtensions(raw: string, path: string): string[] {
   let parsed: unknown;
@@ -13,6 +18,7 @@ export function parseExtensions(raw: string, path: string): string[] {
     );
   }
   const record = requireRecord(parsed, `Extensions manifest ${path}`);
+  requireExactKeys(record, ['extensions'], `Extensions manifest ${path}`);
   const extensions = requireStringArray(
     record.extensions,
     `Extensions manifest ${path}: 'extensions'`,
@@ -22,6 +28,11 @@ export function parseExtensions(raw: string, path: string): string[] {
       `Extensions manifest must contain an extensions array of non-empty strings: ${path}`,
     );
   }
+  requireUniqueBy(
+    extensions,
+    (extension) => extension.toLowerCase(),
+    `Extensions manifest ${path}`,
+  );
   return [...extensions];
 }
 

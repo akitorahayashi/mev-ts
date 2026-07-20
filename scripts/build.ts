@@ -30,6 +30,17 @@ async function runBunBuild(invocation: BuildInvocation): Promise<number> {
   return proc.exited;
 }
 
+async function runRequiredBuildCommand(
+  invocation: BuildInvocation,
+  runCommand: (invocation: BuildInvocation) => Promise<number>,
+  failureLabel: string,
+): Promise<void> {
+  const code = await runCommand(invocation);
+  if (code !== 0) {
+    throw new Error(`${failureLabel} failed with exit code ${code}`);
+  }
+}
+
 function parseArgs(args: readonly string[], projectRoot: string): BuildOptions {
   let outfile = 'dist/mev';
   let target: string | undefined;
@@ -66,7 +77,7 @@ export async function buildMev(options: BuildOptions): Promise<void> {
   const removeWorkspace =
     options.removeWorkspace ??
     ((path: string) => rm(path, { force: true, recursive: true }));
-  const runBuildCommand = options.runBuildCommand ?? runBunBuild;
+  const runCommand = options.runBuildCommand ?? runBunBuild;
 
   await runWithCleanup(
     async () => {
@@ -75,14 +86,24 @@ export async function buildMev(options: BuildOptions): Promise<void> {
 
       // Own the codegen-before-compile invariant here, so the compiled binary
       // never embeds a stale or missing asset registry regardless of caller.
-      const codegenCode = await runBuildCommand({
-        args: [resolve(options.projectRoot, 'scripts/generate-assets.ts')],
-        cwd: options.projectRoot,
-        stdio,
-      });
-      if (codegenCode !== 0) {
-        throw new Error(`asset codegen failed with exit code ${codegenCode}`);
-      }
+      await runRequiredBuildCommand(
+        {
+          args: [resolve(options.projectRoot, 'scripts/generate-assets.ts')],
+          cwd: options.projectRoot,
+          stdio,
+        },
+        runCommand,
+        'asset codegen',
+      );
+      await runRequiredBuildCommand(
+        {
+          args: [resolve(options.projectRoot, 'scripts/validate-assets.ts')],
+          cwd: options.projectRoot,
+          stdio,
+        },
+        runCommand,
+        'asset validation',
+      );
 
       const args = [
         'build',
@@ -97,10 +118,11 @@ export async function buildMev(options: BuildOptions): Promise<void> {
       ];
       if (options.target) args.push('--target', options.target);
 
-      const code = await runBuildCommand({ args, cwd: workspace, stdio });
-      if (code !== 0) {
-        throw new Error(`bun build failed with exit code ${code}`);
-      }
+      await runRequiredBuildCommand(
+        { args, cwd: workspace, stdio },
+        runCommand,
+        'bun build',
+      );
     },
     () => removeWorkspace(workspace),
     `Failed to clean up build workspace ${workspace}.`,

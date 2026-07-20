@@ -1,4 +1,5 @@
 import { type InstallReport, installPackages } from '../brew/install';
+import { type PackageToken, tokens } from '../brew/package';
 import { errorMessage, ProvisioningError } from '../errors';
 import type { Context } from '../host/context';
 import {
@@ -11,7 +12,6 @@ import {
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
-import { type PackageToken, tokens } from './package';
 import { type MakePlan, planMake } from './plan';
 import { allTargets } from './registry';
 import { targetSignature } from './signature';
@@ -30,7 +30,7 @@ export type ActivationBlocker =
     };
 
 export interface ActivationGroupReport {
-  readonly tag: string;
+  readonly targetName: string;
   readonly blockers: readonly ActivationBlocker[];
   readonly reports: readonly ActivationReport[];
 }
@@ -48,12 +48,12 @@ export interface ActivationPhaseEvent {
 }
 
 export interface ActivationStartEvent {
-  readonly tag: string;
+  readonly targetName: string;
   readonly activation: Described;
 }
 
 export interface MakeRequest {
-  readonly tags: readonly string[];
+  readonly selectors: readonly string[];
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
@@ -114,7 +114,7 @@ async function recordSuccessfulTarget(
   context: Context,
 ): Promise<void> {
   if (!groupSucceeded(group)) return;
-  const target = targetNamed(group.tag);
+  const target = targetNamed(group.targetName);
   const signature = await targetSignature(target, context.assets);
   await writeApplied(appliedPath(context.home, target.name), signature);
 }
@@ -122,7 +122,7 @@ async function recordSuccessfulTarget(
 /**
  * Protect target-declared mutable state, then drive the three provisioning
  * phases: deploy each role's config, resolve required packages, and activate
- * the deployed assets grouped by tag. Phase boundaries fire hooks so the CLI
+ * the deployed assets grouped by target. Phase boundaries fire hooks so the CLI
  * can interleave a live install bar; the returned report carries everything
  * needed to render the log.
  */
@@ -130,16 +130,16 @@ export async function runMake(
   request: MakeRequest,
   context: Context,
 ): Promise<MakeReport> {
-  const selection = planMake(request.tags);
+  const selection = planMake(request.selectors);
 
   // Preserve mutable host state before invalidating applied markers or
   // replacing deployed roles. A preservation failure leaves provisioning's
   // managed state untouched.
-  for (const tag of selection.tags) {
-    await targetNamed(tag).preserveBeforeDeploy?.(context);
+  for (const targetName of selection.targetNames) {
+    await targetNamed(targetName).preserveBeforeDeploy?.(context);
   }
 
-  await invalidateSelectedTargets(selection.tags, context);
+  await invalidateSelectedTargets(selection.targetNames, context);
 
   // Phase 1: deploy configs for each role.
   const deploys: DeployResult[] = [];
@@ -213,7 +213,7 @@ export async function runMake(
     if (blockers.length > 0) {
       const reason = blockerReason(blockers);
       const groupReport = {
-        tag: group.tag,
+        targetName: group.targetName,
         blockers,
         reports: group.activations.map((activation) =>
           blockedReport(activation, reason),
@@ -226,12 +226,12 @@ export async function runMake(
     const reports: ActivationReport[] = [];
     for (const activation of group.activations) {
       request.onActivationStart?.({
-        tag: group.tag,
+        targetName: group.targetName,
         activation: describeActivation(activation),
       });
       reports.push(await runActivation(activation, context));
     }
-    const groupReport = { tag: group.tag, blockers, reports };
+    const groupReport = { targetName: group.targetName, blockers, reports };
     groups.push(groupReport);
     await recordSuccessfulTarget(groupReport, context);
     request.onActivationTargetComplete?.(groupReport);

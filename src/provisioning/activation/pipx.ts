@@ -2,22 +2,16 @@ import { basename, extname } from 'node:path';
 import { errorMessage } from '../../errors';
 import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
+import { inject, install, postInstall, uninstall } from '../../pipx/command';
+import { brewEnv, localVenvs } from '../../pipx/environment';
+import { type Installed, listInstalled } from '../../pipx/inventory';
+import { type PipxTool, parseTools } from '../../pipx/manifest';
 import {
-  brewEnv,
-  type Installed,
-  inject,
-  install,
   installSpec,
-  listInstalled,
-  localVenvs,
   needsReinstall,
-  type PipxTool,
-  parseTools,
-  postInstall,
   shouldInject,
   shouldPostInstall,
-  uninstall,
-} from '../../pipx/install';
+} from '../../pipx/reconciliation';
 import type { Activation, ActivationReport, Described } from './contract';
 import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';

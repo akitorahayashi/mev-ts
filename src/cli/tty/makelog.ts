@@ -34,9 +34,9 @@ export function renderDeployLine(
   return c.dim(`  Deployed config for ${result.role}${suffix}`);
 }
 
-/** The `Running tags` / `Required …` header block. */
+/** The `Running targets` / `Required ...` header block. */
 export function renderHeader(selection: MakePlan): string {
-  const lines = [`Running tags: ${selection.tags.join(', ')}`];
+  const lines = [`Running targets: ${selection.targetNames.join(', ')}`];
   const { taps, formulae, casks } = selection.packages;
   if (taps.length > 0) lines.push(`Required taps: ${taps.join(', ')}`);
   if (formulae.length > 0)
@@ -71,7 +71,7 @@ export function renderActivationDescription(activation: Described): string {
 }
 
 export function renderActivationStartLine(event: ActivationStartEvent): string {
-  return `${event.tag}  ${renderActivationDescription(event.activation)}`;
+  return `${event.targetName}  ${renderActivationDescription(event.activation)}`;
 }
 
 type TargetStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
@@ -155,7 +155,7 @@ export function renderTargetCompletionLine(
   const status = targetStatus(group);
   const summary = summarizeActivationGroup(group);
   if (!options.isTTY) {
-    const line = `${group.tag}: ${status}`;
+    const line = `${group.targetName}: ${status}`;
     return summary ? `${line}  ${summary}` : line;
   }
 
@@ -174,8 +174,8 @@ export function renderTargetCompletionLine(
         : status === 'unchanged'
           ? c.dim(status)
           : c.green(status);
-  const plainBody = `✓ ${group.tag.padEnd(7)}  ${status}`;
-  const body = `${prefix} ${group.tag.padEnd(7)}  ${statusText}`;
+  const plainBody = `✓ ${group.targetName.padEnd(7)}  ${status}`;
+  const body = `${prefix} ${group.targetName.padEnd(7)}  ${statusText}`;
   const padding = summary ? ' '.repeat(Math.max(0, 22 - plainBody.length)) : '';
   return summary ? `${body}${padding}  ${summary}` : body;
 }
@@ -211,10 +211,10 @@ export function renderMakeReport(
       actionNumber += 1;
       const title =
         group.blockers.length === 1 && group.blockers[0]?.kind === 'package'
-          ? `${group.tag} blocked by failed package`
+          ? `${group.targetName} blocked by failed package`
           : group.blockers.length === 1 && group.blockers[0]?.kind === 'deploy'
-            ? `${group.tag} blocked by deploy failure`
-            : `${group.tag} blocked by prerequisite failures`;
+            ? `${group.targetName} blocked by deploy failure`
+            : `${group.targetName} blocked by prerequisite failures`;
       actionLines.push(`${actionNumber}. ${title}`);
       actionLines.push(
         ...group.blockers.map((blocker) => `   ${formatBlocker(blocker)}`),
@@ -225,7 +225,7 @@ export function renderMakeReport(
       if (activation.status !== 'failed') continue;
       actionNumber += 1;
       actionLines.push(
-        `${actionNumber}. ${group.tag} failed during activation`,
+        `${actionNumber}. ${group.targetName} failed during activation`,
       );
       actionLines.push(`   ${activationLine(activation)}`);
       actionLines.push(...failedEntryLines(activation));
@@ -243,7 +243,7 @@ export function renderMakeReport(
         isBlocked(group) ||
         group.reports.some((activation) => activation.status === 'failed'),
     )
-    .map((group) => group.tag);
+    .map((group) => group.targetName);
   if (retryTags.length > 0) {
     lines.push('', 'Retry', `mev make ${retryTags.join(' ')}`);
   }

@@ -4,7 +4,6 @@
   domain: com.apple.finder
   type: bool
   value: true
-  comment: "Finder"
 
 # Shows or hides the status bar in Finder windows.
 - key: ShowStatusBar

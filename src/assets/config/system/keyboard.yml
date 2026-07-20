@@ -4,7 +4,6 @@
   domain: NSGlobalDomain
   type: int
   value: 6
-  comment: "Keyboard"
 
 # Sets the delay until key repeat begins. A smaller value means a shorter delay.
 - key: InitialKeyRepeat

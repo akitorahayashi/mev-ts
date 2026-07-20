@@ -1,9 +1,9 @@
-import { ProvisioningError } from '../../errors';
+import { ProvisioningError } from '../errors';
 import {
   type CommandResult,
   type CommandRunner,
   formatCommandFailure,
-} from '../../host/command';
+} from '../host/command';
 
 // Captured git output is read under the C locale so stderr matching (e.g. git's
 // "No such section") stays stable regardless of the host's language.

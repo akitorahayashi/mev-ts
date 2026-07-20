@@ -1,8 +1,9 @@
-import { rm, stat } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { CommandLineError, ProvisioningError } from '../../errors';
+import { runCapture, runStep } from '../../git/run';
+import { lstatIfPresent } from '../../host/absence';
 import { type CommandRunner, formatCommandFailure } from '../../host/command';
-import { runCapture, runStep } from './run';
 
 /**
  * Delete a git submodule completely from the repository in the current working
@@ -69,11 +70,7 @@ async function removeModuleDir(
   const base = isAbsolute(gitDir) ? gitDir : join(process.cwd(), gitDir);
   const modulesPath = join(base, 'modules', submodulePath);
 
-  const exists = await stat(modulesPath).then(
-    () => true,
-    () => false,
-  );
-  if (exists) {
+  if ((await lstatIfPresent(modulesPath)) !== null) {
     await rm(modulesPath, { recursive: true, force: true });
   }
 }

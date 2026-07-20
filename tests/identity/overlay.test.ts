@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ProvisioningError } from '../../src/errors';
+import { AppError } from '../../src/errors';
 import {
   identityOverlayPath,
   preserveIdentityOverlay,
@@ -54,12 +54,25 @@ sandboxTest(
     await preserveIdentityOverlay({ home, run: context.commands }, managed);
 
     const overlay = identityOverlayPath(home);
-    expect(calls.map(({ args }) => args)).toEqual([
+    expect(calls.slice(0, 2).map(({ args }) => args)).toEqual([
       ['config', '--global', '--get', 'user.name'],
       ['config', '--global', '--get', 'user.email'],
-      ['config', '--file', overlay, 'user.name', 'Legacy Name'],
-      ['config', '--file', overlay, 'user.email', 'legacy@example.com'],
     ]);
+    const writes = calls.slice(2).map(({ args }) => args);
+    const firstWrite = writes[0];
+    const secondWrite = writes[1];
+    if (!firstWrite || !secondWrite) {
+      throw new Error('expected two staged git config writes');
+    }
+    const stage = firstWrite[2];
+    if (!stage) throw new Error('expected staged git config path');
+    expect(writes[0]?.slice(0, 3)).toEqual(['config', '--file', stage]);
+    expect(secondWrite[2]).toBe(stage);
+    expect(writes.map((args) => args.slice(3))).toEqual([
+      ['user.name', 'Legacy Name'],
+      ['user.email', 'legacy@example.com'],
+    ]);
+    expect(stage).not.toBe(overlay);
   },
 );
 
@@ -87,12 +100,18 @@ sandboxTest(
 
     await preserveIdentityOverlay({ home, run: context.commands }, managed);
 
-    expect(calls.map(({ args }) => args)).toEqual([
+    expect(calls.slice(0, 3).map(({ args }) => args)).toEqual([
       ['config', '--file', overlay, '--get', 'user.name'],
       ['config', '--file', overlay, '--get', 'user.email'],
       ['config', '--global', '--get', 'user.email'],
-      ['config', '--file', overlay, 'user.email', 'legacy@example.com'],
     ]);
+    const write = calls[3]?.args;
+    if (!write) throw new Error('expected staged git config write');
+    const stage = write[2];
+    if (!stage) throw new Error('expected staged git config path');
+    expect(write.slice(0, 3)).toEqual(['config', '--file', stage]);
+    expect(write?.slice(3)).toEqual(['user.email', 'legacy@example.com']);
+    expect(stage).not.toBe(overlay);
   },
 );
 
@@ -109,7 +128,7 @@ sandboxTest(
 
     await expect(
       preserveIdentityOverlay({ home, run: context.commands }, managed),
-    ).rejects.toBeInstanceOf(ProvisioningError);
+    ).rejects.toBeInstanceOf(AppError);
     expect(calls.map(({ args }) => args)).toEqual([
       ['config', '--global', '--get', 'user.name'],
     ]);

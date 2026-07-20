@@ -2,9 +2,9 @@ import { expect, test } from 'bun:test';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { installPackages } from '../../src/brew/install';
+import { type PackageToken, packages } from '../../src/brew/package';
 import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
-import { type PackageToken, packages } from '../../src/provisioning/package';
 import { emptyAssets } from '../fixtures/fake-context';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 

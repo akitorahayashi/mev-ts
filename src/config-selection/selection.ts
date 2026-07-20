@@ -1,8 +1,13 @@
 import { unlink } from 'node:fs/promises';
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import { isNotFound, readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
-import { isRecord, requireStringArray } from '../host/parse';
+import {
+  isRecord,
+  requireExactKeys,
+  requireStringArray,
+  requireUniqueBy,
+} from '../host/parse';
 import { dumpYaml, loadYaml } from '../host/yaml';
 
 interface NameSplit {
@@ -56,7 +61,14 @@ export async function readNameList(
   key: string,
   label: string,
 ): Promise<string[]> {
-  const raw = await readTextIfPresent(manifestPath);
+  let raw: string | null;
+  try {
+    raw = await readTextIfPresent(manifestPath);
+  } catch (error) {
+    throw new ProvisioningError(
+      `Failed to read ${label} at ${manifestPath}: ${errorMessage(error)}`,
+    );
+  }
   if (raw === null) {
     return [];
   }
@@ -74,10 +86,22 @@ export async function readNameList(
       `Invalid ${label} ${manifestPath}: missing '${key}' sequence.`,
     );
   }
-  return requireStringArray(
+  requireExactKeys(parsed, [key], `Invalid ${label} ${manifestPath}`);
+  const names = requireStringArray(
     parsed[key],
     `Invalid ${label} ${manifestPath}: '${key}'`,
   );
+  if (names.some((name) => name.length === 0)) {
+    throw new ProvisioningError(
+      `Invalid ${label} ${manifestPath}: '${key}' must contain non-empty names.`,
+    );
+  }
+  requireUniqueBy(
+    names,
+    (name) => name,
+    `Invalid ${label} ${manifestPath}: '${key}'`,
+  );
+  return names;
 }
 
 export async function writeNameList(
@@ -90,12 +114,20 @@ export async function writeNameList(
       await unlink(manifestPath);
     } catch (err) {
       if (!isNotFound(err)) {
-        throw err;
+        throw new ProvisioningError(
+          `Failed to remove ${key} selection manifest at ${manifestPath}: ${errorMessage(err)}`,
+        );
       }
     }
     return;
   }
-  await writeFileAtomically(manifestPath, dumpYaml({ [key]: [...names] }));
+  try {
+    await writeFileAtomically(manifestPath, dumpYaml({ [key]: [...names] }));
+  } catch (error) {
+    throw new ProvisioningError(
+      `Failed to write ${key} selection manifest at ${manifestPath}: ${errorMessage(error)}`,
+    );
+  }
 }
 
 function splitNames(

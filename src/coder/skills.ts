@@ -1,6 +1,6 @@
 import { mkdir, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isSymlinkTo, placeSymlink } from '../../host/symlink';
+import { isSymlinkTo, placeSymlink } from '../host/symlink';
 
 /**
  * Reconcile `skillsDir` to hold exactly one symlink per enabled skill, each

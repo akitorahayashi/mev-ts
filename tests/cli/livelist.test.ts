@@ -42,7 +42,7 @@ test('renderLiveList runs every item and aggregates failures into one AppError',
   ];
 
   const error = await quietly(() =>
-    renderLiveList(items, { concurrent: false }).then(
+    renderLiveList(items, { concurrency: 1 }).then(
       () => null,
       (e) => e,
     ),
@@ -60,5 +60,5 @@ test('renderLiveList resolves when every item succeeds', async () => {
     { label: 'a', run: async () => {} },
     { label: 'b', run: async () => {} },
   ];
-  await quietly(() => renderLiveList(items, { concurrent: false }));
+  await quietly(() => renderLiveList(items, { concurrency: 1 }));
 });

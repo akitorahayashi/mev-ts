@@ -64,7 +64,7 @@ tmp_file="${tmp_dir}/${binary_name}"
 checksum_file="${tmp_dir}/${binary_name}.sha256"
 
 echo "Downloading ${binary_name} for ${target} from ${binary_url}..."
-curl -fsSL -o "$tmp_file" -- "$binary_url"
+curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o "$tmp_file" -- "$binary_url"
 
 if [[ -n "${MEV_BINARY_SHA256:-}" ]]; then
 	expected_sha256="$MEV_BINARY_SHA256"
@@ -75,7 +75,7 @@ else
 		checksum_url="${binary_url}.sha256"
 	fi
 	echo "Downloading SHA256 checksum from ${checksum_url}..."
-	curl -fsSL -o "$checksum_file" -- "$checksum_url"
+	curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o "$checksum_file" -- "$checksum_url"
 	expected_sha256="$(awk '{print $1}' "$checksum_file")"
 fi
 

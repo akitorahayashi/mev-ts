@@ -1,5 +1,5 @@
-import { ProvisioningError } from '../../errors';
-import { readDirentsIfPresent } from '../../host/absence';
+import { ProvisioningError } from '../errors';
+import { readDirentsIfPresent } from '../host/absence';
 
 const JSON_SUFFIX = '.json';
 

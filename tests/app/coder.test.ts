@@ -9,8 +9,8 @@ import {
   agentsManifest,
   SKILLS_PREFIX,
   skillsManifest,
-} from '../../src/provisioning/coder/paths';
-import { readNameList } from '../../src/provisioning/selection';
+} from '../../src/coder/paths';
+import { readNameList } from '../../src/config-selection/selection';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('app-coder-');

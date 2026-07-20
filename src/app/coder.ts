@@ -1,12 +1,12 @@
 import { deployedDir } from '../assets/ref';
-import { readSections, readSkills } from '../provisioning/coder/catalog';
-import { readDisabled, writeDisabled } from '../provisioning/coder/manifest';
+import { readSections, readSkills } from '../coder/catalog';
+import { readDisabled, writeDisabled } from '../coder/manifest';
 import {
   AGENTS_SECTIONS_PREFIX,
   agentsManifest,
   SKILLS_PREFIX,
   skillsManifest,
-} from '../provisioning/coder/paths';
+} from '../coder/paths';
 import {
   type ConfigSelection,
   configClearManifest,

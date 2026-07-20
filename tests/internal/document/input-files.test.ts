@@ -52,3 +52,31 @@ sandboxTest('directory conversion rejects output collisions', async (dir) => {
     planConversions(dir, join(dir, 'out'), ['.md', '.markdown'], '.pdf'),
   ).rejects.toThrow('both map to');
 });
+
+sandboxTest(
+  'directory conversion rejects case-only macOS collisions',
+  async (dir) => {
+    await Promise.all([
+      writeFile(join(dir, 'Report.md'), '# First'),
+      writeFile(join(dir, 'report.markdown'), '# Second'),
+    ]);
+
+    await expect(
+      planConversions(dir, join(dir, 'out'), ['.md', '.markdown'], '.pdf'),
+    ).rejects.toThrow('both map to');
+  },
+);
+
+sandboxTest(
+  'directory conversion rejects canonical Unicode macOS collisions',
+  async (dir) => {
+    await Promise.all([
+      writeFile(join(dir, 'café.md'), '# First'),
+      writeFile(join(dir, 'cafe\u0301.markdown'), '# Second'),
+    ]);
+
+    await expect(
+      planConversions(dir, join(dir, 'out'), ['.md', '.markdown'], '.pdf'),
+    ).rejects.toThrow('both map to');
+  },
+);

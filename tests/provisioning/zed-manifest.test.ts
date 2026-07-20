@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../src/errors';
-import { readEnabled } from '../../src/provisioning/zed/manifest';
+import { readEnabled } from '../../src/zed/manifest';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 test('readEnabled rejects non-string enabled entries', async () => {

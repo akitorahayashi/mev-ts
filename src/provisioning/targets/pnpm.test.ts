@@ -7,10 +7,10 @@ test('globalPackageArgs merges dependency maps into pnpm package arguments', () 
     globalPackageArgs(
       JSON.stringify({
         dependencies: { '@toon-format/cli': 'latest' },
-        globalPackages: { typescript: '' },
+        globalPackages: { typescript: 'latest' },
       }),
     ),
-  ).toEqual(['@toon-format/cli@latest', 'typescript']);
+  ).toEqual(['@toon-format/cli@latest', 'typescript@latest']);
 });
 
 test('globalPackageArgs rejects invalid JSON', () => {

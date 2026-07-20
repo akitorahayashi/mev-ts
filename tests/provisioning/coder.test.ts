@@ -8,17 +8,14 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { join } from 'node:path';
+import { renderAgents } from '../../src/coder/agents';
+import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../src/coder/paths';
 import { home } from '../../src/host/path';
 import {
   coderAgents,
   coderSkills,
   runActivation,
 } from '../../src/provisioning/activation';
-import { renderAgents } from '../../src/provisioning/coder/agents';
-import {
-  AGENTS_SECTIONS_PREFIX,
-  SKILLS_PREFIX,
-} from '../../src/provisioning/coder/paths';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 

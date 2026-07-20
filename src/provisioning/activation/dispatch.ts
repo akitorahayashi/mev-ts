@@ -12,6 +12,10 @@ import { describeDuti, runDuti } from './duti';
 import { describeExtensions, runExtensions } from './extensions';
 import { describePipx, runPipx } from './pipx';
 import { describeRelease, runRelease } from './release';
+import {
+  describeRemoteInstaller,
+  runRemoteInstaller,
+} from './remote-installer';
 import { describeFile, describeTree, runFile, runTree } from './symlink';
 import { describeZedSettings, runZedSettings } from './zed';
 
@@ -38,6 +42,8 @@ export function describeActivation(activation: Activation): Described {
       return describeZedSettings(activation);
     case 'command':
       return describeCommand(activation);
+    case 'remoteInstaller':
+      return describeRemoteInstaller(activation);
     case 'release':
       return describeRelease();
   }
@@ -81,6 +87,8 @@ export function runActivation(
       return runZedSettings(activation, context);
     case 'command':
       return runCommandActivation(activation, context);
+    case 'remoteInstaller':
+      return runRemoteInstaller(activation, context);
     case 'release':
       return runRelease(activation, context);
   }

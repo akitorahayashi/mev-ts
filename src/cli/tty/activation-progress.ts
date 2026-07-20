@@ -47,7 +47,7 @@ function createLineActivationProgress(
     },
     startActivation(event) {
       options.out(
-        `Activating ${event.tag}: ${renderActivationDescription(event.activation)}\n`,
+        `Activating ${event.targetName}: ${renderActivationDescription(event.activation)}\n`,
       );
     },
     completeTarget(group) {

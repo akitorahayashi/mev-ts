@@ -56,8 +56,20 @@ export type Activation =
   | {
       readonly kind: 'command';
       readonly label: string;
-      readonly reads?: Readonly<Record<string, string>>;
+      readonly intentVersion: number;
+      readonly reads?: Readonly<Record<string, CommandRead>>;
       readonly steps: readonly CommandStep[];
+    }
+  | {
+      readonly kind: 'remoteInstaller';
+      readonly label: string;
+      readonly url: string;
+      readonly checksumUrl?: string;
+      readonly interpreter: 'bash' | 'sh' | 'direct';
+      readonly args: readonly string[];
+      readonly creates: HostPath;
+      readonly env?: Readonly<Record<string, string>>;
+      readonly pathPrefix?: readonly HostPath[];
     }
   | {
       readonly kind: 'release';
@@ -77,6 +89,13 @@ export interface CommandScope {
   ref(name: string): string;
 }
 
+export type CommandRead =
+  | string
+  | {
+      readonly key: string;
+      readonly validate: (raw: string, path: string) => unknown;
+    };
+
 export type StepGuard =
   | { readonly pathExists: string }
   | { readonly commandSucceeds: readonly string[] };
@@ -94,12 +113,12 @@ export type ChangedWhen =
  * the scope for later steps, and `changedWhen` classifies a successful run.
  */
 export interface CommandStep {
+  readonly label: string;
   readonly argv: (scope: CommandScope) => readonly string[];
   readonly env?: (scope: CommandScope) => Readonly<Record<string, string>>;
   readonly skipIf?: (scope: CommandScope) => StepGuard;
   readonly capture?: string;
   readonly changedWhen?: ChangedWhen;
-  readonly label?: string;
 }
 
 export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';

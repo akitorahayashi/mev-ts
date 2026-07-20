@@ -19,7 +19,7 @@ import { resolveIsTTY } from '../tty/style';
 export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 
 interface ProvisioningRunOptions {
-  readonly tags: readonly string[];
+  readonly selectors: readonly string[];
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
@@ -51,7 +51,7 @@ export async function executeProvisioningRun(
 
   try {
     const report = await run({
-      tags: options.tags,
+      selectors: options.selectors,
       onDeploy(result) {
         const line = renderDeployLine(result, isTTY);
         if (line) out(`${line}\n`);

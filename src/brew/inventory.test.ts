@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test';
 import { emptyAssets } from '../../tests/fixtures/fake-context';
 import type { CommandResult } from '../host/command';
 import type { Context } from '../host/context';
-import { packages } from '../provisioning/package';
 import { loadInventory } from './inventory';
+import { packages } from './package';
 
 function inventoryContext(
   respond: (args: readonly string[]) => Promise<CommandResult>,

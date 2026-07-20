@@ -12,6 +12,7 @@ export const pythonTarget = target('python', {
     link(asset('python/uv.toml'), home('.config/uv/uv.toml')),
     runCommand({
       label: 'python toolchain',
+      intentVersion: 1,
       reads: { version: 'python/.python-version' },
       steps: [
         brewPrefixCapture(),

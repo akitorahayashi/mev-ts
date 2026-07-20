@@ -1,4 +1,4 @@
-import { ProvisioningError } from '../../errors';
+import { ProvisioningError } from '../errors';
 
 export type JsonValue =
   | string

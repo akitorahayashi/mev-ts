@@ -21,9 +21,9 @@
     "test:unit": "bun test src",
     "pretest:integration": "bun run codegen",
     "test:integration": "bun test tests",
-    "pretypecheck": "bun run codegen",
+    "pretypecheck": "bun run codegen && bun scripts/validate-assets.ts",
     "typecheck": "tsc --noEmit",
-    "precheck": "bun run codegen",
+    "precheck": "bun run codegen && bun scripts/validate-assets.ts",
     "check": "biome check . && tsc --noEmit",
     "fix": "biome check --write .",
     "prepare": "husky"

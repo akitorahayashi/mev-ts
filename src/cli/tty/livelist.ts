@@ -16,23 +16,31 @@ export interface LiveItem {
  */
 export async function renderLiveList(
   items: LiveItem[],
-  options: { concurrent: boolean },
+  options: { concurrency: number },
 ): Promise<void> {
-  const failures: { label: string; message: string }[] = [];
+  if (!Number.isInteger(options.concurrency) || options.concurrency <= 0) {
+    throw new AppError('live-list concurrency must be a positive integer.');
+  }
+  const failures = new Array<{ label: string; message: string } | undefined>(
+    items.length,
+  );
   const listr = new Listr(
-    items.map((item) => ({
+    items.map((item, index) => ({
       title: item.label,
       task: async () => {
         try {
           await item.run();
         } catch (error) {
-          failures.push({ label: item.label, message: errorMessage(error) });
+          failures[index] = {
+            label: item.label,
+            message: errorMessage(error),
+          };
           throw error;
         }
       },
     })),
     {
-      concurrent: options.concurrent,
+      concurrent: options.concurrency,
       exitOnError: false,
       rendererOptions: { collapseErrors: false },
     },
@@ -40,12 +48,13 @@ export async function renderLiveList(
 
   await listr.run();
 
-  if (failures.length > 0) {
-    const detail = failures
+  const failed = failures.filter((failure) => failure !== undefined);
+  if (failed.length > 0) {
+    const detail = failed
       .map((failure) => `${failure.label}: ${failure.message}`)
       .join('\n');
     throw new AppError(
-      `${failures.length} of ${items.length} tasks failed:\n${detail}`,
+      `${failed.length} of ${items.length} tasks failed:\n${detail}`,
     );
   }
 }

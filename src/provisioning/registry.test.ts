@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { embeddedAssets } from '../assets/registry';
+import { commandReadKey } from './activation/command';
 import type { Activation } from './activation/contract';
 import {
   allTargets,
@@ -43,7 +44,11 @@ function referencedAssets(activation: Activation): AssetReference[] {
         { prefix: activation.overridesPrefix },
       ];
     case 'command':
-      return Object.values(activation.reads ?? {}).map((key) => ({ key }));
+      return Object.values(activation.reads ?? {}).map((read) => ({
+        key: commandReadKey(read),
+      }));
+    case 'remoteInstaller':
+      return [];
     default:
       return assertNever(activation);
   }
@@ -91,7 +96,7 @@ test('every embedded asset key belongs to a role directory', () => {
   }
 });
 
-test('no tag or alias is shared between targets', () => {
+test('no target name or alias is shared between targets', () => {
   const selectors = availableSelectors();
   expect(new Set(selectors).size).toBe(selectors.length);
 });

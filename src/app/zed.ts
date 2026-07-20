@@ -1,7 +1,7 @@
 import { deployedDir } from '../assets/ref';
-import { readOverrides } from '../provisioning/zed/catalog';
-import { readEnabled, writeEnabled } from '../provisioning/zed/manifest';
-import { OVERRIDES_PREFIX, overridesManifest } from '../provisioning/zed/paths';
+import { readOverrides } from '../zed/catalog';
+import { readEnabled, writeEnabled } from '../zed/manifest';
+import { OVERRIDES_PREFIX, overridesManifest } from '../zed/paths';
 import {
   type ConfigSelection,
   configClearManifest,

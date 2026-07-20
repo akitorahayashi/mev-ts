@@ -6,14 +6,14 @@ export function renderTargetList(isTTY: boolean): string {
   const c = makeStyle(isTTY);
   const rows = allTargets().map((t) => [
     t.name,
-    [...t.tags, ...t.aliases].join(', '),
+    [t.name, ...t.aliases].join(', '),
     t.description,
   ]);
   const table = renderTable(
     c,
     [
       { header: 'TARGET', style: c.cyan },
-      { header: 'TAGS', style: c.yellow },
+      { header: 'SELECTORS', style: c.yellow },
       { header: 'DESCRIPTION' },
     ],
     rows,

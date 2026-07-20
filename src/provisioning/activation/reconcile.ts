@@ -1,4 +1,5 @@
 import { errorMessage } from '../../errors';
+import { mapWithConcurrency } from '../../host/task-pool';
 import type { ActivationReport, Described, StepReport } from './contract';
 
 /**
@@ -15,12 +16,12 @@ export interface ReconcileStep {
  * The kind-specific half of a reconciliation. `declare` parses what the target
  * asked for. `steps` runs the shared probes and builds the per-item steps;
  * anything it throws before returning the list is a whole-activation failure.
- * `concurrent` selects `Promise.all` over a sequential loop.
+ * `concurrent` selects a bounded parallel loop.
  */
 export interface ReconcileSpec<D> {
   declare(): Promise<readonly D[]>;
   steps(declared: readonly D[]): Promise<readonly ReconcileStep[]>;
-  concurrent?: boolean;
+  concurrent?: number;
 }
 
 async function executeStep(step: ReconcileStep): Promise<StepReport> {
@@ -61,9 +62,10 @@ export async function reconcile<D>(
       return { ...base, status: 'unchanged', entries: [] };
     }
     const steps = await spec.steps(declared);
-    const entries = spec.concurrent
-      ? await Promise.all(steps.map(executeStep))
-      : await runSeries(steps);
+    const entries =
+      spec.concurrent && spec.concurrent > 1
+        ? await mapWithConcurrency(steps, spec.concurrent, executeStep)
+        : await runSeries(steps);
     const failed = entries.some((entry) => entry.status === 'failed');
     const changed = entries.some((entry) => entry.status === 'changed');
     const status = failed ? 'failed' : changed ? 'changed' : 'unchanged';

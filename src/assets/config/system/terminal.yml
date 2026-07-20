@@ -4,7 +4,6 @@
   domain: com.apple.Terminal
   type: string
   value: Basic
-  comment: "Terminal"
 
 # Startup window settings for Terminal.
 - key: Startup Window Settings

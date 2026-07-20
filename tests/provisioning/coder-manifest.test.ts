@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readDisabled } from '../../src/coder/manifest';
 import { ProvisioningError } from '../../src/errors';
-import { readDisabled } from '../../src/provisioning/coder/manifest';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
 test('readDisabled rejects non-string disabled entries', async () => {

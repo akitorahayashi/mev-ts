@@ -1,7 +1,7 @@
 import {
   resolveSelection,
   type SelectionMode,
-} from '../provisioning/selection';
+} from '../config-selection/selection';
 
 /**
  * Present a catalog for interactive multi-select and return the names to keep

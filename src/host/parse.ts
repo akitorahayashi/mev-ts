@@ -31,3 +31,32 @@ export function requireStringArray(value: unknown, label: string): string[] {
   }
   return value;
 }
+
+export function requireExactKeys(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+  label: string,
+): void {
+  const allowed = new Set(keys);
+  const unknown = Object.keys(record).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) {
+    throw new ProvisioningError(
+      `${label} contains unknown field '${unknown[0]}'. Expected only: ${keys.join(', ')}.`,
+    );
+  }
+}
+
+export function requireUniqueBy<T>(
+  values: readonly T[],
+  keyFor: (value: T) => string,
+  label: string,
+): void {
+  const seen = new Set<string>();
+  for (const value of values) {
+    const key = keyFor(value);
+    if (seen.has(key)) {
+      throw new ProvisioningError(`${label} contains duplicate '${key}'.`);
+    }
+    seen.add(key);
+  }
+}

@@ -1,8 +1,12 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../../errors';
-import { readDirentsIfPresent, readTextIfPresent } from '../../host/absence';
-import { requireRecord } from '../../host/parse';
-import { loadYaml } from '../../host/yaml';
+import { ProvisioningError } from '../errors';
+import { readDirentsIfPresent, readTextIfPresent } from '../host/absence';
+import {
+  requireExactKeys,
+  requireRecord,
+  requireUniqueBy,
+} from '../host/parse';
+import { loadYaml } from '../host/yaml';
 
 /**
  * The catalog of coder selectables. It is the authority for which entries exist
@@ -47,6 +51,32 @@ export function reconcileSections(
   return [...listed];
 }
 
+export function parseSectionCatalog(raw: string, path: string): string[] {
+  const parsed = requireRecord(
+    loadYaml(raw, path),
+    `AGENTS.md section catalog ${path}`,
+  );
+  requireExactKeys(parsed, ['sections'], `AGENTS.md section catalog ${path}`);
+  if (!Array.isArray(parsed.sections)) {
+    throw new ProvisioningError(
+      `AGENTS.md section catalog must contain a sections sequence: ${path}.`,
+    );
+  }
+  if (!parsed.sections.every((entry) => typeof entry === 'string')) {
+    throw new ProvisioningError(
+      `AGENTS.md section catalog must contain a sections sequence of strings: ${path}.`,
+    );
+  }
+  const listed = parsed.sections;
+  if (listed.some((name) => name.length === 0)) {
+    throw new ProvisioningError(
+      `AGENTS.md section catalog must contain non-empty section names: ${path}.`,
+    );
+  }
+  requireUniqueBy(listed, (name) => name, `AGENTS.md section catalog ${path}`);
+  return listed;
+}
+
 /** Read and validate the AGENTS.md section catalog from a deployed source dir. */
 export async function readSections(sourceDir: string): Promise<string[]> {
   const catalogPath = join(sourceDir, 'catalog.yml');
@@ -56,21 +86,7 @@ export async function readSections(sourceDir: string): Promise<string[]> {
       `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
     );
   }
-  const parsed = requireRecord(
-    loadYaml(raw, catalogPath),
-    `AGENTS.md section catalog ${catalogPath}`,
-  );
-  if (!Array.isArray(parsed.sections)) {
-    throw new ProvisioningError(
-      `AGENTS.md section catalog must contain a sections sequence: ${catalogPath}.`,
-    );
-  }
-  if (!parsed.sections.every((entry) => typeof entry === 'string')) {
-    throw new ProvisioningError(
-      `AGENTS.md section catalog must contain a sections sequence of strings: ${catalogPath}.`,
-    );
-  }
-  const listed = parsed.sections;
+  const listed = parseSectionCatalog(raw, catalogPath);
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
     throw new ProvisioningError(

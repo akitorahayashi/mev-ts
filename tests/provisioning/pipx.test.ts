@@ -215,6 +215,50 @@ sandboxTest(
 );
 
 sandboxTest(
+  'failed when the pipx manifest contains unknown fields',
+  async (dir) => {
+    const roleDir = join(dir, '.mev', 'roles', 'pipx');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(
+      join(roleDir, 'tools.yml'),
+      'tools:\n  - package: yt-dlp\n    comment: old schema\n',
+    );
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: () => ok(),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('unknown field');
+    expect(calls).toHaveLength(0);
+  },
+);
+
+sandboxTest(
+  'failed when package identities normalize to the same name',
+  async (dir) => {
+    const roleDir = join(dir, '.mev', 'roles', 'pipx');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(
+      join(roleDir, 'tools.yml'),
+      'tools:\n  - package: demo.tool\n  - package: demo-tool\n',
+    );
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: () => ok(),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('duplicate');
+    expect(calls).toHaveLength(0);
+  },
+);
+
+sandboxTest(
   'failed when pipx list JSON omits required package fields',
   async (dir) => {
     await deployConfig(dir);

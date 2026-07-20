@@ -67,6 +67,15 @@ export async function installLocalMev(
         runCommand,
         'asset codegen',
       );
+      await runBuildCommand(
+        {
+          args: [resolve(projectRoot, 'scripts/validate-assets.ts')],
+          cwd: projectRoot,
+          stdio,
+        },
+        runCommand,
+        'asset validation',
+      );
 
       await runBuildCommand(
         {

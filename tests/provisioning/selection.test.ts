@@ -1,8 +1,11 @@
 import { expect } from 'bun:test';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import {
+  readNameList,
+  writeNameList,
+} from '../../src/config-selection/selection';
 import { ProvisioningError } from '../../src/errors';
-import { readNameList, writeNameList } from '../../src/provisioning/selection';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('selection-');
@@ -65,6 +68,28 @@ sandboxTest('a present manifest missing the key is rejected', async (dir) => {
     ProvisioningError,
   );
 });
+
+sandboxTest(
+  'a present manifest with unknown fields is rejected',
+  async (dir) => {
+    const path = join(dir, 'manifest.yml');
+    await writeFile(path, 'disabled:\n  - x\nextra: []\n');
+    await expect(readNameList(path, 'disabled', LABEL)).rejects.toBeInstanceOf(
+      ProvisioningError,
+    );
+  },
+);
+
+sandboxTest(
+  'a present manifest with duplicate names is rejected',
+  async (dir) => {
+    const path = join(dir, 'manifest.yml');
+    await writeFile(path, 'disabled:\n  - x\n  - x\n');
+    await expect(readNameList(path, 'disabled', LABEL)).rejects.toBeInstanceOf(
+      ProvisioningError,
+    );
+  },
+);
 
 sandboxTest(
   'a present manifest that is not a mapping is rejected',

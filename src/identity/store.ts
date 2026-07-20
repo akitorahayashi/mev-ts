@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { AppError, errorMessage } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
-import { isRecord } from '../host/parse';
+import { isRecord, requireExactKeys } from '../host/parse';
 import { mevRoot } from '../host/path';
 import { allScopes, type IdentityScope } from './scope';
 
@@ -41,7 +41,14 @@ export function emptyState(): IdentityState {
  * there is no time-of-check/time-of-use gap and no sync filesystem probe.
  */
 export async function readState(path: string): Promise<IdentityState | null> {
-  const content = await readTextIfPresent(path);
+  let content: string | null;
+  try {
+    content = await readTextIfPresent(path);
+  } catch (error) {
+    throw new AppError(
+      `failed to read identity config at ${path}: ${errorMessage(error)}`,
+    );
+  }
   if (content === null) return null;
 
   let raw: unknown;
@@ -56,6 +63,11 @@ export async function readState(path: string): Promise<IdentityState | null> {
   if (!isRecord(raw)) {
     throw new AppError(`identity config at ${path} is not a JSON object.`);
   }
+  try {
+    requireExactKeys(raw, allScopes(), `identity config at ${path}`);
+  } catch (error) {
+    throw new AppError(errorMessage(error));
+  }
 
   return Object.fromEntries(
     allScopes().map((scope) => [scope, readIdentity(raw, scope, path)]),
@@ -68,7 +80,13 @@ export async function saveState(
   state: IdentityState,
 ): Promise<void> {
   const content = `${JSON.stringify(serialize(state), null, 2)}\n`;
-  await writeFileAtomically(path, content);
+  try {
+    await writeFileAtomically(path, content);
+  } catch (error) {
+    throw new AppError(
+      `failed to write identity config at ${path}: ${errorMessage(error)}`,
+    );
+  }
 }
 
 /**
@@ -89,6 +107,15 @@ function readIdentity(
     throw new AppError(
       `identity config at ${path} has a malformed '${scope}' entry: expected an object.`,
     );
+  }
+  try {
+    requireExactKeys(
+      entry,
+      ['name', 'email'],
+      `identity config at ${path} '${scope}' entry`,
+    );
+  } catch (error) {
+    throw new AppError(errorMessage(error));
   }
   const { name, email } = entry;
   if (typeof name !== 'string' || typeof email !== 'string') {
