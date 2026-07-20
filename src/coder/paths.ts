@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { mevRoot } from '../../host/path';
+import { mevRoot } from '../host/path';
 
 export const AGENTS_SECTIONS_PREFIX = 'coder/agents-sections';
 export const SKILLS_PREFIX = 'coder/skills';

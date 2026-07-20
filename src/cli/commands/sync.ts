@@ -20,17 +20,17 @@ export class SyncCommand extends Command {
     return runReportingDomainErrors(this.context.stderr, async () => {
       const context = createContext();
       const scans = await scanTargets(fullSetupTargets(), context);
-      const tags = scans
+      const selectors = scans
         .filter((scan) => scan.reasons.length > 0)
-        .map((scan) => scan.target.tags[0]);
+        .map((scan) => scan.target.name);
 
-      if (tags.length === 0) {
+      if (selectors.length === 0) {
         this.context.stdout.write('mev: environment is synchronized\n');
         return 0;
       }
 
       return executeProvisioningRun({
-        tags,
+        selectors,
         intro: 'mev: Syncing environment',
         run: (request) => runMake(request, context),
         out: (text) => this.context.stdout.write(text),

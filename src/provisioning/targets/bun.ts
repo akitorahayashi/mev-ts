@@ -1,6 +1,6 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { link, runCommand } from '../activation';
+import { link, remoteInstaller, runCommand } from '../activation';
 import { target } from '../target';
 
 export const bunTarget = target('bun', {
@@ -9,19 +9,17 @@ export const bunTarget = target('bun', {
   role: 'bun',
   activations: [
     link(asset('bun/.bunfig.toml'), home('.bunfig.toml')),
+    remoteInstaller({
+      label: 'install bun',
+      url: 'https://bun.sh/install',
+      interpreter: 'bash',
+      args: [],
+      creates: home('.bun/bin/bun'),
+    }),
     runCommand({
       label: 'bun toolchain',
+      intentVersion: 1,
       steps: [
-        {
-          label: 'install bun',
-          argv: () => [
-            'bash',
-            '-c',
-            'set -o pipefail; curl -fsSL https://bun.sh/install | bash',
-          ],
-          skipIf: (s) => ({ pathExists: `${s.home}/.bun/bin/bun` }),
-          changedWhen: 'always',
-        },
         {
           label: 'bun --version',
           argv: (s) => [`${s.home}/.bun/bin/bun`, '--version'],

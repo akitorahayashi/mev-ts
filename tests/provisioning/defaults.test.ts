@@ -217,6 +217,47 @@ sandboxTest(
   },
 );
 
+sandboxTest('defaults manifest rejects unknown fields', async (dir) => {
+  await deploy(
+    dir,
+    [
+      '- domain: com.apple.dock',
+      '  key: autohide',
+      '  type: bool',
+      '  value: true',
+      '  comment: old schema',
+      '',
+    ].join('\n'),
+  );
+  const { context, calls } = recordingContext({
+    home: dir,
+    respond: () => ok(),
+  });
+
+  const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+  expect(report.status).toBe('failed');
+  expect(report.error).toContain('unknown field');
+  expect(calls).toHaveLength(0);
+});
+
+sandboxTest(
+  'defaults manifest rejects duplicate domain and key pairs',
+  async (dir) => {
+    await deploy(dir, `${BOOL_ENTRY}${BOOL_ENTRY}`);
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: () => ok(),
+    });
+
+    const report = await runActivation(applyDefaults(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('duplicate');
+    expect(calls).toHaveLength(0);
+  },
+);
+
 sandboxTest(
   'defaults manifest rejects values incompatible with the declared type',
   async (dir) => {

@@ -1,4 +1,5 @@
-import { AppError, CommandLineError } from '../errors';
+import { AppError } from '../errors';
+import { configGet, configSetFileValues } from '../git/config';
 import type { CommandRunner } from '../host/command';
 import { identityOverlayPath } from '../identity/overlay';
 import { allScopes, type IdentityScope } from '../identity/scope';
@@ -10,7 +11,6 @@ import {
   readState,
   saveState,
 } from '../identity/store';
-import { configGet, configSetFile } from '../internal/git/config';
 
 export interface IdentityDeps {
   readonly run: CommandRunner;
@@ -52,7 +52,7 @@ export async function showIdentity(deps: IdentityDeps): Promise<IdentityView> {
   const path = identityFilePath(deps.home);
   const state = await readState(path);
   if (state === null) {
-    throw new CommandLineError(
+    throw new AppError(
       "No identity configuration found. Run 'mev user set' to configure.",
     );
   }
@@ -83,21 +83,23 @@ export async function switchIdentity(
 ): Promise<Identity> {
   const state = await readState(identityFilePath(deps.home));
   if (state === null) {
-    throw new CommandLineError(
+    throw new AppError(
       "No identity configuration found. Run 'mev user set' first to configure identities.",
     );
   }
 
   const identity = state[scope];
   if (!identity) {
-    throw new CommandLineError(
+    throw new AppError(
       `${scope} identity is not configured. Run 'mev user set' to configure.`,
     );
   }
 
   const overlay = identityOverlayPath(deps.home);
-  await configSetFile(deps.run, overlay, 'user.name', identity.name);
-  await configSetFile(deps.run, overlay, 'user.email', identity.email);
+  await configSetFileValues(deps.run, overlay, [
+    ['user.name', identity.name],
+    ['user.email', identity.email],
+  ]);
   return identity;
 }
 

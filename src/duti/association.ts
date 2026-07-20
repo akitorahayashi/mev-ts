@@ -1,7 +1,7 @@
 import { ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-import { isRecord } from '../host/parse';
+import { isRecord, requireExactKeys, requireUniqueBy } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
 export interface Association {
@@ -9,24 +9,47 @@ export interface Association {
   readonly extension: string;
 }
 
+function hasControlCharacter(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.codePointAt(0);
+    return code !== undefined && (code < 0x20 || code === 0x7f);
+  });
+}
+
 export function parseAssociations(raw: string, path: string): Association[] {
   const parsed = loadYaml(raw, path);
+  if (!isRecord(parsed)) {
+    throw new ProvisioningError(
+      `Duti config must contain a default_apps sequence: ${path}`,
+    );
+  }
+  requireExactKeys(parsed, ['default_apps'], `Duti config ${path}`);
   const defaultApps = isRecord(parsed) ? parsed.default_apps : undefined;
   if (!Array.isArray(defaultApps)) {
     throw new ProvisioningError(
       `Duti config must contain a default_apps sequence: ${path}`,
     );
   }
-  return defaultApps.flatMap((app) => {
+  const associations = defaultApps.flatMap((app) => {
     if (!isRecord(app)) {
       throw new ProvisioningError(
         'Invalid entry in duti config: each app must be a mapping.',
       );
     }
+    requireExactKeys(
+      app,
+      ['bundle_id', 'extensions'],
+      'Invalid entry in duti config',
+    );
     const bundleId = app.bundle_id;
     if (typeof bundleId !== 'string' || bundleId.length === 0) {
       throw new ProvisioningError(
         'Invalid entry in duti config: each app must have a string bundle_id.',
+      );
+    }
+    if (!/^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$/.test(bundleId)) {
+      throw new ProvisioningError(
+        `Invalid entry in duti config for '${bundleId}': bundle_id must be a reverse-DNS identifier.`,
       );
     }
     const extensions = app.extensions;
@@ -40,8 +63,26 @@ export function parseAssociations(raw: string, path: string): Association[] {
         'Invalid entry in duti config: each app must have an extensions array of strings.',
       );
     }
+    for (const extension of extensions) {
+      if (
+        extension.length === 0 ||
+        extension.startsWith('.') ||
+        /\s|[/\\]/.test(extension) ||
+        hasControlCharacter(extension)
+      ) {
+        throw new ProvisioningError(
+          `Invalid entry in duti config for '${bundleId}': extension '${extension}' is invalid.`,
+        );
+      }
+    }
     return extensions.map((extension) => ({ bundleId, extension }));
   });
+  requireUniqueBy(
+    associations,
+    (association) => association.extension.toLowerCase(),
+    `Duti config ${path}`,
+  );
+  return associations;
 }
 
 /**

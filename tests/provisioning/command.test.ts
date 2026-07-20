@@ -20,6 +20,23 @@ const ok = (stdout = '', stderr = ''): CommandResult => ({
   stderr,
 });
 
+test('command factory rejects invalid intent versions and empty step labels', () => {
+  expect(() =>
+    runCommand({
+      label: 'demo',
+      intentVersion: 0,
+      steps: [{ label: 'install', argv: () => ['install'] }],
+    }),
+  ).toThrow('positive integer intentVersion');
+  expect(() =>
+    runCommand({
+      label: 'demo',
+      intentVersion: 1,
+      steps: [{ label: '', argv: () => ['install'] }],
+    }),
+  ).toThrow('non-empty label');
+});
+
 test('reads inject asset values and captures feed later steps', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -29,14 +46,19 @@ test('reads inject asset values and captures feed later steps', async () => {
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     reads: { version: 'ruby/.ruby-version' },
     steps: [
       {
+        label: 'brew prefix',
         argv: () => ['brew', '--prefix'],
         capture: 'prefix',
         changedWhen: 'never',
       },
-      { argv: (s) => ['install', s.ref('version'), s.ref('prefix')] },
+      {
+        label: 'install',
+        argv: (s) => ['install', s.ref('version'), s.ref('prefix')],
+      },
     ],
   });
 
@@ -56,6 +78,7 @@ test('skipIf with a satisfied pathExists guard marks the step unchanged', async 
       });
       const activation = runCommand({
         label: 'demo',
+        intentVersion: 1,
         steps: [
           {
             label: 'install',
@@ -87,6 +110,7 @@ test('skipIf pathExists surfaces filesystem errors instead of running', async ()
       });
       const activation = runCommand({
         label: 'demo',
+        intentVersion: 1,
         steps: [
           {
             label: 'install',
@@ -117,6 +141,7 @@ test('a non-zero step fails the activation and halts the pipeline', async () => 
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [
       { label: 'boom', argv: () => ['boom'] },
       { label: 'after', argv: () => ['after'] },
@@ -142,6 +167,7 @@ test('a non-zero step does not copy stdout into the error field', async () => {
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [{ label: 'boom', argv: () => ['boom'] }],
   });
 
@@ -160,7 +186,8 @@ test('env thunk output reaches the command runner', async () => {
   });
   const activation = runCommand({
     label: 'demo',
-    steps: [{ argv: () => ['x'], env: () => ({ FOO: 'bar' }) }],
+    intentVersion: 1,
+    steps: [{ label: 'x', argv: () => ['x'], env: () => ({ FOO: 'bar' }) }],
   });
 
   await runActivation(activation, context);
@@ -181,6 +208,7 @@ test('skipIf with a satisfied commandSucceeds guard runs with step env', async (
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [
       {
         label: 'install',
@@ -207,8 +235,10 @@ test('outputContains marks changed when phrase present in stderr', async () => {
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [
       {
+        label: 'uv python install',
         argv: () => ['uv', 'python', 'install', '3.12.11'],
         changedWhen: { outputContains: 'Installed Python' },
       },
@@ -228,8 +258,10 @@ test('outputContains marks unchanged when phrase absent from combined output', a
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [
       {
+        label: 'uv python install',
         argv: () => ['uv', 'python', 'install', '3.12.11'],
         changedWhen: { outputContains: 'Installed Python' },
       },
@@ -249,8 +281,10 @@ test('outputNotContains checks stdout+stderr and marks unchanged when phrase pre
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [
       {
+        label: 'fnm install',
         argv: () => ['fnm', 'install', '22'],
         changedWhen: { outputNotContains: 'already installed' },
       },
@@ -270,8 +304,10 @@ test('outputNotContains marks changed when phrase absent from combined output', 
   });
   const activation = runCommand({
     label: 'demo',
+    intentVersion: 1,
     steps: [
       {
+        label: 'fnm install',
         argv: () => ['fnm', 'install', '22'],
         changedWhen: { outputNotContains: 'already installed' },
       },

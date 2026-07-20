@@ -67,6 +67,11 @@ export async function installLocalMev(
         runCommand,
         'asset codegen',
       );
+      const { embeddedAssets } = await import('../src/assets/registry');
+      const { validateEmbeddedAssets } = await import(
+        '../src/provisioning/preflight'
+      );
+      await validateEmbeddedAssets(embeddedAssets);
 
       await runBuildCommand(
         {

@@ -4,7 +4,6 @@
   domain: com.apple.screencapture
   type: string
   value: "$HOME/Desktop"
-  comment: "Screenshots"
 
 # Disables the shadow effect for window screenshots.
 - key: disable-shadow

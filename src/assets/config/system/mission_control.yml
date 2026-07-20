@@ -4,7 +4,6 @@
   domain: com.apple.dock
   type: float
   value: 0.2
-  comment: "Mission Control"
 
 # Automatically rearranges Spaces based on most recent use.
 - key: mru-spaces

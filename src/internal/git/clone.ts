@@ -1,6 +1,6 @@
 import { CommandLineError } from '../../errors';
+import { runStep } from '../../git/run';
 import type { CommandRunner } from '../../host/command';
-import { runStep } from './run';
 
 function displayCloneUrl(url: string): string {
   try {

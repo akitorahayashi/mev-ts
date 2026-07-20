@@ -12,6 +12,7 @@ export const nodejsTarget = target('nodejs', {
     link(asset('nodejs/.npmrc'), home('.npmrc')),
     runCommand({
       label: 'nodejs toolchain',
+      intentVersion: 1,
       reads: { version: 'nodejs/.node-version' },
       steps: [
         brewPrefixCapture(),

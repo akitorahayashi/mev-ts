@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../../src/errors';
 import type { CommandRunner } from '../../../src/host/command';
@@ -106,6 +106,30 @@ sandboxTest(
     await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toBeInstanceOf(
       ProvisioningError,
     );
+  },
+);
+
+sandboxTest(
+  'throws when probing the module directory fails for a non-ENOENT reason',
+  async (sandbox) => {
+    await writeFile(join(sandbox, 'modules'), 'not a directory');
+    const calls: RecordedCall[] = [];
+    const run = sequenceRunner(
+      [
+        { code: 0, stdout: '', stderr: '' },
+        { code: 0, stdout: '', stderr: '' },
+        { code: 0, stdout: sandbox, stderr: '' },
+        { code: 0, stdout: '', stderr: '' },
+      ],
+      calls,
+    );
+
+    await expect(deleteSubmodule(run, ['vendor/dep'])).rejects.toThrow();
+    expect(calls.map(({ args }) => args)).toEqual([
+      ['submodule', 'deinit', '-f', 'vendor/dep'],
+      ['rm', '-f', '-r', 'vendor/dep'],
+      ['rev-parse', '--git-dir'],
+    ]);
   },
 );
 

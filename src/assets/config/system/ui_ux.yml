@@ -4,7 +4,6 @@
   domain: NSGlobalDomain
   type: bool
   value: false
-  comment: "UI/UX"
 
 # Sets the size of the sidebar icons. (1: Small, 2: Medium, 3: Large)
 - key: NSTableViewDefaultSizeMode

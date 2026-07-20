@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { mevRoot } from '../../host/path';
+import { mevRoot } from '../host/path';
 
 /** Deployed source for the named settings-override fragments. */
 export const OVERRIDES_PREFIX = 'zed/overrides';

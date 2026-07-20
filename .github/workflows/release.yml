@@ -10,7 +10,21 @@ on:
       - 'v*'
 
 jobs:
+  validate-release:
+    permissions:
+      contents: read
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Validate release tag
+        run: node scripts/validate-release-version.js
+
   prepare-release:
+    needs:
+      - validate-release
     permissions:
       contents: write
     runs-on: macos-latest
@@ -19,7 +33,7 @@ jobs:
 
     steps:
       - id: prepare
-        uses: akitorahayashi/gh-release@aa696643869780261a02c3f5775f36b32b4faab5 # v1
+        uses: akitorahayashi/gh-release@v1
         with:
           mode: prepare
           token: ${{ github.token }}
@@ -29,6 +43,7 @@ jobs:
 
   build-and-upload:
     needs:
+      - validate-release
       - prepare-release
     permissions:
       contents: write
@@ -45,7 +60,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: akitorahayashi/gh-release@aa696643869780261a02c3f5775f36b32b4faab5 # v1
+      - uses: akitorahayashi/gh-release@v1
         with:
           mode: publish
           token: ${{ github.token }}

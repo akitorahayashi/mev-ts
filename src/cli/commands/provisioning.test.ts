@@ -17,12 +17,12 @@ function reportWithStatus(
   const failed = status === 'failed';
   return {
     selection: {
-      tags: ['shell'],
+      targetNames: ['shell'],
       roles: ['shell'],
       packages: emptyPackages,
       groups: [
         {
-          tag: 'shell',
+          targetName: 'shell',
           role: 'shell',
           packages: emptyPackages,
           activations: [],
@@ -33,7 +33,7 @@ function reportWithStatus(
     install: [],
     groups: [
       {
-        tag: 'shell',
+        targetName: 'shell',
         blockers: [],
         reports: [
           {
@@ -83,7 +83,7 @@ function runReturning(report: MakeReport): {
       for (const group of report.groups) {
         for (const activation of group.reports) {
           request.onActivationStart?.({
-            tag: group.tag,
+            targetName: group.targetName,
             activation: {
               verb: activation.verb,
               source: activation.source,
@@ -102,17 +102,17 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   const { run, requests } = runReturning(reportWithStatus('unchanged'));
 
   const result = await capture({
-    tags: ['shell'],
+    selectors: ['shell'],
     intro: 'mev: Creating personal environment',
     footer: () => ['Optional', 'Baseline Homebrew casks: mev make br-c'],
     run,
   });
 
   expect(result.code).toBe(0);
-  expect(requests[0]?.tags).toEqual(['shell']);
+  expect(requests[0]?.selectors).toEqual(['shell']);
   expect(result.stdout).toContain('mev: Creating personal environment');
   expect(result.stdout).toContain('Deployed config for shell  .zshenv');
-  expect(result.stdout).toContain('Running tags: shell');
+  expect(result.stdout).toContain('Running targets: shell');
   expect(result.stdout).toContain(
     'Activating shell: link shell/.zshenv -> ~/.zshenv',
   );
@@ -127,7 +127,7 @@ test('executeProvisioningRun renders failed runs without success footer', async 
   const { run } = runReturning(reportWithStatus('failed'));
 
   const result = await capture({
-    tags: ['shell'],
+    selectors: ['shell'],
     footer: (report) =>
       report.failed
         ? undefined

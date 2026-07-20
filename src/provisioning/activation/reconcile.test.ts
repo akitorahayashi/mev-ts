@@ -58,7 +58,7 @@ test('concurrent runs report in declaration order, not completion order', async 
 
   const report = await reconcile(base, {
     declare: async () => [0, 1],
-    concurrent: true,
+    concurrent: 2,
     steps: async () => [slowFirst, fastSecond],
   });
 

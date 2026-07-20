@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { asset } from '../../src/assets/ref';
 import { home } from '../../src/host/path';
 import { runActivation, zedSettings } from '../../src/provisioning/activation';
-import { OVERRIDES_PREFIX } from '../../src/provisioning/zed/paths';
+import { OVERRIDES_PREFIX } from '../../src/zed/paths';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 

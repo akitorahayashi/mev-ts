@@ -1,4 +1,5 @@
 import { asset } from '../../assets/ref';
+import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../coder/paths';
 import { home } from '../../host/path';
 import {
   brewPath,
@@ -6,9 +7,9 @@ import {
   coderAgents,
   coderSkills,
   link,
+  remoteInstaller,
   runCommand,
 } from '../activation';
-import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../coder/paths';
 import { target } from '../target';
 
 /** Agent tools whose instruction file is the generated AGENTS.md. */
@@ -27,63 +28,51 @@ const SKILLS_TARGETS = [
   home('.gemini/antigravity-cli/skills'),
 ];
 
-/** PATH carrying the per-user bin directory the CLI installers write into. */
-const localBinPath = (s: { home: string; basePath: string }) => ({
-  PATH: `${s.home}/.local/bin:${s.basePath}`,
-});
-
 export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
   aliases: ['cdr'],
   role: 'coder',
   packages: { formulae: ['rtk'] },
   activations: [
+    remoteInstaller({
+      label: 'install claude',
+      url: 'https://claude.ai/install.sh',
+      interpreter: 'bash',
+      args: [],
+      creates: home('.local/bin/claude'),
+      pathPrefix: [home('.local/bin')],
+    }),
+    remoteInstaller({
+      label: 'install codex',
+      url: 'https://chatgpt.com/codex/install.sh',
+      interpreter: 'sh',
+      args: [],
+      creates: home('.local/bin/codex'),
+      env: { CODEX_NON_INTERACTIVE: 'true' },
+      pathPrefix: [home('.local/bin')],
+    }),
+    remoteInstaller({
+      label: 'install antigravity cli',
+      url: 'https://antigravity.google/cli/install.sh',
+      interpreter: 'bash',
+      args: [],
+      creates: home('.local/bin/agy'),
+      pathPrefix: [home('.local/bin')],
+    }),
     runCommand({
       label: 'coder CLIs',
+      intentVersion: 1,
       steps: [
         brewPrefixCapture(),
-        {
-          label: 'install claude',
-          argv: () => [
-            'bash',
-            '-c',
-            'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash',
-          ],
-          skipIf: (s) => ({ pathExists: `${s.home}/.local/bin/claude` }),
-          env: localBinPath,
-          changedWhen: 'always',
-        },
         {
           label: 'claude --version',
           argv: (s) => [`${s.home}/.local/bin/claude`, '--version'],
           changedWhen: 'never',
         },
         {
-          label: 'install codex',
-          argv: () => [
-            'bash',
-            '-c',
-            'set -o pipefail; curl -fsSL https://chatgpt.com/codex/install.sh | sh',
-          ],
-          skipIf: (s) => ({ pathExists: `${s.home}/.local/bin/codex` }),
-          env: (s) => ({ ...localBinPath(s), CODEX_NON_INTERACTIVE: 'true' }),
-          changedWhen: 'always',
-        },
-        {
           label: 'codex --version',
           argv: (s) => [`${s.home}/.local/bin/codex`, '--version'],
           changedWhen: 'never',
-        },
-        {
-          label: 'install antigravity cli',
-          argv: () => [
-            'bash',
-            '-c',
-            'set -o pipefail; curl -fsSL https://antigravity.google/cli/install.sh | bash',
-          ],
-          skipIf: (s) => ({ pathExists: `${s.home}/.local/bin/agy` }),
-          env: localBinPath,
-          changedWhen: 'always',
         },
         {
           label: 'agy --version',

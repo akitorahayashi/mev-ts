@@ -34,6 +34,11 @@ mktemp() {
 
 curl() {
   local out=""
+  {
+    printf 'curl'
+    printf ' %s' "$@"
+    printf '\\n'
+  } >> "${log}"
   while [ "$#" -gt 0 ]; do
     if [ "$1" = "-o" ]; then
       out="$2"
@@ -42,7 +47,6 @@ curl() {
       shift
     fi
   done
-  printf 'curl %s\\n' "$out" >> "${log}"
   if [ "\${MEV_FAKE_CURL_FAIL:-}" = "1" ]; then
     echo "curl failed" >&2
     return 7
@@ -131,7 +135,8 @@ test('installer downloads one binary when checksum is supplied and cleans TMPDIR
       expect(await readFile(join(dir, 'bin', 'mev'), 'utf8')).toBe('binary');
       const calls = await readFile(log, 'utf8');
       expect(calls.match(/^curl /gm)).toHaveLength(1);
-      expect(calls).toContain(`curl ${tmp}/`);
+      expect(calls).toContain('--proto =https --proto-redir =https --tlsv1.2');
+      expect(calls).toContain(`${tmp}/`);
       expect(await readdir(tmp)).toEqual([]);
     },
     { prefix: 'installer-success-' },
@@ -154,6 +159,7 @@ test('installer downloads checksum when no checksum value is supplied', async ()
       expect(result.code).toBe(0);
       const calls = await readFile(log, 'utf8');
       expect(calls.match(/^curl /gm)).toHaveLength(2);
+      expect(calls).toContain('--proto =https --proto-redir =https --tlsv1.2');
       expect(await readdir(tmp)).toEqual([]);
     },
     { prefix: 'installer-checksum-' },

@@ -16,6 +16,7 @@ import { type ReconcileStep, reconcile } from './reconcile';
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
 
 const BIN_DIR = '.cargo/bin';
+const RELEASE_DOWNLOAD_CONCURRENCY = 4;
 
 export function releaseBinaries(configKey: string): Activation {
   return { kind: 'release', configKey };
@@ -70,7 +71,7 @@ export function runRelease(
     // Each binary is independent and writes to a unique path, so the
     // network-bound reconciliations run concurrently; the envelope isolates a
     // single binary's failure and preserves declaration order.
-    concurrent: true,
+    concurrent: RELEASE_DOWNLOAD_CONCURRENCY,
     steps: async (binaries) => {
       const arch = await detectArch(context);
       const binDir = join(context.home, BIN_DIR);

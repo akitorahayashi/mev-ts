@@ -1,11 +1,11 @@
+import { mergePackages, type PackageRequirement } from '../brew/package';
 import type { Activation } from './activation';
-import { mergePackages, type PackageRequirement } from './package';
 import { resolveTarget } from './registry';
 import type { Target } from './target';
 
-/** Activations contributed by one selected target, kept attributed to its tag. */
+/** Activations contributed by one selected target, kept attributed to its name. */
 export interface ActivationGroup {
-  readonly tag: string;
+  readonly targetName: string;
   readonly role: string;
   readonly packages: PackageRequirement;
   readonly activations: readonly Activation[];
@@ -13,16 +13,15 @@ export interface ActivationGroup {
 
 /** A selection resolved into ordered work for each phase. */
 export interface MakePlan {
-  readonly tags: readonly string[];
+  readonly targetNames: readonly string[];
   readonly roles: readonly string[];
   readonly packages: PackageRequirement;
   readonly groups: readonly ActivationGroup[];
 }
 
 /**
- * Resolve selectors (tags or aliases) into a plan. Targets are deduped so a
- * target named by two selectors contributes once, while tag attribution is
- * preserved per group so the execution log can stay grouped by tag.
+ * Resolve selectors into a plan. Targets are deduped so a target named by two
+ * selectors contributes once, while target attribution is preserved per group.
  */
 export function planMake(selectors: readonly string[]): MakePlan {
   const seen = new Set<string>();
@@ -45,11 +44,11 @@ export function planMake(selectors: readonly string[]): MakePlan {
   }
 
   return {
-    tags: chosen.map((t) => t.name),
+    targetNames: chosen.map((t) => t.name),
     roles,
     packages: mergePackages(chosen.map((t) => t.packages)),
     groups: chosen.map((t) => ({
-      tag: t.name,
+      targetName: t.name,
       role: t.role,
       packages: t.packages,
       activations: t.activations,

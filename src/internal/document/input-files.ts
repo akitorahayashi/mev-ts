@@ -56,6 +56,10 @@ function outputPath(
   return join(directory, `${basename(input, extname(input))}${extension}`);
 }
 
+function macosPathKey(path: string): string {
+  return path.normalize('NFC').toLocaleLowerCase('en-US');
+}
+
 export async function planConversions(
   inputPath: string,
   outputDirectory: string | undefined,
@@ -112,13 +116,14 @@ export async function planConversions(
       join(directory, dirname(relativePath)),
       outputExtension,
     );
-    const collision = outputs.get(output);
+    const key = macosPathKey(output);
+    const collision = outputs.get(key);
     if (collision) {
       throw new DocumentConversionError(
         `Inputs '${collision}' and '${path}' both map to '${output}'.`,
       );
     }
-    outputs.set(output, path);
+    outputs.set(key, path);
     return { input: path, output };
   });
   return pairs;

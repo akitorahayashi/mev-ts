@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../../errors';
-import { readTextIfPresent } from '../../host/absence';
-import { writeFileAtomically } from '../../host/atomic-file';
+import { ProvisioningError } from '../errors';
+import { readTextIfPresent } from '../host/absence';
+import { writeFileAtomically } from '../host/atomic-file';
 
 /** Title that precedes the concatenated sections. */
 const TITLE = '# Rules';

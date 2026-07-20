@@ -14,10 +14,15 @@ src/
   app/          use-case orchestration (identity, config selection)
   provisioning/ target DSL, activation engines, 3-phase orchestrator
   brew/         Homebrew install
+  coder/        Coder catalogs, manifests, and renderers
+  config-selection/ shared selection manifest parser/resolver
+  defaults/     macOS defaults manifest and protocol helpers
   host/         CommandRunner, Context, HostPath
   identity/     Git identity scopes and on-disk store
   assets/       embedded config files and asset registry
-  internal/     document conversion plus gh and git tool-boundary commands
+  git/          Git config and command helpers
+  internal/     document conversion plus gh and hidden git commands
+  zed/          Zed override catalog, manifest, and settings renderer
   errors.ts     typed error hierarchy
 ```
 
@@ -50,10 +55,11 @@ activation/
   zed.ts        'zedSettings' factory and runner
   command.ts    'command' factory and step execution engine
   release.ts    'release' factory and runner
+  remote-installer.ts reviewed remote-script download and execution
   index.ts      public barrel
 ```
 
-Eleven activation kinds:
+Twelve activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
@@ -68,6 +74,7 @@ Eleven activation kinds:
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips if installed version matches |
+| `remoteInstaller` | `remoteInstaller({ label, url, interpreter, args, creates })` | Downloads a reviewed HTTPS installer script or binary to a temporary file, optionally verifies SHA256, runs it with declared arguments, and cleans the temporary file |
 
 ### Reconcile Envelope
 
@@ -82,7 +89,7 @@ Eleven activation kinds:
 
 ### Selection Manifests
 
-`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.mev/`. `provisioning/selection.ts` owns the manifest IO (`readNameList`/`writeNameList`) and `resolveSelection(catalog, listed, mode)`: `opt-out` (coder) treats the stored list as disabled, so catalog entries added by later updates stay enabled; `opt-in` (zed) treats it as enabled, so a newly added override never applies itself. `app/config-selection.ts` drives the shared `mev config` toggle flow over that resolver. A present manifest that is not a mapping, or that lacks its key, is rejected rather than read as an empty selection.
+`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.mev/`. `config-selection/selection.ts` owns the manifest IO (`readNameList`/`writeNameList`) and `resolveSelection(catalog, listed, mode)`: `opt-out` (coder) treats the stored list as disabled, so catalog entries added by later updates stay enabled; `opt-in` (zed) treats it as enabled, so a newly added override never applies itself. `app/config-selection.ts` drives the shared `mev config` toggle flow over that resolver. A present manifest that is not a mapping, or that lacks its key, is rejected rather than read as an empty selection.
 
 ### Command Pipeline
 
@@ -99,22 +106,26 @@ Eleven activation kinds:
 
 A failed step halts the pipeline. Skipped steps report `unchanged`. The overall status is `failed` if any step failed, `changed` if any step changed, otherwise `unchanged`.
 
+### Remote installers
+
+`remoteInstaller` is reserved for upstream installers that are distributed as scripts or installer binaries rather than as Homebrew packages or versioned release binaries. It downloads the HTTPS installer to a temporary file with strict curl transport flags, verifies an optional SHA256 document, runs a declared interpreter or the downloaded file directly with declared arguments, skips when the declared `creates` path exists, and removes the temporary directory after the run. Targets use it only for reviewed first-party installer URLs.
+
 ## Provisioning Targets (provisioning/targets/)
 
 Each target is a self-contained file registered in `provisioning/registry.ts`. A target owns:
 - `name` and display description
-- `tags` and `aliases` for selector resolution
+- `aliases` for alternate selector resolution
 - `role` — the asset namespace under `src/assets/config/`
 - `packages` — Homebrew formulae, taps, and casks required before activation
 - `preserveBeforeDeploy` — optional protection for mutable host state that role replacement would destroy
 - `activations` — ordered list of `Activation` values
-- `optional` — when set, the target is selectable by tag but excluded from a full-environment `create`
+- `optional` — when set, the target is selectable by name or alias but excluded from a full-environment `create`
 
 `make` resolves explicit selectors; `create` provisions `fullSetupTargets()` — every registered target except the optional ones, in declaration order — through the same three phases. `sync` scans that same selection and submits only changed targets to one `runMake()` call. The set derives from the registry, so a new target joins both full-environment commands without a separate list.
 
 ### Semantic synchronization
 
-`signature.ts` hashes the user-visible desired state of a target: canonical name and role, normalized package requirements, embedded role asset keys/content/executable status, and activation intent in declaration order. Non-command activations contribute their declarative fields. Command activations contribute only their label and asset reads, so changes to `argv`, environment construction, guards, change classification, or runner implementation do not make an otherwise equivalent setup stale.
+`signature.ts` hashes the user-visible desired state of a target: canonical name and role, normalized package requirements, embedded role asset keys/content/executable status, and activation intent in declaration order. Non-command activations contribute their declarative fields. Command activations contribute their label, `intentVersion`, asset reads, step labels, captures, and change-classification declarations; implementation-only edits remain invisible until the declaring target intentionally changes the semantic intent.
 
 The signature proving that each target is currently applied is stored atomically at `~/.mev/applied/{target}`. `runMake()` invalidates selected target signatures before deployment and records each signature again only after that target's deploy, package resolution, and activation complete successfully. A failed or interrupted run therefore remains selected even when deployment repaired its role drift before a later phase failed. This state is shared by `make`, `create`, and `sync` rather than owned by the sync command.
 
@@ -151,9 +162,13 @@ Several activation kinds delegate external-tool protocol and state detection to 
 | Directory | Capability |
 |---|---|
 | `pipx/` | `pipx list --json` parse; install, inject, and post-install operations |
+| `defaults/` | defaults manifest validation and macOS defaults read/write comparison helpers |
 | `duti/` | `duti -x` output parse; `duti -s` apply |
 | `editor/` | `--list-extensions` parse; `--install-extension` |
+| `coder/` | Coder section/skill catalogs, manifests, and renderers |
 | `github/` | GitHub release download via `curl` (public) or `gh release download` (private) |
+| `git/` | Git config mutation and locale-pinned git command helpers |
+| `zed/` | Zed override catalog, manifest, and settings renderer |
 
 ## Identity (identity/)
 

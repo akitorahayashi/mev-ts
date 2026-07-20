@@ -3,7 +3,12 @@ import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-import { isRecord, requireRecord } from '../host/parse';
+import {
+  isRecord,
+  requireExactKeys,
+  requireRecord,
+  requireUniqueBy,
+} from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
 /**
@@ -38,17 +43,23 @@ export function parseReleaseBinaries(
     loadYaml(raw, path),
     `Release binaries manifest ${path}`,
   );
+  requireExactKeys(parsed, ['binaries'], `Release binaries manifest ${path}`);
   if (!Array.isArray(parsed.binaries)) {
     throw new ProvisioningError(
       `Release binaries manifest must contain a binaries sequence: ${path}`,
     );
   }
-  return parsed.binaries.map((entry: unknown, index: number) => {
+  const binaries = parsed.binaries.map((entry: unknown, index: number) => {
     if (!isRecord(entry)) {
       throw new ProvisioningError(
         `Invalid release binaries manifest entry ${index + 1}: entry must be a mapping.`,
       );
     }
+    requireExactKeys(
+      entry,
+      ['name', 'repo', 'tag', 'private'],
+      `Invalid release binaries manifest entry ${index + 1}`,
+    );
     if (typeof entry.name !== 'string' || entry.name.length === 0) {
       throw new ProvisioningError(
         `Invalid release binaries manifest entry ${index + 1}: 'name' must be a non-empty string.`,
@@ -91,6 +102,12 @@ export function parseReleaseBinaries(
       private: entry.private,
     };
   });
+  requireUniqueBy(
+    binaries,
+    (binary) => binary.name.toLowerCase(),
+    `Release binaries manifest ${path}`,
+  );
+  return binaries;
 }
 
 // macOS-only CLI, so the OS segment of every release asset name is fixed.

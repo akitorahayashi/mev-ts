@@ -5,12 +5,8 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { runWithCleanup } from '../host/cleanup-error';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-import {
-  type PackageRequirement,
-  type PackageToken,
-  tokens,
-} from '../provisioning/package';
 import { loadInventory } from './inventory';
+import { type PackageRequirement, type PackageToken, tokens } from './package';
 
 export type InstallStatus = 'installed' | 'present' | 'failed';
 

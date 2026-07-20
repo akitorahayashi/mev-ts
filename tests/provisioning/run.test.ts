@@ -4,7 +4,11 @@ import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
-import { CommandLineError, ProvisioningError } from '../../src/errors';
+import {
+  AppError,
+  CommandLineError,
+  ProvisioningError,
+} from '../../src/errors';
 import { bunCommandRunner } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import {
@@ -29,17 +33,17 @@ const contextFor = (homeDir: string): Context =>
   recordingContext({ home: homeDir, assets: embeddedAssets }).context;
 
 function gitGroup(report: Awaited<ReturnType<typeof runMake>>) {
-  return report.groups.find((g) => g.tag === 'git');
+  return report.groups.find((group) => group.targetName === 'git');
 }
 
 sandboxTest('an unknown tag is rejected', async (sandbox) => {
   await expect(
-    runMake({ tags: ['nope'] }, contextFor(sandbox)),
+    runMake({ selectors: ['nope'] }, contextFor(sandbox)),
   ).rejects.toBeInstanceOf(CommandLineError);
 });
 
 sandboxTest('apply deploys and links the git target', async (sandbox) => {
-  const report = await runMake({ tags: ['git'] }, contextFor(sandbox));
+  const report = await runMake({ selectors: ['git'] }, contextFor(sandbox));
 
   expect(report.failed).toBe(false);
   expect(report.deploys.some((d) => d.role === 'git' && d.deployed)).toBe(true);
@@ -84,7 +88,7 @@ sandboxTest(
     await symlink(deployedConfig, managedConfig);
 
     for (let run = 0; run < 2; run += 1) {
-      const report = await runMake({ tags: ['git'] }, context);
+      const report = await runMake({ selectors: ['git'] }, context);
       expect(report.failed).toBe(false);
 
       const name = await context.commands.run('git', [
@@ -138,9 +142,9 @@ sandboxTest(
       },
     }).context;
 
-    await expect(runMake({ tags: ['git'] }, context)).rejects.toBeInstanceOf(
-      ProvisioningError,
-    );
+    await expect(
+      runMake({ selectors: ['git'] }, context),
+    ).rejects.toBeInstanceOf(AppError);
     expect(await readApplied(marker)).toBe(existingSignature);
     expect(await readFile(deployedConfig, 'utf8')).toBe(
       'previous deployed content\n',
@@ -152,10 +156,10 @@ sandboxTest(
   'an alias and its tag select the same target once',
   async (sandbox) => {
     const report = await runMake(
-      { tags: ['sh', 'shell'] },
+      { selectors: ['sh', 'shell'] },
       contextFor(sandbox),
     );
-    expect(report.selection.tags).toEqual(['shell']);
+    expect(report.selection.targetNames).toEqual(['shell']);
   },
 );
 
@@ -166,7 +170,7 @@ sandboxTest(
     let installTotal = -1;
     await runMake(
       {
-        tags: ['git'],
+        selectors: ['git'],
         onDeploy: (r) => deployed.push(r.role),
         onInstallStart: (n) => {
           installTotal = n;
@@ -185,17 +189,17 @@ sandboxTest(
     const events: string[] = [];
     const report = await runMake(
       {
-        tags: ['git'],
+        selectors: ['git'],
         onActivationPhaseStart: (event) => {
           events.push(`phase:${event.totalTargets}`);
         },
         onActivationStart: (event) => {
           events.push(
-            `start:${event.tag}:${event.activation.verb}:${event.activation.source}`,
+            `start:${event.targetName}:${event.activation.verb}:${event.activation.source}`,
           );
         },
         onActivationTargetComplete: (group) => {
-          events.push(`complete:${group.tag}:${group.reports.length}`);
+          events.push(`complete:${group.targetName}:${group.reports.length}`);
         },
       },
       contextFor(sandbox),
@@ -216,7 +220,7 @@ sandboxTest(
     const events: string[] = [];
     const report = await runMake(
       {
-        tags: ['formulae'],
+        selectors: ['formulae'],
         onActivationPhaseStart: (event) => {
           events.push(`phase:${event.totalTargets}`);
         },
@@ -224,7 +228,7 @@ sandboxTest(
           events.push('start');
         },
         onActivationTargetComplete: (group) => {
-          events.push(`complete:${group.tag}:${group.reports.length}`);
+          events.push(`complete:${group.targetName}:${group.reports.length}`);
         },
       },
       contextFor(sandbox),
@@ -245,16 +249,18 @@ sandboxTest(
     await expect(
       runMake(
         {
-          tags: ['git'],
+          selectors: ['git'],
           onActivationPhaseStart: () => {
             events.push('phase');
           },
           onActivationStart: (event) => {
-            events.push(`start:${event.tag}`);
-            mkdirSync(appliedPath(sandbox, event.tag), { recursive: true });
+            events.push(`start:${event.targetName}`);
+            mkdirSync(appliedPath(sandbox, event.targetName), {
+              recursive: true,
+            });
           },
           onActivationTargetComplete: (group) => {
-            events.push(`complete:${group.tag}`);
+            events.push(`complete:${group.targetName}`);
           },
         },
         contextFor(sandbox),
@@ -323,7 +329,7 @@ sandboxTest(
       },
     };
 
-    await runMake({ tags: ['xcode'] }, context);
+    await runMake({ selectors: ['xcode'] }, context);
 
     expect(writes).toEqual(defaultsKeys);
   },
@@ -347,10 +353,10 @@ sandboxTest(
 
     const report = await runMake(
       {
-        tags: ['git'],
+        selectors: ['git'],
         onActivationPhaseStart: () => events.push('phase'),
         onActivationTargetComplete: (entry) =>
-          events.push(`complete:${entry.tag}`),
+          events.push(`complete:${entry.targetName}`),
       },
       context,
     );
@@ -410,8 +416,8 @@ sandboxTest(
       'drift',
     ]);
 
-    const report = await runMake({ tags: ['python'] }, context);
-    const group = report.groups.find((entry) => entry.tag === 'python');
+    const report = await runMake({ selectors: ['python'] }, context);
+    const group = report.groups.find((entry) => entry.targetName === 'python');
 
     expect(report.failed).toBe(true);
     expect(report.install).toContainEqual({

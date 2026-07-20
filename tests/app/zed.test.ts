@@ -7,11 +7,8 @@ import {
   configSelectZedOverridesClear,
 } from '../../src/app/zed';
 import { deployedDir } from '../../src/assets/ref';
-import { readNameList } from '../../src/provisioning/selection';
-import {
-  OVERRIDES_PREFIX,
-  overridesManifest,
-} from '../../src/provisioning/zed/paths';
+import { readNameList } from '../../src/config-selection/selection';
+import { OVERRIDES_PREFIX, overridesManifest } from '../../src/zed/paths';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('app-zed-');

@@ -7,7 +7,7 @@
 `mev` ships as a single compiled binary for macOS on Apple Silicon and Intel:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/akitorahayashi/mev-ts/main/install.sh)"
+/bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/akitorahayashi/mev-ts/main/install.sh)"
 ```
 
 The script downloads the release binary for the host architecture, verifies its SHA256 checksum, and installs it to `~/.local/bin/mev`. `MEV_INSTALL_DIR` overrides the destination and `MEV_VERSION=vX.Y.Z` pins a release instead of the latest. Ensure the install directory is on `PATH`, then verify:
@@ -19,7 +19,7 @@ mev --version
 Homebrew is a prerequisite; `mev` installs packages through it but does not bootstrap it:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+/bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
 ## Development
@@ -44,8 +44,8 @@ mev make git                   # Provision the git target
 mev make git shell              # Provision multiple targets at once
 ```
 
-`make` (alias `mk`) resolves each tag to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. The repository config is the source of truth for declared outputs, so existing files, directories, or symlinks at those destinations are replaced by the current config. Activations report `changed`, `unchanged`, or `failed` per item.
-Each run ends with a report that summarizes required action, phase counts, changed targets, and retry tags.
+`make` (alias `mk`) resolves each selector to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. The repository config is the source of truth for declared outputs, so existing files, directories, or symlinks at those destinations are replaced by the current config. Activations report `changed`, `unchanged`, or `failed` per item.
+Each run ends with a report that summarizes required action, phase counts, changed targets, and retry selectors.
 
 ```bash
 mev create                      # Provision the full environment
@@ -55,7 +55,7 @@ mev s                           # Alias for sync
 
 `create` (alias `cr`) provisions the full environment by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`.
 
-`sync` (alias `s`) scans the same non-optional target set and runs only targets whose declared packages, activation intent, or embedded assets changed since their last successful application, plus targets whose deployed role assets drifted. Internal activation implementation changes do not trigger synchronization. Successful target signatures are stored under `~/.mev/applied/`; optional targets remain explicit `make` operations.
+`sync` (alias `s`) scans the same non-optional target set and runs only targets whose declared packages, activation intent, or embedded assets changed since their last successful application, plus targets whose deployed role assets drifted. Host-command activation changes are represented by the target-owned command intent and `intentVersion`. Successful target signatures are stored under `~/.mev/applied/`; optional targets remain explicit `make` operations.
 
 ### Listing targets
 

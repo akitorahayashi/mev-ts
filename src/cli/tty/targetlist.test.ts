@@ -28,7 +28,7 @@ test('renderTargetList includes aliases when present', () => {
 test('renderTargetList includes column headers', () => {
   const output = renderTargetList(false);
   expect(output).toContain('TARGET');
-  expect(output).toContain('TAGS');
+  expect(output).toContain('SELECTORS');
   expect(output).toContain('DESCRIPTION');
 });
 

@@ -1,11 +1,7 @@
 import { join } from 'node:path';
+import { configGet, configGetFile, configSetFileValues } from '../git/config';
 import { lstatIfPresent } from '../host/absence';
 import type { CommandRunner } from '../host/command';
-import {
-  configGet,
-  configGetFile,
-  configSetFile,
-} from '../internal/git/config';
 
 const identityKeys = ['user.name', 'user.email'] as const;
 
@@ -45,7 +41,11 @@ export async function preserveIdentityOverlay(
     if (value !== null) missing.push({ key, value });
   }
 
-  for (const { key, value } of missing) {
-    await configSetFile(deps.run, overlay, key, value);
+  if (missing.length > 0) {
+    await configSetFileValues(
+      deps.run,
+      overlay,
+      missing.map(({ key, value }) => [key, value] as const),
+    );
   }
 }

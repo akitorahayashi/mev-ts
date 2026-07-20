@@ -1,22 +1,22 @@
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
-import { errorMessage } from '../../errors';
-import { readDirentsIfPresent, readlinkIfPresent } from '../../host/absence';
-import type { Context } from '../../host/context';
-import { type HostPath, resolveHostPath } from '../../host/path';
-import { isSymlinkTo, placeSymlink } from '../../host/symlink';
-import { buildAgents } from '../coder/agents';
-import { readSections, readSkills } from '../coder/catalog';
-import { readDisabled } from '../coder/manifest';
+import { buildAgents } from '../../coder/agents';
+import { readSections, readSkills } from '../../coder/catalog';
+import { readDisabled } from '../../coder/manifest';
 import {
   agentsFile,
   agentsManifest,
   skillsDir,
   skillsManifest,
-} from '../coder/paths';
-import { buildSkills } from '../coder/skills';
-import { resolveSelection } from '../selection';
+} from '../../coder/paths';
+import { buildSkills } from '../../coder/skills';
+import { resolveSelection } from '../../config-selection/selection';
+import { errorMessage } from '../../errors';
+import { readDirentsIfPresent, readlinkIfPresent } from '../../host/absence';
+import type { Context } from '../../host/context';
+import { type HostPath, resolveHostPath } from '../../host/path';
+import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type {
   Activation,
   ActivationReport,

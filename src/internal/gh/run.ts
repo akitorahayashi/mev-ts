@@ -9,7 +9,7 @@ import {
  * Run `gh <args>`, throwing a labeled ProvisioningError on non-zero and
  * returning the captured result on success. Factors the non-zero →
  * ProvisioningError guard the label operations repeat, mirroring the capture
- * helper in `internal/git/run.ts`.
+ * helper in `git/run.ts`.
  */
 export async function runStep(
   run: CommandRunner,

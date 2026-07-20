@@ -1,33 +1,43 @@
-import { runCommand } from '../activation';
+import { home } from '../../host/path';
+import { remoteInstaller, runCommand } from '../activation';
 import { target } from '../target';
 
-// rustup manages the Rust toolchain the way fnm/rbenv manage their runtimes, but
-// it is installed through the official installer rather than Homebrew: rustup
-// self-updates (`rustup self update`) and the Rust project does not support a
-// brew-managed install. The installer is trusted over HTTPS; it verifies the
-// rustup-init binary it downloads, so no separate checksum step is carried.
+function rustupHostTriple(): string {
+  if (process.arch === 'arm64') return 'aarch64-apple-darwin';
+  if (process.arch === 'x64') return 'x86_64-apple-darwin';
+  throw new Error(`Unsupported macOS Rust host architecture: ${process.arch}`);
+}
+
+function rustupInitUrl(triple = rustupHostTriple()): string {
+  return `https://static.rust-lang.org/rustup/dist/${triple}/rustup-init`;
+}
+
+// rustup manages the Rust toolchain the way fnm/rbenv manage their runtimes.
+// The official macOS rustup-init binary is downloaded directly with its adjacent
+// SHA256 document instead of piping the bootstrap shell script into an
+// interpreter.
 export const rustTarget = target('rust', {
   description: 'Rust toolchain via rustup',
   aliases: ['rs'],
   role: 'rust',
   activations: [
+    remoteInstaller({
+      label: 'rustup install',
+      url: rustupInitUrl(),
+      checksumUrl: `${rustupInitUrl()}.sha256`,
+      interpreter: 'direct',
+      args: ['-y', '--no-modify-path', '--profile', 'minimal'],
+      creates: home('.cargo/bin/rustup'),
+    }),
     runCommand({
       label: 'rust toolchain',
+      intentVersion: 1,
       reads: {
         version: 'rust/.rust-version',
         targets: 'rust/targets',
         components: 'rust/components',
       },
       steps: [
-        {
-          label: 'rustup install',
-          argv: (s) => [
-            'sh',
-            '-c',
-            `curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain ${s.ref('version')}`,
-          ],
-          skipIf: (s) => ({ pathExists: `${s.home}/.cargo/bin/rustup` }),
-        },
         {
           label: 'rustup default',
           argv: (s) => [

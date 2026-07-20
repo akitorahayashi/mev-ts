@@ -13,12 +13,16 @@ src/
   app/           Use-case orchestration (identity, config selection)
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
+  coder/         Coder section/skill catalogs, manifests, and renderers
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
       config/    Config toggle commands built by defineConfigCommand (aliased `cf`)
     tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), and the interactive toggle prompt
+  config-selection/ Shared config-selection manifest parser/resolver
+  defaults/      macOS defaults manifest parser and protocol helpers
   duti/          duti file-association state probes and apply operations
   editor/        Editor extension list and install operations
+  git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download
   host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), transaction.ts (atomic staging)
   identity/      Git identity scope enum and on-disk store
@@ -33,12 +37,19 @@ src/
     signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
     applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
     scan.ts      Concurrent signature and deployed-role drift classification
+  zed/           Zed override catalog, selection manifest, and settings renderer
 scripts/
   generate-assets.ts  Asset codegen: walks src/assets/config/, emits registry.generated.ts
 tests/                Integration tests for CLI, filesystem, subprocess, and network behavior
 ```
 
 A module is promoted from `app/` into its own `src/<domain>/` directory only when a second use case needs it, or when it wraps an external dependency (a tool's protocol, wire format, or persisted file format) — see `identity/`, `pipx/`, `duti/`, `editor/`, `github/` for the latter.
+
+Supply-chain references distinguish trusted first-party sources from third-party
+sources. GitHub Actions and Git-hosted dependencies owned by `akitorahayashi`
+use reviewed major or release tags for convenient trusted maintenance updates.
+Third-party GitHub Actions use full commit SHAs with version comments, and
+third-party Git-hosted dependencies use immutable full commits.
 
 ## Testing
 
@@ -65,7 +76,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Semantic Sync
 
-`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command implementation functions are excluded from the signature. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
+`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command activations expose their semantic intent through labels, asset reads, steps, and an explicit `intentVersion`. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
 
 ### CLI
 
@@ -77,7 +88,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
 - `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). Every mev-managed host path derives from it; none hardcodes `.mev` or a parallel root.
-- `Target` / `MakePlan` — a target groups tags/aliases, role, packages, optional pre-deploy preservation, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves tag attribution.
+- `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, optional pre-deploy preservation, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution.
 - `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
 
 ### Asset Codegen

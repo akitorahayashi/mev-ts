@@ -10,18 +10,18 @@ const emptyPackages = { taps: [], formulae: [], casks: [] };
 
 const failedReport: MakeReport = {
   selection: {
-    tags: ['git', 'python'],
+    targetNames: ['git', 'python'],
     roles: ['git', 'python'],
     packages: { taps: [], formulae: ['git', 'uv'], casks: [] },
     groups: [
       {
-        tag: 'git',
+        targetName: 'git',
         role: 'git',
         packages: { taps: [], formulae: ['git'], casks: [] },
         activations: [],
       },
       {
-        tag: 'python',
+        targetName: 'python',
         role: 'python',
         packages: { taps: [], formulae: ['uv'], casks: [] },
         activations: [],
@@ -42,7 +42,7 @@ const failedReport: MakeReport = {
   ],
   groups: [
     {
-      tag: 'git',
+      targetName: 'git',
       blockers: [],
       reports: [
         {
@@ -55,7 +55,7 @@ const failedReport: MakeReport = {
       ],
     },
     {
-      tag: 'python',
+      targetName: 'python',
       blockers: [
         {
           kind: 'package',
@@ -80,7 +80,7 @@ const failedReport: MakeReport = {
 test('renderTargetCompletionLine summarizes changed groups by outcome kind', () => {
   const rendered = renderTargetCompletionLine(
     {
-      tag: 'shell',
+      targetName: 'shell',
       blockers: [],
       reports: [
         {
@@ -141,12 +141,12 @@ test('renderMakeReport summarizes failed and blocked targets', () => {
 test('renderMakeReport renders concise successful summaries', () => {
   const report: MakeReport = {
     selection: {
-      tags: ['shell'],
+      targetNames: ['shell'],
       roles: ['shell'],
       packages: emptyPackages,
       groups: [
         {
-          tag: 'shell',
+          targetName: 'shell',
           role: 'shell',
           packages: emptyPackages,
           activations: [],
@@ -157,7 +157,7 @@ test('renderMakeReport renders concise successful summaries', () => {
     install: [],
     groups: [
       {
-        tag: 'shell',
+        targetName: 'shell',
         blockers: [],
         reports: [
           {

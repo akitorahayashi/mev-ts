@@ -95,8 +95,9 @@ test('command implementation functions do not affect the signature', async () =>
     activations: [
       runCommand({
         label: 'demo command',
+        intentVersion: 1,
         reads: { version: 'demo/version' },
-        steps: [{ argv: () => ['demo', 'slow'] }],
+        steps: [{ label: 'demo step', argv: () => ['demo', 'slow'] }],
       }),
     ],
   });
@@ -106,12 +107,13 @@ test('command implementation functions do not affect the signature', async () =>
     activations: [
       runCommand({
         label: 'demo command',
+        intentVersion: 1,
         reads: { version: 'demo/version' },
         steps: [
           {
+            label: 'demo step',
             argv: () => ['demo', 'fast'],
             env: () => ({ DEMO_FAST: '1' }),
-            changedWhen: 'never',
           },
         ],
       }),
@@ -132,8 +134,9 @@ test('command label and read declarations affect the signature', async () => {
       activations: [
         runCommand({
           label,
+          intentVersion: 1,
           reads: { version: key },
-          steps: [{ argv: () => ['demo'] }],
+          steps: [{ label: 'demo step', argv: () => ['demo'] }],
         }),
       ],
     });
@@ -155,6 +158,52 @@ test('command label and read declarations affect the signature', async () => {
   expect(
     await targetSignature(
       commandTarget('demo command', 'demo/next-version'),
+      assets,
+    ),
+  ).not.toBe(original);
+});
+
+test('command intent version and serializable step metadata affect the signature', async () => {
+  const commandTarget = (
+    intentVersion: number,
+    step: {
+      readonly label: string;
+      readonly capture?: string;
+      readonly changedWhen?: 'always' | 'never';
+    },
+  ) =>
+    target('demo', {
+      description: 'demo',
+      role: 'demo',
+      activations: [
+        runCommand({
+          label: 'demo command',
+          intentVersion,
+          steps: [{ ...step, argv: () => ['demo'] }],
+        }),
+      ],
+    });
+  const assets = assetSource();
+  const original = await targetSignature(
+    commandTarget(1, { label: 'demo step' }),
+    assets,
+  );
+
+  expect(
+    await targetSignature(commandTarget(2, { label: 'demo step' }), assets),
+  ).not.toBe(original);
+  expect(
+    await targetSignature(commandTarget(1, { label: 'renamed step' }), assets),
+  ).not.toBe(original);
+  expect(
+    await targetSignature(
+      commandTarget(1, { label: 'demo step', capture: 'version' }),
+      assets,
+    ),
+  ).not.toBe(original);
+  expect(
+    await targetSignature(
+      commandTarget(1, { label: 'demo step', changedWhen: 'never' }),
       assets,
     ),
   ).not.toBe(original);

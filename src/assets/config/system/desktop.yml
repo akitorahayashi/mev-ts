@@ -4,7 +4,6 @@
   domain: com.apple.finder
   type: bool
   value: true
-  comment: "Desktop"
 
 # Enables or disables the "Click wallpaper to reveal desktop" feature.
 - key: EnableStandardClickToShowDesktop

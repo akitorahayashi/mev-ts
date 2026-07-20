@@ -1,8 +1,8 @@
 import { join } from 'node:path';
-import { errorMessage, ProvisioningError } from '../../errors';
-import { readTextIfPresent } from '../../host/absence';
-import { writeFileAtomically } from '../../host/atomic-file';
-import { isRecord } from '../../host/parse';
+import { errorMessage, ProvisioningError } from '../errors';
+import { readTextIfPresent } from '../host/absence';
+import { writeFileAtomically } from '../host/atomic-file';
+import { isRecord } from '../host/parse';
 import { combineOverrides, deepMerge, type JsonObject } from './merge';
 
 // JSON.parse only yields JsonValues, so a top-level object is deeply a
@@ -11,13 +11,11 @@ function isJsonObject(value: unknown): value is JsonObject {
   return isRecord(value);
 }
 
-async function readJson(path: string, label: string): Promise<JsonObject> {
-  const raw = await readTextIfPresent(path);
-  if (raw === null) {
-    throw new ProvisioningError(
-      `${label} not found: ${path}. Run provisioning to deploy it first.`,
-    );
-  }
+export function parseJsonObject(
+  raw: string,
+  path: string,
+  label: string,
+): JsonObject {
   let value: unknown;
   try {
     value = JSON.parse(raw);
@@ -32,6 +30,16 @@ async function readJson(path: string, label: string): Promise<JsonObject> {
     );
   }
   return value;
+}
+
+async function readJson(path: string, label: string): Promise<JsonObject> {
+  const raw = await readTextIfPresent(path);
+  if (raw === null) {
+    throw new ProvisioningError(
+      `${label} not found: ${path}. Run provisioning to deploy it first.`,
+    );
+  }
+  return parseJsonObject(raw, path, label);
 }
 
 /** Render the base settings merged with the enabled overrides, in catalog order. */

@@ -12,6 +12,7 @@ export const rubyTarget = target('ruby', {
   activations: [
     runCommand({
       label: 'ruby toolchain',
+      intentVersion: 1,
       reads: { version: 'ruby/.ruby-version' },
       steps: [
         brewPrefixCapture(),

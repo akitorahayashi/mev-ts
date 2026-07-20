@@ -1,6 +1,6 @@
 import { asset } from '../../assets/ref';
 import { errorMessage, ProvisioningError } from '../../errors';
-import { isRecord } from '../../host/parse';
+import { isRecord, requireExactKeys } from '../../host/parse';
 import { home } from '../../host/path';
 import type { CommandScope } from '../activation';
 import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
@@ -11,11 +11,33 @@ const pnpmEnv = (s: CommandScope) => ({
   ...brewPath(s, [`${s.home}/Library/pnpm`]),
 });
 
-function isPackageMap(value: unknown): value is Record<string, string> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((version) => typeof version === 'string')
-  );
+function packageNameKey(name: string): string {
+  return name.toLowerCase();
+}
+
+function packageMap(
+  value: unknown,
+  field: string,
+): Record<string, string> | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw new ProvisioningError(
+      `pnpm global packages manifest ${field} must be an object of string versions.`,
+    );
+  }
+  for (const [name, version] of Object.entries(value)) {
+    if (name.length === 0 || name.startsWith('-')) {
+      throw new ProvisioningError(
+        `pnpm global packages manifest ${field} contains an invalid package name '${name}'.`,
+      );
+    }
+    if (typeof version !== 'string' || version.length === 0) {
+      throw new ProvisioningError(
+        `pnpm global packages manifest ${field}.${name} must be a non-empty string version.`,
+      );
+    }
+  }
+  return value as Record<string, string>;
 }
 
 export function globalPackageArgs(raw: string): string[] {
@@ -32,16 +54,23 @@ export function globalPackageArgs(raw: string): string[] {
       'pnpm global packages manifest must be an object.',
     );
   }
-  const { dependencies, globalPackages } = parsed;
-  if (dependencies !== undefined && !isPackageMap(dependencies)) {
-    throw new ProvisioningError(
-      'pnpm global packages manifest dependencies must be an object of string versions.',
-    );
-  }
-  if (globalPackages !== undefined && !isPackageMap(globalPackages)) {
-    throw new ProvisioningError(
-      'pnpm global packages manifest globalPackages must be an object of string versions.',
-    );
+  requireExactKeys(
+    parsed,
+    ['dependencies', 'globalPackages'],
+    'pnpm global packages manifest',
+  );
+  const dependencies = packageMap(parsed.dependencies, 'dependencies') ?? {};
+  const globalPackages =
+    packageMap(parsed.globalPackages, 'globalPackages') ?? {};
+  const dependencyNames = new Set(
+    Object.keys(dependencies).map(packageNameKey),
+  );
+  for (const name of Object.keys(globalPackages)) {
+    if (dependencyNames.has(packageNameKey(name))) {
+      throw new ProvisioningError(
+        `pnpm global packages manifest package '${name}' cannot occur in both dependencies and globalPackages.`,
+      );
+    }
   }
   const all = { ...dependencies, ...globalPackages };
   const pkgArgs = Object.entries(all).map(([name, version]) =>
@@ -67,7 +96,13 @@ export const pnpmTarget = target('pnpm', {
     ),
     runCommand({
       label: 'pnpm global packages',
-      reads: { globalPackages: 'pnpm/global-packages.json' },
+      intentVersion: 1,
+      reads: {
+        globalPackages: {
+          key: 'pnpm/global-packages.json',
+          validate: globalPackageArgs,
+        },
+      },
       steps: [
         brewPrefixCapture(),
         {

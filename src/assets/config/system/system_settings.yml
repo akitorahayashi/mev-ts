@@ -4,7 +4,6 @@
   domain: NSGlobalDomain
   type: string
   value: "0.709800 0.835300 1.000000"
-  comment: "System settings"
 
 # Controls when scroll bars are shown. ("Automatic", "WhenScrolling", "Always")
 - key: AppleShowScrollBars

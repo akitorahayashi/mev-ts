@@ -4,7 +4,6 @@
   domain: com.apple.dock
   type: int
   value: 32
-  comment: "Dock"
 
 # Positions the Dock on the right edge of the screen.
 - key: orientation

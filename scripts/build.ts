@@ -83,6 +83,11 @@ export async function buildMev(options: BuildOptions): Promise<void> {
       if (codegenCode !== 0) {
         throw new Error(`asset codegen failed with exit code ${codegenCode}`);
       }
+      const { embeddedAssets } = await import('../src/assets/registry');
+      const { validateEmbeddedAssets } = await import(
+        '../src/provisioning/preflight'
+      );
+      await validateEmbeddedAssets(embeddedAssets);
 
       const args = [
         'build',

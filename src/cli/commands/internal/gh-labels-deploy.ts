@@ -13,7 +13,7 @@ export class InternalGhLabelsDeployCommand extends Command {
       const tasks = await buildDeployTasks(run, this.repo);
       await renderLiveList(
         tasks.map((task) => ({ label: task.name, run: () => task.apply() })),
-        { concurrent: true },
+        { concurrency: 4 },
       );
     });
   }

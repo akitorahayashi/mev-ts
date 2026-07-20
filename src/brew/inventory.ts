@@ -1,7 +1,7 @@
 import { errorMessage } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
-import type { PackageKind, PackageRequirement } from '../provisioning/package';
+import type { PackageKind, PackageRequirement } from './package';
 
 export type KindInventory =
   | { readonly loaded: true; readonly names: ReadonlySet<string> }

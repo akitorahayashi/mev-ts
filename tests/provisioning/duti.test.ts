@@ -144,6 +144,60 @@ sandboxTest(
   },
 );
 
+sandboxTest('failed when duti config contains unknown fields', async (dir) => {
+  const roleDir = join(dir, '.mev', 'roles', 'duti');
+  await mkdir(roleDir, { recursive: true });
+  await writeFile(
+    join(roleDir, 'default_apps.yml'),
+    [
+      'default_apps:',
+      '  - bundle_id: dev.zed.Zed',
+      '    extensions: [md]',
+      '    comment: old schema',
+      '',
+    ].join('\n'),
+  );
+  const { context, calls } = recordingContext({
+    home: dir,
+    respond: () => ok(),
+  });
+
+  const report = await runActivation(applyDuti(CONFIG_KEY), context);
+
+  expect(report.status).toBe('failed');
+  expect(report.error).toContain('unknown field');
+  expect(calls).toHaveLength(0);
+});
+
+sandboxTest(
+  'failed when two duti entries own the same extension',
+  async (dir) => {
+    const roleDir = join(dir, '.mev', 'roles', 'duti');
+    await mkdir(roleDir, { recursive: true });
+    await writeFile(
+      join(roleDir, 'default_apps.yml'),
+      [
+        'default_apps:',
+        '  - bundle_id: dev.zed.Zed',
+        '    extensions: [md]',
+        '  - bundle_id: com.apple.Preview',
+        '    extensions: [MD]',
+        '',
+      ].join('\n'),
+    );
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: () => ok(),
+    });
+
+    const report = await runActivation(applyDuti(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('duplicate');
+    expect(calls).toHaveLength(0);
+  },
+);
+
 sandboxTest('failed when duti -s returns non-zero', async (dir) => {
   await deployConfig(dir);
   const { context } = recordingContext({

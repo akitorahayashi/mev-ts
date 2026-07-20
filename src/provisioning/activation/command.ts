@@ -6,6 +6,7 @@ import type {
   Activation,
   ActivationReport,
   ChangedWhen,
+  CommandRead,
   CommandScope,
   CommandStep,
   Described,
@@ -17,11 +18,24 @@ type CommandActivation = Extract<Activation, { kind: 'command' }>;
 
 interface CommandInput {
   readonly label: string;
-  readonly reads?: Readonly<Record<string, string>>;
+  readonly intentVersion: number;
+  readonly reads?: Readonly<Record<string, CommandRead>>;
   readonly steps: readonly CommandStep[];
 }
 
 export function runCommand(input: CommandInput): Activation {
+  if (!Number.isInteger(input.intentVersion) || input.intentVersion <= 0) {
+    throw new ProvisioningError(
+      `Command activation '${input.label}' requires a positive integer intentVersion.`,
+    );
+  }
+  for (const [index, step] of input.steps.entries()) {
+    if (step.label.trim() === '') {
+      throw new ProvisioningError(
+        `Command activation '${input.label}' step ${index + 1} requires a non-empty label.`,
+      );
+    }
+  }
   return { kind: 'command', ...input };
 }
 
@@ -80,26 +94,26 @@ function scopeFor(
   };
 }
 
-function stepLabel(step: CommandStep, argv: readonly string[]): string {
-  return (
-    step.label ??
-    (argv.length > 0 ? argv.slice(0, 2).join(' ') : 'unnamed step')
-  );
-}
-
 /**
  * Read the assets declared in `reads` into the initial bindings, so a version
  * file surfaces as `s.ref('version')` to every step's thunk.
  */
 async function readBindings(
-  reads: Readonly<Record<string, string>>,
+  reads: Readonly<Record<string, CommandRead>>,
   context: Context,
 ): Promise<Map<string, string>> {
   const bindings = new Map<string, string>();
-  for (const [name, key] of Object.entries(reads)) {
-    bindings.set(name, (await context.assets.read(key)).toString().trim());
+  for (const [name, read] of Object.entries(reads)) {
+    const key = commandReadKey(read);
+    const raw = await context.assets.read(key);
+    if (typeof read !== 'string') read.validate(raw, key);
+    bindings.set(name, raw.toString().trim());
   }
   return bindings;
+}
+
+export function commandReadKey(read: CommandRead): string {
+  return typeof read === 'string' ? read : read.key;
 }
 
 export async function runCommandActivation(
@@ -117,7 +131,7 @@ export async function runCommandActivation(
       const scope = scopeFor(context, bindings);
       const argv = step.argv(scope);
       const [command, ...args] = argv;
-      const label = stepLabel(step, argv);
+      const label = step.label;
       if (!command) {
         throw new ProvisioningError(
           `Command step '${label}' produced no argv.`,
