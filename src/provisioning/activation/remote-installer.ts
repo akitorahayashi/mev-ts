@@ -71,11 +71,11 @@ async function verifyChecksum(
   script: string,
   checksumPath: string,
 ): Promise<void> {
-  if (!activation.checksumUrl) return;
+  if ('acknowledgedUnverified' in activation.integrity) return;
   await download(
     context,
     `${activation.label} checksum`,
-    activation.checksumUrl,
+    activation.integrity.checksumUrl,
     checksumPath,
   );
   const expected = parseSha256(

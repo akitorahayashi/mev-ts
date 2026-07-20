@@ -68,6 +68,67 @@ test('reads inject asset values and captures feed later steps', async () => {
   expect(calls[1]?.args).toEqual(['3.3.3', '/opt/homebrew']);
 });
 
+test('read validate receives the trimmed value that gets bound', async () => {
+  const seen: string[] = [];
+  const { context, calls } = recordingContext({
+    home: '/home/u',
+    assets: {
+      ...emptyAssets,
+      async read(key) {
+        if (key === 'ruby/.ruby-version') return '  3.3.3  \n';
+        throw new Error(`unexpected asset ${key}`);
+      },
+    },
+    respond: () => ok(),
+  });
+  const activation = runCommand({
+    label: 'demo',
+    intentVersion: 1,
+    reads: {
+      version: {
+        key: 'ruby/.ruby-version',
+        validate: (value) => {
+          seen.push(value);
+        },
+      },
+    },
+    steps: [{ label: 'x', argv: (s) => ['x', s.ref('version')] }],
+  });
+
+  await runActivation(activation, context);
+
+  // validate sees the same trimmed value bound into the scope, not raw bytes.
+  expect(seen).toEqual(['3.3.3']);
+  expect(calls[0]?.args).toEqual(['3.3.3']);
+});
+
+test('a throwing read validator fails the activation before any step runs', async () => {
+  const { context, calls } = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: () => ok(),
+  });
+  const activation = runCommand({
+    label: 'demo',
+    intentVersion: 1,
+    reads: {
+      version: {
+        key: 'ruby/.ruby-version',
+        validate: (value) => {
+          if (value !== 'expected') throw new Error(`bad version ${value}`);
+        },
+      },
+    },
+    steps: [{ label: 'x', argv: () => ['x'] }],
+  });
+
+  const report = await runActivation(activation, context);
+
+  expect(report.status).toBe('failed');
+  expect(report.error).toContain('bad version 3.3.3');
+  expect(calls).toHaveLength(0);
+});
+
 test('skipIf with a satisfied pathExists guard marks the step unchanged', async () => {
   await withTemporaryDirectory(
     async (sandbox) => {

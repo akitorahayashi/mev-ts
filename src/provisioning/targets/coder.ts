@@ -1,6 +1,6 @@
 import { asset } from '../../assets/ref';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../coder/paths';
-import { home } from '../../host/path';
+import { home, mevPath } from '../../host/path';
 import {
   brewPath,
   brewPrefixCapture,
@@ -37,6 +37,7 @@ export const coderTarget = target('coder', {
     remoteInstaller({
       label: 'install claude',
       url: 'https://claude.ai/install.sh',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       args: [],
       creates: home('.local/bin/claude'),
@@ -45,6 +46,7 @@ export const coderTarget = target('coder', {
     remoteInstaller({
       label: 'install codex',
       url: 'https://chatgpt.com/codex/install.sh',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'sh',
       args: [],
       creates: home('.local/bin/codex'),
@@ -54,6 +56,7 @@ export const coderTarget = target('coder', {
     remoteInstaller({
       label: 'install antigravity cli',
       url: 'https://antigravity.google/cli/install.sh',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       args: [],
       creates: home('.local/bin/agy'),
@@ -99,14 +102,14 @@ export const coderTarget = target('coder', {
       asset('coder/antigravity-cli/statusline.sh'),
       home('.gemini/antigravity-cli/statusline.sh'),
     ),
-    link(asset('coder/rtk/rewrite.sh'), home('.mev/rtk/rewrite.sh')),
+    link(asset('coder/rtk/rewrite.sh'), mevPath('rtk/rewrite.sh')),
     link(
       asset('coder/hooks/claude/pre-tool-use.sh'),
-      home('.mev/hooks/claude/pre-tool-use.sh'),
+      mevPath('hooks/claude/pre-tool-use.sh'),
     ),
     link(
       asset('coder/hooks/codex/pre-tool-use.sh'),
-      home('.mev/hooks/codex/pre-tool-use.sh'),
+      mevPath('hooks/codex/pre-tool-use.sh'),
     ),
     coderAgents(AGENTS_SECTIONS_PREFIX, AGENTS_DESTS),
     coderSkills(SKILLS_PREFIX, SKILLS_TARGETS),

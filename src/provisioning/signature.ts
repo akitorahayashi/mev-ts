@@ -52,7 +52,9 @@ type ActivationIntent =
       readonly kind: 'remoteInstaller';
       readonly label: string;
       readonly url: string;
-      readonly checksumUrl: string | null;
+      readonly integrity:
+        | { readonly checksumUrl: string }
+        | { readonly acknowledgedUnverified: true };
       readonly interpreter: string;
       readonly args: readonly string[];
       readonly creates: string;
@@ -168,7 +170,10 @@ function activationIntent(activation: Activation): ActivationIntent {
         kind: activation.kind,
         label: activation.label,
         url: activation.url,
-        checksumUrl: activation.checksumUrl ?? null,
+        integrity:
+          'checksumUrl' in activation.integrity
+            ? { checksumUrl: activation.integrity.checksumUrl }
+            : { acknowledgedUnverified: true },
         interpreter: activation.interpreter,
         args: activation.args,
         creates: activation.creates.rel,

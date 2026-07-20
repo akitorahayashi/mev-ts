@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { argv } from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 export function packageVersion(packageJsonText) {
   const parsed = JSON.parse(packageJsonText);
@@ -23,7 +25,13 @@ export function validateReleaseTag(refName, packageJsonText) {
   return expected;
 }
 
-if (import.meta.main) {
+// `import.meta.main` is undefined on Node before v20.19/v22.16/v24.2, which would
+// skip this block and let the gate pass vacuously. Compare the entry path to this
+// module URL instead so the guard holds on every supported Node version.
+const invokedDirectly =
+  argv[1] !== undefined && import.meta.url === pathToFileURL(argv[1]).href;
+
+if (invokedDirectly) {
   try {
     const refName = process.env.GITHUB_REF_NAME;
     if (!refName) {

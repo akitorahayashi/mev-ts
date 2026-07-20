@@ -12,6 +12,7 @@ export const bunTarget = target('bun', {
     remoteInstaller({
       label: 'install bun',
       url: 'https://bun.sh/install',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       args: [],
       creates: home('.bun/bin/bun'),

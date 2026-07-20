@@ -24,7 +24,7 @@ export const rustTarget = target('rust', {
     remoteInstaller({
       label: 'rustup install',
       url: rustupInitUrl(),
-      checksumUrl: `${rustupInitUrl()}.sha256`,
+      integrity: { checksumUrl: `${rustupInitUrl()}.sha256` },
       interpreter: 'direct',
       args: ['-y', '--no-modify-path', '--profile', 'minimal'],
       creates: home('.cargo/bin/rustup'),

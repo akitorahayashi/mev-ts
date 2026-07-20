@@ -2,7 +2,7 @@ import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir } from '../assets/ref';
 import type { AssetSource } from '../assets/registry';
-import { errorMessage, ProvisioningError } from '../errors';
+import { errorMessage } from '../errors';
 import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { mapWithConcurrency } from '../host/task-pool';
@@ -12,10 +12,26 @@ import type { Target } from './target';
 
 export type SyncReason = 'unapplied' | 'signature' | 'drift';
 
-export interface TargetScan {
+export interface TargetScanResult {
   readonly target: Target;
   readonly signature: string;
   readonly reasons: readonly SyncReason[];
+}
+
+export interface TargetScanError {
+  readonly target: Target;
+  readonly error: string;
+}
+
+/**
+ * A per-target scan outcome. Scanning is read-only, so one unreadable marker or
+ * role directory yields a `TargetScanError` for that target alone rather than
+ * aborting the batch and discarding every other target's classification.
+ */
+export type TargetScan = TargetScanResult | TargetScanError;
+
+export function isScanError(scan: TargetScan): scan is TargetScanError {
+  return 'error' in scan;
 }
 
 const SCAN_CONCURRENCY = 8;
@@ -141,9 +157,7 @@ async function scanTarget(
     if (drifted) reasons.push('drift');
     return { target, signature, reasons };
   } catch (error) {
-    throw new ProvisioningError(
-      `Failed to scan target '${target.name}': ${errorMessage(error)}`,
-    );
+    return { target, error: errorMessage(error) };
   }
 }
 

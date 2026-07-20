@@ -19,6 +19,14 @@ export function home(rel: string): HostPath {
   return { kind: 'home', rel };
 }
 
+/**
+ * Compose a host path under the mev root (`~/.mev/...`). Sole builder for
+ * mev-owned sub-paths, so no call site hardcodes the `.mev` literal.
+ */
+export function mevPath(...segments: string[]): HostPath {
+  return home(join(mevRoot, ...segments));
+}
+
 /** Stable, home-independent rendering used for display. */
 export function symbolic(target: HostPath): string {
   return `~/${target.rel}`;

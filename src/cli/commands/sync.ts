@@ -6,7 +6,7 @@ import {
 } from '../../provisioning/deploy-store';
 import { allTargets, fullSetupTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
-import { scanTargets } from '../../provisioning/scan';
+import { isScanError, scanTargets } from '../../provisioning/scan';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 import { executeProvisioningRun } from './provisioning';
@@ -39,21 +39,34 @@ export class SyncCommand extends Command {
       }
 
       const scans = await scanTargets(fullSetupTargets(), context);
+      let scanFailed = false;
+      for (const scan of scans) {
+        if (isScanError(scan)) {
+          scanFailed = true;
+          this.context.stderr.write(
+            `mev: could not scan ${scan.target.name}: ${scan.error}\n`,
+          );
+        }
+      }
       const selectors = scans
-        .filter((scan) => scan.reasons.length > 0)
+        .filter((scan) => !isScanError(scan) && scan.reasons.length > 0)
         .map((scan) => scan.target.name);
 
       if (selectors.length === 0) {
+        // A scan error means at least one target's staleness is unknown, so the
+        // environment cannot be reported as synchronized.
+        if (scanFailed) return 1;
         this.context.stdout.write('mev: environment is synchronized\n');
         return 0;
       }
 
-      return executeProvisioningRun({
+      const code = await executeProvisioningRun({
         selectors,
         intro: 'mev: Syncing environment',
         run: (request) => runMake(request, context),
         out: (text) => this.context.stdout.write(text),
       });
+      return code === 0 && scanFailed ? 1 : code;
     });
   }
 }

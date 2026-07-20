@@ -40,6 +40,7 @@ sandboxTest(
       remoteInstaller({
         label: 'install demo',
         url: 'https://example.test/install.sh',
+        integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
         args: ['--flag'],
         creates: home('.local/bin/demo'),
@@ -90,6 +91,7 @@ sandboxTest(
       remoteInstaller({
         label: 'install demo',
         url: 'https://example.test/install.sh',
+        integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
         args: [],
         creates: home('.local/bin/demo'),
@@ -102,6 +104,43 @@ sandboxTest(
     expect(await installerTemps()).toEqual(before);
   },
 );
+
+sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
+  const calls: string[] = [];
+  const context: Context = {
+    home: dir,
+    assets: emptyAssets,
+    basePath: '',
+    commands: {
+      async run(command, args) {
+        calls.push(command);
+        if (command === 'curl') {
+          const output = args[args.indexOf('-o') + 1] as string;
+          await writeFile(output, 'installer');
+        }
+        return ok();
+      },
+    },
+  };
+
+  const report = await runActivation(
+    remoteInstaller({
+      label: 'install demo',
+      url: 'https://example.test/install.sh',
+      integrity: { acknowledgedUnverified: true },
+      interpreter: 'bash',
+      args: [],
+      creates: home('.local/bin/demo'),
+    }),
+    context,
+  );
+
+  expect(report.status).toBe('changed');
+  // The unverified branch downloads only the installer (one curl) and never
+  // runs a checksum download or shasum.
+  expect(calls.filter((command) => command === 'curl')).toHaveLength(1);
+  expect(calls).not.toContain('shasum');
+});
 
 sandboxTest(
   'verifies checksum and runs a direct installer as executable',
@@ -136,7 +175,7 @@ sandboxTest(
       remoteInstaller({
         label: 'install demo',
         url: 'https://example.test/rustup-init',
-        checksumUrl: 'https://example.test/rustup-init.sha256',
+        integrity: { checksumUrl: 'https://example.test/rustup-init.sha256' },
         interpreter: 'direct',
         args: ['-y'],
         creates: home('.cargo/bin/rustup'),
@@ -189,7 +228,7 @@ sandboxTest('fails when checksum does not match', async (dir) => {
     remoteInstaller({
       label: 'install demo',
       url: 'https://example.test/install',
-      checksumUrl: 'https://example.test/install.sha256',
+      integrity: { checksumUrl: 'https://example.test/install.sha256' },
       interpreter: 'direct',
       args: [],
       creates: home('.local/bin/demo'),

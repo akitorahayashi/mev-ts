@@ -4,6 +4,16 @@ import type { HostPath } from '../../host/path';
 export type Verb = 'link' | 'apply' | 'run';
 
 /**
+ * How a `remoteInstaller` verifies the script it downloads before executing it.
+ * A required discriminant, not an optional field: skipping verification must be a
+ * loud, reviewed declaration (`acknowledgedUnverified`) rather than the easy
+ * default of an absent checksum URL, per the no-silent-fallback rule.
+ */
+export type RemoteInstallerIntegrity =
+  | { readonly checksumUrl: string }
+  | { readonly acknowledgedUnverified: true };
+
+/**
  * A single config materialization or host mutation. The union is the source of
  * truth for the activation vocabulary — every kind is dispatched exhaustively by
  * `runActivation` and `describeActivation`, and the multi-item kinds share the
@@ -64,7 +74,7 @@ export type Activation =
       readonly kind: 'remoteInstaller';
       readonly label: string;
       readonly url: string;
-      readonly checksumUrl?: string;
+      readonly integrity: RemoteInstallerIntegrity;
       readonly interpreter: 'bash' | 'sh' | 'direct';
       readonly args: readonly string[];
       readonly creates: HostPath;
@@ -89,11 +99,18 @@ export interface CommandScope {
   ref(name: string): string;
 }
 
+/**
+ * A named asset read for a command activation. A bare string is the asset key;
+ * the object form adds a `validate` guard. `validate` receives the trimmed value
+ * exactly as it will be bound into the scope (not the raw file bytes) and asserts
+ * by throwing — its return value is intentionally `void`, so it cannot transform
+ * the binding. Validate and bind operate on the same string.
+ */
 export type CommandRead =
   | string
   | {
       readonly key: string;
-      readonly validate: (raw: string, path: string) => unknown;
+      readonly validate: (value: string, path: string) => void;
     };
 
 export type StepGuard =

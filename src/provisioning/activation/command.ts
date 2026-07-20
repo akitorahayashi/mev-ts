@@ -106,8 +106,9 @@ async function readBindings(
   for (const [name, read] of Object.entries(reads)) {
     const key = commandReadKey(read);
     const raw = await context.assets.read(key);
-    if (typeof read !== 'string') read.validate(raw, key);
-    bindings.set(name, raw.toString().trim());
+    const value = raw.toString().trim();
+    if (typeof read !== 'string') read.validate(value, key);
+    bindings.set(name, value);
   }
   return bindings;
 }
