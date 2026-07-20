@@ -27,8 +27,11 @@ sandboxTest(
     await write(join(home, '.mev/roles/brew/formulae/Brewfile'));
     await write(join(home, '.mev/roles/brew/old/Brewfile'));
     await write(join(home, '.mev/roles/cmux/config.yml'));
+    await write(join(home, '.mev/roles/.cmux.abcdef/backup/config.yml'));
+    await write(join(home, '.mev/roles/brew/.cask.abcdef/backup/Brewfile'));
     await write(join(home, '.mev/applied/cask'));
     await write(join(home, '.mev/applied/cmux'));
+    await write(join(home, '.mev/applied/.cmux.abcdef/file'));
 
     const report = await pruneDeployStore(
       {
@@ -46,8 +49,11 @@ sandboxTest(
     expect(await exists(join(home, '.mev/roles/brew/formulae'))).toBe(true);
     expect(await exists(join(home, '.mev/roles/brew/old'))).toBe(false);
     expect(await exists(join(home, '.mev/roles/cmux'))).toBe(false);
+    expect(await exists(join(home, '.mev/roles/.cmux.abcdef'))).toBe(true);
+    expect(await exists(join(home, '.mev/roles/brew/.cask.abcdef'))).toBe(true);
     expect(await exists(join(home, '.mev/applied/cask'))).toBe(true);
     expect(await exists(join(home, '.mev/applied/cmux'))).toBe(false);
+    expect(await exists(join(home, '.mev/applied/.cmux.abcdef'))).toBe(true);
   },
 );
 

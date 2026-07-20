@@ -20,6 +20,10 @@ function isRolePathCovered(path: string, roles: readonly string[]): boolean {
   return roles.some((role) => role === path || role.startsWith(`${path}/`));
 }
 
+function isTransactionDirectory(name: string, directory: boolean): boolean {
+  return directory && /^\.[^.].+\.[A-Za-z0-9]{6}$/.test(name);
+}
+
 async function removePath(path: string): Promise<void> {
   await rm(path, { force: true, recursive: true });
 }
@@ -47,6 +51,8 @@ async function pruneRoles(
 
   const roleSet = new Set(roles);
   for (const child of children) {
+    if (isTransactionDirectory(child.name, child.isDirectory())) continue;
+
     const path = relative === '' ? child.name : `${relative}/${child.name}`;
     const absolute = join(root, path);
     const covered = isRolePathCovered(path, roles);
@@ -79,6 +85,7 @@ async function pruneAppliedTargets(
   const targetSet = new Set(targets);
   const removed: string[] = [];
   for (const child of children) {
+    if (isTransactionDirectory(child.name, child.isDirectory())) continue;
     if (targetSet.has(child.name)) continue;
     await removePath(join(root, child.name));
     removed.push(child.name);
@@ -89,6 +96,10 @@ async function pruneAppliedTargets(
 /**
  * Remove deploy-store state for targets that no longer exist in the registry.
  * The cleanup is confined to provisioning-owned state under ~/.mev.
+ *
+ * Obsolete roles are deleted on the project assumption that an unregistered
+ * target no longer owns active outputs. Transaction directories are retained
+ * because they may contain recovery backups or belong to a concurrent run.
  */
 export async function pruneDeployStore(
   request: DeployStorePruneRequest,
