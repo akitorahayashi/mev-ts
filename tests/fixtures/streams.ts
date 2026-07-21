@@ -31,3 +31,29 @@ export function captureStreams(): CapturedStreams {
     stderrText: () => err,
   };
 }
+
+/** A fake terminal stream for exercising the animated (TTY) progress path. */
+export interface FakeTtyStream {
+  readonly isTTY: true;
+  readonly columns: number;
+  write(chunk: unknown): boolean;
+  output(): string;
+}
+
+/**
+ * A writable that reports itself as a TTY and buffers everything written, so the
+ * animated progress renderers (spinner + bar) can be driven and asserted without
+ * the real process stdout.
+ */
+export function fakeTtyStream(columns = 80): FakeTtyStream {
+  let out = '';
+  return {
+    isTTY: true,
+    columns,
+    write(chunk) {
+      out += String(chunk);
+      return true;
+    },
+    output: () => out,
+  };
+}

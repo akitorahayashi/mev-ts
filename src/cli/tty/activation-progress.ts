@@ -1,4 +1,3 @@
-import { clearLine, cursorTo } from 'node:readline';
 import type { Writable } from 'node:stream';
 import { activationLine } from '../../provisioning/group-outcome';
 import type {
@@ -7,6 +6,7 @@ import type {
   ActivationStartEvent,
 } from '../../provisioning/run';
 import { renderTargetCompletionLine } from './makelog';
+import { createTransientLine } from './transient-line';
 
 interface ActivationProgressOptions {
   readonly isTTY: boolean;
@@ -67,18 +67,13 @@ function createTTYActivationProgress(
   let active: ActivationStartEvent | undefined;
   let frame = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
-
-  const clearActiveLine = () => {
-    clearLine(options.stream, 0);
-    cursorTo(options.stream, 0);
-  };
+  const line = createTransientLine(options.stream);
 
   const renderActive = () => {
     if (!active) return;
-    clearActiveLine();
     const spinner = frames[frame % frames.length];
     frame += 1;
-    options.stream.write(`${spinner} ${startLine(active)}`);
+    line.render(`${spinner} ${startLine(active)}`);
   };
 
   const stopTimer = () => {
@@ -106,7 +101,7 @@ function createTTYActivationProgress(
     completeTarget(group) {
       stopTimer();
       if (active) {
-        clearActiveLine();
+        line.clear();
         active = undefined;
       }
       options.out(
@@ -119,7 +114,7 @@ function createTTYActivationProgress(
     finish() {
       stopTimer();
       if (!active) return;
-      clearActiveLine();
+      line.clear();
       active = undefined;
     },
   };

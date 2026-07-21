@@ -123,6 +123,33 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   expect(result.stdout).toContain('Baseline Homebrew casks: mev make br-c');
 });
 
+test('executeProvisioningRun drives animated progress on an injected TTY stream', async () => {
+  const { run } = runReturning(reportWithStatus('changed'));
+  // Inline fake terminal (kept hermetic: no fixtures import in a colocated test).
+  let terminal = '';
+  const stream = {
+    isTTY: true,
+    columns: 80,
+    write(chunk: unknown) {
+      terminal += String(chunk);
+      return true;
+    },
+  } as unknown as NodeJS.WriteStream;
+
+  const code = await executeProvisioningRun({
+    selectors: ['shell'],
+    run,
+    out: () => {},
+    isTTY: true,
+    stream,
+  });
+
+  expect(code).toBe(0);
+  // The TTY path renders the in-flight activation line to the injected stream,
+  // instead of process.stdout, so it is observable in a test.
+  expect(Bun.stripANSI(terminal)).toContain('link shell/.zshenv -> ~/.zshenv');
+});
+
 test('executeProvisioningRun renders failed runs without success footer', async () => {
   const { run } = runReturning(reportWithStatus('failed'));
 
