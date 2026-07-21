@@ -71,6 +71,20 @@ export async function buildBundle(options: BundleBuildOptions): Promise<void> {
     'asset validation',
   );
 
+  // browser-print.ts imports the pinned deep path mermaid/dist/mermaid.min.js.
+  // Assert it resolves before bundling so a mermaid bump that relocates the dist
+  // file fails here, naming the pin, instead of deep in the bundler. Resolve from
+  // this repo's node_modules (where the pin lives), not the caller's projectRoot.
+  try {
+    Bun.resolveSync('mermaid/dist/mermaid.min.js', import.meta.dir);
+  } catch {
+    throw new Error(
+      "Cannot resolve the pinned deep import 'mermaid/dist/mermaid.min.js' used by " +
+        'src/internal/document/browser-print.ts. A mermaid version bump may have ' +
+        'relocated the dist file; see the pin coupling note in docs/architecture.md.',
+    );
+  }
+
   const args = [
     'build',
     resolve(options.projectRoot, 'src/main.ts'),
