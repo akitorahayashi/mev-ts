@@ -50,7 +50,9 @@ export interface ReconcileStep {
  * The kind-specific half of a reconciliation. `declare` parses what the target
  * asked for. `steps` runs the shared probes and builds the per-item steps;
  * anything it throws before returning the list is a whole-activation failure.
- * `concurrent` selects a bounded parallel loop.
+ * `concurrent` selects a bounded parallel loop; kinds default to serial and set
+ * it only when the per-item work is IO-bound and independent (currently just
+ * `release`, whose items are network downloads).
  */
 export interface ReconcileSpec<D> {
   declare(): Promise<readonly D[]>;

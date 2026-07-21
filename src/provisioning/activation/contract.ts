@@ -166,6 +166,11 @@ export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
 /** Per-entry report for the multi-action kinds (`defaults` writes, command steps). */
 export interface StepReport {
   readonly key: string;
+  /**
+   * Display-only free text with per-kind semantics: the resolved argv for a
+   * command step, the applied actions for a pipx item, `installed <tag>` for a
+   * release, etc. It is rendered, never parsed — no consumer depends on its shape.
+   */
   readonly value: string;
   readonly status: 'changed' | 'unchanged' | 'failed';
   readonly error?: string;
