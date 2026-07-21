@@ -12,22 +12,21 @@ export const pythonTarget = target('python', {
     link(asset('python/uv.toml'), home('.config/uv/uv.toml')),
     runCommand({
       label: 'python toolchain',
-      intentVersion: 1,
       reads: { version: 'python/.python-version' },
       steps: [
         brewPrefixCapture(),
         {
           label: 'uv python install',
-          argv: (s) => [
+          argv: [
             'uv',
             'python',
             'install',
-            s.ref('version'),
+            { ref: 'version' },
             '--default',
             '--no-progress',
           ],
           changedWhen: { outputContains: 'Installed Python' },
-          env: (s) => brewPath(s),
+          env: brewPath(),
         },
       ],
     }),

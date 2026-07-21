@@ -32,14 +32,15 @@ test('embedded asset preflight invokes command read validators', async () => {
     activations: [
       runCommand({
         label: 'demo command',
-        intentVersion: 1,
         reads: {
           manifest: {
             key: 'demo/manifest.json',
-            validate: (raw) => JSON.parse(raw),
+            validate: (raw) => {
+              JSON.parse(raw);
+            },
           },
         },
-        steps: [{ label: 'noop', argv: () => ['true'] }],
+        steps: [{ label: 'noop', argv: ['true'] }],
       }),
     ],
   });

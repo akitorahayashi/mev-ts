@@ -6,9 +6,10 @@ import type {
   Activation,
   ActivationReport,
   ChangedWhen,
+  CommandArg,
+  CommandEnvValue,
   CommandRead,
   CommandScope,
-  CommandStep,
   Described,
   StepGuard,
   StepReport,
@@ -19,17 +20,13 @@ type CommandActivation = Extract<Activation, { kind: 'command' }>;
 
 interface CommandInput {
   readonly label: string;
-  readonly intentVersion: number;
   readonly reads?: Readonly<Record<string, CommandRead>>;
   readonly steps: readonly CommandStep[];
 }
 
+type CommandStep = CommandActivation['steps'][number];
+
 export function runCommand(input: CommandInput): Activation {
-  if (!Number.isInteger(input.intentVersion) || input.intentVersion <= 0) {
-    throw new ProvisioningError(
-      `Command activation '${input.label}' requires a positive integer intentVersion.`,
-    );
-  }
   for (const [index, step] of input.steps.entries()) {
     if (step.label.trim() === '') {
       throw new ProvisioningError(
@@ -44,12 +41,69 @@ export function describeCommand(activation: CommandActivation): Described {
   return { verb: 'run', source: activation.label, dest: 'shell' };
 }
 
+/** Resolve a declarative argv token into zero or more concrete arguments. */
+function resolveArg(arg: CommandArg, scope: CommandScope): string[] {
+  if (typeof arg === 'string') return [arg];
+  if ('ref' in arg) return [scope.ref(arg.ref)];
+  if ('splitRef' in arg) {
+    return scope.ref(arg.splitRef).split(/\s+/).filter(Boolean);
+  }
+  return [arg.concat.map((part) => resolveArg(part, scope).join('')).join('')];
+}
+
+function resolveArgs(
+  args: readonly CommandArg[],
+  scope: CommandScope,
+): string[] {
+  return args.flatMap((arg) => resolveArg(arg, scope));
+}
+
+function resolveEnvValue(value: CommandEnvValue, scope: CommandScope): string {
+  if (typeof value === 'string') return value;
+  if ('ref' in value) return scope.ref(value.ref);
+  if ('concat' in value) {
+    return value.concat
+      .map((part) => resolveArg(part, scope).join(''))
+      .join('');
+  }
+  return value.pathList
+    .map((segment) => resolveArg(segment, scope).join(''))
+    .filter(Boolean)
+    .join(':');
+}
+
+function resolveEnv(
+  env: Readonly<Record<string, CommandEnvValue>>,
+  scope: CommandScope,
+): Record<string, string> {
+  const resolved: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    resolved[name] = resolveEnvValue(value, scope);
+  }
+  return resolved;
+}
+
+type ResolvedGuard =
+  | { readonly pathExists: string }
+  | { readonly commandSucceeds: readonly string[] };
+
+function resolveGuard(guard: StepGuard, scope: CommandScope): ResolvedGuard {
+  if ('pathExists' in guard) {
+    return { pathExists: resolveArg(guard.pathExists, scope).join('') };
+  }
+  return {
+    commandSucceeds: guard.commandSucceeds.flatMap((arg) =>
+      resolveArg(arg, scope),
+    ),
+  };
+}
+
 async function pathExists(path: string): Promise<boolean> {
   return (await lstatIfPresent(path)) !== null;
 }
 
 async function guardMatches(
-  guard: StepGuard,
+  guard: ResolvedGuard,
   context: Context,
   options?: CommandOptions,
 ): Promise<boolean> {
@@ -76,13 +130,8 @@ function classifyChange(
   return !(stdout + stderr).includes(rule.outputNotContains);
 }
 
-function scopeFor(
-  context: Context,
-  bindings: ReadonlyMap<string, string>,
-): CommandScope {
+function scopeFor(bindings: ReadonlyMap<string, string>): CommandScope {
   return {
-    home: context.home,
-    basePath: context.basePath,
     ref(name) {
       const value = bindings.get(name);
       if (value === undefined) {
@@ -95,27 +144,36 @@ function scopeFor(
   };
 }
 
+export function commandReadKey(read: CommandRead): string {
+  return typeof read === 'string' ? read : read.key;
+}
+
 /**
- * Read the assets declared in `reads` into the initial bindings, so a version
- * file surfaces as `s.ref('version')` to every step's thunk.
+ * Seed the scope with the reserved host facts (`home`, `basePath`) and the assets
+ * declared in `reads`, so every step's tokens resolve against one map. A `derive`
+ * read binds a transform of the raw content; otherwise the trimmed value is bound
+ * after an optional `validate`.
  */
 async function readBindings(
   reads: Readonly<Record<string, CommandRead>>,
   context: Context,
 ): Promise<Map<string, string>> {
-  const bindings = new Map<string, string>();
+  const bindings = new Map<string, string>([
+    ['home', context.home],
+    ['basePath', context.basePath],
+  ]);
   for (const [name, read] of Object.entries(reads)) {
     const key = commandReadKey(read);
-    const raw = await context.assets.read(key);
-    const value = raw.toString().trim();
+    const raw = (await context.assets.read(key)).toString();
+    if (typeof read !== 'string' && 'derive' in read) {
+      bindings.set(name, read.derive(raw));
+      continue;
+    }
+    const value = raw.trim();
     if (typeof read !== 'string') read.validate(value, key);
     bindings.set(name, value);
   }
   return bindings;
-}
-
-export function commandReadKey(read: CommandRead): string {
-  return typeof read === 'string' ? read : read.key;
 }
 
 export async function runCommandActivation(
@@ -125,11 +183,11 @@ export async function runCommandActivation(
   const base = describeCommand(activation);
   return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
+    const scope = scopeFor(bindings);
     const entries: StepReport[] = [];
 
     for (const step of activation.steps) {
-      const scope = scopeFor(context, bindings);
-      const argv = step.argv(scope);
+      const argv = resolveArgs(step.argv, scope);
       const [command, ...args] = argv;
       const label = step.label;
       if (!command) {
@@ -137,20 +195,17 @@ export async function runCommandActivation(
           `Command step '${label}' produced no argv.`,
         );
       }
+      const env = step.env ? resolveEnv(step.env, scope) : undefined;
 
       if (
         step.skipIf &&
-        (await guardMatches(step.skipIf(scope), context, {
-          env: step.env?.(scope),
-        }))
+        (await guardMatches(resolveGuard(step.skipIf, scope), context, { env }))
       ) {
         entries.push({ key: label, value: 'skipped', status: 'unchanged' });
         continue;
       }
 
-      const result = await context.commands.run(command, args, {
-        env: step.env?.(scope),
-      });
+      const result = await context.commands.run(command, args, { env });
 
       if (result.code !== 0) {
         entries.push({

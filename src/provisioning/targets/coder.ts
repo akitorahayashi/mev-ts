@@ -9,6 +9,7 @@ import {
   link,
   remoteInstaller,
   runCommand,
+  versionCheckStep,
 } from '../activation';
 import { target } from '../target';
 
@@ -64,30 +65,22 @@ export const coderTarget = target('coder', {
     }),
     runCommand({
       label: 'coder CLIs',
-      intentVersion: 1,
       steps: [
         brewPrefixCapture(),
-        {
-          label: 'claude --version',
-          argv: (s) => [`${s.home}/.local/bin/claude`, '--version'],
-          changedWhen: 'never',
-        },
-        {
-          label: 'codex --version',
-          argv: (s) => [`${s.home}/.local/bin/codex`, '--version'],
-          changedWhen: 'never',
-        },
-        {
-          label: 'agy --version',
-          argv: (s) => [`${s.home}/.local/bin/agy`, '--version'],
-          changedWhen: 'never',
-        },
-        {
-          label: 'rtk --version',
-          argv: () => ['rtk', '--version'],
-          env: (s) => brewPath(s, [`${s.home}/.local/bin`]),
-          changedWhen: 'never',
-        },
+        versionCheckStep('claude --version', {
+          concat: [{ ref: 'home' }, '/.local/bin/claude'],
+        }),
+        versionCheckStep('codex --version', {
+          concat: [{ ref: 'home' }, '/.local/bin/codex'],
+        }),
+        versionCheckStep('agy --version', {
+          concat: [{ ref: 'home' }, '/.local/bin/agy'],
+        }),
+        versionCheckStep(
+          'rtk --version',
+          'rtk',
+          brewPath([{ concat: [{ ref: 'home' }, '/.local/bin'] }]),
+        ),
       ],
     }),
     link(asset('coder/claude/settings.json'), home('.claude/settings.json')),

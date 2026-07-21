@@ -6,7 +6,8 @@ export type {
   ActivationReport,
   ActivationStatus,
   ChangedWhen,
-  CommandScope,
+  CommandArg,
+  CommandEnvValue,
   CommandStep,
   Described,
   StepGuard,
@@ -25,4 +26,5 @@ export { applyPipx, pipxConfigAssets } from './pipx';
 export { releaseBinaries, releaseConfigAssets } from './release';
 export { remoteInstaller } from './remote-installer';
 export { link, linkTree, migrateLegacySymlinks } from './symlink';
+export { versionCheckStep } from './version-check';
 export { zedSettings, zedSettingsConfigAssets } from './zed';

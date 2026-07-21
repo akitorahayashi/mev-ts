@@ -66,7 +66,6 @@ export type Activation =
   | {
       readonly kind: 'command';
       readonly label: string;
-      readonly intentVersion: number;
       readonly reads?: Readonly<Record<string, CommandRead>>;
       readonly steps: readonly CommandStep[];
     }
@@ -87,35 +86,59 @@ export type Activation =
     };
 
 /**
- * Resolved inputs available to a command step's thunks. `home` and `basePath`
- * (the inherited `PATH`) are host facts; `ref` looks up an asset value declared
- * in `reads` or the stdout of a prior `capture` step by name, throwing when the
- * name is absent so a missing capture fails loudly rather than rendering as an
- * `undefined` argument.
+ * The named values a command step resolves against at apply time: `home` and
+ * `basePath` (the inherited `PATH`) as reserved host facts, plus every asset
+ * declared in `reads` and the stdout of any prior `capture` step. Looking up an
+ * absent name throws, so a missing capture fails loudly rather than rendering as
+ * an `undefined` argument.
  */
 export interface CommandScope {
-  readonly home: string;
-  readonly basePath: string;
   ref(name: string): string;
 }
 
 /**
- * A named asset read for a command activation. A bare string is the asset key;
- * the object form adds a `validate` guard. `validate` receives the trimmed value
- * exactly as it will be bound into the scope (not the raw file bytes) and asserts
- * by throwing — its return value is intentionally `void`, so it cannot transform
- * the binding. Validate and bind operate on the same string.
+ * A declarative argv token, resolved at apply time. Kept as data (not a thunk)
+ * so the signature can hash it: an edit to the command structure flips the
+ * signature without a manual counter. A bare string is a literal; `ref` is a
+ * single scope value; `concat` joins its resolved parts into one argument; and
+ * `splitRef` expands a whitespace-separated scope value into zero or more
+ * arguments.
+ */
+export type CommandArg =
+  | string
+  | { readonly ref: string }
+  | { readonly concat: readonly CommandArg[] }
+  | { readonly splitRef: string };
+
+/**
+ * A declarative environment value. `pathList` resolves each segment, drops the
+ * empty ones, and joins with `:` — the PATH-composition shape — so an absent
+ * inherited PATH leaves no trailing separator.
+ */
+export type CommandEnvValue =
+  | string
+  | { readonly ref: string }
+  | { readonly concat: readonly CommandArg[] }
+  | { readonly pathList: readonly CommandArg[] };
+
+/**
+ * A named asset read for a command activation. A bare string is the asset key.
+ * The object form adds one of: `validate`, a throwing-only guard over the
+ * trimmed value exactly as it will be bound (its `void` return cannot transform
+ * the binding); or `derive`, which maps the raw asset content to the bound value
+ * (throwing to reject), for a read whose bound form is a transform of the file.
  */
 export type CommandRead =
   | string
   | {
       readonly key: string;
       readonly validate: (value: string, path: string) => void;
-    };
+    }
+  | { readonly key: string; readonly derive: (raw: string) => string };
 
 export type StepGuard =
-  | { readonly pathExists: string }
-  | { readonly commandSucceeds: readonly string[] };
+  | { readonly pathExists: CommandArg }
+  | { readonly commandSucceeds: readonly CommandArg[] };
 
 export type ChangedWhen =
   | 'always'
@@ -124,16 +147,16 @@ export type ChangedWhen =
   | { readonly outputNotContains: string };
 
 /**
- * One step of a command pipeline. Thunks resolve against the live scope so the
- * definition stays declarative TS rather than a string template. `skipIf` is the
- * idempotency guard (Ansible `creates:`/`when:`), `capture` registers stdout into
- * the scope for later steps, and `changedWhen` classifies a successful run.
+ * One step of a command pipeline, declarative so the signature can hash it.
+ * `skipIf` is the idempotency guard (Ansible `creates:`/`when:`), `capture`
+ * registers stdout into the scope for later steps, and `changedWhen` classifies
+ * a successful run.
  */
 export interface CommandStep {
   readonly label: string;
-  readonly argv: (scope: CommandScope) => readonly string[];
-  readonly env?: (scope: CommandScope) => Readonly<Record<string, string>>;
-  readonly skipIf?: (scope: CommandScope) => StepGuard;
+  readonly argv: readonly CommandArg[];
+  readonly env?: Readonly<Record<string, CommandEnvValue>>;
+  readonly skipIf?: StepGuard;
   readonly capture?: string;
   readonly changedWhen?: ChangedWhen;
 }

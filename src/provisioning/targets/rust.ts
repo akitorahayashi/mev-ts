@@ -31,7 +31,6 @@ export const rustTarget = target('rust', {
     }),
     runCommand({
       label: 'rust toolchain',
-      intentVersion: 1,
       reads: {
         version: 'rust/.rust-version',
         targets: 'rust/targets',
@@ -40,43 +39,47 @@ export const rustTarget = target('rust', {
       steps: [
         {
           label: 'rustup default',
-          argv: (s) => [
-            `${s.home}/.cargo/bin/rustup`,
+          argv: [
+            { concat: [{ ref: 'home' }, '/.cargo/bin/rustup'] },
             'default',
-            s.ref('version'),
+            { ref: 'version' },
           ],
-          skipIf: (s) => ({
+          skipIf: {
             commandSucceeds: [
               'sh',
               '-c',
-              `"${s.home}/.cargo/bin/rustup" default | grep -q "${s.ref('version')}"`,
+              {
+                concat: [
+                  '"',
+                  { ref: 'home' },
+                  '/.cargo/bin/rustup" default | grep -q "',
+                  { ref: 'version' },
+                  '"',
+                ],
+              },
             ],
-          }),
+          },
         },
         {
           label: 'rustup component add',
-          argv: (s) => [
-            `${s.home}/.cargo/bin/rustup`,
+          argv: [
+            { concat: [{ ref: 'home' }, '/.cargo/bin/rustup'] },
             'component',
             'add',
-            ...s.ref('components').split(/\s+/).filter(Boolean),
+            { splitRef: 'components' },
           ],
-          skipIf: (s) => ({
-            commandSucceeds: ['test', '-z', s.ref('components')],
-          }),
+          skipIf: { commandSucceeds: ['test', '-z', { ref: 'components' }] },
           changedWhen: { outputContains: 'installing' },
         },
         {
           label: 'rustup target add',
-          argv: (s) => [
-            `${s.home}/.cargo/bin/rustup`,
+          argv: [
+            { concat: [{ ref: 'home' }, '/.cargo/bin/rustup'] },
             'target',
             'add',
-            ...s.ref('targets').split(/\s+/).filter(Boolean),
+            { splitRef: 'targets' },
           ],
-          skipIf: (s) => ({
-            commandSucceeds: ['test', '-z', s.ref('targets')],
-          }),
+          skipIf: { commandSucceeds: ['test', '-z', { ref: 'targets' }] },
           changedWhen: { outputContains: 'installing' },
         },
       ],

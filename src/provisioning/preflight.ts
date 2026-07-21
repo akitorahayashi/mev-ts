@@ -126,7 +126,10 @@ async function validateActivation(
     for (const read of Object.values(activation.reads ?? {})) {
       if (typeof read === 'string') continue;
       await validateAsset(read.key, assets, (raw, key) => {
-        read.validate(raw, key);
+        // Both object reads reject malformed content by throwing: `validate`
+        // asserts, `derive` throws while transforming.
+        if ('derive' in read) read.derive(raw);
+        else read.validate(raw, key);
       });
     }
   }

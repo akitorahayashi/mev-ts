@@ -2,7 +2,13 @@ import { createHash } from 'node:crypto';
 import type { AssetSource } from '../assets/registry';
 import type { PackageRequirement } from '../brew/package';
 import { commandReadKey } from './activation/command';
-import type { Activation, ChangedWhen } from './activation/contract';
+import type {
+  Activation,
+  ChangedWhen,
+  CommandArg,
+  CommandEnvValue,
+  StepGuard,
+} from './activation/contract';
 import type { Target } from './target';
 
 type ActivationIntent =
@@ -44,7 +50,6 @@ type ActivationIntent =
   | {
       readonly kind: 'command';
       readonly label: string;
-      readonly intentVersion: number;
       readonly reads: readonly (readonly [string, string])[];
       readonly steps: readonly CommandStepIntent[];
     }
@@ -70,6 +75,9 @@ type ChangedWhenIntent =
 
 interface CommandStepIntent {
   readonly label: string;
+  readonly argv: readonly CommandArg[];
+  readonly env: readonly (readonly [string, CommandEnvValue])[];
+  readonly skipIf: StepGuard | null;
   readonly capture: string | null;
   readonly changedWhen: ChangedWhenIntent;
 }
@@ -155,12 +163,16 @@ function activationIntent(activation: Activation): ActivationIntent {
       return {
         kind: activation.kind,
         label: activation.label,
-        intentVersion: activation.intentVersion,
         reads: Object.entries(activation.reads ?? {})
           .map(([name, read]) => [name, commandReadKey(read)] as const)
           .sort(([left], [right]) => left.localeCompare(right)),
         steps: activation.steps.map((step) => ({
           label: step.label,
+          argv: step.argv,
+          env: Object.entries(step.env ?? {}).sort(([left], [right]) =>
+            left.localeCompare(right),
+          ),
+          skipIf: step.skipIf ?? null,
           capture: step.capture ?? null,
           changedWhen: changedWhenIntent(step.changedWhen),
         })),
