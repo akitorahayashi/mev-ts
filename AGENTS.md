@@ -17,19 +17,19 @@ src/
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
       config/    Config toggle commands built by defineConfigCommand (aliased `cf`)
-    tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), and the interactive toggle prompt
+    tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), transient-line.ts (animated-progress line over an injected stream), and the interactive toggle prompt
   config-selection/ Shared config-selection manifest parser/resolver
   defaults/      macOS defaults manifest parser and protocol helpers
   duti/          duti file-association state probes and apply operations
   editor/        Editor extension list and install operations
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), transaction.ts (atomic staging)
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), transaction.ts (atomic staging), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
     gh/          GitHub CLI wrappers
-    git/         Git wrappers; run.ts shares the step/capture helpers (LC_ALL-pinned)
+    git/         Git wrappers (branches, clone, submodule)
   pipx/          pipx install, inject, and post-install operations
   provisioning/
     activation/  Activation DSL vocabulary, per-kind runners, reconcile envelope, manifest loader
@@ -76,7 +76,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Semantic Sync
 
-`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command activations expose their semantic intent through labels, asset reads, steps, and an explicit `intentVersion`. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
+`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command activations are declarative and hashed — their argv, env, and `skipIf` are declarative token data included in the target signature, so a command edit flips the signature without a manual version counter. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
 
 ### CLI
 
@@ -84,10 +84,10 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 
 ### Key Types
 
-- `Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath }`, injected through every provisioning call; `basePath` is the inherited PATH read once in `createContext`. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient environment at spawn. Tests supply fakes via `tests/fixtures/`.
+- `Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`, injected through every provisioning call; `basePath` is the inherited PATH read once in `createContext`, and `tmpRoot` is the scratch root (defaulting to the system temp dir) that tests point at a sandbox. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient environment at spawn. Tests supply fakes via `tests/fixtures/`.
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
-- `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). Every mev-managed host path derives from it; none hardcodes `.mev` or a parallel root.
+- `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). `host/path.ts` also exports `mevPath(...segments)`, the sole builder composing mev-owned sub-paths on `mevRoot`, so every mev-managed host path derives from it and no call site hardcodes the `.mev` literal or a parallel root.
 - `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, optional pre-deploy preservation, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution.
 - `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
 
