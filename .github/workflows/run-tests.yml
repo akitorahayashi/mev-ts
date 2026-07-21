@@ -13,7 +13,7 @@ permissions:
 jobs:
   run-tests:
     name: Run ${{ matrix.type }} tests
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     strategy:
       fail-fast: false

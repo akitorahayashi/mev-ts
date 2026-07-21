@@ -17,7 +17,7 @@ jobs:
     if: "!startsWith(github.ref, 'refs/tags/')"
     permissions:
       contents: read
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -47,7 +47,7 @@ jobs:
           - target: bun-darwin-arm64
             artifact: mev-darwin-arm64
 
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -90,7 +90,7 @@ jobs:
         artifact:
           - mev-darwin-x64
           - mev-darwin-arm64
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Download Build Artifact

@@ -20,7 +20,7 @@ export interface Context {
 
 /** Resolve the current user's home directory or surface a typed failure. */
 export function resolveHome(): string {
-  const home = process.env.HOME ?? homedir();
+  const home = process.env['HOME'] ?? homedir();
   if (!home) {
     throw new ProvisioningError('Unable to resolve the home directory.');
   }
@@ -35,7 +35,7 @@ export function createContext(): Context {
     assets: embeddedAssets,
     // The one place mev reads the ambient PATH; the empty-string fallback is the
     // documented default when PATH is unset.
-    basePath: process.env.PATH ?? '',
+    basePath: process.env['PATH'] ?? '',
     tmpRoot: tmpdir(),
   };
 }

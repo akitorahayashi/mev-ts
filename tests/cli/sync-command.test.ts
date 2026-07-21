@@ -41,12 +41,12 @@ async function runSync(
   sandbox: string,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const streams = captureStreams();
-  const previousHome = process.env.HOME;
-  const previousPath = process.env.PATH;
+  const previousHome = process.env['HOME'];
+  const previousPath = process.env['PATH'];
   const bin = join(sandbox, 'bin');
   await mkdir(bin, { recursive: true });
-  process.env.HOME = sandbox;
-  process.env.PATH = bin;
+  process.env['HOME'] = sandbox;
+  process.env['PATH'] = bin;
   try {
     const code = await runCommandLine(['sync'], {
       colorDepth: 1,

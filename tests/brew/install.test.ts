@@ -142,17 +142,17 @@ test('allocates Brewfile scratch under the configured temporary root', async () 
     async (dir) => {
       const root = join(dir, 'tmp root');
       await mkdir(root);
-      const previous = Bun.env.TMPDIR;
-      Bun.env.TMPDIR = root;
+      const previous = Bun.env['TMPDIR'];
+      Bun.env['TMPDIR'] = root;
       const sink: Sink = {};
 
       try {
         await installPackages(oneFormula, brewContext({}, sink));
       } finally {
         if (previous === undefined) {
-          delete Bun.env.TMPDIR;
+          delete Bun.env['TMPDIR'];
         } else {
-          Bun.env.TMPDIR = previous;
+          Bun.env['TMPDIR'] = previous;
         }
       }
 

@@ -18,7 +18,7 @@ interface InstallOptions {
 }
 
 function defaultInstallDir(): string {
-  return process.env.MEV_INSTALL_DIR ?? join(homedir(), '.local', 'bin');
+  return process.env['MEV_INSTALL_DIR'] ?? join(homedir(), '.local', 'bin');
 }
 
 export async function installLocalMev(

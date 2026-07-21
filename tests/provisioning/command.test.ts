@@ -261,7 +261,7 @@ test('skipIf with a satisfied commandSucceeds guard runs with step env', async (
     home: '/home/u',
     assets: rubyAssets,
     respond: (command, _args, options) => {
-      if (command === 'check' && options?.env?.FOO === 'bar') {
+      if (command === 'check' && options?.env?.['FOO'] === 'bar') {
         return ok();
       }
       return { code: 1, stdout: '', stderr: '' };

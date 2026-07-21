@@ -20,7 +20,7 @@ export function parseExtensions(raw: string, path: string): string[] {
   const record = requireRecord(parsed, `Extensions manifest ${path}`);
   requireExactKeys(record, ['extensions'], `Extensions manifest ${path}`);
   const extensions = requireStringArray(
-    record.extensions,
+    record['extensions'],
     `Extensions manifest ${path}: 'extensions'`,
   );
   if (!extensions.every((extension) => extension.trim().length > 0)) {

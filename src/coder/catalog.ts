@@ -57,17 +57,17 @@ export function parseSectionCatalog(raw: string, path: string): string[] {
     `AGENTS.md section catalog ${path}`,
   );
   requireExactKeys(parsed, ['sections'], `AGENTS.md section catalog ${path}`);
-  if (!Array.isArray(parsed.sections)) {
+  if (!Array.isArray(parsed['sections'])) {
     throw new ProvisioningError(
       `AGENTS.md section catalog must contain a sections sequence: ${path}.`,
     );
   }
-  if (!parsed.sections.every((entry) => typeof entry === 'string')) {
+  if (!parsed['sections'].every((entry) => typeof entry === 'string')) {
     throw new ProvisioningError(
       `AGENTS.md section catalog must contain a sections sequence of strings: ${path}.`,
     );
   }
-  const listed = parsed.sections;
+  const listed = parsed['sections'];
   if (listed.some((name) => name.length === 0)) {
     throw new ProvisioningError(
       `AGENTS.md section catalog must contain non-empty section names: ${path}.`,

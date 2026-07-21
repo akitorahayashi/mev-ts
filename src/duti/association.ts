@@ -24,7 +24,7 @@ export function parseAssociations(raw: string, path: string): Association[] {
     );
   }
   requireExactKeys(parsed, ['default_apps'], `Duti config ${path}`);
-  const defaultApps = isRecord(parsed) ? parsed.default_apps : undefined;
+  const defaultApps = isRecord(parsed) ? parsed['default_apps'] : undefined;
   if (!Array.isArray(defaultApps)) {
     throw new ProvisioningError(
       `Duti config must contain a default_apps sequence: ${path}`,
@@ -41,7 +41,7 @@ export function parseAssociations(raw: string, path: string): Association[] {
       ['bundle_id', 'extensions'],
       'Invalid entry in duti config',
     );
-    const bundleId = app.bundle_id;
+    const bundleId = app['bundle_id'];
     if (typeof bundleId !== 'string' || bundleId.length === 0) {
       throw new ProvisioningError(
         'Invalid entry in duti config: each app must have a string bundle_id.',
@@ -52,7 +52,7 @@ export function parseAssociations(raw: string, path: string): Association[] {
         `Invalid entry in duti config for '${bundleId}': bundle_id must be a reverse-DNS identifier.`,
       );
     }
-    const extensions = app.extensions;
+    const extensions = app['extensions'];
     if (!Array.isArray(extensions)) {
       throw new ProvisioningError(
         'Invalid entry in duti config: each app must have an extensions array.',

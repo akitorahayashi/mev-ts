@@ -59,9 +59,9 @@ export function globalPackageArgs(raw: string): string[] {
     ['dependencies', 'globalPackages'],
     'pnpm global packages manifest',
   );
-  const dependencies = packageMap(parsed.dependencies, 'dependencies') ?? {};
+  const dependencies = packageMap(parsed['dependencies'], 'dependencies') ?? {};
   const globalPackages =
-    packageMap(parsed.globalPackages, 'globalPackages') ?? {};
+    packageMap(parsed['globalPackages'], 'globalPackages') ?? {};
   const dependencyNames = new Set(
     Object.keys(dependencies).map(packageNameKey),
   );

@@ -34,7 +34,7 @@ export function parseTools(raw: string, path: string): PipxTool[] {
     );
   }
   requireExactKeys(parsed, ['tools'], `Pipx config ${path}`);
-  const tools = parsed.tools;
+  const tools = parsed['tools'];
   if (!Array.isArray(tools)) {
     throw new ProvisioningError(
       `Pipx config must contain a tools sequence: ${path}`,
@@ -61,36 +61,37 @@ function parseTool(entry: unknown): PipxTool {
     'Invalid entry in pipx config',
   );
   if (
-    typeof entry.package !== 'string' ||
-    entry.package.length === 0 ||
-    entry.package.startsWith('-')
+    typeof entry['package'] !== 'string' ||
+    entry['package'].length === 0 ||
+    entry['package'].startsWith('-')
   ) {
     throw new ProvisioningError(
       'Invalid entry in pipx config: each tool must have a package name that does not start with a dash.',
     );
   }
-  const pkg = entry.package;
+  const pkg = entry['package'];
   if (
-    entry.version !== undefined &&
-    (typeof entry.version !== 'string' || entry.version.length === 0)
+    entry['version'] !== undefined &&
+    (typeof entry['version'] !== 'string' || entry['version'].length === 0)
   ) {
     throw new ProvisioningError(
       `Invalid entry in pipx config for '${pkg}': 'version' must be a non-empty string.`,
     );
   }
   if (
-    entry.install_spec !== undefined &&
-    (typeof entry.install_spec !== 'string' || entry.install_spec.length === 0)
+    entry['install_spec'] !== undefined &&
+    (typeof entry['install_spec'] !== 'string' ||
+      entry['install_spec'].length === 0)
   ) {
     throw new ProvisioningError(
       `Invalid entry in pipx config for '${pkg}': 'install_spec' must be a non-empty string.`,
     );
   }
   const inject =
-    entry.inject === undefined
+    entry['inject'] === undefined
       ? undefined
       : requireStringArray(
-          entry.inject,
+          entry['inject'],
           `Invalid entry in pipx config for '${pkg}': 'inject'`,
         );
   if (inject) {
@@ -106,13 +107,13 @@ function parseTool(entry: unknown): PipxTool {
     );
   }
   const post_install =
-    entry.post_install === undefined
+    entry['post_install'] === undefined
       ? undefined
-      : parsePostInstall(entry.post_install, pkg);
+      : parsePostInstall(entry['post_install'], pkg);
   return {
     package: pkg,
-    version: entry.version,
-    install_spec: entry.install_spec,
+    version: entry['version'],
+    install_spec: entry['install_spec'],
     inject,
     post_install,
   };
@@ -129,22 +130,22 @@ function parsePostInstall(value: unknown, pkg: string): PostInstall {
     `Invalid entry in pipx config for '${pkg}': 'post_install'`,
   );
   if (
-    typeof record.bin !== 'string' ||
-    record.bin.length === 0 ||
-    record.bin !== basename(record.bin) ||
-    record.bin === '.' ||
-    record.bin === '..'
+    typeof record['bin'] !== 'string' ||
+    record['bin'].length === 0 ||
+    record['bin'] !== basename(record['bin']) ||
+    record['bin'] === '.' ||
+    record['bin'] === '..'
   ) {
     throw new ProvisioningError(
       `Invalid entry in pipx config for '${pkg}': 'post_install.bin' must be a basename executable.`,
     );
   }
   const args =
-    record.args === undefined
+    record['args'] === undefined
       ? undefined
       : requireStringArray(
-          record.args,
+          record['args'],
           `Invalid entry in pipx config for '${pkg}': 'post_install.args'`,
         );
-  return { bin: record.bin, args };
+  return { bin: record['bin'], args };
 }

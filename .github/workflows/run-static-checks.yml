@@ -13,7 +13,7 @@ permissions:
 jobs:
   run-static-checks:
     name: Run Static Checks
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -24,3 +24,6 @@ jobs:
 
       - name: Run Repository Checks
         run: bun run check
+
+      - name: Lint Asset Shell Scripts
+        run: find src/assets/config -name '*.sh' -exec shellcheck {} +

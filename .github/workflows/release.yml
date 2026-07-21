@@ -13,7 +13,7 @@ jobs:
   validate-release:
     permissions:
       contents: read
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -27,7 +27,7 @@ jobs:
       - validate-release
     permissions:
       contents: write
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
     outputs:
       release_id: ${{ steps.prepare.outputs.release_id }}
 
@@ -57,7 +57,7 @@ jobs:
       - build-and-upload
     permissions:
       contents: write
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - uses: akitorahayashi/gh-release@v1

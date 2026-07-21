@@ -131,7 +131,7 @@ function installerEnv(
     resolveHostPath(path, context.home),
   );
   if (pathPrefix && pathPrefix.length > 0) {
-    env.PATH = [...pathPrefix, context.basePath].filter(Boolean).join(':');
+    env['PATH'] = [...pathPrefix, context.basePath].filter(Boolean).join(':');
   }
   return Object.keys(env).length > 0 ? env : undefined;
 }
