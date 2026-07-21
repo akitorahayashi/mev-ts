@@ -94,3 +94,22 @@ sandboxTest(
     expect(await readlink(join(root, 'a'))).toBe(join(source, 'a'));
   },
 );
+
+sandboxTest('keeps stale managed links when a placement fails', async (dir) => {
+  const { source, root } = await scaffold(dir);
+  await writeFile(join(source, 'stale'), 's');
+  await symlink(join(source, 'stale'), join(root, 'stale'));
+  // A regular file where the desired link's parent must be, so placing it fails.
+  await writeFile(join(root, 'blocked'), 'x');
+
+  await expect(
+    reconcileManagedLinks(
+      root,
+      [`${source}/`],
+      [{ path: join(root, 'blocked', 'a'), target: join(source, 'a') }],
+    ),
+  ).rejects.toBeInstanceOf(Error);
+
+  // The stale link survives because pruning runs only after placement succeeds.
+  expect(await readlink(join(root, 'stale'))).toBe(join(source, 'stale'));
+});

@@ -1,6 +1,6 @@
 export { brewPath, brewPrefixCapture } from './brew-path';
 export { coderAgents, coderAgentsConfigAssets, coderSkills } from './coder';
-export { runCommand } from './command';
+export { bindCommandRead, commandReadKey, runCommand } from './command';
 export type {
   Activation,
   ActivationReport,

@@ -25,5 +25,8 @@ jobs:
       - name: Run Repository Checks
         run: bun run check
 
+      - name: Install ShellCheck
+        run: brew install shellcheck
+
       - name: Lint Asset Shell Scripts
         run: find src/assets/config -name '*.sh' -exec shellcheck {} +

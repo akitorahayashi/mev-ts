@@ -149,10 +149,23 @@ export function commandReadKey(read: CommandRead): string {
 }
 
 /**
+ * The bound value of a command read, given the raw asset content. A `derive` read
+ * binds a transform of the untrimmed content; otherwise the trimmed value is
+ * bound after an optional `validate` over that same trimmed value. The single
+ * owner of read semantics, shared by runtime binding and preflight so both accept
+ * and reject identical content.
+ */
+export function bindCommandRead(read: CommandRead, raw: string): string {
+  if (typeof read === 'string') return raw.trim();
+  if ('derive' in read) return read.derive(raw);
+  const value = raw.trim();
+  read.validate(value, read.key);
+  return value;
+}
+
+/**
  * Seed the scope with the reserved host facts (`home`, `basePath`) and the assets
- * declared in `reads`, so every step's tokens resolve against one map. A `derive`
- * read binds a transform of the raw content; otherwise the trimmed value is bound
- * after an optional `validate`.
+ * declared in `reads`, so every step's tokens resolve against one map.
  */
 async function readBindings(
   reads: Readonly<Record<string, CommandRead>>,
@@ -163,15 +176,8 @@ async function readBindings(
     ['basePath', context.basePath],
   ]);
   for (const [name, read] of Object.entries(reads)) {
-    const key = commandReadKey(read);
-    const raw = (await context.assets.read(key)).toString();
-    if (typeof read !== 'string' && 'derive' in read) {
-      bindings.set(name, read.derive(raw));
-      continue;
-    }
-    const value = raw.trim();
-    if (typeof read !== 'string') read.validate(value, key);
-    bindings.set(name, value);
+    const raw = (await context.assets.read(commandReadKey(read))).toString();
+    bindings.set(name, bindCommandRead(read, raw));
   }
   return bindings;
 }

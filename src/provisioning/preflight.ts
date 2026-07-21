@@ -8,7 +8,9 @@ import { parseReleaseBinaries } from '../github/release';
 import { parseTools } from '../pipx/manifest';
 import { parseJsonObject } from '../zed/settings';
 import {
+  bindCommandRead,
   coderAgentsConfigAssets,
+  commandReadKey,
   defaultsConfigAssets,
   dutiConfigAssets,
   extensionsConfigAssets,
@@ -123,13 +125,12 @@ async function validateActivation(
     }
   }
   if (activation.kind === 'command') {
+    // Read and bind every declared key exactly as runtime will, so a missing
+    // asset (including a bare-string read) and any `validate`/`derive` rejection
+    // surface here rather than only during provisioning.
     for (const read of Object.values(activation.reads ?? {})) {
-      if (typeof read === 'string') continue;
-      await validateAsset(read.key, assets, (raw, key) => {
-        // Both object reads reject malformed content by throwing: `validate`
-        // asserts, `derive` throws while transforming.
-        if ('derive' in read) read.derive(raw);
-        else read.validate(raw, key);
+      await validateAsset(commandReadKey(read), assets, (raw) => {
+        bindCommandRead(read, raw);
       });
     }
   }

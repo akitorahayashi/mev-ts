@@ -15,8 +15,11 @@ export interface DesiredLink {
  * that is not desired is removed, and every desired link is created or
  * retargeted. Non-symlink entries and symlinks pointing outside the managed
  * prefixes are left untouched. Returns whether anything was removed, created, or
- * retargeted. Sole owner of the scan/remove-stale/place-desired reconciliation
- * shared by the tree and coder link fan-outs.
+ * retargeted. Sole owner of the place-desired/prune-stale reconciliation shared
+ * by the tree and coder link fan-outs. Desired links are placed before stale ones
+ * are pruned, so a placement failure leaves the stale links in place (a benign
+ * leftover the next successful run prunes) rather than a directory stripped of
+ * both its old and new links.
  */
 export async function reconcileManagedLinks(
   root: string,
@@ -29,6 +32,12 @@ export async function reconcileManagedLinks(
   const desiredPaths = new Set(desired.map((link) => link.path));
   let changed = false;
 
+  for (const link of desired) {
+    if (await isSymlinkTo(link.path, link.target)) continue;
+    await placeSymlink(link.path, link.target);
+    changed = true;
+  }
+
   const entries = (await readDirentsIfPresent(root)) ?? [];
   for (const entry of entries) {
     if (!entry.isSymbolicLink()) continue;
@@ -39,12 +48,6 @@ export async function reconcileManagedLinks(
       await rm(path, { force: true });
       changed = true;
     }
-  }
-
-  for (const link of desired) {
-    if (await isSymlinkTo(link.path, link.target)) continue;
-    await placeSymlink(link.path, link.target);
-    changed = true;
   }
 
   return changed;
