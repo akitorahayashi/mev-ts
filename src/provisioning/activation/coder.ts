@@ -51,6 +51,13 @@ export function coderAgents(
   return { kind: 'coderAgents', sectionsPrefix, dests };
 }
 
+/** The embedded section catalog a `coderAgents` activation validates. */
+export function coderAgentsConfigAssets(
+  activation: CoderAgentsActivation,
+): readonly string[] {
+  return [join(activation.sectionsPrefix, 'catalog.yml')];
+}
+
 /**
  * Build the intermediate skills directory from the enabled skills and symlink
  * each enabled skill into every agent tool's skills directory.

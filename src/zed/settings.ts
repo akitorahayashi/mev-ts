@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
+import { readDeployedText } from '../host/deployed-file';
 import { isRecord } from '../host/parse';
 import { combineOverrides, deepMerge, type JsonObject } from './merge';
 
@@ -33,12 +34,7 @@ export function parseJsonObject(
 }
 
 async function readJson(path: string, label: string): Promise<JsonObject> {
-  const raw = await readTextIfPresent(path);
-  if (raw === null) {
-    throw new ProvisioningError(
-      `${label} not found: ${path}. Run provisioning to deploy it first.`,
-    );
-  }
+  const raw = await readDeployedText(path, label);
   return parseJsonObject(raw, path, label);
 }
 

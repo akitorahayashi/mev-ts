@@ -1,4 +1,5 @@
 import { basename, extname } from 'node:path';
+import type { AssetSource } from '../../assets/registry';
 import {
   defaultsArg,
   defaultsTypeMatches,
@@ -16,6 +17,26 @@ type DefaultsActivation = Extract<Activation, { kind: 'defaults' }>;
 
 export function applyDefaults(configKey: string): Activation {
   return { kind: 'defaults', configKey };
+}
+
+/**
+ * Expand every embedded config asset under `prefix` into a `defaults` activation,
+ * deriving the set from the asset registry (as `linkTree` derives its links from
+ * the asset set) so a manifest added under the prefix is picked up without
+ * editing the target.
+ */
+export function applyDefaultsTree(
+  assets: AssetSource,
+  prefix: string,
+): Activation[] {
+  return assets.keysByPrefix(prefix).map((key) => applyDefaults(key));
+}
+
+/** The embedded config asset a `defaults` activation validates and reads. */
+export function defaultsConfigAssets(
+  activation: DefaultsActivation,
+): readonly string[] {
+  return [activation.configKey];
 }
 
 export function describeDefaults(activation: DefaultsActivation): Described {

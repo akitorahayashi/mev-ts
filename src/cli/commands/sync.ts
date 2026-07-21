@@ -1,10 +1,7 @@
 import { Command } from 'clipanion';
 import { createContext } from '../../host/context';
-import {
-  deployStorePruneLines,
-  pruneDeployStore,
-} from '../../provisioning/deploy-store';
-import { allTargets, fullSetupTargets } from '../../provisioning/registry';
+import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
+import { fullSetupTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import { isScanError, scanTargets } from '../../provisioning/scan';
 import { withAliasHint } from './alias-hint';
@@ -23,20 +20,9 @@ export class SyncCommand extends Command {
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
       const context = createContext();
-      const registeredTargets = allTargets();
-      const cleanup = await pruneDeployStore(
-        {
-          roles: registeredTargets.map((target) => target.role),
-          targets: registeredTargets.map((target) => target.name),
-        },
-        context,
+      await pruneObsoleteDeployState(context, (text) =>
+        this.context.stdout.write(text),
       );
-      const cleanupLines = deployStorePruneLines(cleanup);
-      if (cleanupLines.length > 0) {
-        this.context.stdout.write(
-          `mev: Cleaned obsolete provisioning state\n${cleanupLines.join('\n')}\n`,
-        );
-      }
 
       const scans = await scanTargets(fullSetupTargets(), context);
       let scanFailed = false;

@@ -5,6 +5,13 @@ import { toggle } from '../../tty/toggle';
 import { withAliasHint } from '../alias-hint';
 import { runReportingDomainErrors } from '../domain-error';
 
+/**
+ * Usage category shared by every `config` subcommand and the config namespace
+ * overview, so the overview's category filter cannot drift from the value the
+ * subcommands register under.
+ */
+export const CONFIG_CATEGORY = 'config';
+
 /** One config toggle surface: its routing, help text, and the two operations. */
 export interface ConfigCommandSpec {
   readonly paths: string[][];
@@ -29,7 +36,10 @@ export function defineConfigCommand(spec: ConfigCommandSpec) {
 
   return class extends Command {
     static override paths = spec.paths;
-    static override usage = Command.Usage({ category: 'config', description });
+    static override usage = Command.Usage({
+      category: CONFIG_CATEGORY,
+      description,
+    });
 
     clear = Option.Boolean('--clear', false, {
       description: spec.clearDescription,

@@ -1,11 +1,12 @@
 import { Command } from 'clipanion';
 import { renderNamespaceOverview } from '../../tty/namespace-overview';
 import { withAliasHint } from '../alias-hint';
+import { CONFIG_CATEGORY } from './command';
 
 export class ConfigHelpCommand extends Command {
   static override paths = [['config'], ['cf']];
   static override usage = Command.Usage({
-    category: 'config',
+    category: CONFIG_CATEGORY,
     description: withAliasHint(
       'Show config subcommands.',
       ConfigHelpCommand.paths,
@@ -19,7 +20,7 @@ export class ConfigHelpCommand extends Command {
         binaryName: this.cli.binaryName,
         invokedPath: this.path,
         canonicalPath: canonical,
-        category: 'config',
+        category: CONFIG_CATEGORY,
         definitions: this.cli.definitions(),
       }),
     );

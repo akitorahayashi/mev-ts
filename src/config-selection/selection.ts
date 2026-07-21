@@ -23,8 +23,6 @@ export type SelectionMode = 'opt-in' | 'opt-out';
 export interface Selection {
   /** Catalog entries that are on, in catalog order. */
   readonly enabled: readonly string[];
-  /** Catalog entries that are off, in catalog order. */
-  readonly disabled: readonly string[];
   /** Stored names the catalog does not contain (skew), surfaced as warnings. */
   readonly unknown: readonly string[];
 }
@@ -45,13 +43,11 @@ export function resolveSelection(
   if (mode === 'opt-out') {
     return {
       enabled: split.excluded,
-      disabled: split.included,
       unknown: split.unknown,
     };
   }
   return {
     enabled: split.included,
-    disabled: split.excluded,
     unknown: split.unknown,
   };
 }

@@ -8,6 +8,7 @@ import {
   type Identity,
   type IdentityState,
   identityFilePath,
+  makeIdentity,
   readState,
   saveState,
 } from '../identity/store';
@@ -113,15 +114,16 @@ function resolveInput(
   scope: IdentityScope,
   input: IdentityInput,
 ): Identity | null {
-  const name = input.name.trim();
-  const email = input.email.trim();
-  if (name === '' && email === '') return null;
-  if (name === '' || email === '') {
+  // Exactly one blank field is the only mistake this layer owns: the user meant
+  // to configure the scope but left half of it empty. The both-blank (clear) and
+  // fully-filled (valid) cases delegate to makeIdentity, the single source of
+  // truth for identity validity.
+  if ((input.name.trim() === '') !== (input.email.trim() === '')) {
     throw new AppError(
       `The ${scope} identity needs both a name and an email; leave both blank to clear it.`,
     );
   }
-  return { name, email };
+  return makeIdentity(input.name, input.email);
 }
 
 async function readCurrent(

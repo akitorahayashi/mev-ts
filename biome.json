@@ -9,7 +9,7 @@
       "!references",
       "!src/assets/registry.generated.ts",
       "!src/assets/config",
-      "src/assets/config/coder/skills/jules-task-delegation/scripts/create-session.ts"
+      "src/assets/config/**/*.ts"
     ]
   },
   "formatter": {

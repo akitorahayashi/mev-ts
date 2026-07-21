@@ -22,6 +22,13 @@ export function releaseBinaries(configKey: string): Activation {
   return { kind: 'release', configKey };
 }
 
+/** The embedded config asset a `release` activation validates and reads. */
+export function releaseConfigAssets(
+  activation: ReleaseActivation,
+): readonly string[] {
+  return [activation.configKey];
+}
+
 export function describeRelease(): Described {
   return { verb: 'apply', source: 'release binaries', dest: `~/${BIN_DIR}` };
 }

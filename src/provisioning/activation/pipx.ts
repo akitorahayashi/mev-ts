@@ -22,6 +22,13 @@ export function applyPipx(configKey: string): Activation {
   return { kind: 'pipx', configKey };
 }
 
+/** The embedded config asset a `pipx` activation validates and reads. */
+export function pipxConfigAssets(
+  activation: PipxActivation,
+): readonly string[] {
+  return [activation.configKey];
+}
+
 export function describePipx(activation: PipxActivation): Described {
   return {
     verb: 'apply',

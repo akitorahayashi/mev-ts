@@ -130,7 +130,7 @@ async function deployedEntries(
 }
 
 /** Whether a deployed role differs from the assets embedded in this binary. */
-export async function roleHasDrift(
+async function roleHasDrift(
   role: string,
   context: Pick<Context, 'home' | 'assets'>,
 ): Promise<boolean> {

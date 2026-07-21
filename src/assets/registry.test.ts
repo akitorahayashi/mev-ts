@@ -1,9 +1,11 @@
 import { expect, test } from 'bun:test';
 import { embeddedAssets } from './registry';
 
-// Scripts deployed as host executables. `executableAssets` is derived from the
-// checkout's mode bits, so a dropped +x would ship one of these non-executable;
-// this guard is the independent reference that fails first when that happens.
+// Scripts deployed as host executables. This hand-maintained allowlist is the
+// independent reference for which assets must ship with the owner-execute bit —
+// intentionally not derived from a mode-bit scan, which would only restate the
+// code under test. A dropped +x fails the positive checks; a newly executable
+// asset that skips this list fails the completeness check.
 const EXECUTABLE_KEYS = [
   'coder/antigravity-cli/statusline.sh',
   'coder/claude/statusline.sh',
@@ -19,6 +21,10 @@ for (const key of EXECUTABLE_KEYS) {
   });
 }
 
-test('a plain config asset is not marked executable', () => {
-  expect(embeddedAssets.isExecutable('pipx/tools.yml')).toBe(false);
+test('no embedded asset outside the allowlist carries the execute bit', () => {
+  const listed = new Set(EXECUTABLE_KEYS);
+  const unlisted = embeddedAssets
+    .keysByPrefix('')
+    .filter((key) => !listed.has(key) && embeddedAssets.isExecutable(key));
+  expect(unlisted).toEqual([]);
 });

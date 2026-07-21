@@ -12,7 +12,7 @@ function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status });
 }
 
-test('importing the Jules script has no process or network side effects', () => {
+test('the Jules script exposes createJulesSession as an importable function', () => {
   expect(typeof createJulesSession).toBe('function');
 });
 

@@ -34,6 +34,13 @@ export function zedSettings(
   return { kind: 'zedSettings', base, overridesPrefix, dest };
 }
 
+/** The embedded base settings a `zedSettings` activation validates. */
+export function zedSettingsConfigAssets(
+  activation: ZedSettingsActivation,
+): readonly string[] {
+  return [activation.base.key];
+}
+
 export function describeZedSettings(
   activation: ZedSettingsActivation,
 ): Described {

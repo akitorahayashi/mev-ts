@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
+import { readDeployedText } from '../host/deployed-file';
 
 /** Title that precedes the concatenated sections. */
 const TITLE = '# Rules';
@@ -18,12 +18,7 @@ export async function renderAgents(
   let document = `${TITLE}\n\n`;
   for (const name of enabled) {
     const path = join(sourceDir, `${name}.md`);
-    const body = await readTextIfPresent(path);
-    if (body === null) {
-      throw new ProvisioningError(
-        `AGENTS.md section '${name}' not found: ${path}. Run provisioning to deploy it first.`,
-      );
-    }
+    const body = await readDeployedText(path, `AGENTS.md section '${name}'`);
     document += `${body.trimEnd()}\n\n`;
   }
   return document;

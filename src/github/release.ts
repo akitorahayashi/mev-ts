@@ -3,6 +3,7 @@ import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
+import { downloadOverHttps } from '../host/https-download';
 import {
   isRecord,
   requireExactKeys,
@@ -192,24 +193,7 @@ export async function fetchReleaseBinary(
       }
     } else {
       const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
-      // Pin HTTPS on the initial request and across redirects with a TLS floor,
-      // so a redirect to http:// is refused rather than silently followed.
-      const r = await context.commands.run('curl', [
-        '-fsSL',
-        '--proto',
-        '=https',
-        '--proto-redir',
-        '=https',
-        '--tlsv1.2',
-        url,
-        '-o',
-        tmp,
-      ]);
-      if (r.code !== 0) {
-        throw new ProvisioningError(
-          formatCommandFailure(`curl download failed for ${binary.name}`, r),
-        );
-      }
+      await downloadOverHttps(context.commands, url, tmp, binary.name);
     }
     await chmod(tmp, 0o755);
   });

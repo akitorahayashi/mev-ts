@@ -5,6 +5,7 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { isNotFound, readDirentsIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { mevRoot } from '../host/path';
+import { allTargets } from './registry';
 
 export interface DeployStorePruneRequest {
   readonly roles: readonly string[];
@@ -123,7 +124,7 @@ export async function pruneDeployStore(
   }
 }
 
-export function deployStorePruneLines(
+function deployStorePruneLines(
   report: DeployStorePruneReport,
 ): readonly string[] {
   const lines: string[] = [];
@@ -134,4 +135,28 @@ export function deployStorePruneLines(
     lines.push(`  Removed obsolete applied marker: ${target}`);
   }
   return lines;
+}
+
+/**
+ * Prune deploy-store state for every target no longer in the registry, writing
+ * a cleanup summary through `write`. Shared by `create` and `sync`, which both
+ * run it before provisioning so a removed target leaves no orphaned role or
+ * applied marker behind.
+ */
+export async function pruneObsoleteDeployState(
+  context: Pick<Context, 'home'>,
+  write: (text: string) => void,
+): Promise<void> {
+  const registered = allTargets();
+  const report = await pruneDeployStore(
+    {
+      roles: registered.map((target) => target.role),
+      targets: registered.map((target) => target.name),
+    },
+    context,
+  );
+  const lines = deployStorePruneLines(report);
+  if (lines.length > 0) {
+    write(`mev: Cleaned obsolete provisioning state\n${lines.join('\n')}\n`);
+  }
 }

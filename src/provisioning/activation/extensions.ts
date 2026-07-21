@@ -18,6 +18,13 @@ export function installExtensions(
   return { kind: 'editorExtensions', command, configKey };
 }
 
+/** The embedded config asset an `editorExtensions` activation validates and reads. */
+export function extensionsConfigAssets(
+  activation: ExtensionsActivation,
+): readonly string[] {
+  return [activation.configKey];
+}
+
 export function describeExtensions(
   activation: ExtensionsActivation,
 ): Described {

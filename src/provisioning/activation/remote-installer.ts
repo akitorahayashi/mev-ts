@@ -5,6 +5,7 @@ import { lstatIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
 import { formatCommandFailure } from '../../host/command';
 import type { Context } from '../../host/context';
+import { downloadOverHttps } from '../../host/https-download';
 import { resolveHostPath, symbolic } from '../../host/path';
 import type { Activation, ActivationReport, Described } from './contract';
 import { guarded } from './reconcile';
@@ -40,31 +41,6 @@ function parseSha256(raw: string, label: string): string {
   return hash.toLowerCase();
 }
 
-async function download(
-  context: Context,
-  label: string,
-  url: string,
-  output: string,
-): Promise<void> {
-  const result = await context.commands.run('curl', [
-    '--proto',
-    '=https',
-    '--proto-redir',
-    '=https',
-    '--tlsv1.2',
-    '-fsSL',
-    '-o',
-    output,
-    '--',
-    url,
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`curl download failed for ${label}`, result),
-    );
-  }
-}
-
 async function verifyChecksum(
   activation: RemoteInstallerActivation,
   context: Context,
@@ -72,11 +48,11 @@ async function verifyChecksum(
   checksumPath: string,
 ): Promise<void> {
   if ('acknowledgedUnverified' in activation.integrity) return;
-  await download(
-    context,
-    `${activation.label} checksum`,
+  await downloadOverHttps(
+    context.commands,
     activation.integrity.checksumUrl,
     checksumPath,
+    `${activation.label} checksum`,
   );
   const expected = parseSha256(
     await readFile(checksumPath, 'utf8'),
@@ -175,7 +151,12 @@ export async function runRemoteInstaller(
     await runWithCleanup(
       async () => {
         const script = join(workspace, 'install');
-        await download(context, activation.label, activation.url, script);
+        await downloadOverHttps(
+          context.commands,
+          activation.url,
+          script,
+          activation.label,
+        );
         await verifyChecksum(
           activation,
           context,
