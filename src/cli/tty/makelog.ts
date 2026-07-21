@@ -1,13 +1,14 @@
-import type {
-  ActivationReport,
-  Described,
-  Verb,
-} from '../../provisioning/activation';
+import type { ActivationReport } from '../../provisioning/activation';
 import type { DeployResult } from '../../provisioning/deploy';
+import {
+  activationLine,
+  type GroupStatus,
+  groupStatus,
+  summarizeGroup,
+} from '../../provisioning/group-outcome';
 import type { MakePlan } from '../../provisioning/plan';
 import {
   type ActivationGroupReport,
-  type ActivationStartEvent,
   formatBlocker,
   type MakeReport,
 } from '../../provisioning/run';
@@ -15,12 +16,23 @@ import { makeStyle } from './style';
 
 interface RenderOptions {
   readonly isTTY: boolean;
+  /** Width to pad target names to, for aligned completion columns. */
+  readonly nameWidth?: number;
 }
 
-interface ReportOptions extends RenderOptions {
+interface ReportOptions {
+  readonly isTTY: boolean;
   readonly durationMs?: number;
   readonly footer?: readonly string[];
 }
+
+// The widest status word, so the summary column aligns after the status regardless
+// of which status a target ended in.
+const STATUS_WIDTH = Math.max(
+  ...(
+    ['changed', 'unchanged', 'failed', 'blocked'] satisfies GroupStatus[]
+  ).map((status) => status.length),
+);
 
 export function renderDeployLine(
   result: DeployResult,
@@ -45,10 +57,6 @@ export function renderHeader(selection: MakePlan): string {
   return lines.join('\n');
 }
 
-function isBlocked(group: ActivationGroupReport): boolean {
-  return group.blockers.length > 0;
-}
-
 function formatDuration(durationMs: number | undefined): string | null {
   if (durationMs === undefined) return null;
   const seconds = Math.max(0, Math.round(durationMs / 1000));
@@ -62,98 +70,12 @@ function formatDuration(durationMs: number | undefined): string | null {
   return `${hours}h${minuteRest}m${rest}s`;
 }
 
-function activationLine(report: Described): string {
-  return `${report.verb} ${report.source} -> ${report.dest}`;
-}
-
-export function renderActivationDescription(activation: Described): string {
-  return activationLine(activation);
-}
-
-export function renderActivationStartLine(event: ActivationStartEvent): string {
-  return `${event.targetName}  ${renderActivationDescription(event.activation)}`;
-}
-
-type TargetStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
-
-function targetStatus(group: ActivationGroupReport): TargetStatus {
-  if (isBlocked(group)) return 'blocked';
-  if (group.reports.some((report) => report.status === 'failed')) {
-    return 'failed';
-  }
-  if (group.reports.some((report) => report.status === 'changed')) {
-    return 'changed';
-  }
-  return 'unchanged';
-}
-
-function pastTense(verb: Verb): string {
-  switch (verb) {
-    case 'link':
-      return 'linked';
-    case 'apply':
-      return 'applied';
-    case 'run':
-      return 'ran';
-  }
-}
-
-function countChanged(report: ActivationReport): number {
-  if (!report.entries) return report.status === 'changed' ? 1 : 0;
-  return report.entries.filter((entry) => entry.status === 'changed').length;
-}
-
-function changedSummary(group: ActivationGroupReport): string | null {
-  const counts = new Map<Verb, number>();
-  for (const report of group.reports) {
-    const count = countChanged(report);
-    if (count === 0) continue;
-    counts.set(report.verb, (counts.get(report.verb) ?? 0) + count);
-  }
-
-  const parts: string[] = [];
-  for (const verb of ['link', 'apply', 'run'] as const) {
-    const count = counts.get(verb);
-    if (count) parts.push(`${count} ${pastTense(verb)}`);
-  }
-  return parts.length > 0 ? parts.join(', ') : null;
-}
-
-function failedSummary(group: ActivationGroupReport): string | null {
-  const failed = group.reports.find((report) => report.status === 'failed');
-  return failed ? activationLine(failed) : null;
-}
-
-function blockedSummary(group: ActivationGroupReport): string | null {
-  if (group.blockers.length === 0) return null;
-  if (group.blockers.length > 1) return 'prerequisites failed';
-  const blocker = group.blockers[0];
-  if (!blocker) return null;
-  if (blocker.kind === 'deploy') return `deploy role ${blocker.role} failed`;
-  return `${blocker.token.kind} ${blocker.token.name} failed`;
-}
-
-export function summarizeActivationGroup(
-  group: ActivationGroupReport,
-): string | null {
-  switch (targetStatus(group)) {
-    case 'changed':
-      return changedSummary(group);
-    case 'failed':
-      return failedSummary(group);
-    case 'blocked':
-      return blockedSummary(group);
-    case 'unchanged':
-      return null;
-  }
-}
-
 export function renderTargetCompletionLine(
   group: ActivationGroupReport,
   options: RenderOptions,
 ): string {
-  const status = targetStatus(group);
-  const summary = summarizeActivationGroup(group);
+  const status = groupStatus(group);
+  const summary = summarizeGroup(group);
   if (!options.isTTY) {
     const line = `${group.targetName}: ${status}`;
     return summary ? `${line}  ${summary}` : line;
@@ -174,10 +96,13 @@ export function renderTargetCompletionLine(
         : status === 'unchanged'
           ? c.dim(status)
           : c.green(status);
-  const plainBody = `✓ ${group.targetName.padEnd(7)}  ${status}`;
-  const body = `${prefix} ${group.targetName.padEnd(7)}  ${statusText}`;
-  const padding = summary ? ' '.repeat(Math.max(0, 22 - plainBody.length)) : '';
-  return summary ? `${body}${padding}  ${summary}` : body;
+  // Pad the name to the widest target name in the batch (measured on the raw
+  // cell, as table.ts does) so summaries line up regardless of name length.
+  const nameWidth = Math.max(options.nameWidth ?? 0, group.targetName.length);
+  const body = `${prefix} ${group.targetName.padEnd(nameWidth)}  ${statusText}`;
+  if (!summary) return body;
+  const statusPad = ' '.repeat(Math.max(0, STATUS_WIDTH - status.length));
+  return `${body}${statusPad}  ${summary}`;
 }
 
 function failedEntryLines(report: ActivationReport): string[] {
@@ -207,7 +132,7 @@ export function renderMakeReport(
   const actionLines: string[] = [];
   let actionNumber = 0;
   for (const group of report.groups) {
-    if (isBlocked(group)) {
+    if (group.blockers.length > 0) {
       actionNumber += 1;
       const title =
         group.blockers.length === 1 && group.blockers[0]?.kind === 'package'
@@ -240,7 +165,7 @@ export function renderMakeReport(
   const retryTags = report.groups
     .filter(
       (group) =>
-        isBlocked(group) ||
+        group.blockers.length > 0 ||
         group.reports.some((activation) => activation.status === 'failed'),
     )
     .map((group) => group.targetName);

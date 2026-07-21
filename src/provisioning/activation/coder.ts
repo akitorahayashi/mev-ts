@@ -1,4 +1,3 @@
-import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
 import { buildAgents } from '../../coder/agents';
@@ -13,9 +12,9 @@ import {
 import { buildSkills } from '../../coder/skills';
 import { resolveSelection } from '../../config-selection/selection';
 import { errorMessage } from '../../errors';
-import { readDirentsIfPresent, readlinkIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
-import { type HostPath, resolveHostPath } from '../../host/path';
+import { reconcileManagedLinks } from '../../host/managed-links';
+import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type {
   Activation,
@@ -23,6 +22,7 @@ import type {
   Described,
   StepReport,
 } from './contract';
+import { guarded } from './reconcile';
 
 type CoderAgentsActivation = Extract<Activation, { kind: 'coderAgents' }>;
 type CoderSkillsActivation = Extract<Activation, { kind: 'coderSkills' }>;
@@ -49,6 +49,13 @@ export function coderAgents(
   dests: readonly HostPath[],
 ): Activation {
   return { kind: 'coderAgents', sectionsPrefix, dests };
+}
+
+/** The embedded section catalog a `coderAgents` activation validates. */
+export function coderAgentsConfigAssets(
+  activation: CoderAgentsActivation,
+): readonly string[] {
+  return [join(activation.sectionsPrefix, 'catalog.yml')];
 }
 
 /**
@@ -82,111 +89,144 @@ export function describeCoderSkills(
   };
 }
 
-/** Symlink `target` into each dest, returning whether any link changed. */
+/** The outcome of a fan-out: whether anything changed, plus isolated failures. */
+interface LinkFanout {
+  readonly changed: boolean;
+  readonly failed: readonly StepReport[];
+}
+
+/** Symlink `target` into each dest, isolating a per-dest failure to its entry. */
 async function fanoutFile(
   dests: readonly HostPath[],
   target: string,
   context: Context,
-): Promise<boolean> {
+): Promise<LinkFanout> {
   let changed = false;
+  const failed: StepReport[] = [];
   for (const dest of dests) {
     const link = resolveHostPath(dest, context.home);
-    if (await isSymlinkTo(link, target)) {
-      continue;
+    try {
+      if (await isSymlinkTo(link, target)) continue;
+      await placeSymlink(link, target);
+      changed = true;
+    } catch (error) {
+      failed.push({
+        key: symbolic(dest),
+        value: 'link failed',
+        status: 'failed',
+        error: errorMessage(error),
+      });
     }
-    await placeSymlink(link, target);
-    changed = true;
   }
-  return changed;
+  return { changed, failed };
 }
 
 /**
- * Make each target directory hold one symlink per enabled skill, pointing at
- * the intermediate skills entry. Managed links (those into `intermediate`) for
- * skills no longer enabled are removed. Returns whether anything changed.
+ * Make each target directory hold one symlink per enabled skill, pointing at the
+ * intermediate skills entry; managed links for skills no longer enabled are
+ * removed. Each target directory is isolated, so one unwritable directory fails
+ * only its own entry while its siblings still apply.
  */
 async function fanoutSkills(
   targetDirs: readonly HostPath[],
   intermediate: string,
   enabled: readonly string[],
   context: Context,
-): Promise<boolean> {
-  const managedPrefix = `${intermediate}/`;
+): Promise<LinkFanout> {
   let changed = false;
+  const failed: StepReport[] = [];
   for (const dir of targetDirs) {
     const root = resolveHostPath(dir, context.home);
-    const entries = (await readDirentsIfPresent(root)) ?? [];
-    for (const entry of entries) {
-      if (!entry.isSymbolicLink() || enabled.includes(entry.name)) {
-        continue;
-      }
-      const path = join(root, entry.name);
-      const linkTarget = await readlinkIfPresent(path);
-      if (linkTarget?.startsWith(managedPrefix)) {
-        await rm(path, { force: true });
+    const desired = enabled.map((name) => ({
+      path: join(root, name),
+      target: join(intermediate, name),
+    }));
+    try {
+      if (await reconcileManagedLinks(root, [`${intermediate}/`], desired)) {
         changed = true;
       }
-    }
-    for (const name of enabled) {
-      const link = join(root, name);
-      const target = join(intermediate, name);
-      if (await isSymlinkTo(link, target)) {
-        continue;
-      }
-      await placeSymlink(link, target);
-      changed = true;
+    } catch (error) {
+      failed.push({
+        key: symbolic(dir),
+        value: 'link failed',
+        status: 'failed',
+        error: errorMessage(error),
+      });
     }
   }
-  return changed;
+  return { changed, failed };
 }
 
-export async function runCoderAgents(
+/**
+ * The kind-specific half of a coder activation. `read` parses the deployed
+ * catalog; `apply` builds the intermediate output once and fans it out. Read and
+ * build failures throw (a whole-activation failure); fan-out failures are
+ * isolated into `LinkFanout.failed`.
+ */
+interface CoderSpec {
+  readonly base: Described;
+  readonly prefix: string;
+  readonly manifestPath: string;
+  read(sourceDir: string): Promise<readonly string[]>;
+  apply(sourceDir: string, enabled: readonly string[]): Promise<LinkFanout>;
+}
+
+async function runCoder(
+  context: Context,
+  spec: CoderSpec,
+): Promise<ActivationReport> {
+  return guarded(spec.base, async () => {
+    const sourceDir = deployedDir(spec.prefix, context.home);
+    const catalog = await spec.read(sourceDir);
+    const disabled = await readDisabled(spec.manifestPath);
+    const { enabled, unknown } = resolveSelection(catalog, disabled, 'opt-out');
+    const { changed, failed } = await spec.apply(sourceDir, enabled);
+    const entries = [...staleManifestEntries(unknown), ...failed];
+    const status =
+      failed.length > 0 ? 'failed' : changed ? 'changed' : 'unchanged';
+    return entries.length > 0
+      ? { ...spec.base, status, entries }
+      : { ...spec.base, status };
+  });
+}
+
+export function runCoderAgents(
   activation: CoderAgentsActivation,
   context: Context,
 ): Promise<ActivationReport> {
-  const base = describeCoderAgents(activation);
-  try {
-    const sourceDir = deployedDir(activation.sectionsPrefix, context.home);
-    const catalog = await readSections(sourceDir);
-    const disabled = await readDisabled(agentsManifest(context.home));
-    const { enabled, unknown } = resolveSelection(catalog, disabled, 'opt-out');
-    const output = agentsFile(context.home);
-    const built = await buildAgents(sourceDir, enabled, output);
-    const linked = await fanoutFile(activation.dests, output, context);
-    const status = built || linked ? 'changed' : 'unchanged';
-    const entries = staleManifestEntries(unknown);
-    return entries.length > 0
-      ? { ...base, status, entries }
-      : { ...base, status };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  return runCoder(context, {
+    base: describeCoderAgents(activation),
+    prefix: activation.sectionsPrefix,
+    manifestPath: agentsManifest(context.home),
+    read: readSections,
+    async apply(sourceDir, enabled) {
+      const output = agentsFile(context.home);
+      const built = await buildAgents(sourceDir, enabled, output);
+      const fanout = await fanoutFile(activation.dests, output, context);
+      return { changed: built || fanout.changed, failed: fanout.failed };
+    },
+  });
 }
 
-export async function runCoderSkills(
+export function runCoderSkills(
   activation: CoderSkillsActivation,
   context: Context,
 ): Promise<ActivationReport> {
-  const base = describeCoderSkills(activation);
-  try {
-    const sourceDir = deployedDir(activation.skillsPrefix, context.home);
-    const catalog = await readSkills(sourceDir);
-    const disabled = await readDisabled(skillsManifest(context.home));
-    const { enabled, unknown } = resolveSelection(catalog, disabled, 'opt-out');
-    const intermediate = skillsDir(context.home);
-    const built = await buildSkills(sourceDir, enabled, intermediate);
-    const linked = await fanoutSkills(
-      activation.targetDirs,
-      intermediate,
-      enabled,
-      context,
-    );
-    const status = built || linked ? 'changed' : 'unchanged';
-    const entries = staleManifestEntries(unknown);
-    return entries.length > 0
-      ? { ...base, status, entries }
-      : { ...base, status };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  return runCoder(context, {
+    base: describeCoderSkills(activation),
+    prefix: activation.skillsPrefix,
+    manifestPath: skillsManifest(context.home),
+    read: readSkills,
+    async apply(sourceDir, enabled) {
+      const intermediate = skillsDir(context.home);
+      const built = await buildSkills(sourceDir, enabled, intermediate);
+      const fanout = await fanoutSkills(
+        activation.targetDirs,
+        intermediate,
+        enabled,
+        context,
+      );
+      return { changed: built || fanout.changed, failed: fanout.failed };
+    },
+  });
 }

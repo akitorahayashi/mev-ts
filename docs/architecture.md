@@ -17,7 +17,7 @@ src/
   coder/        Coder catalogs, manifests, and renderers
   config-selection/ shared selection manifest parser/resolver
   defaults/     macOS defaults manifest and protocol helpers
-  host/         CommandRunner, Context, HostPath
+  host/         CommandRunner, Context, HostPath, plus shared subprocess (command-run), download, managed-link, and deploy-read primitives
   identity/     Git identity scopes and on-disk store
   assets/       embedded config files and asset registry
   git/          Git config and command helpers
@@ -74,7 +74,7 @@ Twelve activation kinds:
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips if installed version matches |
-| `remoteInstaller` | `remoteInstaller({ label, url, interpreter, args, creates })` | Downloads a reviewed HTTPS installer script or binary to a temporary file, optionally verifies SHA256, runs it with declared arguments, and cleans the temporary file |
+| `remoteInstaller` | `remoteInstaller({ label, url, interpreter, args, creates, integrity })` | Downloads a reviewed HTTPS installer script or binary to a temporary file, satisfies its required `integrity` discriminant, runs it with declared arguments, and cleans the temporary file |
 
 ### Reconcile Envelope
 
@@ -84,6 +84,9 @@ Twelve activation kinds:
 - `steps(declared)` — builds one `ReconcileStep` per item. This phase runs shared probes (e.g. listing installed tools or extensions) before returning the per-item work. A failure here also aborts the whole activation.
 - Per-item isolation — `executeStep` wraps each step's `run()` in a try/catch; a throwing step calls its `onError()` handler and yields a per-item `failed` report without interrupting siblings.
 - Status aggregation — `failed` outranks `changed`; an empty declaration reports `unchanged`.
+- Concurrency — kinds default to serial execution; only `release` opts into a bounded parallel loop because its items are independent network downloads.
+
+`coderAgents` and `coderSkills` do not use this envelope but apply the same per-item boundary to their symlink fan-out: a read or build failure fails the whole activation, while an unwritable destination directory fails only its own entry and its siblings still apply.
 
 `manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause. Every parser narrows parsed-`unknown` data through `host/parse.ts` (`isRecord`, `requireRecord`, `requireStringArray`), so the record predicate lives once and rejection messages share one shape instead of each module re-improvising validation.
 
@@ -95,12 +98,12 @@ Twelve activation kinds:
 
 `runCommand` is the activation kind for operations that require running host commands. Its key concepts:
 
-- `reads` — asset keys whose content is loaded into the scope before any step runs (e.g. `.ruby-version`).
-- `CommandScope` — `{ home, basePath, ref(name) }`. `ref` looks up a value by name (from `reads` or a prior `capture`) and throws `ProvisioningError` on a missing name so undefined arguments fail loudly.
-- `steps` — ordered. Each step can declare:
-  - `argv(scope)` — command to run
-  - `env(scope)` — environment override layered over the inherited environment
-  - `skipIf(scope)` — idempotency guard: `{ pathExists }` or `{ commandSucceeds }`. `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
+- `reads` — asset keys whose content is bound into the scope before any step runs (e.g. `.ruby-version`); a `derive` read binds a transform of the raw content, otherwise the trimmed value is bound after an optional `validate`.
+- Scope — the named values a step resolves against at apply time: the reserved host facts `home` and `basePath` (the inherited `PATH`), the assets declared in `reads`, and the stdout of any prior `capture`. `ref(name)` throws `ProvisioningError` on a missing name so undefined arguments fail loudly.
+- `steps` — ordered declarative data, resolved against the scope at apply time. Each step can declare:
+  - `argv` — argument tokens, each a literal string, a `ref` (one scope value), a `splitRef` (a scope value split on whitespace), or a `concat` of tokens
+  - `env` — environment overrides layered over the inherited environment; each value is a literal, a `ref`, a `concat`, or a `pathList` joined with `:`
+  - `skipIf` — idempotency guard built from the same tokens: `{ pathExists }` or `{ commandSucceeds }`. `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
   - `capture` — register `stdout.trim()` into scope for later steps
   - `changedWhen` — `'always' | 'never' | { outputContains } | { outputNotContains }` — classify a successful run. `outputContains` and `outputNotContains` both match against combined stdout+stderr.
 
@@ -108,7 +111,7 @@ A failed step halts the pipeline. Skipped steps report `unchanged`. The overall 
 
 ### Remote installers
 
-`remoteInstaller` is reserved for upstream installers that are distributed as scripts or installer binaries rather than as Homebrew packages or versioned release binaries. It downloads the HTTPS installer to a temporary file with strict curl transport flags, verifies an optional SHA256 document, runs a declared interpreter or the downloaded file directly with declared arguments, skips when the declared `creates` path exists, and removes the temporary directory after the run. Targets use it only for reviewed first-party installer URLs.
+`remoteInstaller` is reserved for upstream installers that are distributed as scripts or installer binaries rather than as Homebrew packages or versioned release binaries. It downloads the HTTPS installer to a temporary file with strict curl transport flags, then satisfies a required `integrity` discriminant before running: `{ checksumUrl }` downloads the checksum document and verifies the file's SHA256 against it, while `{ acknowledgedUnverified: true }` is a loud, reviewed opt-out — there is no silent skip. It then runs a declared interpreter or the downloaded file directly with declared arguments, skips when the declared `creates` path exists, and removes the temporary directory after the run. Targets use it only for reviewed first-party installer URLs.
 
 ## Provisioning Targets (provisioning/targets/)
 
@@ -125,7 +128,7 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 
 ### Semantic synchronization
 
-`signature.ts` hashes the user-visible desired state of a target: canonical name and role, normalized package requirements, embedded role asset keys/content/executable status, and activation intent in declaration order. Non-command activations contribute their declarative fields. Command activations contribute their label, `intentVersion`, asset reads, step labels, captures, and change-classification declarations; implementation-only edits remain invisible until the declaring target intentionally changes the semantic intent.
+`signature.ts` hashes the user-visible desired state of a target: canonical name and role, normalized package requirements, embedded role asset keys/content/executable status, and activation intent in declaration order. Non-command activations contribute their declarative fields. Command activations are themselves declarative: they contribute their label, asset reads, and per-step data — argv tokens (literal/`ref`/`splitRef`/`concat`), env values (including a `pathList` form), `skipIf` guard tokens, captures, and change-classification declarations. This step data is resolved at apply time against a scope of reads and captures plus the reserved `home` and `basePath`; because the signature hashes the same data, editing a command's argv, env, or guard flips the signature, with no manual version counter.
 
 The signature proving that each target is currently applied is stored atomically at `~/.mev/applied/{target}`. `runMake()` invalidates selected target signatures before deployment and records each signature again only after that target's deploy, package resolution, and activation complete successfully. A failed or interrupted run therefore remains selected even when deployment repaired its role drift before a later phase failed. This state is shared by `make`, `create`, and `sync` rather than owned by the sync command.
 
@@ -135,7 +138,7 @@ The registry test (`src/provisioning/registry.test.ts`) validates asset existenc
 
 ## Asset Embedding (assets/)
 
-Raw config files live under `src/assets/config/` keyed as `{role}/{filename}`. `scripts/generate-assets.ts` walks the tree and inlines every file's content as a string, emitting `assets/registry.generated.ts`. The content is embedded in the compiled binary; no per-file imports or filesystem access occur at runtime.
+Raw config files live under `src/assets/config/` keyed as `{role}/{filename}`. `scripts/generate-assets.ts` walks the tree and inlines every file's content as a string, emitting `assets/registry.generated.ts`. The content is embedded in the compiled binary; no per-file imports or filesystem access occur at runtime. The generated file also embeds a `registrySourceHash` over the source tree; `scripts/validate-assets.ts` recomputes that hash and fails loudly when the committed registry is stale, so drift surfaces as an explicit error rather than confusing downstream failures.
 
 `assets/registry.ts` wraps the generated map as `AssetSource`. An unknown key throws `ProvisioningError`. `keysByPrefix` lets targets derive their file lists from the embedded set rather than enumerating them by hand.
 
@@ -153,7 +156,7 @@ The hidden `mev internal document markdown-to-pdf` and `pdf-to-markdown` command
 
 Markdown-to-PDF first asks Pandoc for standalone HTML with Pygments syntax highlighting, MathML, embedded local resources, and the bundled print stylesheet. A Playwright-managed Chrome context blocks HTTP requests, renders fenced `mermaid` blocks from the Mermaid script embedded in the binary, and writes each PDF atomically. PDF-to-Markdown uses `pdftotext` for UTF-8 extraction and does not infer semantic Markdown structure. File and recursive-directory inputs share one planner that preserves relative paths, excludes a nested output directory, and rejects output collisions before conversion starts.
 
-`mermaid` and `playwright-core` are exact-pinned (no caret) in `package.json`. The Mermaid script is imported by its deep `mermaid/dist/mermaid.min.js` path, bypassing the package's public API, so a minor release can relocate or reshape that file; `playwright-core` is pinned in lockstep with the `--external chromium-bidi/*` bundling workaround in `scripts/build.ts`. Changing either pin is a deliberate, tested decision rather than a lockfile refresh.
+`mermaid` and `playwright-core` are exact-pinned (no caret) in `package.json`. The Mermaid script is imported by its deep `mermaid/dist/mermaid.min.js` path, bypassing the package's public API, so a minor release can relocate or reshape that file; `playwright-core` is pinned in lockstep with the `--external chromium-bidi/*` bundling workaround in `scripts/build-bundle.ts`, the shared build pipeline used by both `scripts/build.ts` and `scripts/install-mev.ts`; that pipeline also asserts at build time that `mermaid/dist/mermaid.min.js` resolves. Changing either pin is a deliberate, tested decision rather than a lockfile refresh.
 
 ## Capability Modules
 

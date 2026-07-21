@@ -5,7 +5,6 @@ import {
   deployedSymbolic,
 } from '../../assets/ref';
 import { resolveSelection } from '../../config-selection/selection';
-import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
@@ -19,6 +18,7 @@ import type {
   Described,
   StepReport,
 } from './contract';
+import { guarded } from './reconcile';
 
 type ZedSettingsActivation = Extract<Activation, { kind: 'zedSettings' }>;
 
@@ -32,6 +32,13 @@ export function zedSettings(
   dest: HostPath,
 ): Activation {
   return { kind: 'zedSettings', base, overridesPrefix, dest };
+}
+
+/** The embedded base settings a `zedSettings` activation validates. */
+export function zedSettingsConfigAssets(
+  activation: ZedSettingsActivation,
+): readonly string[] {
+  return [activation.base.key];
 }
 
 export function describeZedSettings(
@@ -49,7 +56,7 @@ export async function runZedSettings(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeZedSettings(activation);
-  try {
+  return guarded(base, async () => {
     const basePath = deployedPath(activation.base, context.home);
     const sourceDir = deployedDir(activation.overridesPrefix, context.home);
     const catalog = await readOverrides(sourceDir);
@@ -59,6 +66,18 @@ export async function runZedSettings(
       enabled,
       'opt-in',
     );
+
+    // Under opt-in, an enabled override the catalog no longer contains cannot
+    // apply — a misconfiguration. Fail and name each one before any mutation, so
+    // a failed activation never leaves partially-applied settings or a symlink.
+    if (unknown.length > 0) {
+      const entries: StepReport[] = unknown.map((name) => ({
+        key: name,
+        value: 'not in catalog',
+        status: 'failed',
+      }));
+      return { ...base, status: 'failed', entries };
+    }
 
     const output = settingsFile(context.home);
     const built = await buildSettings(basePath, sourceDir, applied, output);
@@ -70,19 +89,6 @@ export async function runZedSettings(
       linked = true;
     }
 
-    // Under opt-in, an enabled override the catalog no longer contains cannot
-    // apply — a misconfiguration, so fail the activation and name each one
-    // rather than silently reporting success.
-    if (unknown.length > 0) {
-      const entries: StepReport[] = unknown.map((name) => ({
-        key: name,
-        value: 'not in catalog',
-        status: 'failed',
-      }));
-      return { ...base, status: 'failed', entries };
-    }
     return { ...base, status: built || linked ? 'changed' : 'unchanged' };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  });
 }

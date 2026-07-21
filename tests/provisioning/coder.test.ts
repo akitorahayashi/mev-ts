@@ -266,7 +266,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'coderSkills surfaces target directory filesystem errors',
+  'coderSkills isolates a target directory filesystem error to its entry',
   async (dir) => {
     await deploySkills(dir, ['toon']);
     await writeFile(join(dir, '.claude'), 'not a directory');
@@ -277,7 +277,34 @@ sandboxTest(
     );
 
     expect(report.status).toBe('failed');
-    expect(report.error).toMatch(/not a directory/i);
+    const failed = report.entries?.find((entry) => entry.status === 'failed');
+    expect(failed?.key).toContain('.claude/skills');
+    expect(failed?.error).toMatch(/not a directory/i);
+  },
+);
+
+sandboxTest(
+  'coderSkills applies healthy target directories when one fails',
+  async (dir) => {
+    await deploySkills(dir, ['toon']);
+    const good = home('.config/agent-a/skills');
+    const bad = home('.config/agent-b/skills');
+    await mkdir(join(dir, '.config'), { recursive: true });
+    // A file where agent-b's parent directory must be blocks only that dest.
+    await writeFile(join(dir, '.config', 'agent-b'), 'not a directory');
+
+    const report = await runActivation(
+      coderSkills(SKILLS_PREFIX, [good, bad]),
+      recordingContext({ home: dir }).context,
+    );
+
+    expect(report.status).toBe('failed');
+    // The healthy directory still received its link despite the sibling failure.
+    expect(
+      await readlink(join(dir, '.config', 'agent-a', 'skills', 'toon')),
+    ).toBe(join(dir, '.mev', 'coder', 'skills', 'toon'));
+    const failed = report.entries?.find((entry) => entry.status === 'failed');
+    expect(failed?.key).toContain('agent-b');
   },
 );
 

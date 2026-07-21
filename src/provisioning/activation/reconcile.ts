@@ -1,6 +1,40 @@
 import { errorMessage } from '../../errors';
 import { mapWithConcurrency } from '../../host/task-pool';
-import type { ActivationReport, Described, StepReport } from './contract';
+import type {
+  ActivationReport,
+  ActivationStatus,
+  Described,
+  StepReport,
+} from './contract';
+
+/**
+ * The per-activation error boundary shared by the hand-rolled runners. Runs
+ * `fn` and, if it throws, renders the failure as a `failed` report over `base`,
+ * so the boundary is structural instead of copied into every runner's `catch`.
+ */
+export async function guarded(
+  base: Described,
+  fn: () => Promise<ActivationReport>,
+): Promise<ActivationReport> {
+  try {
+    return await fn();
+  } catch (error) {
+    return { ...base, status: 'failed', error: errorMessage(error) };
+  }
+}
+
+/**
+ * Fold per-item step statuses into an activation status: any failure fails,
+ * else any change is changed, else unchanged. For entry-status aggregation only
+ * — not for runners that combine local boolean flags.
+ */
+export function aggregateStatus(
+  entries: readonly StepReport[],
+): Extract<ActivationStatus, 'changed' | 'unchanged' | 'failed'> {
+  if (entries.some((entry) => entry.status === 'failed')) return 'failed';
+  if (entries.some((entry) => entry.status === 'changed')) return 'changed';
+  return 'unchanged';
+}
 
 /**
  * One reconciled item. `run` is the normal path—probe, act, return its report.
@@ -16,7 +50,9 @@ export interface ReconcileStep {
  * The kind-specific half of a reconciliation. `declare` parses what the target
  * asked for. `steps` runs the shared probes and builds the per-item steps;
  * anything it throws before returning the list is a whole-activation failure.
- * `concurrent` selects a bounded parallel loop.
+ * `concurrent` selects a bounded parallel loop; kinds default to serial and set
+ * it only when the per-item work is IO-bound and independent (currently just
+ * `release`, whose items are network downloads).
  */
 export interface ReconcileSpec<D> {
   declare(): Promise<readonly D[]>;
@@ -66,10 +102,7 @@ export async function reconcile<D>(
       spec.concurrent && spec.concurrent > 1
         ? await mapWithConcurrency(steps, spec.concurrent, executeStep)
         : await runSeries(steps);
-    const failed = entries.some((entry) => entry.status === 'failed');
-    const changed = entries.some((entry) => entry.status === 'changed');
-    const status = failed ? 'failed' : changed ? 'changed' : 'unchanged';
-    return { ...base, status, entries };
+    return { ...base, status: aggregateStatus(entries), entries };
   } catch (error) {
     return { ...base, status: 'failed', error: errorMessage(error) };
   }

@@ -1,24 +1,30 @@
 export { brewPath, brewPrefixCapture } from './brew-path';
-export { coderAgents, coderSkills } from './coder';
-export { runCommand } from './command';
+export { coderAgents, coderAgentsConfigAssets, coderSkills } from './coder';
+export { bindCommandRead, commandReadKey, runCommand } from './command';
 export type {
   Activation,
   ActivationReport,
   ActivationStatus,
   ChangedWhen,
-  CommandScope,
+  CommandArg,
+  CommandEnvValue,
   CommandStep,
   Described,
   StepGuard,
   StepReport,
   Verb,
 } from './contract';
-export { applyDefaults } from './defaults';
+export {
+  applyDefaults,
+  applyDefaultsTree,
+  defaultsConfigAssets,
+} from './defaults';
 export { blockedReport, describeActivation, runActivation } from './dispatch';
-export { applyDuti } from './duti';
-export { installExtensions } from './extensions';
-export { applyPipx } from './pipx';
-export { releaseBinaries } from './release';
+export { applyDuti, dutiConfigAssets } from './duti';
+export { extensionsConfigAssets, installExtensions } from './extensions';
+export { applyPipx, pipxConfigAssets } from './pipx';
+export { releaseBinaries, releaseConfigAssets } from './release';
 export { remoteInstaller } from './remote-installer';
 export { link, linkTree, migrateLegacySymlinks } from './symlink';
-export { zedSettings } from './zed';
+export { versionCheckStep } from './version-check';
+export { zedSettings, zedSettingsConfigAssets } from './zed';

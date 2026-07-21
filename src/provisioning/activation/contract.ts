@@ -4,6 +4,16 @@ import type { HostPath } from '../../host/path';
 export type Verb = 'link' | 'apply' | 'run';
 
 /**
+ * How a `remoteInstaller` verifies the script it downloads before executing it.
+ * A required discriminant, not an optional field: skipping verification must be a
+ * loud, reviewed declaration (`acknowledgedUnverified`) rather than the easy
+ * default of an absent checksum URL, per the no-silent-fallback rule.
+ */
+export type RemoteInstallerIntegrity =
+  | { readonly checksumUrl: string }
+  | { readonly acknowledgedUnverified: true };
+
+/**
  * A single config materialization or host mutation. The union is the source of
  * truth for the activation vocabulary — every kind is dispatched exhaustively by
  * `runActivation` and `describeActivation`, and the multi-item kinds share the
@@ -56,7 +66,6 @@ export type Activation =
   | {
       readonly kind: 'command';
       readonly label: string;
-      readonly intentVersion: number;
       readonly reads?: Readonly<Record<string, CommandRead>>;
       readonly steps: readonly CommandStep[];
     }
@@ -64,7 +73,7 @@ export type Activation =
       readonly kind: 'remoteInstaller';
       readonly label: string;
       readonly url: string;
-      readonly checksumUrl?: string;
+      readonly integrity: RemoteInstallerIntegrity;
       readonly interpreter: 'bash' | 'sh' | 'direct';
       readonly args: readonly string[];
       readonly creates: HostPath;
@@ -77,28 +86,59 @@ export type Activation =
     };
 
 /**
- * Resolved inputs available to a command step's thunks. `home` and `basePath`
- * (the inherited `PATH`) are host facts; `ref` looks up an asset value declared
- * in `reads` or the stdout of a prior `capture` step by name, throwing when the
- * name is absent so a missing capture fails loudly rather than rendering as an
- * `undefined` argument.
+ * The named values a command step resolves against at apply time: `home` and
+ * `basePath` (the inherited `PATH`) as reserved host facts, plus every asset
+ * declared in `reads` and the stdout of any prior `capture` step. Looking up an
+ * absent name throws, so a missing capture fails loudly rather than rendering as
+ * an `undefined` argument.
  */
 export interface CommandScope {
-  readonly home: string;
-  readonly basePath: string;
   ref(name: string): string;
 }
 
+/**
+ * A declarative argv token, resolved at apply time. Kept as data (not a thunk)
+ * so the signature can hash it: an edit to the command structure flips the
+ * signature without a manual counter. A bare string is a literal; `ref` is a
+ * single scope value; `concat` joins its resolved parts into one argument; and
+ * `splitRef` expands a whitespace-separated scope value into zero or more
+ * arguments.
+ */
+export type CommandArg =
+  | string
+  | { readonly ref: string }
+  | { readonly concat: readonly CommandArg[] }
+  | { readonly splitRef: string };
+
+/**
+ * A declarative environment value. `pathList` resolves each segment, drops the
+ * empty ones, and joins with `:` — the PATH-composition shape — so an absent
+ * inherited PATH leaves no trailing separator.
+ */
+export type CommandEnvValue =
+  | string
+  | { readonly ref: string }
+  | { readonly concat: readonly CommandArg[] }
+  | { readonly pathList: readonly CommandArg[] };
+
+/**
+ * A named asset read for a command activation. A bare string is the asset key.
+ * The object form adds one of: `validate`, a throwing-only guard over the
+ * trimmed value exactly as it will be bound (its `void` return cannot transform
+ * the binding); or `derive`, which maps the raw asset content to the bound value
+ * (throwing to reject), for a read whose bound form is a transform of the file.
+ */
 export type CommandRead =
   | string
   | {
       readonly key: string;
-      readonly validate: (raw: string, path: string) => unknown;
-    };
+      readonly validate: (value: string, path: string) => void;
+    }
+  | { readonly key: string; readonly derive: (raw: string) => string };
 
 export type StepGuard =
-  | { readonly pathExists: string }
-  | { readonly commandSucceeds: readonly string[] };
+  | { readonly pathExists: CommandArg }
+  | { readonly commandSucceeds: readonly CommandArg[] };
 
 export type ChangedWhen =
   | 'always'
@@ -107,16 +147,16 @@ export type ChangedWhen =
   | { readonly outputNotContains: string };
 
 /**
- * One step of a command pipeline. Thunks resolve against the live scope so the
- * definition stays declarative TS rather than a string template. `skipIf` is the
- * idempotency guard (Ansible `creates:`/`when:`), `capture` registers stdout into
- * the scope for later steps, and `changedWhen` classifies a successful run.
+ * One step of a command pipeline, declarative so the signature can hash it.
+ * `skipIf` is the idempotency guard (Ansible `creates:`/`when:`), `capture`
+ * registers stdout into the scope for later steps, and `changedWhen` classifies
+ * a successful run.
  */
 export interface CommandStep {
   readonly label: string;
-  readonly argv: (scope: CommandScope) => readonly string[];
-  readonly env?: (scope: CommandScope) => Readonly<Record<string, string>>;
-  readonly skipIf?: (scope: CommandScope) => StepGuard;
+  readonly argv: readonly CommandArg[];
+  readonly env?: Readonly<Record<string, CommandEnvValue>>;
+  readonly skipIf?: StepGuard;
   readonly capture?: string;
   readonly changedWhen?: ChangedWhen;
 }
@@ -126,6 +166,11 @@ export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
 /** Per-entry report for the multi-action kinds (`defaults` writes, command steps). */
 export interface StepReport {
   readonly key: string;
+  /**
+   * Display-only free text with per-kind semantics: the resolved argv for a
+   * command step, the applied actions for a pipx item, `installed <tag>` for a
+   * release, etc. It is rendered, never parsed — no consumer depends on its shape.
+   */
   readonly value: string;
   readonly status: 'changed' | 'unchanged' | 'failed';
   readonly error?: string;

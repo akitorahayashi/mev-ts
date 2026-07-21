@@ -2,14 +2,21 @@ import { asset } from '../../assets/ref';
 import { errorMessage, ProvisioningError } from '../../errors';
 import { isRecord, requireExactKeys } from '../../host/parse';
 import { home } from '../../host/path';
-import type { CommandScope } from '../activation';
-import { brewPath, brewPrefixCapture, link, runCommand } from '../activation';
+import {
+  brewPath,
+  brewPrefixCapture,
+  type CommandEnvValue,
+  link,
+  runCommand,
+} from '../activation';
 import { target } from '../target';
 
-const pnpmEnv = (s: CommandScope) => ({
-  PNPM_HOME: `${s.home}/Library/pnpm`,
-  ...brewPath(s, [`${s.home}/Library/pnpm`]),
-});
+const pnpmHome = { concat: [{ ref: 'home' }, '/Library/pnpm'] };
+
+const pnpmEnv: Readonly<Record<string, CommandEnvValue>> = {
+  PNPM_HOME: pnpmHome,
+  ...brewPath([pnpmHome]),
+};
 
 function packageNameKey(name: string): string {
   return name.toLowerCase();
@@ -59,9 +66,9 @@ export function globalPackageArgs(raw: string): string[] {
     ['dependencies', 'globalPackages'],
     'pnpm global packages manifest',
   );
-  const dependencies = packageMap(parsed.dependencies, 'dependencies') ?? {};
+  const dependencies = packageMap(parsed['dependencies'], 'dependencies') ?? {};
   const globalPackages =
-    packageMap(parsed.globalPackages, 'globalPackages') ?? {};
+    packageMap(parsed['globalPackages'], 'globalPackages') ?? {};
   const dependencyNames = new Set(
     Object.keys(dependencies).map(packageNameKey),
   );
@@ -96,43 +103,34 @@ export const pnpmTarget = target('pnpm', {
     ),
     runCommand({
       label: 'pnpm global packages',
-      intentVersion: 1,
+      // The manifest is parsed and validated into a space-separated package-arg
+      // list at read time; the step expands it back into argv with splitRef.
       reads: {
-        globalPackages: {
+        packages: {
           key: 'pnpm/global-packages.json',
-          validate: globalPackageArgs,
+          derive: (raw) => globalPackageArgs(raw).join(' '),
         },
       },
       steps: [
         brewPrefixCapture(),
         {
           label: 'verify nodejs runtime',
-          argv: () => [
+          argv: ['fnm', 'exec', '--using=default', '--', 'node', '--version'],
+          changedWhen: 'never',
+          env: brewPath(),
+        },
+        {
+          label: 'pnpm add -g',
+          argv: [
             'fnm',
             'exec',
             '--using=default',
             '--',
-            'node',
-            '--version',
+            { concat: [{ ref: 'brewPrefix' }, '/bin/pnpm'] },
+            'add',
+            '-g',
+            { splitRef: 'packages' },
           ],
-          changedWhen: 'never',
-          env: (s) => brewPath(s),
-        },
-        {
-          label: 'pnpm add -g',
-          argv: (s) => {
-            const pkgArgs = globalPackageArgs(s.ref('globalPackages'));
-            return [
-              'fnm',
-              'exec',
-              '--using=default',
-              '--',
-              `${s.ref('brewPrefix')}/bin/pnpm`,
-              'add',
-              '-g',
-              ...pkgArgs,
-            ];
-          },
           changedWhen: 'always',
           env: pnpmEnv,
         },

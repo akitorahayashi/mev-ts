@@ -17,6 +17,13 @@ export function applyDuti(configKey: string): Activation {
   return { kind: 'duti', configKey };
 }
 
+/** The embedded config asset a `duti` activation validates and reads. */
+export function dutiConfigAssets(
+  activation: DutiActivation,
+): readonly string[] {
+  return [activation.configKey];
+}
+
 export function describeDuti(activation: DutiActivation): Described {
   return {
     verb: 'apply',

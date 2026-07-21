@@ -19,7 +19,7 @@ import {
 import { deployRole } from '../../src/provisioning/deploy';
 import { resolveTarget } from '../../src/provisioning/registry';
 import { runMake } from '../../src/provisioning/run';
-import { scanTargets } from '../../src/provisioning/scan';
+import { isScanError, scanTargets } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
@@ -412,9 +412,10 @@ sandboxTest(
     const driftedKey = embeddedAssets.keysByPrefix(`${python.role}/`)[0];
     if (!driftedKey) throw new Error('python target has no embedded assets');
     await writeFile(deployedPath({ key: driftedKey }, sandbox), 'drift\n');
-    expect((await scanTargets([python], context))[0]?.reasons).toEqual([
-      'drift',
-    ]);
+    const driftScan = (await scanTargets([python], context))[0];
+    expect(
+      driftScan && !isScanError(driftScan) ? driftScan.reasons : null,
+    ).toEqual(['drift']);
 
     const report = await runMake({ selectors: ['python'] }, context);
     const group = report.groups.find((entry) => entry.targetName === 'python');
@@ -437,8 +438,11 @@ sandboxTest(
     );
     expect(commands.some((command) => command === 'brew --prefix')).toBe(false);
     expect(await readApplied(marker)).toBeNull();
-    expect((await scanTargets([python], context))[0]?.reasons).toEqual([
-      'unapplied',
-    ]);
+    const unappliedScan = (await scanTargets([python], context))[0];
+    expect(
+      unappliedScan && !isScanError(unappliedScan)
+        ? unappliedScan.reasons
+        : null,
+    ).toEqual(['unapplied']);
   },
 );

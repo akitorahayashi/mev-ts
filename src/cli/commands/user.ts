@@ -10,15 +10,22 @@ import { resolveHome } from '../../host/context';
 import { allScopes, type IdentityScope } from '../../identity/scope';
 import { renderIdentities } from '../tty/identities';
 import { renderNamespaceOverview } from '../tty/namespace-overview';
-import { withPrompter } from '../tty/prompt';
+import { type WithPrompter, withPrompter } from '../tty/prompt';
 import { resolveIsTTY } from '../tty/style';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 
+/**
+ * Usage category shared by every `user` subcommand and the user namespace
+ * overview, so the overview's category filter cannot drift from the value the
+ * subcommands register under.
+ */
+export const USER_CATEGORY = 'user';
+
 export class UserHelpCommand extends Command {
   static override paths = [['user'], ['us']];
   static override usage = Command.Usage({
-    category: 'user',
+    category: USER_CATEGORY,
     description: withAliasHint(
       'Show git identity subcommands.',
       UserHelpCommand.paths,
@@ -32,7 +39,7 @@ export class UserHelpCommand extends Command {
         binaryName: this.cli.binaryName,
         invokedPath: this.path,
         canonicalPath: canonical,
-        category: 'user',
+        category: USER_CATEGORY,
         definitions: this.cli.definitions(),
       }),
     );
@@ -45,7 +52,7 @@ export class UserShowCommand extends Command {
     ['us', 'show'],
   ];
   static override usage = Command.Usage({
-    category: 'user',
+    category: USER_CATEGORY,
     description: withAliasHint(
       'Show stored Git identities.',
       UserShowCommand.paths,
@@ -69,7 +76,7 @@ export class UserSetCommand extends Command {
     ['us', 'set'],
   ];
   static override usage = Command.Usage({
-    category: 'user',
+    category: USER_CATEGORY,
     description: withAliasHint(
       'Configure the stored Git identities interactively.',
       UserSetCommand.paths,
@@ -78,18 +85,23 @@ export class UserSetCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, () =>
-      runSet(resolveHome(), (message) => this.context.stdout.write(message)),
+      runSet(
+        resolveHome(),
+        (message) => this.context.stdout.write(message),
+        withPrompter,
+      ),
     );
   }
 }
 
-async function runSet(
+export async function runSet(
   home: string,
   write: (message: string) => void,
+  prompt: WithPrompter,
 ): Promise<void> {
   const existing = await loadIdentities({ home });
 
-  const inputs = await withPrompter(async (prompter) => {
+  const inputs = await prompt(async (prompter) => {
     write('Configure mev Git identities\n');
     const entries: [IdentityScope, IdentityInput][] = [];
     for (const scope of allScopes()) {

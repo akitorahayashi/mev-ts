@@ -1,20 +1,23 @@
-import { clearLine, cursorTo } from 'node:readline';
 import type { Writable } from 'node:stream';
+import { activationLine } from '../../provisioning/group-outcome';
 import type {
   ActivationGroupReport,
   ActivationPhaseEvent,
   ActivationStartEvent,
 } from '../../provisioning/run';
-import {
-  renderActivationDescription,
-  renderActivationStartLine,
-  renderTargetCompletionLine,
-} from './makelog';
+import { renderTargetCompletionLine } from './makelog';
+import { createTransientLine } from './transient-line';
 
 interface ActivationProgressOptions {
   readonly isTTY: boolean;
   readonly out: (text: string) => void;
   readonly stream: Writable;
+  /** Widest target name, so completion columns align. */
+  readonly nameWidth?: number;
+}
+
+function startLine(event: ActivationStartEvent): string {
+  return `${event.targetName}  ${activationLine(event.activation)}`;
 }
 
 export interface ActivationProgress {
@@ -47,7 +50,7 @@ function createLineActivationProgress(
     },
     startActivation(event) {
       options.out(
-        `Activating ${event.targetName}: ${renderActivationDescription(event.activation)}\n`,
+        `Activating ${event.targetName}: ${activationLine(event.activation)}\n`,
       );
     },
     completeTarget(group) {
@@ -64,18 +67,13 @@ function createTTYActivationProgress(
   let active: ActivationStartEvent | undefined;
   let frame = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
-
-  const clearActiveLine = () => {
-    clearLine(options.stream, 0);
-    cursorTo(options.stream, 0);
-  };
+  const line = createTransientLine(options.stream);
 
   const renderActive = () => {
     if (!active) return;
-    clearActiveLine();
     const spinner = frames[frame % frames.length];
     frame += 1;
-    options.stream.write(`${spinner} ${renderActivationStartLine(active)}`);
+    line.render(`${spinner} ${startLine(active)}`);
   };
 
   const stopTimer = () => {
@@ -103,15 +101,20 @@ function createTTYActivationProgress(
     completeTarget(group) {
       stopTimer();
       if (active) {
-        clearActiveLine();
+        line.clear();
         active = undefined;
       }
-      options.out(`${renderTargetCompletionLine(group, { isTTY: true })}\n`);
+      options.out(
+        `${renderTargetCompletionLine(group, {
+          isTTY: true,
+          nameWidth: options.nameWidth,
+        })}\n`,
+      );
     },
     finish() {
       stopTimer();
       if (!active) return;
-      clearActiveLine();
+      line.clear();
       active = undefined;
     },
   };

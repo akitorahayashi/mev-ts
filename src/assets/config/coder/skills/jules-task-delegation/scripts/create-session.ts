@@ -254,7 +254,7 @@ export async function createJulesSession(
     requirePlanApproval: options.requirePlanApproval,
     automationMode: options.automationMode,
   };
-  if (options.title !== undefined) payload.title = options.title;
+  if (options.title !== undefined) payload['title'] = options.title;
 
   const { response: createRes, body: createBody } = await responseText(
     fetchImpl,
@@ -285,7 +285,7 @@ export async function main(
   argv = Bun.argv.slice(2),
   env: Record<string, string | undefined> = process.env,
 ): Promise<void> {
-  const apiKey = env.JULES_API_KEY?.trim();
+  const apiKey = env['JULES_API_KEY']?.trim();
   if (!apiKey) fail('JULES_API_KEY environment variable is required.');
   const options = await parseCliOptions(argv, (path) => Bun.file(path).text());
 

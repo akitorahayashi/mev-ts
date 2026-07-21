@@ -12,60 +12,60 @@ export const rubyTarget = target('ruby', {
   activations: [
     runCommand({
       label: 'ruby toolchain',
-      intentVersion: 1,
       reads: { version: 'ruby/.ruby-version' },
       steps: [
         brewPrefixCapture(),
         {
           label: 'openssl prefix',
-          argv: () => ['brew', '--prefix', 'openssl@3'],
+          argv: ['brew', '--prefix', 'openssl@3'],
           capture: 'opensslPrefix',
           changedWhen: 'never',
         },
         {
           label: 'rbenv install',
-          argv: (s) => [
-            'rbenv',
-            'install',
-            s.ref('version'),
-            '--skip-existing',
-          ],
-          skipIf: (s) => ({
-            pathExists: `${s.home}/.rbenv/versions/${s.ref('version')}`,
-          }),
-          env: (s) => ({
-            ...brewPath(s),
-            RUBY_CONFIGURE_OPTS: `--with-openssl-dir=${s.ref('opensslPrefix')}`,
-          }),
+          argv: ['rbenv', 'install', { ref: 'version' }, '--skip-existing'],
+          skipIf: {
+            pathExists: {
+              concat: [
+                { ref: 'home' },
+                '/.rbenv/versions/',
+                { ref: 'version' },
+              ],
+            },
+          },
+          env: {
+            ...brewPath(),
+            RUBY_CONFIGURE_OPTS: {
+              concat: ['--with-openssl-dir=', { ref: 'opensslPrefix' }],
+            },
+          },
         },
         {
           label: 'rbenv global',
-          argv: (s) => ['rbenv', 'global', s.ref('version')],
-          env: (s) => brewPath(s),
+          argv: ['rbenv', 'global', { ref: 'version' }],
+          env: brewPath(),
         },
         {
           label: 'rbenv rehash',
-          argv: () => ['rbenv', 'rehash'],
-          env: (s) => brewPath(s),
+          argv: ['rbenv', 'rehash'],
+          env: brewPath(),
         },
         {
           label: 'gem install bundler',
-          argv: () => [
-            'gem',
-            'install',
-            'bundler',
-            '-v',
-            '2.5.22',
-            '--no-document',
-          ],
-          skipIf: () => ({
+          argv: ['gem', 'install', 'bundler', '-v', '2.5.22', '--no-document'],
+          skipIf: {
             commandSucceeds: ['gem', 'list', '-i', 'bundler', '-v', '2.5.22'],
-          }),
+          },
           // rbenv shims must precede brew's bin so the freshly installed ruby's
           // gem is used, so this prepends shims to the shared brew PATH.
-          env: (s) => {
-            const { PATH } = brewPath(s);
-            return { PATH: `${s.home}/.rbenv/shims:${PATH}` };
+          env: {
+            PATH: {
+              pathList: [
+                { concat: [{ ref: 'home' }, '/.rbenv/shims'] },
+                { concat: [{ ref: 'brewPrefix' }, '/bin'] },
+                { ref: 'basePath' },
+              ],
+            },
           },
         },
       ],

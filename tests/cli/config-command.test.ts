@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { type BaseContext, Cli } from 'clipanion';
 import { defineConfigCommand } from '../../src/cli/commands/config/command';
+import { captureStreams } from '../fixtures/streams';
 
 // The config toggle's diagnostics (skew warnings) belong on stderr, matching
 // the internal-command wiring, so scriptable stdout stays clean. A spec whose
@@ -18,26 +19,14 @@ test('the config toggle routes its warn writer to stderr, not stdout', async () 
   });
   const cli = Cli.from([ConfigCommand]);
 
-  let stdout = '';
-  let stderr = '';
-  const context = {
-    stdout: {
-      write: (chunk: unknown) => {
-        stdout += String(chunk);
-        return true;
-      },
-    },
-    stderr: {
-      write: (chunk: unknown) => {
-        stderr += String(chunk);
-        return true;
-      },
-    },
-  } as unknown as Partial<BaseContext>;
+  const streams = captureStreams();
 
-  const code = await cli.run(['config-warn-probe'], context);
+  const code = await cli.run(
+    ['config-warn-probe'],
+    streams as unknown as Partial<BaseContext>,
+  );
 
   expect(code).toBe(0);
-  expect(stderr).toContain('warning: stale entry');
-  expect(stdout).toBe('');
+  expect(streams.stderrText()).toContain('warning: stale entry');
+  expect(streams.stdoutText()).toBe('');
 });

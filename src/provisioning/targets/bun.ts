@@ -1,6 +1,11 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { link, remoteInstaller, runCommand } from '../activation';
+import {
+  link,
+  remoteInstaller,
+  runCommand,
+  versionCheckStep,
+} from '../activation';
 import { target } from '../target';
 
 export const bunTarget = target('bun', {
@@ -12,19 +17,17 @@ export const bunTarget = target('bun', {
     remoteInstaller({
       label: 'install bun',
       url: 'https://bun.sh/install',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       args: [],
       creates: home('.bun/bin/bun'),
     }),
     runCommand({
       label: 'bun toolchain',
-      intentVersion: 1,
       steps: [
-        {
-          label: 'bun --version',
-          argv: (s) => [`${s.home}/.bun/bin/bun`, '--version'],
-          changedWhen: 'never',
-        },
+        versionCheckStep('bun --version', {
+          concat: [{ ref: 'home' }, '/.bun/bin/bun'],
+        }),
       ],
     }),
   ],

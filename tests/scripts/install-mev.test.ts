@@ -33,20 +33,32 @@ test('installLocalMev installs a Bun-targeted JavaScript bundle', async () => {
       });
 
       expect(dest).toBe(join(installDir, 'mev'));
-      expect(invocations).toHaveLength(3);
-      expect(invocations[0]).toEqual({
-        args: [resolve(process.cwd(), 'scripts/generate-assets.ts')],
-        cwd: process.cwd(),
-        stdio: 'ignore',
+      // Load-bearing contract: codegen precedes asset validation precedes the
+      // bundle build; assert those steps and their relative order rather than an
+      // exact count/positions so an added preparatory step does not break this.
+      const kinds = invocations.map((invocation) => {
+        if (invocation.args.some((arg) => arg.endsWith('generate-assets.ts'))) {
+          return 'codegen';
+        }
+        if (invocation.args.some((arg) => arg.endsWith('validate-assets.ts'))) {
+          return 'validate';
+        }
+        return invocation.args.includes('build') ? 'build' : 'other';
       });
-      expect(invocations[1]).toEqual({
-        args: [resolve(process.cwd(), 'scripts/validate-assets.ts')],
-        cwd: process.cwd(),
-        stdio: 'ignore',
-      });
-      expect(invocations[2]?.args).toContain('--target');
-      expect(invocations[2]?.args).toContain('bun');
-      expect(invocations[2]?.args).not.toContain('--compile');
+      const codegen = kinds.indexOf('codegen');
+      const validate = kinds.indexOf('validate');
+      const build = kinds.indexOf('build');
+      expect(codegen).toBeGreaterThanOrEqual(0);
+      expect(codegen).toBeLessThan(validate);
+      expect(validate).toBeLessThan(build);
+      expect(invocations[codegen]?.args).toEqual([
+        resolve(process.cwd(), 'scripts/generate-assets.ts'),
+      ]);
+      expect(invocations[codegen]?.cwd).toBe(process.cwd());
+      // The build produces Bun's single-file JS bundle, not a compiled binary.
+      expect(invocations[build]?.args).toContain('--target');
+      expect(invocations[build]?.args).toContain('bun');
+      expect(invocations[build]?.args).not.toContain('--compile');
       expect(await readFile(dest, 'utf8')).toBe(
         '#!/usr/bin/env bun\nconsole.log("mev")\n',
       );

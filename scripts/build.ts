@@ -3,14 +3,12 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { errorMessage } from '../src/errors';
 import { runWithCleanup } from '../src/host/cleanup-error';
-
-type BuildStdio = 'inherit' | 'ignore';
-
-interface BuildInvocation {
-  readonly args: readonly string[];
-  readonly cwd: string;
-  readonly stdio: BuildStdio;
-}
+import {
+  type BuildInvocation,
+  type BuildStdio,
+  buildBundle,
+  runBunBuild,
+} from './build-bundle';
 
 interface BuildOptions {
   readonly projectRoot: string;
@@ -19,26 +17,6 @@ interface BuildOptions {
   readonly stdio?: BuildStdio;
   readonly runBuildCommand?: (invocation: BuildInvocation) => Promise<number>;
   readonly removeWorkspace?: (path: string) => Promise<void>;
-}
-
-async function runBunBuild(invocation: BuildInvocation): Promise<number> {
-  const proc = Bun.spawn(['bun', ...invocation.args], {
-    cwd: invocation.cwd,
-    stderr: invocation.stdio,
-    stdout: invocation.stdio,
-  });
-  return proc.exited;
-}
-
-async function runRequiredBuildCommand(
-  invocation: BuildInvocation,
-  runCommand: (invocation: BuildInvocation) => Promise<number>,
-  failureLabel: string,
-): Promise<void> {
-  const code = await runCommand(invocation);
-  if (code !== 0) {
-    throw new Error(`${failureLabel} failed with exit code ${code}`);
-  }
 }
 
 function parseArgs(args: readonly string[], projectRoot: string): BuildOptions {
@@ -82,47 +60,17 @@ export async function buildMev(options: BuildOptions): Promise<void> {
   await runWithCleanup(
     async () => {
       await mkdir(dirname(options.outfile), { recursive: true });
-      const stdio = options.stdio ?? 'inherit';
-
-      // Own the codegen-before-compile invariant here, so the compiled binary
-      // never embeds a stale or missing asset registry regardless of caller.
-      await runRequiredBuildCommand(
-        {
-          args: [resolve(options.projectRoot, 'scripts/generate-assets.ts')],
-          cwd: options.projectRoot,
-          stdio,
-        },
+      // Compile the release binary from an isolated workspace so Bun's compiler
+      // work files never land in the project root.
+      await buildBundle({
+        projectRoot: options.projectRoot,
+        outfile: options.outfile,
+        buildCwd: workspace,
+        compile: true,
+        target: options.target,
+        stdio: options.stdio ?? 'inherit',
         runCommand,
-        'asset codegen',
-      );
-      await runRequiredBuildCommand(
-        {
-          args: [resolve(options.projectRoot, 'scripts/validate-assets.ts')],
-          cwd: options.projectRoot,
-          stdio,
-        },
-        runCommand,
-        'asset validation',
-      );
-
-      const args = [
-        'build',
-        resolve(options.projectRoot, 'src/main.ts'),
-        '--compile',
-        // Playwright's regular Chrome path does not initialize its optional
-        // BiDi-over-CDP mapper, which is not published with playwright-core.
-        '--external',
-        'chromium-bidi/*',
-        '--outfile',
-        options.outfile,
-      ];
-      if (options.target) args.push('--target', options.target);
-
-      await runRequiredBuildCommand(
-        { args, cwd: workspace, stdio },
-        runCommand,
-        'bun build',
-      );
+      });
     },
     () => removeWorkspace(workspace),
     `Failed to clean up build workspace ${workspace}.`,

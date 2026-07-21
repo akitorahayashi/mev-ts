@@ -25,6 +25,8 @@ interface ProvisioningRunOptions {
   readonly run?: ProvisioningRun;
   readonly out: (text: string) => void;
   readonly isTTY?: boolean;
+  /** Animated-progress sink; defaults to the process stdout stream. */
+  readonly stream?: NodeJS.WriteStream;
 }
 
 export async function executeProvisioningRun(
@@ -32,6 +34,7 @@ export async function executeProvisioningRun(
 ): Promise<number> {
   const isTTY = options.isTTY ?? resolveIsTTY();
   const out = options.out;
+  const stream = options.stream ?? process.stdout;
   const startedAt = Date.now();
   const run =
     options.run ??
@@ -43,6 +46,7 @@ export async function executeProvisioningRun(
 
   let bar: ReturnType<typeof createProgressBar> | undefined;
   let activation: ActivationProgress | undefined;
+  let nameWidth = 0;
 
   const finishInstallBar = () => {
     bar?.finish();
@@ -57,18 +61,22 @@ export async function executeProvisioningRun(
         if (line) out(`${line}\n`);
       },
       onHeader(selection) {
+        nameWidth = Math.max(
+          0,
+          ...selection.targetNames.map((name) => name.length),
+        );
         out(`${renderHeader(selection)}\n`);
       },
       onInstallStart(total) {
         if (total > 0 && isTTY) {
           out('\n');
-          // The progress bar needs a real WriteStream (isTTY/columns/cursor),
-          // which the injected text writer is not; it renders only on a live
-          // TTY, so binding it to the process's stdout is correct here.
+          // The progress bar needs a real WriteStream (isTTY/columns/cursor).
+          // The stream is injected (defaulting to process.stdout) so the TTY
+          // path is testable with a fake terminal stream.
           bar = createProgressBar({
             total,
             isTty: isTTY,
-            stream: process.stdout,
+            stream,
           });
         }
       },
@@ -86,7 +94,8 @@ export async function executeProvisioningRun(
         activation = createActivationProgress({
           isTTY,
           out,
-          stream: process.stdout,
+          stream,
+          nameWidth,
         });
         activation.start(event);
       },

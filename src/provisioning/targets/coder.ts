@@ -1,6 +1,6 @@
 import { asset } from '../../assets/ref';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../coder/paths';
-import { home } from '../../host/path';
+import { home, mevPath } from '../../host/path';
 import {
   brewPath,
   brewPrefixCapture,
@@ -9,6 +9,7 @@ import {
   link,
   remoteInstaller,
   runCommand,
+  versionCheckStep,
 } from '../activation';
 import { target } from '../target';
 
@@ -37,6 +38,7 @@ export const coderTarget = target('coder', {
     remoteInstaller({
       label: 'install claude',
       url: 'https://claude.ai/install.sh',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       args: [],
       creates: home('.local/bin/claude'),
@@ -45,6 +47,7 @@ export const coderTarget = target('coder', {
     remoteInstaller({
       label: 'install codex',
       url: 'https://chatgpt.com/codex/install.sh',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'sh',
       args: [],
       creates: home('.local/bin/codex'),
@@ -54,6 +57,7 @@ export const coderTarget = target('coder', {
     remoteInstaller({
       label: 'install antigravity cli',
       url: 'https://antigravity.google/cli/install.sh',
+      integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       args: [],
       creates: home('.local/bin/agy'),
@@ -61,30 +65,22 @@ export const coderTarget = target('coder', {
     }),
     runCommand({
       label: 'coder CLIs',
-      intentVersion: 1,
       steps: [
         brewPrefixCapture(),
-        {
-          label: 'claude --version',
-          argv: (s) => [`${s.home}/.local/bin/claude`, '--version'],
-          changedWhen: 'never',
-        },
-        {
-          label: 'codex --version',
-          argv: (s) => [`${s.home}/.local/bin/codex`, '--version'],
-          changedWhen: 'never',
-        },
-        {
-          label: 'agy --version',
-          argv: (s) => [`${s.home}/.local/bin/agy`, '--version'],
-          changedWhen: 'never',
-        },
-        {
-          label: 'rtk --version',
-          argv: () => ['rtk', '--version'],
-          env: (s) => brewPath(s, [`${s.home}/.local/bin`]),
-          changedWhen: 'never',
-        },
+        versionCheckStep('claude --version', {
+          concat: [{ ref: 'home' }, '/.local/bin/claude'],
+        }),
+        versionCheckStep('codex --version', {
+          concat: [{ ref: 'home' }, '/.local/bin/codex'],
+        }),
+        versionCheckStep('agy --version', {
+          concat: [{ ref: 'home' }, '/.local/bin/agy'],
+        }),
+        versionCheckStep(
+          'rtk --version',
+          'rtk',
+          brewPath([{ concat: [{ ref: 'home' }, '/.local/bin'] }]),
+        ),
       ],
     }),
     link(asset('coder/claude/settings.json'), home('.claude/settings.json')),
@@ -99,14 +95,14 @@ export const coderTarget = target('coder', {
       asset('coder/antigravity-cli/statusline.sh'),
       home('.gemini/antigravity-cli/statusline.sh'),
     ),
-    link(asset('coder/rtk/rewrite.sh'), home('.mev/rtk/rewrite.sh')),
+    link(asset('coder/rtk/rewrite.sh'), mevPath('rtk/rewrite.sh')),
     link(
       asset('coder/hooks/claude/pre-tool-use.sh'),
-      home('.mev/hooks/claude/pre-tool-use.sh'),
+      mevPath('hooks/claude/pre-tool-use.sh'),
     ),
     link(
       asset('coder/hooks/codex/pre-tool-use.sh'),
-      home('.mev/hooks/codex/pre-tool-use.sh'),
+      mevPath('hooks/codex/pre-tool-use.sh'),
     ),
     coderAgents(AGENTS_SECTIONS_PREFIX, AGENTS_DESTS),
     coderSkills(SKILLS_PREFIX, SKILLS_TARGETS),

@@ -22,6 +22,13 @@ export function applyPipx(configKey: string): Activation {
   return { kind: 'pipx', configKey };
 }
 
+/** The embedded config asset a `pipx` activation validates and reads. */
+export function pipxConfigAssets(
+  activation: PipxActivation,
+): readonly string[] {
+  return [activation.configKey];
+}
+
 export function describePipx(activation: PipxActivation): Described {
   return {
     verb: 'apply',
@@ -30,6 +37,10 @@ export function describePipx(activation: PipxActivation): Described {
   };
 }
 
+// One step drives up to four sub-actions (uninstall, install, inject,
+// post-install) for a tool, so a failure surfaces as a single line naming the
+// sub-actions that had run before the error. This coarser granularity is
+// accepted: the four are one logical "make this tool current" unit per item.
 function pipxStep(
   tool: PipxTool,
   installed: Installed | undefined,

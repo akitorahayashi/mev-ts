@@ -1,13 +1,14 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { errorMessage, ProvisioningError } from '../../errors';
+import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
 import { formatCommandFailure } from '../../host/command';
 import type { Context } from '../../host/context';
+import { downloadOverHttps } from '../../host/https-download';
 import { resolveHostPath, symbolic } from '../../host/path';
 import type { Activation, ActivationReport, Described } from './contract';
+import { guarded } from './reconcile';
 
 type RemoteInstallerActivation = Extract<
   Activation,
@@ -40,43 +41,18 @@ function parseSha256(raw: string, label: string): string {
   return hash.toLowerCase();
 }
 
-async function download(
-  context: Context,
-  label: string,
-  url: string,
-  output: string,
-): Promise<void> {
-  const result = await context.commands.run('curl', [
-    '--proto',
-    '=https',
-    '--proto-redir',
-    '=https',
-    '--tlsv1.2',
-    '-fsSL',
-    '-o',
-    output,
-    '--',
-    url,
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`curl download failed for ${label}`, result),
-    );
-  }
-}
-
 async function verifyChecksum(
   activation: RemoteInstallerActivation,
   context: Context,
   script: string,
   checksumPath: string,
 ): Promise<void> {
-  if (!activation.checksumUrl) return;
-  await download(
-    context,
-    `${activation.label} checksum`,
-    activation.checksumUrl,
+  if ('acknowledgedUnverified' in activation.integrity) return;
+  await downloadOverHttps(
+    context.commands,
+    activation.integrity.checksumUrl,
     checksumPath,
+    `${activation.label} checksum`,
   );
   const expected = parseSha256(
     await readFile(checksumPath, 'utf8'),
@@ -155,7 +131,7 @@ function installerEnv(
     resolveHostPath(path, context.home),
   );
   if (pathPrefix && pathPrefix.length > 0) {
-    env.PATH = [...pathPrefix, context.basePath].filter(Boolean).join(':');
+    env['PATH'] = [...pathPrefix, context.basePath].filter(Boolean).join(':');
   }
   return Object.keys(env).length > 0 ? env : undefined;
 }
@@ -165,17 +141,22 @@ export async function runRemoteInstaller(
   context: Context,
 ): Promise<ActivationReport> {
   const base = describeRemoteInstaller(activation);
-  try {
+  return guarded(base, async () => {
     if (
       await lstatIfPresent(resolveHostPath(activation.creates, context.home))
     ) {
       return { ...base, status: 'unchanged' };
     }
-    const workspace = await mkdtemp(join(tmpdir(), 'mev-installer-'));
+    const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));
     await runWithCleanup(
       async () => {
         const script = join(workspace, 'install');
-        await download(context, activation.label, activation.url, script);
+        await downloadOverHttps(
+          context.commands,
+          activation.url,
+          script,
+          activation.label,
+        );
         await verifyChecksum(
           activation,
           context,
@@ -188,7 +169,5 @@ export async function runRemoteInstaller(
       `Failed to clean up remote installer workspace ${workspace}.`,
     );
     return { ...base, status: 'changed' };
-  } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
-  }
+  });
 }

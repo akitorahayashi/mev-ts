@@ -7,12 +7,23 @@ export interface Prompter {
 }
 
 /**
- * Open a single readline session for the duration of `run`, exposing a
- * prompter, and guarantee the session is closed even if `run` throws.
+ * A prompter provider: runs `run` against an open prompter session. `withPrompter`
+ * is the process-bound implementation; tests inject a scripted provider so an
+ * interactive flow stays testable without a TTY, mirroring the `SelectEntries`
+ * port for the toggle prompt.
  */
-export async function withPrompter<T>(
+export type WithPrompter = <T>(
   run: (prompter: Prompter) => Promise<T>,
-): Promise<T> {
+) => Promise<T>;
+
+/**
+ * Open a single readline session bound to the process streams for the duration
+ * of `run`, exposing a prompter, and guarantee the session is closed even if
+ * `run` throws.
+ */
+export const withPrompter: WithPrompter = async <T>(
+  run: (prompter: Prompter) => Promise<T>,
+): Promise<T> => {
   const rl: Interface = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -32,4 +43,4 @@ export async function withPrompter<T>(
   } finally {
     rl.close();
   }
-}
+};

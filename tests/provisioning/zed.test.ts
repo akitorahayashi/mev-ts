@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { mkdir, readFile, readlink, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, readlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { asset } from '../../src/assets/ref';
 import { home } from '../../src/host/path';
@@ -9,6 +9,15 @@ import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('zed-');
+
+async function pathPresent(path: string): Promise<boolean> {
+  try {
+    await lstat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const BASE_KEY = 'zed/settings.json';
 const BASE_ASSET = asset(BASE_KEY);
@@ -87,6 +96,12 @@ sandboxTest(
 
     expect(report.status).toBe('failed');
     expect(report.entries?.some((e) => e.key === 'ghost')).toBe(true);
+    // Validation precedes mutation: a failed activation leaves no built
+    // settings.json and no symlink behind.
+    expect(await pathPresent(join(manifestDir, 'settings.json'))).toBe(false);
+    expect(
+      await pathPresent(join(dir, '.config', 'zed', 'settings.json')),
+    ).toBe(false);
   },
 );
 

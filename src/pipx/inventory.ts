@@ -52,25 +52,25 @@ export async function listInstalled(
       'Invalid pipx list --json output: expected an object.',
     );
   }
-  if (data.venvs !== undefined && !isRecord(data.venvs)) {
+  if (data['venvs'] !== undefined && !isRecord(data['venvs'])) {
     throw new ProvisioningError(
       'Invalid pipx list --json output: venvs must be an object.',
     );
   }
   const map = new Map<string, Installed>();
-  for (const [name, venv] of Object.entries(data.venvs ?? {})) {
+  for (const [name, venv] of Object.entries(data['venvs'] ?? {})) {
     if (!isRecord(venv)) {
       throw new ProvisioningError(
         `Invalid pipx list --json output: venv '${name}' must be an object.`,
       );
     }
-    const metadata = venv.metadata;
+    const metadata = venv['metadata'];
     if (metadata !== undefined && !isRecord(metadata)) {
       throw new ProvisioningError(
         `Invalid pipx list --json output: metadata for '${name}' must be an object.`,
       );
     }
-    const main = metadata?.main_package;
+    const main = metadata?.['main_package'];
     if (!main) continue;
     if (!isRecord(main)) {
       throw new ProvisioningError(
@@ -78,23 +78,23 @@ export async function listInstalled(
       );
     }
     if (
-      typeof main.package !== 'string' ||
-      typeof main.package_or_url !== 'string' ||
-      typeof main.package_version !== 'string'
+      typeof main['package'] !== 'string' ||
+      typeof main['package_or_url'] !== 'string' ||
+      typeof main['package_version'] !== 'string'
     ) {
       throw new ProvisioningError(
         `Invalid pipx list --json output: main_package for '${name}' must contain string package, package_or_url, and package_version.`,
       );
     }
-    const deps = main.app_paths_of_dependencies;
+    const deps = main['app_paths_of_dependencies'];
     if (deps !== undefined && !isRecord(deps)) {
       throw new ProvisioningError(
         `Invalid pipx list --json output: app_paths_of_dependencies for '${name}' must be an object.`,
       );
     }
-    map.set(main.package, {
-      packageOrUrl: main.package_or_url,
-      version: main.package_version,
+    map.set(main['package'], {
+      packageOrUrl: main['package_or_url'],
+      version: main['package_version'],
       dependencies: Object.keys(deps ?? {}),
     });
   }

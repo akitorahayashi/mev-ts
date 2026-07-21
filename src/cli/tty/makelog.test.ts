@@ -1,10 +1,7 @@
 import { expect, test } from 'bun:test';
+import { summarizeGroup } from '../../provisioning/group-outcome';
 import type { MakeReport } from '../../provisioning/run';
-import {
-  renderMakeReport,
-  renderTargetCompletionLine,
-  summarizeActivationGroup,
-} from './makelog';
+import { renderMakeReport, renderTargetCompletionLine } from './makelog';
 
 const emptyPackages = { taps: [], formulae: [], casks: [] };
 
@@ -118,7 +115,39 @@ test('renderTargetCompletionLine summarizes failed and blocked groups', () => {
   expect(renderTargetCompletionLine(python, { isTTY: false })).toBe(
     'python: blocked  formula uv failed',
   );
-  expect(summarizeActivationGroup(python)).toBe('formula uv failed');
+  expect(summarizeGroup(python)).toBe('formula uv failed');
+});
+
+test('renderTargetCompletionLine aligns summaries across target name widths', () => {
+  const changed = (targetName: string) => ({
+    targetName,
+    blockers: [],
+    reports: [
+      {
+        verb: 'link' as const,
+        source: 'x',
+        dest: 'y',
+        status: 'changed' as const,
+      },
+    ],
+  });
+  // A long name must not push its summary past a short name's summary column.
+  const width = 'antigravity_ide'.length;
+  const shortLine = Bun.stripANSI(
+    renderTargetCompletionLine(changed('git'), {
+      isTTY: true,
+      nameWidth: width,
+    }),
+  );
+  const longLine = Bun.stripANSI(
+    renderTargetCompletionLine(changed('antigravity_ide'), {
+      isTTY: true,
+      nameWidth: width,
+    }),
+  );
+
+  expect(shortLine.indexOf('1 linked')).toBeGreaterThan(0);
+  expect(shortLine.indexOf('1 linked')).toBe(longLine.indexOf('1 linked'));
 });
 
 test('renderMakeReport summarizes failed and blocked targets', () => {

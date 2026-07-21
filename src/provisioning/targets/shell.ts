@@ -1,5 +1,5 @@
 import { asset } from '../../assets/ref';
-import { home } from '../../host/path';
+import { home, mevPath } from '../../host/path';
 import { link, linkTree } from '../activation';
 import { target } from '../target';
 
@@ -27,6 +27,6 @@ export const shellTarget = target('shell', {
   },
   activations: [
     ...dotfiles.map((name) => link(asset(`shell/${name}`), home(name))),
-    linkTree('shell/alias/', home('.mev/alias')),
+    linkTree('shell/alias/', mevPath('alias')),
   ],
 });

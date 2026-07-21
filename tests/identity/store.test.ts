@@ -123,3 +123,26 @@ sandboxTest(
     });
   },
 );
+
+sandboxTest(
+  'readState rejects unknown root fields and identity entry fields',
+  async (dir) => {
+    const path = identityFilePath(tempHome(dir));
+    await writeIdentityFile(
+      path,
+      JSON.stringify({
+        personal: { name: 'A', email: 'a@example.com' },
+        extra: null,
+      }),
+    );
+    await expect(readState(path)).rejects.toBeInstanceOf(AppError);
+
+    await writeIdentityFile(
+      path,
+      JSON.stringify({
+        personal: { name: 'A', email: 'a@example.com', comment: 'old' },
+      }),
+    );
+    await expect(readState(path)).rejects.toBeInstanceOf(AppError);
+  },
+);

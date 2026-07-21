@@ -1,54 +1,45 @@
 import { expect, test } from 'bun:test';
-import { emptyAssets } from '../../tests/fixtures/fake-context';
-import type { CommandResult } from '../host/command';
-import type { Context } from '../host/context';
-import { loadInventory } from './inventory';
-import { packages } from './package';
+import { loadInventory } from '../../src/brew/inventory';
+import { packages } from '../../src/brew/package';
+import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 
-function inventoryContext(
-  respond: (args: readonly string[]) => Promise<CommandResult>,
-  calls: string[][] = [],
-): Context {
-  return {
-    home: '/sandbox',
-    basePath: '',
-    commands: {
-      async run(_command, args): Promise<CommandResult> {
-        calls.push([...args]);
-        return respond(args);
-      },
-    },
-    assets: emptyAssets,
-  };
+const listed = (stdout: string) => ({ code: 0, stdout, stderr: '' }) as const;
+
+function argsOf(calls: { readonly args: readonly string[] }[]): string[][] {
+  return calls.map((call) => [...call.args]);
 }
 
-const listed = (stdout: string) => async (): Promise<CommandResult> => ({
-  code: 0,
-  stdout,
-  stderr: '',
-});
-
 test('probes only the kinds the requirement declares', async () => {
-  const calls: string[][] = [];
+  const { context, calls } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => listed('git\n'),
+  });
+
   const inventory = await loadInventory(
     packages({ formulae: ['git'] }),
-    inventoryContext(listed('git\n'), calls),
+    context,
   );
 
-  expect(calls).toEqual([['list', '--formula', '-1']]);
+  expect(argsOf(calls)).toEqual([['list', '--formula', '-1']]);
   expect(inventory.formula).toEqual({ loaded: true, names: new Set(['git']) });
   expect(inventory.tap).toEqual({ loaded: true, names: new Set() });
   expect(inventory.cask).toEqual({ loaded: true, names: new Set() });
 });
 
 test('enumerates each declared kind with its own command', async () => {
-  const calls: string[][] = [];
+  const { context, calls } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => listed(''),
+  });
+
   await loadInventory(
     packages({ taps: ['a/b'], formulae: ['git'], casks: ['zed'] }),
-    inventoryContext(listed(''), calls),
+    context,
   );
 
-  expect(calls).toEqual([
+  expect(argsOf(calls)).toEqual([
     ['tap'],
     ['list', '--formula', '-1'],
     ['list', '--cask', '-1'],
@@ -56,9 +47,15 @@ test('enumerates each declared kind with its own command', async () => {
 });
 
 test('parses names per line, ignoring blanks and surrounding whitespace', async () => {
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => listed('git\n\n  gh  \n'),
+  });
+
   const inventory = await loadInventory(
     packages({ formulae: ['git'] }),
-    inventoryContext(listed('git\n\n  gh  \n')),
+    context,
   );
 
   expect(inventory.formula).toEqual({
@@ -68,13 +65,15 @@ test('parses names per line, ignoring blanks and surrounding whitespace', async 
 });
 
 test('a nonzero enumeration exit is carried as a per-kind error', async () => {
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => ({ code: 1, stdout: '', stderr: 'brew broken' }),
+  });
+
   const inventory = await loadInventory(
     packages({ formulae: ['git'] }),
-    inventoryContext(async () => ({
-      code: 1,
-      stdout: '',
-      stderr: 'brew broken',
-    })),
+    context,
   );
 
   expect(inventory.formula).toEqual({
@@ -84,12 +83,15 @@ test('a nonzero enumeration exit is carried as a per-kind error', async () => {
 });
 
 test('a throwing runner is carried as a per-kind error', async () => {
-  const inventory = await loadInventory(
-    packages({ taps: ['a/b'] }),
-    inventoryContext(async () => {
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => {
       throw new Error('runner failed');
-    }),
-  );
+    },
+  });
+
+  const inventory = await loadInventory(packages({ taps: ['a/b'] }), context);
 
   expect(inventory.tap).toEqual({ loaded: false, error: 'runner failed' });
 });

@@ -3,6 +3,7 @@ import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
+import { downloadOverHttps } from '../host/https-download';
 import {
   isRecord,
   requireExactKeys,
@@ -44,12 +45,12 @@ export function parseReleaseBinaries(
     `Release binaries manifest ${path}`,
   );
   requireExactKeys(parsed, ['binaries'], `Release binaries manifest ${path}`);
-  if (!Array.isArray(parsed.binaries)) {
+  if (!Array.isArray(parsed['binaries'])) {
     throw new ProvisioningError(
       `Release binaries manifest must contain a binaries sequence: ${path}`,
     );
   }
-  const binaries = parsed.binaries.map((entry: unknown, index: number) => {
+  const binaries = parsed['binaries'].map((entry: unknown, index: number) => {
     if (!isRecord(entry)) {
       throw new ProvisioningError(
         `Invalid release binaries manifest entry ${index + 1}: entry must be a mapping.`,
@@ -60,46 +61,49 @@ export function parseReleaseBinaries(
       ['name', 'repo', 'tag', 'private'],
       `Invalid release binaries manifest entry ${index + 1}`,
     );
-    if (typeof entry.name !== 'string' || entry.name.length === 0) {
+    if (typeof entry['name'] !== 'string' || entry['name'].length === 0) {
       throw new ProvisioningError(
         `Invalid release binaries manifest entry ${index + 1}: 'name' must be a non-empty string.`,
       );
     }
-    if (typeof entry.repo !== 'string' || entry.repo.length === 0) {
+    if (typeof entry['repo'] !== 'string' || entry['repo'].length === 0) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'repo' must be a non-empty string.`,
+        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'repo' must be a non-empty string.`,
       );
     }
-    if (typeof entry.tag !== 'string' || entry.tag.length === 0) {
+    if (typeof entry['tag'] !== 'string' || entry['tag'].length === 0) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'tag' must be a non-empty string.`,
+        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'tag' must be a non-empty string.`,
       );
     }
-    if (entry.private !== undefined && typeof entry.private !== 'boolean') {
+    if (
+      entry['private'] !== undefined &&
+      typeof entry['private'] !== 'boolean'
+    ) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'private' must be a boolean.`,
+        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'private' must be a boolean.`,
       );
     }
-    if (!SAFE_ASSET_NAME.test(entry.name)) {
+    if (!SAFE_ASSET_NAME.test(entry['name'])) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'name' may contain only letters, digits, and ._+- and must not start with '-'.`,
+        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'name' may contain only letters, digits, and ._+- and must not start with '-'.`,
       );
     }
-    if (!SAFE_TAG.test(entry.tag)) {
+    if (!SAFE_TAG.test(entry['tag'])) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'tag' may contain only letters, digits, and ._+- and must not start with '-'.`,
+        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'tag' may contain only letters, digits, and ._+- and must not start with '-'.`,
       );
     }
-    if (!SAFE_REPO.test(entry.repo)) {
+    if (!SAFE_REPO.test(entry['repo'])) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry.name}'): 'repo' must be in 'owner/name' form.`,
+        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'repo' must be in 'owner/name' form.`,
       );
     }
     return {
-      name: entry.name,
-      repo: entry.repo,
-      tag: entry.tag,
-      private: entry.private,
+      name: entry['name'],
+      repo: entry['repo'],
+      tag: entry['tag'],
+      private: entry['private'],
     };
   });
   requireUniqueBy(
@@ -192,24 +196,7 @@ export async function fetchReleaseBinary(
       }
     } else {
       const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
-      // Pin HTTPS on the initial request and across redirects with a TLS floor,
-      // so a redirect to http:// is refused rather than silently followed.
-      const r = await context.commands.run('curl', [
-        '-fsSL',
-        '--proto',
-        '=https',
-        '--proto-redir',
-        '=https',
-        '--tlsv1.2',
-        url,
-        '-o',
-        tmp,
-      ]);
-      if (r.code !== 0) {
-        throw new ProvisioningError(
-          formatCommandFailure(`curl download failed for ${binary.name}`, r),
-        );
-      }
+      await downloadOverHttps(context.commands, url, tmp, binary.name);
     }
     await chmod(tmp, 0o755);
   });

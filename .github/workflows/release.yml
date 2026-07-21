@@ -13,7 +13,7 @@ jobs:
   validate-release:
     permissions:
       contents: read
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -27,7 +27,7 @@ jobs:
       - validate-release
     permissions:
       contents: write
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
     outputs:
       release_id: ${{ steps.prepare.outputs.release_id }}
 
@@ -46,18 +46,50 @@ jobs:
       - validate-release
       - prepare-release
     permissions:
-      contents: write
+      contents: read
     uses: ./.github/workflows/run-build.yml
     with:
       release_id: ${{ needs.prepare-release.outputs.release_id }}
 
-  publish-release:
+  upload-release-assets:
+    name: Upload ${{ matrix.artifact }}
     needs:
       - prepare-release
       - build-and-upload
     permissions:
       contents: write
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact:
+          - mev-darwin-x64
+          - mev-darwin-arm64
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
+
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: ${{ matrix.artifact }}
+
+      - name: Upload Release Asset
+        uses: akitorahayashi/gh-release@v1
+        with:
+          mode: upload
+          token: ${{ github.token }}
+          release_id: ${{ needs.prepare-release.outputs.release_id }}
+          files: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
+          overwrite: true
+
+  publish-release:
+    needs:
+      - prepare-release
+      - upload-release-assets
+    permissions:
+      contents: write
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - uses: akitorahayashi/gh-release@v1

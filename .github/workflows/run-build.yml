@@ -17,7 +17,7 @@ jobs:
     if: "!startsWith(github.ref, 'refs/tags/')"
     permissions:
       contents: read
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -47,7 +47,7 @@ jobs:
           - target: bun-darwin-arm64
             artifact: mev-darwin-arm64
 
-    runs-on: macos-latest
+    runs-on: macos-15 # Pinned deliberately; bump intentionally
 
     steps:
       - name: Checkout Repository
@@ -76,35 +76,3 @@ jobs:
           path: |
             ${{ matrix.artifact }}
             ${{ matrix.artifact }}.sha256
-
-  upload-release-assets:
-    name: Upload ${{ matrix.artifact }}
-    if: inputs.release_id != ''
-    needs:
-      - build-release
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        artifact:
-          - mev-darwin-x64
-          - mev-darwin-arm64
-    runs-on: macos-latest
-
-    steps:
-      - name: Download Build Artifact
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
-        with:
-          name: ${{ matrix.artifact }}
-
-      - name: Upload Release Asset
-        uses: akitorahayashi/gh-release@v1
-        with:
-          mode: upload
-          token: ${{ github.token }}
-          release_id: ${{ inputs.release_id }}
-          files: |
-            ${{ matrix.artifact }}
-            ${{ matrix.artifact }}.sha256
-          overwrite: true

@@ -12,21 +12,20 @@ export const nodejsTarget = target('nodejs', {
     link(asset('nodejs/.npmrc'), home('.npmrc')),
     runCommand({
       label: 'nodejs toolchain',
-      intentVersion: 1,
       reads: { version: 'nodejs/.node-version' },
       steps: [
         brewPrefixCapture(),
         {
           label: 'fnm install',
-          argv: (s) => ['fnm', 'install', s.ref('version'), '--progress=never'],
+          argv: ['fnm', 'install', { ref: 'version' }, '--progress=never'],
           changedWhen: { outputNotContains: 'already installed' },
-          env: (s) => brewPath(s),
+          env: brewPath(),
         },
         {
           label: 'fnm default',
-          argv: (s) => ['fnm', 'default', s.ref('version')],
+          argv: ['fnm', 'default', { ref: 'version' }],
           changedWhen: 'never',
-          env: (s) => brewPath(s),
+          env: brewPath(),
         },
       ],
     }),

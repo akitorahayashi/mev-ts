@@ -1,4 +1,3 @@
-import { join } from 'node:path';
 import type { AssetSource } from '../assets/registry';
 import { parseSectionCatalog, reconcileSections } from '../coder/catalog';
 import { parseDefaults } from '../defaults/manifest';
@@ -8,48 +7,93 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { parseReleaseBinaries } from '../github/release';
 import { parseTools } from '../pipx/manifest';
 import { parseJsonObject } from '../zed/settings';
+import {
+  bindCommandRead,
+  coderAgentsConfigAssets,
+  commandReadKey,
+  defaultsConfigAssets,
+  dutiConfigAssets,
+  extensionsConfigAssets,
+  pipxConfigAssets,
+  releaseConfigAssets,
+  zedSettingsConfigAssets,
+} from './activation';
 import type { Activation } from './activation/contract';
 import { allTargets } from './registry';
 import type { Target } from './target';
 
 type AssetValidator = (raw: string, key: string, assets: AssetSource) => void;
 
-function validatorFor(activation: Activation): AssetValidator | null {
+/** The embedded config assets an activation kind validates, and how. */
+interface AssetCheck {
+  readonly keys: readonly string[];
+  readonly validate: AssetValidator;
+}
+
+/**
+ * The config assets a kind validates before provisioning, with each kind naming
+ * its own keys (via its `configAssets`) rather than preflight guessing them. An
+ * exhaustive switch, so a new kind with a validatable asset is a compile-time
+ * prompt to declare its check here. Kinds without an embedded config asset
+ * return null; the zed override fragments are validated separately below.
+ */
+function assetCheckFor(activation: Activation): AssetCheck | null {
   switch (activation.kind) {
     case 'defaults':
-      return (raw, key) => {
-        parseDefaults(raw, key);
+      return {
+        keys: defaultsConfigAssets(activation),
+        validate: (raw, key) => {
+          parseDefaults(raw, key);
+        },
       };
     case 'duti':
-      return (raw, key) => {
-        parseAssociations(raw, key);
+      return {
+        keys: dutiConfigAssets(activation),
+        validate: (raw, key) => {
+          parseAssociations(raw, key);
+        },
       };
     case 'pipx':
-      return (raw, key) => {
-        parseTools(raw, key);
+      return {
+        keys: pipxConfigAssets(activation),
+        validate: (raw, key) => {
+          parseTools(raw, key);
+        },
       };
     case 'editorExtensions':
-      return (raw, key) => {
-        parseExtensions(raw, key);
+      return {
+        keys: extensionsConfigAssets(activation),
+        validate: (raw, key) => {
+          parseExtensions(raw, key);
+        },
       };
     case 'release':
-      return (raw, key) => {
-        parseReleaseBinaries(raw, key);
+      return {
+        keys: releaseConfigAssets(activation),
+        validate: (raw, key) => {
+          parseReleaseBinaries(raw, key);
+        },
       };
     case 'coderAgents':
-      return (raw, key, assets) => {
-        const listed = parseSectionCatalog(raw, key);
-        const prefix = `${activation.sectionsPrefix}/`;
-        const presentStems = assets
-          .keysByPrefix(prefix)
-          .map((assetKey) => assetKey.slice(prefix.length))
-          .filter((name) => name.endsWith('.md') && !name.includes('/'))
-          .map((name) => name.slice(0, -'.md'.length));
-        reconcileSections(listed, presentStems);
+      return {
+        keys: coderAgentsConfigAssets(activation),
+        validate: (raw, key, assets) => {
+          const listed = parseSectionCatalog(raw, key);
+          const prefix = `${activation.sectionsPrefix}/`;
+          const presentStems = assets
+            .keysByPrefix(prefix)
+            .map((assetKey) => assetKey.slice(prefix.length))
+            .filter((name) => name.endsWith('.md') && !name.includes('/'))
+            .map((name) => name.slice(0, -'.md'.length));
+          reconcileSections(listed, presentStems);
+        },
       };
     case 'zedSettings':
-      return (raw, key) => {
-        parseJsonObject(raw, key, 'Zed base settings');
+      return {
+        keys: zedSettingsConfigAssets(activation),
+        validate: (raw, key) => {
+          parseJsonObject(raw, key, 'Zed base settings');
+        },
       };
     default:
       return null;
@@ -74,23 +118,19 @@ async function validateActivation(
   activation: Activation,
   assets: AssetSource,
 ): Promise<void> {
-  const validator = validatorFor(activation);
-  if (validator) {
-    const key =
-      activation.kind === 'coderAgents'
-        ? join(activation.sectionsPrefix, 'catalog.yml')
-        : activation.kind === 'zedSettings'
-          ? activation.base.key
-          : 'configKey' in activation
-            ? activation.configKey
-            : '';
-    await validateAsset(key, assets, validator);
+  const check = assetCheckFor(activation);
+  if (check) {
+    for (const key of check.keys) {
+      await validateAsset(key, assets, check.validate);
+    }
   }
   if (activation.kind === 'command') {
+    // Read and bind every declared key exactly as runtime will, so a missing
+    // asset (including a bare-string read) and any `validate`/`derive` rejection
+    // surface here rather than only during provisioning.
     for (const read of Object.values(activation.reads ?? {})) {
-      if (typeof read === 'string') continue;
-      await validateAsset(read.key, assets, (raw, key) => {
-        read.validate(raw, key);
+      await validateAsset(commandReadKey(read), assets, (raw) => {
+        bindCommandRead(read, raw);
       });
     }
   }
