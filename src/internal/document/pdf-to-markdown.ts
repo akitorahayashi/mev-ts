@@ -12,12 +12,18 @@ export interface PdfToMarkdownRequest {
   readonly outputDirectory?: string;
 }
 
+export interface PdfToMarkdownOptions {
+  readonly write?: (message: string) => void;
+  readonly warn?: (message: string) => void;
+}
+
 export async function convertPdfToMarkdown(
   run: CommandRunner,
   request: PdfToMarkdownRequest,
-  write: (message: string) => void = () => {},
-  warn: (message: string) => void = () => {},
+  options: PdfToMarkdownOptions = {},
 ): Promise<void> {
+  const write = options.write ?? (() => {});
+  const warn = options.warn ?? (() => {});
   const pairs = await planConversions(
     request.input,
     request.outputDirectory,

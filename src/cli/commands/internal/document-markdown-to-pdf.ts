@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import { Command, Option } from 'clipanion';
 import { convertMarkdownToPdf } from '../../../internal/document/markdown-to-pdf';
 import { runInternalCommand } from './command';
@@ -28,8 +29,7 @@ export class InternalDocumentMarkdownToPdfCommand extends Command {
             left: this.marginLeft,
           },
         },
-        write,
-        warn,
+        { tmpRoot: tmpdir(), write, warn },
       ),
     );
   }
