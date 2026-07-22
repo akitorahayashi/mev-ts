@@ -26,4 +26,4 @@ Files under `tests/`. Verify filesystem, CLI routing, subprocess execution, or n
 
 ## CI
 
-Every workflow runs on `macos-latest`, matching the macOS-only product surface. `run-tests.yml` runs the unit and integration suites as parallel matrix jobs; `run-static-checks.yml` runs `bun run check`; `run-build.yml` compiles the binary and smoke-tests it.
+Every workflow job pins `macos-15`, matching the macOS-only product surface. `run-tests.yml` runs the unit and integration suites as parallel matrix jobs; `run-static-checks.yml` runs `bun run check`; `run-build.yml` compiles the binary and smoke-tests it.

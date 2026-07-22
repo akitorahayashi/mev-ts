@@ -163,6 +163,10 @@ function activationIntent(activation: Activation): ActivationIntent {
       return {
         kind: activation.kind,
         label: activation.label,
+        // Only each read's asset key contributes to the signature. A read's
+        // derive/validate functions are runner code (per contract.ts), not
+        // declared intent, so they are intentionally excluded — hashing them
+        // would be impossible and would churn on behavior-preserving edits.
         reads: Object.entries(activation.reads ?? {})
           .map(([name, read]) => [name, commandReadKey(read)] as const)
           .sort(([left], [right]) => left.localeCompare(right)),
