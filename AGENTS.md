@@ -59,46 +59,45 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### 3-Phase Provisioning
 
-`runMake()` protects target-declared mutable host state, then drives three sequential phases: deploy embedded assets into `~/.mev/roles/{role}/` (`deployRole()`), install missing Homebrew packages (`installPackages()`), then apply activations in declaration order (`runActivation()`). Preservation runs before applied-state invalidation and role replacement. Deploys stage the selected role and replace it only when its contents or executable attributes drift; declared symlink destinations are replaced with the current repository-defined target.
+`runMake()` protects target-declared mutable host state, then drives three sequential phases — `deployRole()`, `installPackages()`, `runActivation()` — in declaration order. See docs/architecture.md for the phase mechanics and the preservation boundary.
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Two cross-cutting rules govern the kinds:
-
-- Multi-item kinds (`defaults`, `duti`, `pipx`, `editorExtensions`, `release`) share the `reconcile.ts` envelope, which enforces per-item failure isolation structurally — a throwing item fails only itself.
-- Kinds that drive an external tool delegate its protocol and state probes to a capability module under `src/<tool>/` (`pipx/`, `duti/`, `editor/`, `github/`). Capability modules accept a `Context` and import no activation type; activations may import capabilities, never the reverse.
+`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `duti/`, `editor/`, `github/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
 
 See docs/architecture.md for the per-kind table and the reconcile/manifest mechanics.
 
 ### Provisioning Targets
 
-Each target is a file in `provisioning/targets/` registered in `provisioning/registry.ts`. The registry test (`src/provisioning/registry.test.ts`) validates asset existence and selector uniqueness for every registered target, so adding a target needs no new test file.
+Each target is a file in `provisioning/targets/` registered in `provisioning/registry.ts`. The registry test (`src/provisioning/registry.test.ts`) validates asset existence and selector uniqueness for every registered target, so adding a target needs no new test file. See docs/architecture.md for the target shape and how `make`/`create`/`sync` derive their selections from the registry.
 
 ### Semantic Sync
 
-`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a semantic target-signature mismatch or drift between embedded and deployed role assets; command activations are declarative and hashed — their argv, env, and `skipIf` are declarative token data included in the target signature, so a command edit flips the signature without a manual version counter. `runMake()` atomically records successful target signatures under `~/.mev/applied/`, so `make`, `create`, and `sync` share one applied-state boundary. Optional targets are never selected by sync.
+`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a signature mismatch or drift between embedded and deployed role assets. See docs/architecture.md for the signature hashing mechanics and how command activations contribute their declarative intent to it.
 
 ### CLI
 
-`main.ts` owns the clipanion `Cli` and registers the commands enumerated in `cli/commands/registry.ts` (the single registration source; namespace-help routing derives from their paths). Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage. Commands that can transitively throw `AppError`/`ProvisioningError` wrap their execute body with `runReportingDomainErrors`, which prints `<name>: <message>` to stderr without stack or usage and returns exit code 1. Pure renderers stay unwrapped. `src/errors.ts` documents the `AppError`/`ProvisioningError`/`CommandLineError` taxonomy.
+`main.ts` registers the commands enumerated in `cli/commands/registry.ts` (see Directory Structure above). Command dispatch, the `CommandLineError`/`AppError`/`ProvisioningError` exit-code mapping, and the error taxonomy are in docs/architecture.md and `src/errors.ts`.
 
 ### Key Types
 
-- `Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`, injected through every provisioning call; `basePath` is the inherited PATH read once in `createContext`, and `tmpRoot` is the scratch root (defaulting to the system temp dir) that tests point at a sandbox. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient environment at spawn. Tests supply fakes via `tests/fixtures/`.
+- `Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`, injected through every provisioning call and assembled by `createContext()`; tests supply hand-built fakes via `tests/fixtures/` rather than calling it. See docs/architecture.md for the `basePath`/`tmpRoot`/env-read mechanics and `CommandRunner.run`'s contract.
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
 - `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). `host/path.ts` also exports `mevPath(...segments)`, the sole builder composing mev-owned sub-paths on `mevRoot`, so every mev-managed host path derives from it and no call site hardcodes the `.mev` literal or a parallel root.
-- `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, optional pre-deploy preservation, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution.
+- `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution. See docs/architecture.md for the full target shape and the `optional` flag's role in `create`/`sync` selection.
 - `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
 
 ### Asset Codegen
 
-`scripts/generate-assets.ts` inlines every file under `src/assets/config/` into `registry.generated.ts` (do not edit). It runs via the `pree`/`pretest`/`pretest:unit`/`pretest:integration`/`pretypecheck`/`precheck` hooks, and `buildMev` regenerates it before compiling so the binary never embeds a stale registry.
+`registry.generated.ts` is generated by `scripts/generate-assets.ts` from `src/assets/config/` — do not hand-edit it. It regenerates via the `pree`/`pretest`/`pretest:unit`/`pretest:integration`/`pretypecheck`/`precheck` hooks, and `buildMev` regenerates it again before compiling, so the binary never embeds a stale registry. See docs/architecture.md for the embedding format and the registry staleness check.
 
 ## Documentation Responsibilities
 
-- AGENTS.md — source map, cross-cutting invariants, pointers. The orientation layer.
-- README.md — user-facing CLI interface: commands, flags, setup.
-- docs/architecture.md — design philosophy and detailed mechanics.
+- AGENTS.md — source map, cross-cutting invariants, and pointers. The orientation layer.
+- README.md — installation, local development setup, and a minimal usage teaser. The front door.
+- docs/architecture.md — provisioning design and mechanics: the 3-phase engine, the activation DSL, targets, semantic sync, the CLI dispatch/error model, asset embedding, identity, and document conversion.
+- docs/config.md — the `mev config` selection subsystem: catalogs, manifests, opt-in/opt-out polarity, and the Zed settings-merge algorithm.
+- docs/usage.md — the complete command reference: every subcommand, alias, and flag, and the behavior each produces.
 - docs/testing.md — test design and layer map.
 - CONTRIBUTING.md — repository scope and the local task surface.
