@@ -39,7 +39,7 @@ test('moves to the default branch, pulls, deletes, and prunes', async () => {
       stdout: undefined,
       stderr: undefined,
     },
-    { args: ['checkout', 'main'], stdout: 'inherit', stderr: 'inherit' },
+    { args: ['checkout', '--', 'main'], stdout: 'inherit', stderr: 'inherit' },
     { args: ['pull'], stdout: 'inherit', stderr: 'inherit' },
     {
       args: ['branch', '-D', '--', 'feature/a', 'feature/b'],
@@ -63,7 +63,7 @@ test('moves to the --to destination instead of the default branch', async () => 
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
     ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
-    ['checkout', 'dev'],
+    ['checkout', '--', 'dev'],
     ['pull'],
     ['branch', '-D', '--', 'feature/a'],
     ['remote', 'prune', 'origin'],
@@ -79,7 +79,7 @@ test('accepts -t as the destination shorthand and deduplicates branches', async 
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
     ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
-    ['checkout', 'dev'],
+    ['checkout', '--', 'dev'],
     ['pull'],
     ['branch', '-D', '--', 'feature/a'],
     ['remote', 'prune', 'origin'],
@@ -161,9 +161,18 @@ test('stops before delete when pull fails', async () => {
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
     ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
-    ['checkout', 'main'],
+    ['checkout', '--', 'main'],
     ['pull'],
   ]);
+});
+
+test('guards a dash-leading destination behind -- so git cannot read it as a flag', async () => {
+  const calls: RecordedCall[] = [];
+  const run = sequenceRunner([defaultBranch, branchExists], calls);
+
+  await deleteBranches(run, ['feature/a', '--to', '-weird']);
+
+  expect(calls.map((c) => c.args)).toContainEqual(['checkout', '--', '-weird']);
 });
 
 test('reports inherited command failures without pretending output was captured', async () => {

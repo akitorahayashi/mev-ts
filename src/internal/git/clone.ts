@@ -33,6 +33,15 @@ export async function cloneRepositories(
     throw new CommandLineError('At least one repository URL is required.');
   }
 
+  // A dash-leading positional would be parsed by git as a flag (argument
+  // injection, no shell involved); repository URLs never start with '-'.
+  const flaggish = urls.find((url) => url.startsWith('-'));
+  if (flaggish !== undefined) {
+    throw new CommandLineError(
+      `Invalid repository URL '${flaggish}': must not start with '-'.`,
+    );
+  }
+
   for (const url of urls) {
     const displayUrl = displayCloneUrl(url);
     write(`Cloning ${displayUrl}...\n`);

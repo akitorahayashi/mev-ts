@@ -42,7 +42,8 @@ export async function deleteBranches(
 
   write(`Moving to ${destination}, deleting ${branches.join(', ')}...\n`);
 
-  await runStep(run, ['checkout', destination]);
+  // `--` guards a dash-leading destination from being parsed as a checkout flag.
+  await runStep(run, ['checkout', '--', destination]);
   await runStep(run, ['pull']);
   await runStep(run, ['branch', '-D', '--', ...branches]);
   await runStep(run, ['remote', 'prune', 'origin']);
