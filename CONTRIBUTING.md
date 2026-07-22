@@ -33,7 +33,7 @@ without leaving intermediate files in the repository root.
 `bun run test` runs the entire Bun test suite.
 `bun run test:unit` runs the unit tests under `src/`.
 `bun run test:integration` runs the integration tests under `tests/`.
-Before each test command runs, the asset registry code is automatically generated.
+Before each test command runs, the asset registry code is automatically generated. Test layer boundaries, fixture conventions, and CI layout are in docs/testing.md.
 
 ## Runtime Version
 

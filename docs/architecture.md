@@ -26,6 +26,10 @@ src/
   errors.ts     typed error hierarchy
 ```
 
+## CLI (cli/)
+
+`main.ts` owns the clipanion `Cli` and registers the commands enumerated in `cli/commands/registry.ts`, the single registration source; namespace-help routing derives from their paths. Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage. Commands that can transitively throw `AppError`/`ProvisioningError` wrap their execute body with `runReportingDomainErrors`, which prints `<name>: <message>` to stderr without stack or usage and returns exit code 1; pure renderers stay unwrapped. `src/errors.ts` documents the `AppError`/`ProvisioningError`/`CommandLineError` taxonomy.
+
 ## 3-Phase Provisioning (provisioning/run.ts)
 
 `runMake()` drives three sequential phases per make request:
@@ -92,7 +96,7 @@ Twelve activation kinds:
 
 ### Selection Manifests
 
-`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.mev/`. `config-selection/selection.ts` owns the manifest IO (`readNameList`/`writeNameList`) and `resolveSelection(catalog, listed, mode)`: `opt-out` (coder) treats the stored list as disabled, so catalog entries added by later updates stay enabled; `opt-in` (zed) treats it as enabled, so a newly added override never applies itself. `app/config-selection.ts` drives the shared `mev config` toggle flow over that resolver. A present manifest that is not a mapping, or that lacks its key, is rejected rather than read as an empty selection.
+`coderAgents`, `coderSkills`, and `zedSettings` are filtered by a per-surface selection manifest under `~/.mev/`. See docs/config.md for the catalog sources, the manifest IO contract, opt-in/opt-out polarity, and the Zed settings-merge algorithm.
 
 ### Command Pipeline
 
@@ -146,7 +150,7 @@ Raw config files live under `src/assets/config/` keyed as `{role}/{filename}`. `
 
 ## Context (host/)
 
-`Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, read once in `createContext`, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient `Bun.env` at spawn. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
+`Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, read once in `createContext`, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. `tmpRoot` is the root for short-lived scratch directories (e.g. the remote-installer workspace), defaulting to the system temp directory; tests inject a sandbox path instead. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient `Bun.env` at spawn. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
 
 `CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd?, stdout?, stderr? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`; `stdout` and `stderr` each select `'pipe'` (the default, captured into the result) or `'inherit'`. A spawn failure — a missing or otherwise unspawnable executable — resolves as `code 127` with the reason in `stderr` rather than rejecting, so every call site handles it as an ordinary non-zero exit.
 
