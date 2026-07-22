@@ -1,20 +1,20 @@
 import { createProgressBar } from 'tty-prog';
-import { createContext } from '../../host/context';
+import { createContext } from '../host/context';
 import {
   type MakeReport,
   type MakeRequest,
   runMake,
-} from '../../provisioning/run';
+} from '../provisioning/run';
 import {
   type ActivationProgress,
   createActivationProgress,
-} from '../tty/activation-progress';
+} from './tty/activation-progress';
 import {
   renderDeployLine,
   renderHeader,
   renderMakeReport,
-} from '../tty/makelog';
-import { resolveIsTTY } from '../tty/style';
+} from './tty/makelog';
+import { resolveIsTTY } from './tty/style';
 
 export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 

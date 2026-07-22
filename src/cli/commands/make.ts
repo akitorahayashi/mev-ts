@@ -1,7 +1,7 @@
 import { Command, Option } from 'clipanion';
+import { executeProvisioningRun } from '../provisioning-run';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
-import { executeProvisioningRun } from './provisioning';
 
 export class MakeCommand extends Command {
   static override paths = [['make'], ['mk']];

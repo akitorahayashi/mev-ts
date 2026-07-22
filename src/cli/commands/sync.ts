@@ -4,9 +4,9 @@ import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
 import { fullSetupTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import { isScanError, scanTargets } from '../../provisioning/scan';
+import { executeProvisioningRun } from '../provisioning-run';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
-import { executeProvisioningRun } from './provisioning';
 
 export class SyncCommand extends Command {
   static override paths = [['sync'], ['s']];

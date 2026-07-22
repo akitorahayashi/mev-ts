@@ -4,9 +4,9 @@ import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
 import { allTargets, fullSetupTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import type { Target } from '../../provisioning/target';
+import { executeProvisioningRun } from '../provisioning-run';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
-import { executeProvisioningRun } from './provisioning';
 
 function optionalTargetLine(target: Target): string {
   return `${target.description}: mev make ${target.aliases[0] ?? target.name}`;
