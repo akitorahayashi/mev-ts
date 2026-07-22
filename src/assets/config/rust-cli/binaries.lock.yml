@@ -17,20 +17,20 @@ binaries:
         sha256: 571be53c09bf627dff081e5ba1a9f72cbed6241464caa75ee1f42da0a9d82c49
   - name: mx
     repo: akitorahayashi/mx
-    tag: v4.0.0
+    tag: v4.0.1
     assets:
       darwin-aarch64:
-        sha256: 10e125df07f9504dfb0c8ba5e638c17e7d650a257ff26b2dba1013d926c374a5
+        sha256: b56a3d51aaeb08d82c170e3c08c795237769cd2a740e8feda67af52dedc4979f
       darwin-x86_64:
-        sha256: 12f9a5800c5f3dae81b719353d0ba826f06698a20723c69fe8d6796d7db5911a
+        sha256: 3de4526d70d8cc19738edf07592c56e710b6365fe8e585817b1450522d15544d
   - name: prf
     repo: akitorahayashi/prf
-    tag: v1.0.0
+    tag: v1.1.0
     assets:
       darwin-aarch64:
-        sha256: 5b756f1a32c2866f10b01c3a7a35f3a420a5c1f6a3463502ffc3ae03a27408c6
+        sha256: f83e1047607cca306d2162fb40b6270c621fe960c154aa178178b1ee854f2ac4
       darwin-x86_64:
-        sha256: b387fce83e1c76761ba669f3bdd6f27e74f8a1e776a1001318784455136b63b2
+        sha256: ac3c82f91e8d1e2ced1f1b51b2eff6ee420414d500245ee61132d2a57c656053
   - name: ssv
     repo: akitorahayashi/ssv
     tag: v0.6.0
