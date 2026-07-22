@@ -2,7 +2,7 @@ import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { configSelect, configSelectClear } from '../../src/app/coder';
-import type { SelectEntries } from '../../src/app/config-selection';
+import type { SelectEntries } from '../../src/app/config-toggle';
 import { deployedDir } from '../../src/assets/ref';
 import {
   AGENTS_SECTIONS_PREFIX,

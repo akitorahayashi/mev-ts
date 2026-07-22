@@ -1,5 +1,5 @@
 import checkbox from '@inquirer/checkbox';
-import type { SelectEntries } from '../../app/config-selection';
+import type { SelectEntries } from '../../app/config-toggle';
 
 interface CheckboxChoice {
   readonly name: string;

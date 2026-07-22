@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { SelectEntries } from '../../src/app/config-selection';
+import type { SelectEntries } from '../../src/app/config-toggle';
 import {
   configSelectZedOverrides,
   configSelectZedOverridesClear,

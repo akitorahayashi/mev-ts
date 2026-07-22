@@ -15,7 +15,7 @@ export type SelectEntries = (
 ) => Promise<string[] | null>;
 
 /** One selectable surface: its catalog plus how its manifest is read/written. */
-export interface ConfigSelection {
+export interface ConfigToggleSurface {
   readonly catalog: readonly string[];
   readonly read: () => Promise<string[]>;
   readonly write: (names: readonly string[]) => Promise<void>;
@@ -29,7 +29,7 @@ export interface ConfigSelection {
  * Cancelling leaves the manifest untouched.
  */
 export async function configSelectManifest(
-  selection: ConfigSelection,
+  selection: ConfigToggleSurface,
   warn: (message: string) => void,
   select: SelectEntries,
 ): Promise<void> {
@@ -57,7 +57,7 @@ export async function configSelectManifest(
  * per surface — see each command's `--clear` description.
  */
 export async function configClearManifest(
-  selection: ConfigSelection,
+  selection: ConfigToggleSurface,
 ): Promise<void> {
   await selection.write(
     selection.mode === 'opt-out' ? [...selection.catalog] : [],
