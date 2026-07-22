@@ -1,7 +1,7 @@
 import { chmod } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
 import { replaceFileAtomically } from '../host/atomic-file';
-import { formatCommandFailure } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { downloadOverHttps } from '../host/https-download';
 import {
@@ -124,12 +124,12 @@ const ARCH_BY_MACHINE: Readonly<Record<string, string>> = {
 
 /** Resolve the running machine's architecture as a GitHub release asset segment. */
 export async function detectArch(context: Context): Promise<string> {
-  const result = await context.commands.run('uname', ['-m']);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure('uname -m failed', result),
-    );
-  }
+  const result = await runProcessStep(
+    context.commands,
+    'uname',
+    ['-m'],
+    'uname -m failed',
+  );
   const machine = result.stdout.trim();
   const arch = ARCH_BY_MACHINE[machine];
   if (!arch) {
@@ -174,26 +174,23 @@ export async function fetchReleaseBinary(
   const asset = `${binary.name}-${OS}-${arch}`;
   await replaceFileAtomically(dest, async (tmp) => {
     if (binary.private) {
-      const r = await context.commands.run('gh', [
-        'release',
-        'download',
-        binary.tag,
-        '--repo',
-        binary.repo,
-        '--pattern',
-        asset,
-        '--output',
-        tmp,
-        '--clobber',
-      ]);
-      if (r.code !== 0) {
-        throw new ProvisioningError(
-          formatCommandFailure(
-            `gh release download failed for ${binary.name}`,
-            r,
-          ),
-        );
-      }
+      await runProcessStep(
+        context.commands,
+        'gh',
+        [
+          'release',
+          'download',
+          binary.tag,
+          '--repo',
+          binary.repo,
+          '--pattern',
+          asset,
+          '--output',
+          tmp,
+          '--clobber',
+        ],
+        `gh release download failed for ${binary.name}`,
+      );
     } else {
       const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
       await downloadOverHttps(context.commands, url, tmp, binary.name);

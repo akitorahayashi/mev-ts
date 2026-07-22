@@ -1,5 +1,5 @@
-import { ProvisioningError } from '../errors';
-import { type CommandOptions, formatCommandFailure } from '../host/command';
+import type { CommandOptions } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 
 /**
@@ -8,12 +8,12 @@ import type { Context } from '../host/context';
  * report its prefix.
  */
 export async function brewEnv(context: Context): Promise<CommandOptions> {
-  const result = await context.commands.run('brew', ['--prefix']);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure('brew --prefix failed', result),
-    );
-  }
+  const result = await runProcessStep(
+    context.commands,
+    'brew',
+    ['--prefix'],
+    'brew --prefix failed',
+  );
   const prefix = result.stdout.trim();
   const base = context.basePath;
   return { env: { PATH: [`${prefix}/bin`, base].filter(Boolean).join(':') } };
@@ -27,15 +27,12 @@ export async function localVenvs(
   context: Context,
   options: CommandOptions,
 ): Promise<string> {
-  const result = await context.commands.run(
+  const result = await runProcessStep(
+    context.commands,
     'pipx',
     ['environment', '--value', 'PIPX_LOCAL_VENVS'],
+    'pipx environment failed',
     options,
   );
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure('pipx environment failed', result),
-    );
-  }
   return result.stdout.trim();
 }

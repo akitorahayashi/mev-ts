@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../errors';
 import { runWithCleanup } from '../host/cleanup-error';
-import { formatCommandFailure } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { loadInventory } from './inventory';
 import { type PackageRequirement, type PackageToken, tokens } from './package';
@@ -67,17 +67,12 @@ async function install(
   name: string,
 ): Promise<void> {
   await withBrewfile(line, async (file) => {
-    const result = await context.commands.run('brew', [
-      'bundle',
-      'install',
-      '--no-upgrade',
-      `--file=${file}`,
-    ]);
-    if (result.code !== 0) {
-      throw new ProvisioningError(
-        formatCommandFailure(`brew bundle install failed for ${name}`, result),
-      );
-    }
+    await runProcessStep(
+      context.commands,
+      'brew',
+      ['bundle', 'install', '--no-upgrade', `--file=${file}`],
+      `brew bundle install failed for ${name}`,
+    );
   });
 }
 

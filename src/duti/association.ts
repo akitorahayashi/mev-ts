@@ -1,5 +1,6 @@
 import { ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord, requireExactKeys, requireUniqueBy } from '../host/parse';
 import { loadYaml } from '../host/yaml';
@@ -122,15 +123,10 @@ export async function setApp(
   extension: string,
   context: Context,
 ): Promise<void> {
-  const result = await context.commands.run('duti', [
-    '-s',
-    bundleId,
-    `.${extension}`,
-    'all',
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`duti -s failed for .${extension}`, result),
-    );
-  }
+  await runProcessStep(
+    context.commands,
+    'duti',
+    ['-s', bundleId, `.${extension}`, 'all'],
+    `duti -s failed for .${extension}`,
+  );
 }
