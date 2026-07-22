@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import { errorMessage } from '../../errors';
 import {
   detectArch,
@@ -29,8 +29,12 @@ export function releaseConfigAssets(
   return [activation.configKey];
 }
 
-export function describeRelease(): Described {
-  return { verb: 'apply', source: 'release binaries', dest: `~/${BIN_DIR}` };
+export function describeRelease(activation: ReleaseActivation): Described {
+  return {
+    verb: 'apply',
+    source: basename(activation.configKey, extname(activation.configKey)),
+    dest: `~/${BIN_DIR}`,
+  };
 }
 
 function releaseStep(
@@ -67,7 +71,7 @@ export function runRelease(
   activation: ReleaseActivation,
   context: Context,
 ): Promise<ActivationReport> {
-  return reconcile(describeRelease(), {
+  return reconcile(describeRelease(activation), {
     declare: () =>
       readDeployedManifest(
         activation.configKey,
