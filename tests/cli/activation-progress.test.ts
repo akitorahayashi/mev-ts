@@ -38,10 +38,12 @@ test('the TTY activation progress renders the in-flight line and a completion li
   progress.finish();
 
   // The spinner renders the in-flight activation line to the TTY stream and
-  // clears it (line-reset sequence) before the completion line is emitted.
+  // clears it before the completion line is emitted. Match any CSI erase body
+  // (`[<params>J|K`) rather than a specific clear code, so tightening the exact
+  // reset bytes in transient-line does not break this behavioral assertion.
   const terminal = stream.output();
   expect(terminal).toContain('link git/.gitconfig -> ~/.gitconfig');
-  expect(terminal).toContain('\x1b[2K');
+  expect(terminal).toMatch(/\[[0-9;]*[JK]/);
   // The header and the completion line go to the out sink.
   expect(out).toContain('Activating targets');
   const plainOut = Bun.stripANSI(out);
