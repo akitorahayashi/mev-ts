@@ -1,17 +1,12 @@
 import checkbox from '@inquirer/checkbox';
 import type { SelectEntries } from '../../app/config-toggle';
 
-interface CheckboxChoice {
-  readonly name: string;
-  readonly value: string;
-  readonly checked: boolean;
-}
-
-/** The subset of the `@inquirer/checkbox` prompt this module drives. */
-type CheckboxPrompt = (config: {
-  message: string;
-  choices: CheckboxChoice[];
-}) => Promise<string[]>;
+/**
+ * The prompt this module drives, derived from the `@inquirer/checkbox` default
+ * export so a change to its config shape is a compile error here rather than a
+ * runtime surprise on the interactive path CI cannot exercise.
+ */
+type CheckboxPrompt = typeof checkbox;
 
 /**
  * Build a multi-select toggle over an injected prompt. Returns the names the
@@ -40,6 +35,4 @@ export function createToggle(prompt: CheckboxPrompt): SelectEntries {
   };
 }
 
-export const toggle: SelectEntries = createToggle(
-  checkbox as unknown as CheckboxPrompt,
-);
+export const toggle: SelectEntries = createToggle(checkbox);
