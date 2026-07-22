@@ -13,7 +13,8 @@ jobs:
   validate-release:
     permissions:
       contents: read
-    runs-on: macos-15 # Pinned deliberately; bump intentionally
+    # Pure-Node tag check with no macOS dependency, so it runs on Linux.
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
