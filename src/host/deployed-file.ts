@@ -2,7 +2,7 @@ import { ProvisioningError } from '../errors';
 import { readTextIfPresent } from './absence';
 
 /** The canonical guidance surfaced when a file mev expects to be deployed is absent. */
-export function deployFirstMessage(label: string, path: string): string {
+function deployFirstMessage(label: string, path: string): string {
   return `${label} not found: ${path}. Run provisioning to deploy it first.`;
 }
 

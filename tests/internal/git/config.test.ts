@@ -5,7 +5,6 @@ import { AppError } from '../../../src/errors';
 import {
   configGet,
   configGetFile,
-  configSetFile,
   configSetFileValues,
 } from '../../../src/git/config';
 import { presetRunner } from '../../fixtures/fake-command-runner';
@@ -65,26 +64,6 @@ test('configGetFile returns null on exit 1', async () => {
   expect(
     await configGetFile(run, '/home/test/.gitconfig', 'user.name'),
   ).toBeNull();
-});
-
-test('configSetFile passes the explicit path', async () => {
-  const sink: { args?: string[] } = {};
-  const run = presetRunner({ code: 0, stdout: '', stderr: '' }, sink);
-  await configSetFile(run, '/home/test/.gitconfig', 'user.name', 'Example');
-  expect(sink.args).toEqual([
-    'config',
-    '--file',
-    '/home/test/.gitconfig',
-    'user.name',
-    'Example',
-  ]);
-});
-
-test('configSetFile throws ProvisioningError on non-zero exit', async () => {
-  const run = presetRunner({ code: 1, stdout: '', stderr: 'error' });
-  await expect(
-    configSetFile(run, '/home/test/.gitconfig', 'user.name', 'Example'),
-  ).rejects.toBeInstanceOf(AppError);
 });
 
 test('configSetFileValues applies values to one staging file', async () => {

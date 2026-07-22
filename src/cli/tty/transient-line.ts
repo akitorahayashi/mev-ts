@@ -9,8 +9,6 @@ import type { Writable } from 'node:stream';
 export interface TransientLine {
   /** Replace the current line with `text`, leaving the cursor on it. */
   render(text: string): void;
-  /** Replace the current line with `text` and finalize it with a newline. */
-  commit(text: string): void;
   /** Clear the current line back to empty at column 0. */
   clear(): void;
 }
@@ -22,9 +20,6 @@ export function createTransientLine(stream: Writable): TransientLine {
   return {
     render(text) {
       stream.write(`${RESET_LINE}${text}`);
-    },
-    commit(text) {
-      stream.write(`${RESET_LINE}${text}\n`);
     },
     clear() {
       stream.write(RESET_LINE);

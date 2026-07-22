@@ -24,7 +24,7 @@ export function parseAssociations(raw: string, path: string): Association[] {
     );
   }
   requireExactKeys(parsed, ['default_apps'], `Duti config ${path}`);
-  const defaultApps = isRecord(parsed) ? parsed['default_apps'] : undefined;
+  const defaultApps = parsed['default_apps'];
   if (!Array.isArray(defaultApps)) {
     throw new ProvisioningError(
       `Duti config must contain a default_apps sequence: ${path}`,

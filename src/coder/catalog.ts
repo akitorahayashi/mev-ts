@@ -89,8 +89,10 @@ export async function readSections(sourceDir: string): Promise<string[]> {
   const listed = parseSectionCatalog(raw, catalogPath);
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
+    // catalog.yml was just read from sourceDir, so the directory existed a
+    // moment ago; a null here means it vanished mid-read, not a missing deploy.
     throw new ProvisioningError(
-      `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
+      `AGENTS.md section directory disappeared while reading it: ${sourceDir}.`,
     );
   }
   const presentStems = entries

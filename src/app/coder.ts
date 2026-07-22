@@ -14,7 +14,7 @@ import {
   type SelectEntries,
 } from './config-selection';
 
-export type CoderSelectable = 'agents' | 'skills';
+type CoderSelectable = 'agents' | 'skills';
 
 interface CoderDescriptor {
   readonly read: (sourceDir: string) => Promise<string[]>;

@@ -55,20 +55,6 @@ export async function configGetFile(
   return result.stdout.trim();
 }
 
-export async function configSetFile(
-  run: CommandRunner,
-  path: string,
-  name: string,
-  value: string,
-): Promise<void> {
-  const result = await runCapture(run, ['config', '--file', path, name, value]);
-  if (result.code !== 0) {
-    throw new AppError(
-      formatCommandFailure(`git config --file ${path} ${name} failed`, result),
-    );
-  }
-}
-
 export async function configSetFileValues(
   run: CommandRunner,
   path: string,

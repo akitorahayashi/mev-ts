@@ -23,17 +23,6 @@ export async function readTextIfPresent(path: string): Promise<string | null> {
   }
 }
 
-export async function readDirectoryIfPresent(
-  path: string,
-): Promise<string[] | null> {
-  try {
-    return await readdir(path, { recursive: true });
-  } catch (error) {
-    if (isNotFound(error)) return null;
-    throw error;
-  }
-}
-
 export async function readDirentsIfPresent(
   path: string,
 ): Promise<Dirent[] | null> {
