@@ -182,7 +182,7 @@ sandboxTest('coderAgents rejects non-string catalog sections', async (dir) => {
   );
 
   expect(report.status).toBe('failed');
-  expect(report.error).toContain('sections sequence of strings');
+  expect(report.error).toContain('must be a sequence of strings');
 });
 
 sandboxTest('coderAgents surfaces generated file read errors', async (dir) => {

@@ -1,5 +1,6 @@
 import { errorMessage, ProvisioningError } from '../../errors';
 import type { CommandRunner } from '../../host/command';
+import { isRecord } from '../../host/parse';
 import { runStep } from './run';
 
 export interface Label {
@@ -9,12 +10,7 @@ export interface Label {
 }
 
 function isLabelName(value: unknown): value is { readonly name: string } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    typeof (value as { readonly name?: unknown }).name === 'string'
-  );
+  return isRecord(value) && typeof value['name'] === 'string';
 }
 
 function repoArgs(repo?: string): string[] {
