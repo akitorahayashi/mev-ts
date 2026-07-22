@@ -6,10 +6,16 @@ import {
   fetchReleaseBinary,
   installedMatches,
   parseReleaseBinaries,
+  parseReleaseLock,
+  type ReleaseArch,
   type ReleaseBinary,
+  type ReleaseLock,
+  releaseLockKey,
+  resolveReleaseDigest,
 } from '../../github/release';
 import type { Context } from '../../host/context';
 import type { Activation } from './contract';
+import { readDeployedManifest } from './manifest';
 import { manifestKind, manifestSource } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
@@ -24,17 +30,20 @@ export function releaseBinaries(configKey: string): Activation {
 
 function releaseStep(
   binary: ReleaseBinary,
-  arch: string,
+  lock: ReleaseLock,
+  arch: ReleaseArch,
   binDir: string,
   context: Context,
 ): ReconcileStep {
   const dest = join(binDir, binary.name);
   return {
     async run() {
-      if (await installedMatches(dest, binary.tag, context)) {
+      // Resolved inside the step so a lock gap fails only its own binary.
+      const digest = resolveReleaseDigest(binary, arch, lock);
+      if (await installedMatches(dest, digest)) {
         return { key: binary.name, value: 'up to date', status: 'unchanged' };
       }
-      await fetchReleaseBinary(binary, arch, dest, context);
+      await fetchReleaseBinary(binary, arch, digest, dest, context);
       return {
         key: binary.name,
         value: `installed ${binary.tag}`,
@@ -64,14 +73,30 @@ const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
   // reconciliations run concurrently; the envelope isolates a single binary's
   // failure and preserves declaration order.
   concurrency: RELEASE_DOWNLOAD_CONCURRENCY,
-  steps: async (binaries, _activation, context) => {
+  steps: async (binaries, activation, context) => {
+    // A missing or invalid lock aborts the whole activation with the same
+    // deploy-first guidance as the manifest itself.
+    const lock = await readDeployedManifest(
+      releaseLockKey(activation.configKey),
+      context.home,
+      parseReleaseLock,
+      'Release binaries lock',
+    );
     const arch = await detectArch(context);
     const binDir = join(context.home, BIN_DIR);
     await mkdir(binDir, { recursive: true });
-    return binaries.map((binary) => releaseStep(binary, arch, binDir, context));
+    return binaries.map((binary) =>
+      releaseStep(binary, lock, arch, binDir, context),
+    );
   },
 });
 
 export const describeRelease = releaseKind.describe;
-export const releaseConfigAssets = releaseKind.configAssets;
 export const runRelease = releaseKind.run;
+
+/** The manifest plus the digest lock that rides along as its sibling asset. */
+export function releaseConfigAssets(
+  activation: ReleaseActivation,
+): readonly string[] {
+  return [activation.configKey, releaseLockKey(activation.configKey)];
+}

@@ -14,6 +14,7 @@
     "e": "bun src/main.ts",
     "up": "bun scripts/install-mev.ts",
     "codegen": "bun scripts/generate-assets.ts",
+    "lock": "bun scripts/lock-releases.ts",
     "build": "bun scripts/build.ts --outfile dist/mev",
     "pretest": "bun run codegen",
     "test": "bun test",

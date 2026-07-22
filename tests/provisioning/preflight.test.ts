@@ -1,7 +1,11 @@
 import { expect, test } from 'bun:test';
 import { type AssetSource, embeddedAssets } from '../../src/assets/registry';
 import { ProvisioningError } from '../../src/errors';
-import { coderAgents, runCommand } from '../../src/provisioning/activation';
+import {
+  coderAgents,
+  releaseBinaries,
+  runCommand,
+} from '../../src/provisioning/activation';
 import { validateEmbeddedAssets } from '../../src/provisioning/preflight';
 import { target } from '../../src/provisioning/target';
 
@@ -63,6 +67,65 @@ test('embedded asset preflight rejects a coder catalog missing a section file', 
         'coder/agents-sections/catalog.yml': 'sections:\n  - communication\n',
       }),
       [demo],
+    ),
+  ).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+const releaseDemo = target('demo', {
+  description: 'demo',
+  role: 'demo',
+  activations: [releaseBinaries('demo/binaries.yml')],
+});
+
+const RELEASE_MANIFEST = `
+binaries:
+  - name: kpv
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+`.trimStart();
+
+function releaseLock(assets: string): string {
+  return `binaries:\n  - name: kpv\n    repo: akitorahayashi/kpv\n    tag: v0.6.0\n    assets:\n${assets}`;
+}
+
+const FULL_LOCK = releaseLock(
+  `      darwin-aarch64:\n        sha256: ${'a'.repeat(64)}\n      darwin-x86_64:\n        sha256: ${'b'.repeat(64)}\n`,
+);
+
+test('embedded asset preflight accepts a release manifest fully covered by its lock', async () => {
+  await expect(
+    validateEmbeddedAssets(
+      assets({
+        'demo/binaries.yml': RELEASE_MANIFEST,
+        'demo/binaries.lock.yml': FULL_LOCK,
+      }),
+      [releaseDemo],
+    ),
+  ).resolves.toBeUndefined();
+});
+
+test('embedded asset preflight rejects a release manifest entry absent from the lock', async () => {
+  await expect(
+    validateEmbeddedAssets(
+      assets({
+        'demo/binaries.yml': `${RELEASE_MANIFEST}  - name: mx\n    repo: akitorahayashi/mx\n    tag: v4.0.0\n`,
+        'demo/binaries.lock.yml': FULL_LOCK,
+      }),
+      [releaseDemo],
+    ),
+  ).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+test('embedded asset preflight rejects a lock missing an architecture digest', async () => {
+  await expect(
+    validateEmbeddedAssets(
+      assets({
+        'demo/binaries.yml': RELEASE_MANIFEST,
+        'demo/binaries.lock.yml': releaseLock(
+          `      darwin-aarch64:\n        sha256: ${'a'.repeat(64)}\n`,
+        ),
+      }),
+      [releaseDemo],
     ),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });

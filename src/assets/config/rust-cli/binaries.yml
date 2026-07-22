@@ -6,6 +6,7 @@
 #   - tag: release tag to install (required)
 #   - private: use an authenticated `gh release download` instead of an
 #       anonymous curl fetch (optional, defaults to false)
+# Run `bun run lock` after changing entries; digests live in binaries.lock.yml.
 binaries:
   - name: astm
     repo: asterismhq/asterism
@@ -16,10 +17,10 @@ binaries:
     tag: v0.6.0
   - name: mx
     repo: akitorahayashi/mx
-    tag: v4.0.0
+    tag: v4.0.1
   - name: prf
     repo: akitorahayashi/prf
-    tag: v1.0.0
+    tag: v1.1.0
   - name: ssv
     repo: akitorahayashi/ssv
     tag: v0.6.0
