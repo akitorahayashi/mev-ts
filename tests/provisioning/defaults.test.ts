@@ -6,6 +6,7 @@ import {
   applyDefaults,
   runActivation,
 } from '../../src/provisioning/activation';
+import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -19,8 +20,6 @@ async function deploy(dir: string, yaml: string): Promise<void> {
   await writeFile(join(roleDir, 'defaults.yml'), yaml);
 }
 
-const ok = (): CommandResult => ({ code: 0, stdout: '', stderr: '' });
-const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
 const readValue = (stdout: string): CommandResult => ({
   code: 0,
   stdout,

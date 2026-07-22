@@ -1,23 +1,14 @@
 import { expect } from 'bun:test';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type {
-  CommandOptions,
-  CommandResult,
-  CommandRunner,
-} from '../../../src/host/command';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import type {
   PdfPrinter,
   PdfPrinterFactory,
 } from '../../../src/internal/document/browser-print';
 import { convertMarkdownToPdf } from '../../../src/internal/document/markdown-to-pdf';
+import type { Invocation } from '../../fixtures/fake-context';
 import { sandboxedTest } from '../../fixtures/temporary-directory';
-
-interface Invocation {
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly options?: CommandOptions;
-}
 
 class RecordingPrinter implements PdfPrinter {
   readonly prints: Array<{ html: string; output: string }> = [];
