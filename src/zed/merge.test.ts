@@ -27,6 +27,14 @@ test('combineOverrides merges disjoint overrides', () => {
   });
 });
 
+test('combineOverrides merges a literal dotted key and the same-looking nested path without a false conflict', () => {
+  const combined = combineOverrides([
+    { name: 'dotted', settings: { 'a.b': 1 } },
+    { name: 'nested', settings: { a: { b: 2 } } },
+  ]);
+  expect(combined).toEqual({ 'a.b': 1, a: { b: 2 } });
+});
+
 test('combineOverrides throws when two overrides set the same leaf key', () => {
   expect(() =>
     combineOverrides([

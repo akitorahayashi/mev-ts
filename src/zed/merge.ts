@@ -44,6 +44,32 @@ export interface NamedSettings {
   readonly settings: JsonObject;
 }
 
+interface OwnedLeaf {
+  readonly owner: string;
+  readonly path: readonly string[];
+}
+
+// Owner paths are tracked as key arrays and only joined for display, so a
+// literal dotted key ('a.b') and the nested path a -> b never alias into the
+// same tracking entry and report a false conflict.
+function pathKey(path: readonly string[]): string {
+  return JSON.stringify(path);
+}
+
+function displayPath(path: readonly string[]): string {
+  return path.join('.');
+}
+
+function isNestedUnder(
+  ancestor: readonly string[],
+  candidate: readonly string[],
+): boolean {
+  return (
+    candidate.length > ancestor.length &&
+    ancestor.every((segment, index) => candidate[index] === segment)
+  );
+}
+
 /**
  * Deep-merge a set of named override fragments into one. Two overrides
  * setting the same leaf key is ambiguous — which one should win is not
@@ -53,9 +79,9 @@ export interface NamedSettings {
 export function combineOverrides(
   overrides: readonly NamedSettings[],
 ): JsonObject {
-  const owners = new Map<string, string>();
+  const owners = new Map<string, OwnedLeaf>();
   return overrides.reduce<JsonObject>(
-    (combined, override) => mergeTracked(combined, override, owners, ''),
+    (combined, override) => mergeTracked(combined, override, owners, []),
     {},
   );
 }
@@ -63,8 +89,8 @@ export function combineOverrides(
 function mergeTracked(
   combined: JsonObject,
   override: NamedSettings,
-  owners: Map<string, string>,
-  pathPrefix: string,
+  owners: Map<string, OwnedLeaf>,
+  pathPrefix: readonly string[],
 ): JsonObject {
   const result: Record<string, JsonValue> = { ...combined };
   for (const [key, value] of Object.entries(override.settings)) {
@@ -73,7 +99,7 @@ function mergeTracked(
         `Zed override '${override.name}' sets a disallowed key '${key}'.`,
       );
     }
-    const path = pathPrefix ? `${pathPrefix}.${key}` : key;
+    const path = [...pathPrefix, key];
     const existing = result[key];
     if (
       isPlainObject(value) &&
@@ -90,20 +116,23 @@ function mergeTracked(
     // A prior override may have claimed a key nested under `path` (e.g.
     // 'agent.commit_message_model.model'); overwriting `path` itself with a
     // primitive here would silently discard that nested contribution.
-    for (const [ownedPath, otherOwner] of owners) {
-      if (ownedPath.startsWith(`${path}.`) && otherOwner !== override.name) {
+    for (const claimed of owners.values()) {
+      if (
+        claimed.owner !== override.name &&
+        isNestedUnder(path, claimed.path)
+      ) {
         throw new ProvisioningError(
-          `Zed overrides '${otherOwner}' and '${override.name}' both set '${path}'.`,
+          `Zed overrides '${claimed.owner}' and '${override.name}' both set '${displayPath(path)}'.`,
         );
       }
     }
-    const owner = owners.get(path);
-    if (owner !== undefined && owner !== override.name) {
+    const owned = owners.get(pathKey(path));
+    if (owned !== undefined && owned.owner !== override.name) {
       throw new ProvisioningError(
-        `Zed overrides '${owner}' and '${override.name}' both set '${path}'.`,
+        `Zed overrides '${owned.owner}' and '${override.name}' both set '${displayPath(path)}'.`,
       );
     }
-    owners.set(path, override.name);
+    owners.set(pathKey(path), { owner: override.name, path });
     result[key] = value;
   }
   return result;
