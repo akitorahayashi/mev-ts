@@ -6,6 +6,7 @@
 #   - tag: release tag to install (required)
 #   - private: use an authenticated `gh release download` instead of an
 #       anonymous curl fetch (optional, defaults to false)
+# Run `bun run lock` after changing entries; digests live in binaries.lock.yml.
 binaries:
   - name: astm
     repo: asterismhq/asterism

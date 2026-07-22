@@ -4,7 +4,13 @@ import { parseDefaults } from '../defaults/manifest';
 import { parseAssociations } from '../duti/association';
 import { parseExtensions } from '../editor/extension';
 import { errorMessage, ProvisioningError } from '../errors';
-import { parseReleaseBinaries } from '../github/release';
+import {
+  parseReleaseBinaries,
+  parseReleaseLock,
+  releaseArchitectures,
+  releaseLockKey,
+  resolveReleaseDigest,
+} from '../github/release';
 import { parseTools } from '../pipx/manifest';
 import { parseJsonObject } from '../zed/settings';
 import {
@@ -22,7 +28,11 @@ import type { Activation } from './activation/contract';
 import { allTargets } from './registry';
 import type { Target } from './target';
 
-type AssetValidator = (raw: string, key: string, assets: AssetSource) => void;
+type AssetValidator = (
+  raw: string,
+  key: string,
+  assets: AssetSource,
+) => void | Promise<void>;
 
 /** The embedded config assets an activation kind validates, and how. */
 interface AssetCheck {
@@ -69,13 +79,28 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
           parseExtensions(raw, key);
         },
       };
-    case 'release':
+    case 'release': {
+      // Beyond per-file parsing, the manifest must be fully covered by its
+      // digest lock, so a manifest edit without `bun run lock` fails at build
+      // time rather than per binary during provisioning.
+      const lockKey = releaseLockKey(activation.configKey);
       return {
         keys: releaseConfigAssets(activation),
-        validate: (raw, key) => {
-          parseReleaseBinaries(raw, key);
+        validate: async (raw, key, assets) => {
+          if (key === lockKey) {
+            parseReleaseLock(raw, key);
+            return;
+          }
+          const binaries = parseReleaseBinaries(raw, key);
+          const lock = parseReleaseLock(await assets.read(lockKey), lockKey);
+          for (const binary of binaries) {
+            for (const arch of releaseArchitectures) {
+              resolveReleaseDigest(binary, arch, lock);
+            }
+          }
         },
       };
+    }
     case 'coderAgents':
       return {
         keys: coderAgentsConfigAssets(activation),
@@ -112,7 +137,7 @@ async function validateAsset(
   validator: AssetValidator,
 ): Promise<void> {
   try {
-    validator(await assets.read(key), key, assets);
+    await validator(await assets.read(key), key, assets);
   } catch (error) {
     throw new ProvisioningError(
       `Embedded asset preflight failed for ${key}: ${errorMessage(error)}`,

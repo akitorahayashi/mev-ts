@@ -1,0 +1,41 @@
+binaries:
+  - name: astm
+    repo: asterismhq/asterism
+    tag: v27.3.1
+    assets:
+      darwin-aarch64:
+        sha256: 0fe2c2e11d296c56edcf5f3626b4db30208634220e647110b70e54b4c1fa8559
+      darwin-x86_64:
+        sha256: fe09a901b3598582ea5ee2a6e074ba05583c0f9e2952b05ae2fba45d9d48c565
+  - name: kpv
+    repo: akitorahayashi/kpv
+    tag: v0.6.0
+    assets:
+      darwin-aarch64:
+        sha256: e239286780ad4d28488015d4be302ea8da00c927f52ce0444396da603a5f4ae0
+      darwin-x86_64:
+        sha256: 571be53c09bf627dff081e5ba1a9f72cbed6241464caa75ee1f42da0a9d82c49
+  - name: mx
+    repo: akitorahayashi/mx
+    tag: v4.0.0
+    assets:
+      darwin-aarch64:
+        sha256: 10e125df07f9504dfb0c8ba5e638c17e7d650a257ff26b2dba1013d926c374a5
+      darwin-x86_64:
+        sha256: 12f9a5800c5f3dae81b719353d0ba826f06698a20723c69fe8d6796d7db5911a
+  - name: prf
+    repo: akitorahayashi/prf
+    tag: v1.0.0
+    assets:
+      darwin-aarch64:
+        sha256: 5b756f1a32c2866f10b01c3a7a35f3a420a5c1f6a3463502ffc3ae03a27408c6
+      darwin-x86_64:
+        sha256: b387fce83e1c76761ba669f3bdd6f27e74f8a1e776a1001318784455136b63b2
+  - name: ssv
+    repo: akitorahayashi/ssv
+    tag: v0.6.0
+    assets:
+      darwin-aarch64:
+        sha256: 540ce9047ffac29ea01cdc87f345f9a0802024471816f87f9562ad076549a740
+      darwin-x86_64:
+        sha256: 6d5e48ffb31735403cff2ac33663e5fafaddbaa1fe892962d7941d7cb295f9bb
