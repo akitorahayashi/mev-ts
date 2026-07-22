@@ -5,8 +5,7 @@ import {
   setIdentity,
   showIdentity,
 } from '../../app/identity';
-import { bunCommandRunner } from '../../host/command';
-import { resolveHome } from '../../host/context';
+import { liveCommandDeps, resolveHome } from '../../host/context';
 import { allScopes, type IdentityScope } from '../../identity/scope';
 import { renderIdentities } from '../tty/identities';
 import { renderNamespaceOverview } from '../tty/namespace-overview';
@@ -61,10 +60,7 @@ export class UserShowCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const view = await showIdentity({
-        run: bunCommandRunner,
-        home: resolveHome(),
-      });
+      const view = await showIdentity(liveCommandDeps());
       this.context.stdout.write(`${renderIdentities(view, resolveIsTTY())}\n`);
     });
   }
