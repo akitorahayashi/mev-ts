@@ -1,5 +1,4 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../errors';
 import { runWithCleanup } from '../host/cleanup-error';
@@ -29,10 +28,11 @@ export interface InstallHooks {
  * `install` is idempotent.
  */
 async function withBrewfile<T>(
+  tmpRoot: string,
   line: string,
   action: (file: string) => Promise<T>,
 ): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'mev-brewfile-'));
+  const dir = await mkdtemp(join(tmpRoot, 'mev-brewfile-'));
   const file = join(dir, 'Brewfile');
   return runWithCleanup(
     async () => {
@@ -66,7 +66,7 @@ async function install(
   line: string,
   name: string,
 ): Promise<void> {
-  await withBrewfile(line, async (file) => {
+  await withBrewfile(context.tmpRoot, line, async (file) => {
     await runProcessStep(
       context.commands,
       'brew',

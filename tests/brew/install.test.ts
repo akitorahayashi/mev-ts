@@ -22,10 +22,15 @@ interface BrewState {
 
 // Answers enumeration probes from the declared installed state and captures
 // `brew bundle` invocations (with their temporary Brewfile) into the sink.
-function brewContext(state: BrewState, sink: Sink = {}): Context {
+function brewContext(
+  state: BrewState,
+  sink: Sink = {},
+  tmpRoot?: string,
+): Context {
   return recordingContext({
     home: '/sandbox',
     assets: emptyAssets,
+    tmpRoot,
     async respond(_command, args) {
       if (args[0] === 'tap') {
         return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
@@ -137,24 +142,14 @@ test('a failed enumeration fails every token of that kind without installing', a
   expect(sink.bundleArgs).toBeUndefined();
 });
 
-test('allocates Brewfile scratch under the configured temporary root', async () => {
+test('allocates Brewfile scratch under the injected temporary root', async () => {
   await withTemporaryDirectory(
     async (dir) => {
       const root = join(dir, 'tmp root');
       await mkdir(root);
-      const previous = Bun.env['TMPDIR'];
-      Bun.env['TMPDIR'] = root;
       const sink: Sink = {};
 
-      try {
-        await installPackages(oneFormula, brewContext({}, sink));
-      } finally {
-        if (previous === undefined) {
-          delete Bun.env['TMPDIR'];
-        } else {
-          Bun.env['TMPDIR'] = previous;
-        }
-      }
+      await installPackages(oneFormula, brewContext({}, sink, root));
 
       expect(sink.brewfilePath?.startsWith(join(root, 'mev-brewfile-'))).toBe(
         true,
