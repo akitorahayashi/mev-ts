@@ -1,4 +1,3 @@
-import { basename, extname } from 'node:path';
 import { errorMessage } from '../../errors';
 import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
@@ -12,29 +11,14 @@ import {
   shouldInject,
   shouldPostInstall,
 } from '../../pipx/reconciliation';
-import type { Activation, ActivationReport, Described } from './contract';
-import { readDeployedManifest } from './manifest';
-import { type ReconcileStep, reconcile } from './reconcile';
+import type { Activation } from './contract';
+import { manifestKind, manifestSource } from './manifest-kind';
+import type { ReconcileStep } from './reconcile';
 
 type PipxActivation = Extract<Activation, { kind: 'pipx' }>;
 
 export function applyPipx(configKey: string): Activation {
   return { kind: 'pipx', configKey };
-}
-
-/** The embedded config asset a `pipx` activation validates and reads. */
-export function pipxConfigAssets(
-  activation: PipxActivation,
-): readonly string[] {
-  return [activation.configKey];
-}
-
-export function describePipx(activation: PipxActivation): Described {
-  return {
-    verb: 'apply',
-    source: basename(activation.configKey, extname(activation.configKey)),
-    dest: 'python tools',
-  };
 }
 
 // One step drives up to four sub-actions (uninstall, install, inject,
@@ -98,27 +82,26 @@ function pipxStep(
   };
 }
 
-export function runPipx(
-  activation: PipxActivation,
-  context: Context,
-): Promise<ActivationReport> {
-  return reconcile(describePipx(activation), {
-    declare: () =>
-      readDeployedManifest(
-        activation.configKey,
-        context.home,
-        parseTools,
-        'Pipx config file',
-      ),
-    steps: async (tools) => {
-      const options = await brewEnv(context);
-      const installed = await listInstalled(context, options);
-      const venvs = tools.some((tool) => tool.post_install)
-        ? await localVenvs(context, options)
-        : '';
-      return tools.map((tool) =>
-        pipxStep(tool, installed.get(tool.package), context, options, venvs),
-      );
-    },
-  });
-}
+const pipxKind = manifestKind<PipxActivation, PipxTool>({
+  parse: parseTools,
+  manifestLabel: 'Pipx config file',
+  describe: (activation) => ({
+    verb: 'apply',
+    source: manifestSource(activation.configKey),
+    dest: 'python tools',
+  }),
+  steps: async (tools, _activation, context) => {
+    const options = await brewEnv(context);
+    const installed = await listInstalled(context, options);
+    const venvs = tools.some((tool) => tool.post_install)
+      ? await localVenvs(context, options)
+      : '';
+    return tools.map((tool) =>
+      pipxStep(tool, installed.get(tool.package), context, options, venvs),
+    );
+  },
+});
+
+export const describePipx = pipxKind.describe;
+export const pipxConfigAssets = pipxKind.configAssets;
+export const runPipx = pipxKind.run;
