@@ -1,12 +1,11 @@
 import { Command } from 'clipanion';
-import { createContext } from '../../host/context';
-import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
-import { allTargets, fullSetupTargets } from '../../provisioning/registry';
+import { allTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import type { Target } from '../../provisioning/target';
 import { executeProvisioningRun } from '../provisioning-run';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
+import { prepareFullSetup } from './full-setup';
 
 function optionalTargetLine(target: Target): string {
   return `${target.description}: mev make ${target.aliases[0] ?? target.name}`;
@@ -30,12 +29,11 @@ export class CreateCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const context = createContext();
-      await pruneObsoleteDeployState(context, (text) =>
+      const { context, targets } = await prepareFullSetup((text) =>
         this.context.stdout.write(text),
       );
 
-      const selectors = fullSetupTargets().map((target) => target.name);
+      const selectors = targets.map((target) => target.name);
 
       return executeProvisioningRun({
         selectors,
