@@ -3,6 +3,7 @@ alias agy-u="agy update"
 alias cld="claude"
 alias cld-u="claude update"
 alias cld-r="claude --resume"
+alias cld-rm-c="claude remote-control"
 
 # Link AGENTS.md or README.md to .claude/CLAUDE.md
 alias cld-ln=cld_ln
