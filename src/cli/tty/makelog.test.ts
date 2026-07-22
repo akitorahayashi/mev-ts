@@ -124,6 +124,28 @@ test('renderTargetCompletionLine summarizes failed and blocked groups', () => {
   expect(summarizeGroup(python)).toBe('formula uv failed');
 });
 
+test('renderTargetCompletionLine marks an unrecorded applied marker as failed', () => {
+  const group = {
+    targetName: 'git',
+    blockers: [],
+    reports: [
+      {
+        verb: 'link' as const,
+        source: 'git/.gitconfig',
+        dest: '~/.config/git/config',
+        status: 'changed' as const,
+      },
+    ],
+    markerError: 'EACCES: permission denied writing ~/.mev/applied/git',
+  };
+
+  const line = renderTargetCompletionLine(group, { isTTY: false });
+  expect(line).toContain('git:');
+  expect(line).toContain('failed');
+  expect(line).not.toContain('changed');
+  expect(summarizeGroup(group)).toBe('applied marker not recorded');
+});
+
 test('renderTargetCompletionLine aligns summaries across target name widths', () => {
   const changed = (targetName: string) => ({
     targetName,

@@ -15,7 +15,10 @@ export function activationLine(report: Described): string {
 
 export function groupStatus(group: ActivationGroupReport): GroupStatus {
   if (group.blockers.length > 0) return 'blocked';
-  if (group.reports.some((report) => report.status === 'failed')) {
+  if (
+    group.reports.some((report) => report.status === 'failed') ||
+    group.markerError !== undefined
+  ) {
     return 'failed';
   }
   if (group.reports.some((report) => report.status === 'changed')) {
@@ -58,7 +61,9 @@ function changedSummary(group: ActivationGroupReport): string | null {
 
 function failedSummary(group: ActivationGroupReport): string | null {
   const failed = group.reports.find((report) => report.status === 'failed');
-  return failed ? activationLine(failed) : null;
+  if (failed) return activationLine(failed);
+  if (group.markerError !== undefined) return 'applied marker not recorded';
+  return null;
 }
 
 function blockedSummary(group: ActivationGroupReport): string | null {
