@@ -9,6 +9,13 @@ import {
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
+// A package name flows into `join(venvs, package, 'bin', ...)` which is then
+// spawned, so it is charset-guarded like brew tokens (SAFE_TOKEN_NAME) and
+// github release fields: only letters, digits, and ._- and never a leading '-'
+// or '.', so a `..`- or `/`-bearing name cannot traverse out of the venv root.
+// The manifest is repo-owned, so this is defense-in-depth.
+const SAFE_PACKAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
+
 export interface PostInstall {
   readonly bin: string;
   readonly args?: readonly string[];
@@ -62,11 +69,10 @@ function parseTool(entry: unknown): PipxTool {
   );
   if (
     typeof entry['package'] !== 'string' ||
-    entry['package'].length === 0 ||
-    entry['package'].startsWith('-')
+    !SAFE_PACKAGE_NAME.test(entry['package'])
   ) {
     throw new ProvisioningError(
-      'Invalid entry in pipx config: each tool must have a package name that does not start with a dash.',
+      "Invalid entry in pipx config: each tool must have a package name of letters, digits, and ._- that does not start with '-' or '.'.",
     );
   }
   const pkg = entry['package'];
