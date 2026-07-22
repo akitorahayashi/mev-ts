@@ -116,6 +116,66 @@ function failedEntryLines(report: ActivationReport): string[] {
   );
 }
 
+/** Classify a blocked group's action-required title by its blocker cause. */
+function blockerTitle(group: ActivationGroupReport): string {
+  const [only] = group.blockers;
+  if (group.blockers.length === 1 && only?.kind === 'package') {
+    return `${group.targetName} blocked by failed package`;
+  }
+  if (group.blockers.length === 1 && only?.kind === 'deploy') {
+    return `${group.targetName} blocked by deploy failure`;
+  }
+  return `${group.targetName} blocked by prerequisite failures`;
+}
+
+/** The numbered "Action required" entries: blockers, failed activations, and
+ * unrecorded markers, each as a titled block with detail lines. */
+function actionRequiredLines(
+  groups: readonly ActivationGroupReport[],
+): string[] {
+  const lines: string[] = [];
+  let number = 0;
+  const entry = (title: string, detail: readonly string[]) => {
+    number += 1;
+    lines.push(`${number}. ${title}`, ...detail, '');
+  };
+  for (const group of groups) {
+    if (group.blockers.length > 0) {
+      entry(
+        blockerTitle(group),
+        group.blockers.map((blocker) => `   ${formatBlocker(blocker)}`),
+      );
+    }
+    for (const activation of group.reports) {
+      if (activation.status !== 'failed') continue;
+      entry(`${group.targetName} failed during activation`, [
+        `   ${activationLine(activation)}`,
+        ...failedEntryLines(activation),
+      ]);
+    }
+    if (group.markerError) {
+      entry(
+        `${group.targetName} activated but its applied marker was not recorded`,
+        [`   ${group.markerError}`],
+      );
+    }
+  }
+  while (lines.at(-1) === '') lines.pop();
+  return lines;
+}
+
+/** The targets a retry should re-run: any blocked, failed, or unrecorded group. */
+function retryTargets(groups: readonly ActivationGroupReport[]): string[] {
+  return groups
+    .filter(
+      (group) =>
+        group.blockers.length > 0 ||
+        group.reports.some((activation) => activation.status === 'failed') ||
+        group.markerError !== undefined,
+    )
+    .map((group) => group.targetName);
+}
+
 export function renderMakeReport(
   report: MakeReport,
   options: ReportOptions,
@@ -129,57 +189,14 @@ export function renderMakeReport(
   if (duration) lines.push(`Duration: ${duration}`);
   lines.push('Mode: apply');
 
-  const actionLines: string[] = [];
-  let actionNumber = 0;
-  for (const group of report.groups) {
-    if (group.blockers.length > 0) {
-      actionNumber += 1;
-      const title =
-        group.blockers.length === 1 && group.blockers[0]?.kind === 'package'
-          ? `${group.targetName} blocked by failed package`
-          : group.blockers.length === 1 && group.blockers[0]?.kind === 'deploy'
-            ? `${group.targetName} blocked by deploy failure`
-            : `${group.targetName} blocked by prerequisite failures`;
-      actionLines.push(`${actionNumber}. ${title}`);
-      actionLines.push(
-        ...group.blockers.map((blocker) => `   ${formatBlocker(blocker)}`),
-      );
-      actionLines.push('');
-    }
-    for (const activation of group.reports) {
-      if (activation.status !== 'failed') continue;
-      actionNumber += 1;
-      actionLines.push(
-        `${actionNumber}. ${group.targetName} failed during activation`,
-      );
-      actionLines.push(`   ${activationLine(activation)}`);
-      actionLines.push(...failedEntryLines(activation));
-      actionLines.push('');
-    }
-    if (group.markerError) {
-      actionNumber += 1;
-      actionLines.push(
-        `${actionNumber}. ${group.targetName} activated but its applied marker was not recorded`,
-      );
-      actionLines.push(`   ${group.markerError}`);
-      actionLines.push('');
-    }
-  }
+  const actionLines = actionRequiredLines(report.groups);
   if (actionLines.length > 0) {
-    while (actionLines.at(-1) === '') actionLines.pop();
     lines.push('', 'Action required', ...actionLines);
   }
 
-  const retryTags = report.groups
-    .filter(
-      (group) =>
-        group.blockers.length > 0 ||
-        group.reports.some((activation) => activation.status === 'failed') ||
-        group.markerError !== undefined,
-    )
-    .map((group) => group.targetName);
-  if (retryTags.length > 0) {
-    lines.push('', 'Retry', `mev make ${retryTags.join(' ')}`);
+  const retry = retryTargets(report.groups);
+  if (retry.length > 0) {
+    lines.push('', 'Retry', `mev make ${retry.join(' ')}`);
   }
 
   if (options.footer && options.footer.length > 0) {

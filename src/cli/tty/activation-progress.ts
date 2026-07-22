@@ -20,6 +20,16 @@ function startLine(event: ActivationStartEvent): string {
   return `${event.targetName}  ${activationLine(event.activation)}`;
 }
 
+/** The once-only "Activating targets" banner shared by both progress variants. */
+function createBanner(out: (text: string) => void): () => void {
+  let shown = false;
+  return () => {
+    if (shown) return;
+    shown = true;
+    out('\nActivating targets\n');
+  };
+}
+
 export interface ActivationProgress {
   start(event: ActivationPhaseEvent): void;
   startActivation(event: ActivationStartEvent): void;
@@ -41,13 +51,8 @@ export function createActivationProgress(
 function createLineActivationProgress(
   options: ActivationProgressOptions,
 ): ActivationProgress {
-  let started = false;
   return {
-    start() {
-      if (started) return;
-      started = true;
-      options.out('\nActivating targets\n');
-    },
+    start: createBanner(options.out),
     startActivation(event) {
       options.out(
         `Activating ${event.targetName}: ${activationLine(event.activation)}\n`,
@@ -63,7 +68,6 @@ function createLineActivationProgress(
 function createTTYActivationProgress(
   options: ActivationProgressOptions,
 ): ActivationProgress {
-  let started = false;
   let active: ActivationStartEvent | undefined;
   let frame = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -88,11 +92,7 @@ function createTTYActivationProgress(
   };
 
   return {
-    start() {
-      if (started) return;
-      started = true;
-      options.out('\nActivating targets\n');
-    },
+    start: createBanner(options.out),
     startActivation(event) {
       active = event;
       renderActive();

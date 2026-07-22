@@ -1,5 +1,5 @@
-import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { errorMessage } from '../../errors';
 import { runWithCleanup } from '../../host/cleanup-error';
 import type { CommandRunner } from '../../host/command';
@@ -14,6 +14,7 @@ import {
   preparePandocAssets,
   renderMarkdownHtml,
 } from './pandoc';
+import { runConversions } from './run-conversions';
 
 const MARGIN_PATTERN = /^\d+(?:\.\d+)?(?:mm|cm|in|px|pt)$/;
 
@@ -84,32 +85,12 @@ export async function convertMarkdownToPdf(
       );
       const printer = await createPrinter();
       await runWithCleanup(
-        async () => {
-          const failures: string[] = [];
-          for (const pair of pairs) {
-            write(`Converting ${pair.input}...\n`);
-            try {
-              await mkdir(dirname(pair.output), { recursive: true });
-              const rendered = await renderMarkdownHtml(
-                run,
-                pair.input,
-                assets,
-              );
-              if (rendered.warning) warn(`${rendered.warning}\n`);
-              await printer.print(rendered.html, pair.output);
-              write(`Created ${pair.output}\n`);
-            } catch (error) {
-              const failure = `${pair.input}: ${errorMessage(error)}`;
-              failures.push(failure);
-              warn(`${failure}\n`);
-            }
-          }
-          if (failures.length > 0) {
-            throw new DocumentConversionError(
-              `Failed to convert ${failures.length} file(s): ${failures.join('; ')}`,
-            );
-          }
-        },
+        () =>
+          runConversions(pairs, write, warn, async (pair) => {
+            const rendered = await renderMarkdownHtml(run, pair.input, assets);
+            if (rendered.warning) warn(`${rendered.warning}\n`);
+            await printer.print(rendered.html, pair.output);
+          }),
         () => printer.close(),
         'Failed to close the Markdown-to-PDF renderer.',
       );
