@@ -28,5 +28,5 @@ jobs:
       - name: Install ShellCheck
         run: brew install shellcheck
 
-      - name: Lint Asset Shell Scripts
-        run: find src/assets/config -name '*.sh' -exec shellcheck {} +
+      - name: Lint Shell Scripts
+        run: shellcheck install.sh && find src/assets/config -name '*.sh' -exec shellcheck {} +
