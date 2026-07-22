@@ -45,7 +45,7 @@ export function describeActivation(activation: Activation): Described {
     case 'remoteInstaller':
       return describeRemoteInstaller(activation);
     case 'release':
-      return describeRelease();
+      return describeRelease(activation);
   }
 }
 

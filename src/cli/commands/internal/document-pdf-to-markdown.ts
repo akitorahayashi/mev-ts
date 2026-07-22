@@ -13,8 +13,7 @@ export class InternalDocumentPdfToMarkdownCommand extends Command {
       convertPdfToMarkdown(
         run,
         { input: this.input, outputDirectory: this.outputDirectory },
-        write,
-        warn,
+        { write, warn },
       ),
     );
   }

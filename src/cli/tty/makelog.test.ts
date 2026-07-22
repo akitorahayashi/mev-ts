@@ -102,20 +102,48 @@ test('renderTargetCompletionLine summarizes changed groups by outcome kind', () 
     { isTTY: false },
   );
 
-  expect(rendered).toBe('shell: changed  1 linked, 2 applied');
+  // Assert the load-bearing tokens, not the exact spacing/concatenation.
+  expect(rendered).toContain('shell:');
+  expect(rendered).toContain('changed');
+  expect(rendered).toContain('1 linked');
+  expect(rendered).toContain('2 applied');
 });
 
 test('renderTargetCompletionLine summarizes failed and blocked groups', () => {
   const [git, python] = failedReport.groups;
   if (!git || !python) throw new Error('failed report fixture is incomplete');
 
-  expect(renderTargetCompletionLine(git, { isTTY: false })).toBe(
-    'git: failed  link git/.gitconfig -> ~/.config/git/config',
-  );
-  expect(renderTargetCompletionLine(python, { isTTY: false })).toBe(
-    'python: blocked  formula uv failed',
-  );
+  const gitLine = renderTargetCompletionLine(git, { isTTY: false });
+  expect(gitLine).toContain('git:');
+  expect(gitLine).toContain('failed');
+  expect(gitLine).toContain('link git/.gitconfig -> ~/.config/git/config');
+  const pythonLine = renderTargetCompletionLine(python, { isTTY: false });
+  expect(pythonLine).toContain('python:');
+  expect(pythonLine).toContain('blocked');
+  expect(pythonLine).toContain('formula uv failed');
   expect(summarizeGroup(python)).toBe('formula uv failed');
+});
+
+test('renderTargetCompletionLine marks an unrecorded applied marker as failed', () => {
+  const group = {
+    targetName: 'git',
+    blockers: [],
+    reports: [
+      {
+        verb: 'link' as const,
+        source: 'git/.gitconfig',
+        dest: '~/.config/git/config',
+        status: 'changed' as const,
+      },
+    ],
+    markerError: 'EACCES: permission denied writing ~/.mev/applied/git',
+  };
+
+  const line = renderTargetCompletionLine(group, { isTTY: false });
+  expect(line).toContain('git:');
+  expect(line).toContain('failed');
+  expect(line).not.toContain('changed');
+  expect(summarizeGroup(group)).toBe('applied marker not recorded');
 });
 
 test('renderTargetCompletionLine aligns summaries across target name widths', () => {

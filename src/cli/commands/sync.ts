@@ -1,12 +1,10 @@
 import { Command } from 'clipanion';
-import { createContext } from '../../host/context';
-import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
-import { fullSetupTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import { isScanError, scanTargets } from '../../provisioning/scan';
+import { executeProvisioningRun } from '../provisioning-run';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
-import { executeProvisioningRun } from './provisioning';
+import { prepareFullSetup } from './full-setup';
 
 export class SyncCommand extends Command {
   static override paths = [['sync'], ['s']];
@@ -19,12 +17,11 @@ export class SyncCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const context = createContext();
-      await pruneObsoleteDeployState(context, (text) =>
+      const { context, targets } = await prepareFullSetup((text) =>
         this.context.stdout.write(text),
       );
 
-      const scans = await scanTargets(fullSetupTargets(), context);
+      const scans = await scanTargets(targets, context);
       let scanFailed = false;
       for (const scan of scans) {
         if (isScanError(scan)) {

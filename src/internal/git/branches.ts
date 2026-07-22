@@ -22,6 +22,11 @@ export async function deleteBranches(
   if (branches.length === 0) {
     throw new CommandLineError('At least one branch to delete is required.');
   }
+  if (to?.startsWith('-')) {
+    throw new CommandLineError(
+      `Invalid destination '${to}': a branch name cannot begin with '-'.`,
+    );
+  }
 
   const base = await resolveDefaultBranch(run);
   const destination = to ?? base;
@@ -42,6 +47,8 @@ export async function deleteBranches(
 
   write(`Moving to ${destination}, deleting ${branches.join(', ')}...\n`);
 
+  // The destination is validated above; `git checkout <branch>` switches
+  // branches (a `--` here would make git read the name as a pathspec instead).
   await runStep(run, ['checkout', destination]);
   await runStep(run, ['pull']);
   await runStep(run, ['branch', '-D', '--', ...branches]);

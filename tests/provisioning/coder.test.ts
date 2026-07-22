@@ -8,7 +8,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { join } from 'node:path';
-import { renderAgents } from '../../src/coder/agents';
+import { buildAgents } from '../../src/coder/agents';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../src/coder/paths';
 import { home } from '../../src/host/path';
 import {
@@ -182,7 +182,7 @@ sandboxTest('coderAgents rejects non-string catalog sections', async (dir) => {
   );
 
   expect(report.status).toBe('failed');
-  expect(report.error).toContain('sections sequence of strings');
+  expect(report.error).toContain('must be a sequence of strings');
 });
 
 sandboxTest('coderAgents surfaces generated file read errors', async (dir) => {
@@ -309,13 +309,13 @@ sandboxTest(
 );
 
 sandboxTest(
-  'renderAgents surfaces a missing section file as a labeled error',
+  'building AGENTS.md surfaces a missing section file as a labeled error',
   async (dir) => {
     const sourceDir = join(dir, 'sections');
     await mkdir(sourceDir, { recursive: true });
 
-    await expect(renderAgents(sourceDir, ['ghost'])).rejects.toThrow(
-      /section 'ghost' not found/,
-    );
+    await expect(
+      buildAgents(sourceDir, ['ghost'], join(dir, 'AGENTS.md')),
+    ).rejects.toThrow(/section 'ghost' not found/);
   },
 );

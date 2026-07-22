@@ -1,5 +1,5 @@
 import { Command, Option } from 'clipanion';
-import type { SelectEntries } from '../../../app/config-selection';
+import type { SelectEntries } from '../../../app/config-toggle';
 import { resolveHome } from '../../../host/context';
 import { toggle } from '../../tty/toggle';
 import { withAliasHint } from '../alias-hint';

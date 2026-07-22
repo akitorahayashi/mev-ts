@@ -1,6 +1,5 @@
-import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { errorMessage } from '../../errors';
 import { runWithCleanup } from '../../host/cleanup-error';
 import type { CommandRunner } from '../../host/command';
@@ -15,6 +14,7 @@ import {
   preparePandocAssets,
   renderMarkdownHtml,
 } from './pandoc';
+import { runConversions } from './run-conversions';
 
 const MARGIN_PATTERN = /^\d+(?:\.\d+)?(?:mm|cm|in|px|pt)$/;
 
@@ -23,6 +23,14 @@ export interface MarkdownToPdfRequest {
   readonly outputDirectory?: string;
   readonly stylesheet?: string;
   readonly margins: PageMargins;
+}
+
+export interface MarkdownToPdfOptions {
+  /** Root for the short-lived conversion workspace; injected so tests confine it. */
+  readonly tmpRoot: string;
+  readonly write?: (message: string) => void;
+  readonly warn?: (message: string) => void;
+  readonly createPrinter?: PdfPrinterFactory;
 }
 
 async function validateStylesheet(path: string | undefined): Promise<void> {
@@ -53,10 +61,11 @@ function validateMargins(margins: PageMargins): void {
 export async function convertMarkdownToPdf(
   run: CommandRunner,
   request: MarkdownToPdfRequest,
-  write: (message: string) => void = () => {},
-  warn: (message: string) => void = () => {},
-  createPrinter: PdfPrinterFactory = createBrowserPdfPrinter,
+  options: MarkdownToPdfOptions,
 ): Promise<void> {
+  const write = options.write ?? (() => {});
+  const warn = options.warn ?? (() => {});
+  const createPrinter = options.createPrinter ?? createBrowserPdfPrinter;
   validateMargins(request.margins);
   await validateStylesheet(request.stylesheet);
   const pairs = await planConversions(
@@ -66,7 +75,7 @@ export async function convertMarkdownToPdf(
     '.pdf',
   );
 
-  const workspace = await mkdtemp(join(tmpdir(), 'mev-document-'));
+  const workspace = await mkdtemp(join(options.tmpRoot, 'mev-document-'));
   await runWithCleanup(
     async () => {
       const assets = await preparePandocAssets(
@@ -76,32 +85,12 @@ export async function convertMarkdownToPdf(
       );
       const printer = await createPrinter();
       await runWithCleanup(
-        async () => {
-          const failures: string[] = [];
-          for (const pair of pairs) {
-            write(`Converting ${pair.input}...\n`);
-            try {
-              await mkdir(dirname(pair.output), { recursive: true });
-              const rendered = await renderMarkdownHtml(
-                run,
-                pair.input,
-                assets,
-              );
-              if (rendered.warning) warn(`${rendered.warning}\n`);
-              await printer.print(rendered.html, pair.output);
-              write(`Created ${pair.output}\n`);
-            } catch (error) {
-              const failure = `${pair.input}: ${errorMessage(error)}`;
-              failures.push(failure);
-              warn(`${failure}\n`);
-            }
-          }
-          if (failures.length > 0) {
-            throw new DocumentConversionError(
-              `Failed to convert ${failures.length} file(s): ${failures.join('; ')}`,
-            );
-          }
-        },
+        () =>
+          runConversions(pairs, write, warn, async (pair) => {
+            const rendered = await renderMarkdownHtml(run, pair.input, assets);
+            if (rendered.warning) warn(`${rendered.warning}\n`);
+            await printer.print(rendered.html, pair.output);
+          }),
         () => printer.close(),
         'Failed to close the Markdown-to-PDF renderer.',
       );

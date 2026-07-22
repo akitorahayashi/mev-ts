@@ -1,5 +1,6 @@
 import { errorMessage, ProvisioningError } from '../errors';
-import { type CommandOptions, formatCommandFailure } from '../host/command';
+import type { CommandOptions } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 
@@ -29,16 +30,13 @@ export async function listInstalled(
   context: Context,
   options: CommandOptions,
 ): Promise<Map<string, Installed>> {
-  const result = await context.commands.run(
+  const result = await runProcessStep(
+    context.commands,
     'pipx',
     ['list', '--json'],
+    'pipx list --json failed',
     options,
   );
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure('pipx list --json failed', result),
-    );
-  }
   let data: PipxListJson;
   try {
     data = JSON.parse(result.stdout) as PipxListJson;

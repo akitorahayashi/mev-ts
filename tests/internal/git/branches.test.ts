@@ -166,6 +166,16 @@ test('stops before delete when pull fails', async () => {
   ]);
 });
 
+test('rejects a dash-leading destination before running any command', async () => {
+  const calls: RecordedCall[] = [];
+  const run = sequenceRunner([defaultBranch, branchExists], calls);
+
+  await expect(
+    deleteBranches(run, ['feature/a', '--to', '-weird']),
+  ).rejects.toBeInstanceOf(CommandLineError);
+  expect(calls).toEqual([]);
+});
+
 test('reports inherited command failures without pretending output was captured', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(

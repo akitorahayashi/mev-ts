@@ -1,5 +1,6 @@
 import { errorMessage, ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import {
   requireExactKeys,
@@ -65,16 +66,10 @@ export async function installExtension(
   extension: string,
   context: Context,
 ): Promise<void> {
-  const result = await context.commands.run(command, [
-    '--install-extension',
-    extension,
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(
-        `${command} --install-extension failed for ${extension}`,
-        result,
-      ),
-    );
-  }
+  await runProcessStep(
+    context.commands,
+    command,
+    ['--install-extension', extension],
+    `${command} --install-extension failed for ${extension}`,
+  );
 }

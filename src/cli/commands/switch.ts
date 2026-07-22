@@ -1,8 +1,7 @@
 import { Command, Option } from 'clipanion';
 import { switchIdentity } from '../../app/identity';
 import { CommandLineError } from '../../errors';
-import { bunCommandRunner } from '../../host/command';
-import { resolveHome } from '../../host/context';
+import { liveCommandDeps } from '../../host/context';
 import { aliasesOf, allScopes, resolveScope } from '../../identity/scope';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
@@ -35,10 +34,7 @@ export class SwitchCommand extends Command {
         );
       }
 
-      const identity = await switchIdentity(
-        { run: bunCommandRunner, home: resolveHome() },
-        resolved,
-      );
+      const identity = await switchIdentity(liveCommandDeps(), resolved);
       this.context.stdout.write(
         `Switched to ${resolved} identity\n  Name:  ${identity.name}\n  Email: ${identity.email}\n`,
       );

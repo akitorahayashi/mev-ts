@@ -1,11 +1,10 @@
 import { expect, test } from 'bun:test';
 import { lstat, readFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError } from '../../../src/errors';
+import { ProvisioningError } from '../../../src/errors';
 import {
   configGet,
   configGetFile,
-  configSetFile,
   configSetFileValues,
 } from '../../../src/git/config';
 import { presetRunner } from '../../fixtures/fake-command-runner';
@@ -30,7 +29,7 @@ test('configGet returns null on exit 1 (unset key)', async () => {
 test('configGet throws on an unexpected exit such as code 127', async () => {
   const run = presetRunner({ code: 127, stdout: '', stderr: 'git: not found' });
   await expect(configGet(run, 'core.excludesfile')).rejects.toBeInstanceOf(
-    AppError,
+    ProvisioningError,
   );
 });
 
@@ -65,26 +64,6 @@ test('configGetFile returns null on exit 1', async () => {
   expect(
     await configGetFile(run, '/home/test/.gitconfig', 'user.name'),
   ).toBeNull();
-});
-
-test('configSetFile passes the explicit path', async () => {
-  const sink: { args?: string[] } = {};
-  const run = presetRunner({ code: 0, stdout: '', stderr: '' }, sink);
-  await configSetFile(run, '/home/test/.gitconfig', 'user.name', 'Example');
-  expect(sink.args).toEqual([
-    'config',
-    '--file',
-    '/home/test/.gitconfig',
-    'user.name',
-    'Example',
-  ]);
-});
-
-test('configSetFile throws ProvisioningError on non-zero exit', async () => {
-  const run = presetRunner({ code: 1, stdout: '', stderr: 'error' });
-  await expect(
-    configSetFile(run, '/home/test/.gitconfig', 'user.name', 'Example'),
-  ).rejects.toBeInstanceOf(AppError);
 });
 
 test('configSetFileValues applies values to one staging file', async () => {

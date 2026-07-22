@@ -2,7 +2,7 @@ import { lstat, mkdir, readdir, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
-import { transactionDirectory } from './transaction';
+import { swapWithBackup, transactionDirectory } from './transaction';
 
 const executableBits = 0o111;
 
@@ -82,23 +82,11 @@ export async function replaceDirectoryAfterBuild(
         await rename(staging, path);
         return true;
       }
-      await rename(path, backup);
-      try {
-        await rename(staging, path);
-      } catch (error) {
-        try {
-          await rename(backup, path);
-        } catch (restoreError) {
-          // The restore failed too: keep the transaction so the previous
-          // contents remain recoverable at `backup`.
-          retainTransaction = true;
-          throw new AggregateError(
-            [error, restoreError],
-            `Failed to replace ${path} and restore its previous contents. Previous contents remain in ${backup}.`,
-          );
-        }
-        throw error;
-      }
+      // The restore-on-failure keeps the transaction so the previous contents
+      // remain recoverable at `backup`.
+      await swapWithBackup({ dest: path, staged: staging, backup }, () => {
+        retainTransaction = true;
+      });
       return true;
     },
     async () => {

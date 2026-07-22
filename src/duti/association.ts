@@ -1,5 +1,6 @@
 import { ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord, requireExactKeys, requireUniqueBy } from '../host/parse';
 import { loadYaml } from '../host/yaml';
@@ -24,7 +25,7 @@ export function parseAssociations(raw: string, path: string): Association[] {
     );
   }
   requireExactKeys(parsed, ['default_apps'], `Duti config ${path}`);
-  const defaultApps = isRecord(parsed) ? parsed['default_apps'] : undefined;
+  const defaultApps = parsed['default_apps'];
   if (!Array.isArray(defaultApps)) {
     throw new ProvisioningError(
       `Duti config must contain a default_apps sequence: ${path}`,
@@ -122,15 +123,10 @@ export async function setApp(
   extension: string,
   context: Context,
 ): Promise<void> {
-  const result = await context.commands.run('duti', [
-    '-s',
-    bundleId,
-    `.${extension}`,
-    'all',
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(`duti -s failed for .${extension}`, result),
-    );
-  }
+  await runProcessStep(
+    context.commands,
+    'duti',
+    ['-s', bundleId, `.${extension}`, 'all'],
+    `duti -s failed for .${extension}`,
+  );
 }

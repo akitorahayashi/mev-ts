@@ -2,7 +2,7 @@ import { readlink, rename, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
-import { transactionDirectory } from './transaction';
+import { swapWithBackup, transactionDirectory } from './transaction';
 
 /** Whether `link` is a symlink whose target is exactly `target`. */
 export async function isSymlinkTo(
@@ -40,22 +40,9 @@ export async function placeSymlink(
         await rename(staged, link);
         return;
       }
-
-      await rename(link, backup);
-      try {
-        await rename(staged, link);
-      } catch (error) {
-        try {
-          await rename(backup, link);
-        } catch (restoreError) {
-          retainTransaction = true;
-          throw new AggregateError(
-            [error, restoreError],
-            `Failed to replace ${link} and restore its previous contents. Previous contents remain in ${backup}.`,
-          );
-        }
-        throw error;
-      }
+      await swapWithBackup({ dest: link, staged, backup }, () => {
+        retainTransaction = true;
+      });
     },
     async () => {
       if (!retainTransaction) {

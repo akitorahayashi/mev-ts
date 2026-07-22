@@ -1,5 +1,15 @@
 import type { CommandResult, CommandRunner } from '../../src/host/command';
 
+/** A successful CommandResult with optional captured output. */
+export function ok(stdout = '', stderr = ''): CommandResult {
+  return { code: 0, stdout, stderr };
+}
+
+/** A failed CommandResult (exit 1) carrying `stderr`. */
+export function fail(stderr = ''): CommandResult {
+  return { code: 1, stdout: '', stderr };
+}
+
 /** A single recorded invocation: the args plus the stdout/stderr disposition. */
 export interface RecordedCall {
   readonly args: string[];

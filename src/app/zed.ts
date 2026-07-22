@@ -3,13 +3,13 @@ import { readOverrides } from '../zed/catalog';
 import { readEnabled, writeEnabled } from '../zed/manifest';
 import { OVERRIDES_PREFIX, overridesManifest } from '../zed/paths';
 import {
-  type ConfigSelection,
+  type ConfigToggleSurface,
   configClearManifest,
   configSelectManifest,
   type SelectEntries,
-} from './config-selection';
+} from './config-toggle';
 
-async function zedSelection(home: string): Promise<ConfigSelection> {
+async function zedSelection(home: string): Promise<ConfigToggleSurface> {
   const manifest = overridesManifest(home);
   return {
     catalog: await readOverrides(deployedDir(OVERRIDES_PREFIX, home)),

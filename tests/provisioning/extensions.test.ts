@@ -1,11 +1,11 @@
 import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CommandResult } from '../../src/host/command';
 import {
   installExtensions,
   runActivation,
 } from '../../src/provisioning/activation';
+import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -22,9 +22,6 @@ async function deployManifest(dir: string): Promise<void> {
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'extensions.json'), MANIFEST);
 }
-
-const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });
-const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
 
 sandboxTest(
   'unchanged when every desired extension is already installed',

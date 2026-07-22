@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
 import { applyPipx, runActivation } from '../../src/provisioning/activation';
+import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -28,9 +29,6 @@ async function deployConfig(dir: string): Promise<void> {
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'tools.yml'), YAML);
 }
-
-const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });
-const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
 
 const PREFIX = '/opt/homebrew';
 

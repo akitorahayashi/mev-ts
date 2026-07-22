@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { ProvisioningError } from '../../../src/errors';
+import { CommandLineError, ProvisioningError } from '../../../src/errors';
 import { cloneRepositories } from '../../../src/internal/git/clone';
 import {
   type RecordedCall,
@@ -36,6 +36,16 @@ test('applies flags after the separator to every clone', async () => {
       stderr: 'inherit',
     },
   ]);
+});
+
+test('rejects a repository URL that could be read as a git flag', async () => {
+  const calls: RecordedCall[] = [];
+  const run = sequenceRunner([], calls);
+
+  await expect(
+    cloneRepositories(run, ['--upload-pack=evil']),
+  ).rejects.toBeInstanceOf(CommandLineError);
+  expect(calls).toHaveLength(0);
 });
 
 test('stops at the first failure', async () => {

@@ -1,4 +1,3 @@
-import { basename, extname } from 'node:path';
 import {
   type Association,
   currentApp,
@@ -7,29 +6,14 @@ import {
 } from '../../duti/association';
 import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
-import type { Activation, ActivationReport, Described } from './contract';
-import { readDeployedManifest } from './manifest';
-import { type ReconcileStep, reconcile } from './reconcile';
+import type { Activation } from './contract';
+import { manifestKind, manifestSource } from './manifest-kind';
+import type { ReconcileStep } from './reconcile';
 
 type DutiActivation = Extract<Activation, { kind: 'duti' }>;
 
 export function applyDuti(configKey: string): Activation {
   return { kind: 'duti', configKey };
-}
-
-/** The embedded config asset a `duti` activation validates and reads. */
-export function dutiConfigAssets(
-  activation: DutiActivation,
-): readonly string[] {
-  return [activation.configKey];
-}
-
-export function describeDuti(activation: DutiActivation): Described {
-  return {
-    verb: 'apply',
-    source: basename(activation.configKey, extname(activation.configKey)),
-    dest: 'file associations',
-  };
 }
 
 function dutiStep(
@@ -55,18 +39,18 @@ function dutiStep(
   };
 }
 
-export function runDuti(
-  activation: DutiActivation,
-  context: Context,
-): Promise<ActivationReport> {
-  return reconcile(describeDuti(activation), {
-    declare: () =>
-      readDeployedManifest(
-        activation.configKey,
-        context.home,
-        parseAssociations,
-        'Duti config file',
-      ),
-    steps: async (entries) => entries.map((entry) => dutiStep(entry, context)),
-  });
-}
+const dutiKind = manifestKind<DutiActivation, Association>({
+  parse: parseAssociations,
+  manifestLabel: 'Duti config file',
+  describe: (activation) => ({
+    verb: 'apply',
+    source: manifestSource(activation.configKey),
+    dest: 'file associations',
+  }),
+  steps: async (entries, _activation, context) =>
+    entries.map((entry) => dutiStep(entry, context)),
+});
+
+export const describeDuti = dutiKind.describe;
+export const dutiConfigAssets = dutiKind.configAssets;
+export const runDuti = dutiKind.run;

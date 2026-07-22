@@ -11,7 +11,7 @@ const TITLE = '# Rules';
  * Each `<name>.md` body is taken verbatim (headings included), trailing
  * whitespace trimmed, and joined by a blank line under the title.
  */
-export async function renderAgents(
+async function renderAgents(
   sourceDir: string,
   enabled: readonly string[],
 ): Promise<string> {

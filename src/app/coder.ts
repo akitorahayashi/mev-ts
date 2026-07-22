@@ -8,13 +8,13 @@ import {
   skillsManifest,
 } from '../coder/paths';
 import {
-  type ConfigSelection,
+  type ConfigToggleSurface,
   configClearManifest,
   configSelectManifest,
   type SelectEntries,
-} from './config-selection';
+} from './config-toggle';
 
-export type CoderSelectable = 'agents' | 'skills';
+type CoderSelectable = 'agents' | 'skills';
 
 interface CoderDescriptor {
   readonly read: (sourceDir: string) => Promise<string[]>;
@@ -42,7 +42,7 @@ const DESCRIPTORS: Record<CoderSelectable, CoderDescriptor> = {
 async function coderSelection(
   kind: CoderSelectable,
   home: string,
-): Promise<ConfigSelection> {
+): Promise<ConfigToggleSurface> {
   const descriptor = DESCRIPTORS[kind];
   const manifest = descriptor.manifest(home);
   return {

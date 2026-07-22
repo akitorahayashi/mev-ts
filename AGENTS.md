@@ -10,7 +10,7 @@
 src/
   main.ts        CLI entry point
   errors.ts      Typed error hierarchy
-  app/           Use-case orchestration (identity, config selection)
+  app/           Use-case orchestration (identity; config-toggle.ts, the interactive toggle flow layered over config-selection/)
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
   coder/         Coder section/skill catalogs, manifests, and renderers
@@ -24,7 +24,7 @@ src/
   editor/        Editor extension list and install operations
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), transaction.ts (atomic staging), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read)
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), transaction.ts (atomic staging), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering

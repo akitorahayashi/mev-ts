@@ -32,10 +32,12 @@ interface AssetCheck {
 
 /**
  * The config assets a kind validates before provisioning, with each kind naming
- * its own keys (via its `configAssets`) rather than preflight guessing them. An
- * exhaustive switch, so a new kind with a validatable asset is a compile-time
- * prompt to declare its check here. Kinds without an embedded config asset
- * return null; the zed override fragments are validated separately below.
+ * its own keys (via its `configAssets`) rather than preflight guessing them. The
+ * switch has no `default`, so a new kind is a compile-time prompt to declare its
+ * check here. Kinds without an embedded config asset to validate — including
+ * `coderSkills`, whose skills tree is a filesystem-derived catalog with no
+ * build-time schema — return null explicitly; the zed override fragments are
+ * validated separately below.
  */
 function assetCheckFor(activation: Activation): AssetCheck | null {
   switch (activation.kind) {
@@ -95,7 +97,11 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
           parseJsonObject(raw, key, 'Zed base settings');
         },
       };
-    default:
+    case 'file':
+    case 'tree':
+    case 'command':
+    case 'remoteInstaller':
+    case 'coderSkills':
       return null;
   }
 }

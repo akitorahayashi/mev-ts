@@ -9,9 +9,9 @@ import {
   type ReleaseBinary,
 } from '../../github/release';
 import type { Context } from '../../host/context';
-import type { Activation, ActivationReport, Described } from './contract';
-import { readDeployedManifest } from './manifest';
-import { type ReconcileStep, reconcile } from './reconcile';
+import type { Activation } from './contract';
+import { manifestKind, manifestSource } from './manifest-kind';
+import type { ReconcileStep } from './reconcile';
 
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
 
@@ -20,17 +20,6 @@ const RELEASE_DOWNLOAD_CONCURRENCY = 4;
 
 export function releaseBinaries(configKey: string): Activation {
   return { kind: 'release', configKey };
-}
-
-/** The embedded config asset a `release` activation validates and reads. */
-export function releaseConfigAssets(
-  activation: ReleaseActivation,
-): readonly string[] {
-  return [activation.configKey];
-}
-
-export function describeRelease(): Described {
-  return { verb: 'apply', source: 'release binaries', dest: `~/${BIN_DIR}` };
 }
 
 function releaseStep(
@@ -63,29 +52,26 @@ function releaseStep(
   };
 }
 
-export function runRelease(
-  activation: ReleaseActivation,
-  context: Context,
-): Promise<ActivationReport> {
-  return reconcile(describeRelease(), {
-    declare: () =>
-      readDeployedManifest(
-        activation.configKey,
-        context.home,
-        parseReleaseBinaries,
-        'Release binaries manifest',
-      ),
-    // Each binary is independent and writes to a unique path, so the
-    // network-bound reconciliations run concurrently; the envelope isolates a
-    // single binary's failure and preserves declaration order.
-    concurrent: RELEASE_DOWNLOAD_CONCURRENCY,
-    steps: async (binaries) => {
-      const arch = await detectArch(context);
-      const binDir = join(context.home, BIN_DIR);
-      await mkdir(binDir, { recursive: true });
-      return binaries.map((binary) =>
-        releaseStep(binary, arch, binDir, context),
-      );
-    },
-  });
-}
+const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
+  parse: parseReleaseBinaries,
+  manifestLabel: 'Release binaries manifest',
+  describe: (activation) => ({
+    verb: 'apply',
+    source: manifestSource(activation.configKey),
+    dest: `~/${BIN_DIR}`,
+  }),
+  // Each binary is independent and writes to a unique path, so the network-bound
+  // reconciliations run concurrently; the envelope isolates a single binary's
+  // failure and preserves declaration order.
+  concurrency: RELEASE_DOWNLOAD_CONCURRENCY,
+  steps: async (binaries, _activation, context) => {
+    const arch = await detectArch(context);
+    const binDir = join(context.home, BIN_DIR);
+    await mkdir(binDir, { recursive: true });
+    return binaries.map((binary) => releaseStep(binary, arch, binDir, context));
+  },
+});
+
+export const describeRelease = releaseKind.describe;
+export const releaseConfigAssets = releaseKind.configAssets;
+export const runRelease = releaseKind.run;

@@ -1,6 +1,6 @@
 import { Command, Option } from 'clipanion';
 import { deleteBranches } from '../../../internal/git/branches';
-import { runInternalCommand } from './command';
+import { runProxiedArgs } from './proxy-args';
 
 export class InternalGitDeleteBranchesCommand extends Command {
   static override paths = [['internal', 'git', 'delete-branches']];
@@ -8,8 +8,6 @@ export class InternalGitDeleteBranchesCommand extends Command {
   args = Option.Proxy();
 
   async execute() {
-    return runInternalCommand(this, (run, write) =>
-      deleteBranches(run, this.args, write),
-    );
+    return runProxiedArgs(this, this.args, deleteBranches);
   }
 }

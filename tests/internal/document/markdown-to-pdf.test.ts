@@ -1,23 +1,14 @@
 import { expect } from 'bun:test';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type {
-  CommandOptions,
-  CommandResult,
-  CommandRunner,
-} from '../../../src/host/command';
+import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import type {
   PdfPrinter,
   PdfPrinterFactory,
 } from '../../../src/internal/document/browser-print';
 import { convertMarkdownToPdf } from '../../../src/internal/document/markdown-to-pdf';
+import type { Invocation } from '../../fixtures/fake-context';
 import { sandboxedTest } from '../../fixtures/temporary-directory';
-
-interface Invocation {
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly options?: CommandOptions;
-}
 
 class RecordingPrinter implements PdfPrinter {
   readonly prints: Array<{ html: string; output: string }> = [];
@@ -78,9 +69,12 @@ sandboxTest(
         stylesheet,
         margins: { top: '20mm' },
       },
-      (message) => stdout.push(message),
-      (message) => stderr.push(message),
-      createPrinter,
+      {
+        tmpRoot: directory,
+        write: (message) => stdout.push(message),
+        warn: (message) => stderr.push(message),
+        createPrinter,
+      },
     );
 
     expect(invocations).toHaveLength(1);
@@ -133,9 +127,7 @@ sandboxTest(
     await convertMarkdownToPdf(
       run,
       { input, margins: {} },
-      undefined,
-      undefined,
-      async () => printer,
+      { tmpRoot: directory, createPrinter: async () => printer },
     );
 
     expect(invocations[0]?.args).toContain('--embed-resources');
@@ -163,11 +155,45 @@ sandboxTest(
       convertMarkdownToPdf(
         run,
         { input, margins: { top: 'large' } },
-        undefined,
-        undefined,
-        createPrinter,
+        { tmpRoot: dir, createPrinter },
       ),
     ).rejects.toThrow('Invalid top margin');
     expect(printerCreated).toBe(false);
+  },
+);
+
+sandboxTest(
+  'creates and removes its conversion workspace under the injected root',
+  async (directory) => {
+    const input = join(directory, 'document.md');
+    const tmpRoot = join(directory, 'scratch');
+    await mkdir(tmpRoot);
+    await writeFile(input, '# Document');
+
+    let workspaceSeenDuringRun: string | undefined;
+    const run: CommandRunner = {
+      async run(): Promise<CommandResult> {
+        return { code: 0, stdout: '<html></html>', stderr: '' };
+      },
+    };
+    const printer = new RecordingPrinter();
+
+    await convertMarkdownToPdf(
+      run,
+      { input, outputDirectory: join(directory, 'out'), margins: {} },
+      {
+        tmpRoot,
+        createPrinter: async () => {
+          const entries = await readdir(tmpRoot);
+          workspaceSeenDuringRun = entries.find((entry) =>
+            entry.startsWith('mev-document-'),
+          );
+          return printer;
+        },
+      },
+    );
+
+    expect(workspaceSeenDuringRun).toBeDefined();
+    expect(await readdir(tmpRoot)).toEqual([]);
   },
 );

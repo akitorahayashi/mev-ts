@@ -5,9 +5,9 @@ import {
 } from '../../editor/extension';
 import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
-import type { Activation, ActivationReport, Described } from './contract';
-import { readDeployedManifest } from './manifest';
-import { type ReconcileStep, reconcile } from './reconcile';
+import type { Activation } from './contract';
+import { manifestKind } from './manifest-kind';
+import type { ReconcileStep } from './reconcile';
 
 type ExtensionsActivation = Extract<Activation, { kind: 'editorExtensions' }>;
 
@@ -16,19 +16,6 @@ export function installExtensions(
   configKey: string,
 ): Activation {
   return { kind: 'editorExtensions', command, configKey };
-}
-
-/** The embedded config asset an `editorExtensions` activation validates and reads. */
-export function extensionsConfigAssets(
-  activation: ExtensionsActivation,
-): readonly string[] {
-  return [activation.configKey];
-}
-
-export function describeExtensions(
-  activation: ExtensionsActivation,
-): Described {
-  return { verb: 'apply', source: activation.command, dest: 'extensions' };
 }
 
 function extensionStep(
@@ -56,23 +43,24 @@ function extensionStep(
   };
 }
 
-export function runExtensions(
-  activation: ExtensionsActivation,
-  context: Context,
-): Promise<ActivationReport> {
-  return reconcile(describeExtensions(activation), {
-    declare: () =>
-      readDeployedManifest(
-        activation.configKey,
-        context.home,
-        parseExtensions,
-        'Extensions manifest',
-      ),
-    steps: async (desired) => {
-      const installed = await listInstalled(activation.command, context);
-      return desired.map((extension) =>
-        extensionStep(extension, installed, activation.command, context),
-      );
-    },
-  });
-}
+const extensionsKind = manifestKind<ExtensionsActivation, string>({
+  parse: parseExtensions,
+  manifestLabel: 'Extensions manifest',
+  // Source is the editor CLI, not the manifest basename, so two editors that
+  // share a manifest name still render distinctly.
+  describe: (activation) => ({
+    verb: 'apply',
+    source: activation.command,
+    dest: 'extensions',
+  }),
+  steps: async (desired, activation, context) => {
+    const installed = await listInstalled(activation.command, context);
+    return desired.map((extension) =>
+      extensionStep(extension, installed, activation.command, context),
+    );
+  },
+});
+
+export const describeExtensions = extensionsKind.describe;
+export const extensionsConfigAssets = extensionsKind.configAssets;
+export const runExtensions = extensionsKind.run;

@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
-import type { CommandResult } from '../../src/host/command';
 import { runActivation, runCommand } from '../../src/provisioning/activation';
+import { ok } from '../fixtures/fake-command-runner';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
@@ -13,12 +13,6 @@ const rubyAssets: AssetSource = {
     throw new Error(`unexpected asset ${key}`);
   },
 };
-
-const ok = (stdout = '', stderr = ''): CommandResult => ({
-  code: 0,
-  stdout,
-  stderr,
-});
 
 test('command factory rejects empty step labels', () => {
   expect(() =>

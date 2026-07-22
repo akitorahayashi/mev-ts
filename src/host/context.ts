@@ -27,6 +27,16 @@ export function resolveHome(): string {
   return home;
 }
 
+/**
+ * The live command runner paired with the resolved home — the process deps a
+ * public command hands to a use-case that runs `git` against the current home
+ * (the runtime counterpart to a test's hand-built fake), so those two reads are
+ * assembled in one place rather than re-inlined per command.
+ */
+export function liveCommandDeps(): { run: CommandRunner; home: string } {
+  return { run: bunCommandRunner, home: resolveHome() };
+}
+
 /** Build the live execution context bound to the current user's environment. */
 export function createContext(): Context {
   return {

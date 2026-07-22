@@ -12,10 +12,13 @@ import {
   releaseBinaries,
   runActivation,
 } from '../../src/provisioning/activation';
-import { emptyAssets, recordingContext } from '../fixtures/fake-context';
+import { fail, ok } from '../fixtures/fake-command-runner';
+import {
+  emptyAssets,
+  type Responder,
+  recordingContext,
+} from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
-
-type Responder = (command: string, args: readonly string[]) => CommandResult;
 
 const sandboxTest = sandboxedTest('release-');
 
@@ -27,7 +30,7 @@ function releaseContext(home: string, responder: Responder) {
     home,
     assets: emptyAssets,
     async respond(command, args) {
-      const result = responder(command, args);
+      const result = await responder(command, args);
       if (result.code === 0 && (command === 'curl' || command === 'gh')) {
         const flag = command === 'curl' ? '-o' : '--output';
         const i = args.indexOf(flag);
@@ -37,9 +40,6 @@ function releaseContext(home: string, responder: Responder) {
     },
   });
 }
-
-const ok = (stdout = ''): CommandResult => ({ code: 0, stdout, stderr: '' });
-const fail = (stderr = ''): CommandResult => ({ code: 1, stdout: '', stderr });
 
 const CONFIG_KEY = 'rust-cli/binaries.yml';
 

@@ -1,4 +1,3 @@
-import { basename, extname } from 'node:path';
 import type { AssetSource } from '../../assets/registry';
 import {
   defaultsArg,
@@ -9,9 +8,9 @@ import { type DefaultsEntry, parseDefaults } from '../../defaults/manifest';
 import { errorMessage } from '../../errors';
 import { formatCommandFailure } from '../../host/command';
 import type { Context } from '../../host/context';
-import type { Activation, ActivationReport, Described } from './contract';
-import { readDeployedManifest } from './manifest';
-import { type ReconcileStep, reconcile } from './reconcile';
+import type { Activation } from './contract';
+import { manifestKind, manifestSource } from './manifest-kind';
+import type { ReconcileStep } from './reconcile';
 
 type DefaultsActivation = Extract<Activation, { kind: 'defaults' }>;
 
@@ -30,21 +29,6 @@ export function applyDefaultsTree(
   prefix: string,
 ): Activation[] {
   return assets.keysByPrefix(prefix).map((key) => applyDefaults(key));
-}
-
-/** The embedded config asset a `defaults` activation validates and reads. */
-export function defaultsConfigAssets(
-  activation: DefaultsActivation,
-): readonly string[] {
-  return [activation.configKey];
-}
-
-export function describeDefaults(activation: DefaultsActivation): Described {
-  return {
-    verb: 'apply',
-    source: basename(activation.configKey, extname(activation.configKey)),
-    dest: 'macOS defaults',
-  };
 }
 
 function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
@@ -104,19 +88,18 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
   };
 }
 
-export function runDefaults(
-  activation: DefaultsActivation,
-  context: Context,
-): Promise<ActivationReport> {
-  return reconcile(describeDefaults(activation), {
-    declare: () =>
-      readDeployedManifest(
-        activation.configKey,
-        context.home,
-        parseDefaults,
-        'Defaults config file',
-      ),
-    steps: async (entries) =>
-      entries.map((entry) => defaultsStep(entry, context)),
-  });
-}
+const defaultsKind = manifestKind<DefaultsActivation, DefaultsEntry>({
+  parse: parseDefaults,
+  manifestLabel: 'Defaults config file',
+  describe: (activation) => ({
+    verb: 'apply',
+    source: manifestSource(activation.configKey),
+    dest: 'macOS defaults',
+  }),
+  steps: async (entries, _activation, context) =>
+    entries.map((entry) => defaultsStep(entry, context)),
+});
+
+export const describeDefaults = defaultsKind.describe;
+export const defaultsConfigAssets = defaultsKind.configAssets;
+export const runDefaults = defaultsKind.run;

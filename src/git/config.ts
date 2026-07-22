@@ -1,16 +1,14 @@
 import {
   copyFile,
   lstat,
-  mkdir,
   readlink,
   realpath,
-  rename,
-  unlink,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
-import { AppError } from '../errors';
+import { dirname, isAbsolute, resolve } from 'node:path';
+import { ProvisioningError } from '../errors';
 import { isNotFound } from '../host/absence';
+import { replaceFileAtomically } from '../host/atomic-file';
 import { type CommandRunner, formatCommandFailure } from '../host/command';
 import { runCapture } from './run';
 
@@ -24,7 +22,7 @@ export async function configGet(
   // environment, surfaced rather than masked as unset.
   if (result.code === 1) return null;
   if (result.code !== 0) {
-    throw new AppError(
+    throw new ProvisioningError(
       formatCommandFailure(`git config --global --get ${name} failed`, result),
     );
   }
@@ -45,7 +43,7 @@ export async function configGetFile(
   ]);
   if (result.code === 1) return null;
   if (result.code !== 0) {
-    throw new AppError(
+    throw new ProvisioningError(
       formatCommandFailure(
         `git config --file ${path} --get ${name} failed`,
         result,
@@ -55,20 +53,6 @@ export async function configGetFile(
   return result.stdout.trim();
 }
 
-export async function configSetFile(
-  run: CommandRunner,
-  path: string,
-  name: string,
-  value: string,
-): Promise<void> {
-  const result = await runCapture(run, ['config', '--file', path, name, value]);
-  if (result.code !== 0) {
-    throw new AppError(
-      formatCommandFailure(`git config --file ${path} ${name} failed`, result),
-    );
-  }
-}
-
 export async function configSetFileValues(
   run: CommandRunner,
   path: string,
@@ -76,46 +60,33 @@ export async function configSetFileValues(
 ): Promise<void> {
   if (values.length === 0) return;
   const target = await writableConfigTarget(path);
-  await mkdir(dirname(target), { recursive: true });
-  const stage = join(
-    dirname(target),
-    `.${basename(target)}.${process.pid}.${Date.now()}.tmp`,
-  );
-  try {
+  await replaceFileAtomically(target, async (tmp) => {
+    // Seed the staging file from the existing target so unmanaged keys survive
+    // the per-value writes; an absent target starts empty.
     try {
-      await copyFile(target, stage);
+      await copyFile(target, tmp);
     } catch (error) {
       if (!isNotFound(error)) throw error;
-      await writeFile(stage, '');
+      await writeFile(tmp, '');
     }
     for (const [name, value] of values) {
       const result = await runCapture(run, [
         'config',
         '--file',
-        stage,
+        tmp,
         name,
         value,
       ]);
       if (result.code !== 0) {
-        throw new AppError(
+        throw new ProvisioningError(
           formatCommandFailure(
-            `git config --file ${stage} ${name} failed`,
+            `git config --file ${tmp} ${name} failed`,
             result,
           ),
         );
       }
     }
-    await rename(stage, target);
-  } catch (error) {
-    try {
-      await unlink(stage);
-    } catch (cleanup) {
-      if (!isNotFound(cleanup)) {
-        (error as Error & { cleanupError?: unknown }).cleanupError = cleanup;
-      }
-    }
-    throw error;
-  }
+  });
 }
 
 async function writableConfigTarget(path: string): Promise<string> {
@@ -131,7 +102,7 @@ async function writableConfigTarget(path: string): Promise<string> {
     }
   } catch (error) {
     if (isNotFound(error)) return path;
-    throw new AppError(
+    throw new ProvisioningError(
       `failed to inspect git config at ${path}: ${String(error)}`,
     );
   }

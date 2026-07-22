@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
-import type { AssetSource } from '../assets/registry';
+import { type AssetSource, embeddedAssets } from '../assets/registry';
 import { home } from '../host/path';
 import { link, runCommand } from './activation';
+import { resolveTarget } from './registry';
 import { targetSignature } from './signature';
 import { target } from './target';
 
@@ -28,6 +29,25 @@ function assetSource(
 }
 
 const config = { key: 'demo/config' };
+
+// Characterization anchor for D1: these digests are intentionally derived from
+// the current implementation and the embedded assets, pinning signature
+// serialization as an explicit stability contract. A relational assertion cannot
+// catch a canonicalizer rewrite that changes the bytes while preserving ordering
+// behavior. An intentional signature-schema change (or a legitimate change to
+// these targets' assets/definition) must update these constants knowingly.
+const GOLDEN_SIGNATURES: Readonly<Record<string, string>> = {
+  git: 'sha256:1740fcd972e7e8f398efb0e4206d20a801862ea0886d472f1366d68e8dd22aa6',
+  pnpm: 'sha256:152ba22956a64ea3d226b2745fef56b9f49651c0782d48b4ef545261e6f5ee5f',
+};
+
+for (const [selector, expected] of Object.entries(GOLDEN_SIGNATURES)) {
+  test(`the ${selector} target signature matches its pinned digest`, async () => {
+    expect(await targetSignature(resolveTarget(selector), embeddedAssets)).toBe(
+      expected,
+    );
+  });
+}
 
 test('declared assets, packages, and activation destinations affect the signature', async () => {
   const original = target('demo', {

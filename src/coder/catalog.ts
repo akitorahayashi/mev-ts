@@ -4,6 +4,7 @@ import { readDirentsIfPresent, readTextIfPresent } from '../host/absence';
 import {
   requireExactKeys,
   requireRecord,
+  requireStringArray,
   requireUniqueBy,
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
@@ -57,17 +58,10 @@ export function parseSectionCatalog(raw: string, path: string): string[] {
     `AGENTS.md section catalog ${path}`,
   );
   requireExactKeys(parsed, ['sections'], `AGENTS.md section catalog ${path}`);
-  if (!Array.isArray(parsed['sections'])) {
-    throw new ProvisioningError(
-      `AGENTS.md section catalog must contain a sections sequence: ${path}.`,
-    );
-  }
-  if (!parsed['sections'].every((entry) => typeof entry === 'string')) {
-    throw new ProvisioningError(
-      `AGENTS.md section catalog must contain a sections sequence of strings: ${path}.`,
-    );
-  }
-  const listed = parsed['sections'];
+  const listed = requireStringArray(
+    parsed['sections'],
+    `AGENTS.md section catalog ${path}: 'sections'`,
+  );
   if (listed.some((name) => name.length === 0)) {
     throw new ProvisioningError(
       `AGENTS.md section catalog must contain non-empty section names: ${path}.`,
@@ -89,8 +83,10 @@ export async function readSections(sourceDir: string): Promise<string[]> {
   const listed = parseSectionCatalog(raw, catalogPath);
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
+    // catalog.yml was just read from sourceDir, so the directory existed a
+    // moment ago; a null here means it vanished mid-read, not a missing deploy.
     throw new ProvisioningError(
-      `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
+      `AGENTS.md section directory disappeared while reading it: ${sourceDir}.`,
     );
   }
   const presentStems = entries
