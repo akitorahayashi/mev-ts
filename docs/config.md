@@ -25,7 +25,7 @@ disabled:
 
 An absent manifest means an empty stored list, interpreted per polarity (all enabled under opt-out, none enabled under opt-in). A present manifest that is not a mapping, is missing its key, or whose list has non-string, empty, or duplicate names is rejected with a `ProvisioningError` rather than read as an empty selection — significant because an empty list means "everything enabled" under opt-out, so a mis-parse must never silently produce that. A name present in the manifest but absent from the catalog (for example, after an override file was deleted) is reported as a warning on stderr before the interactive prompt runs, never silently dropped.
 
-`--clear` turns every entry off, but the operation differs by polarity: opt-out clear writes a snapshot of the current catalog as the disabled list, since deleting the manifest instead would leave it absent, which reads back as "everything enabled"; opt-in clear writes an empty enabled list, which is equivalent to deleting the manifest.
+`--clear` turns every entry off, but the operation differs by polarity: opt-out clear writes a snapshot of the current catalog as the disabled list, since deleting the manifest instead would leave it absent, which reads back as "everything enabled"; opt-in clear removes the manifest outright (`writeNameList` unlinks rather than writing an empty list), since an absent manifest already means no overrides are enabled.
 
 ## Zed Settings Merge
 
@@ -33,7 +33,7 @@ An absent manifest means an empty stored list, interpreted per polarity (all ena
 
 - `combineOverrides` (`zed/merge.ts`) deep-merges the enabled overrides into one fragment first, tracking which override name owns each JSON path. Two overrides setting the same leaf key throw a `ProvisioningError` naming both, rather than letting catalog order silently decide a winner — including the asymmetric case where one override sets an entire subtree as a primitive while another nests keys under that same path, in either declaration order.
 - `deepMerge` then applies the combined overrides onto the base settings, with the overlay winning on every leaf it defines.
-- Both reject `__proto__`, `constructor`, and `prototype` keys outright, since none are legitimate Zed setting names.
+- Override fragments reject `__proto__`, `constructor`, and `prototype` keys outright, since none are legitimate Zed setting names. This check runs over override data only; the base settings asset is not separately validated for these keys.
 
 ## Extending the Catalogs
 

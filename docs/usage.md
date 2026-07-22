@@ -25,6 +25,7 @@ mev s                           # Alias for sync
 
 ```bash
 mev list                        # Show all available provisioning targets
+mev ls                           # Alias for list
 ```
 
 ## Config
@@ -36,7 +37,7 @@ mev config zed                   # Toggle enabled Zed settings overrides (alias:
 mev config zed --clear           # Disable all Zed settings overrides
 ```
 
-`config` (alias `cf`) groups the three selection commands above; each opens an interactive multi-select over its catalog. `--clear` disables every entry without opening the prompt. Catalog sources, manifest mechanics, and the Zed settings-merge algorithm are in docs/config.md.
+`config` (alias `cf`) groups the three selection commands above; each opens an interactive multi-select over its catalog. `--clear` is available on all three (`config agents --clear`, `config skills --clear`, `config zed --clear`) and disables every entry without opening the prompt. Catalog sources, manifest mechanics, and the Zed settings-merge algorithm are in docs/config.md.
 
 ## Git Identity
 
@@ -62,9 +63,14 @@ pdf2md report.pdf               # Extract UTF-8 text to report.md
 
 `md2pdf` and `pdf2md` are shell aliases for hidden `mev internal document` commands. Directory conversion preserves the relative tree and defaults to `document_outputs` when no output directory is given. `pdf2md` extracts text and does not reconstruct semantic Markdown structure from a PDF. See docs/architecture.md for the Pandoc, Chrome, and Poppler rendering mechanics.
 
+| Command | Flags |
+|---|---|
+| `md2pdf <input>` | `--output-dir`/`-o`, `--css`/`-c`, `--margin-top`, `--margin-right`, `--margin-bottom`, `--margin-left` |
+| `pdf2md <input>` | `--output-dir`/`-o` |
+
 ## Global Flags
 
 ```
---help         Show command help
+--help, -h     Show command help
 --version      Print the binary version
 ```
