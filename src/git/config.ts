@@ -6,7 +6,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import { AppError } from '../errors';
+import { ProvisioningError } from '../errors';
 import { isNotFound } from '../host/absence';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { type CommandRunner, formatCommandFailure } from '../host/command';
@@ -22,7 +22,7 @@ export async function configGet(
   // environment, surfaced rather than masked as unset.
   if (result.code === 1) return null;
   if (result.code !== 0) {
-    throw new AppError(
+    throw new ProvisioningError(
       formatCommandFailure(`git config --global --get ${name} failed`, result),
     );
   }
@@ -43,7 +43,7 @@ export async function configGetFile(
   ]);
   if (result.code === 1) return null;
   if (result.code !== 0) {
-    throw new AppError(
+    throw new ProvisioningError(
       formatCommandFailure(
         `git config --file ${path} --get ${name} failed`,
         result,
@@ -78,7 +78,7 @@ export async function configSetFileValues(
         value,
       ]);
       if (result.code !== 0) {
-        throw new AppError(
+        throw new ProvisioningError(
           formatCommandFailure(
             `git config --file ${tmp} ${name} failed`,
             result,
@@ -102,7 +102,7 @@ async function writableConfigTarget(path: string): Promise<string> {
     }
   } catch (error) {
     if (isNotFound(error)) return path;
-    throw new AppError(
+    throw new ProvisioningError(
       `failed to inspect git config at ${path}: ${String(error)}`,
     );
   }

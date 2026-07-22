@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { lstat, readFile, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError } from '../../../src/errors';
+import { ProvisioningError } from '../../../src/errors';
 import {
   configGet,
   configGetFile,
@@ -29,7 +29,7 @@ test('configGet returns null on exit 1 (unset key)', async () => {
 test('configGet throws on an unexpected exit such as code 127', async () => {
   const run = presetRunner({ code: 127, stdout: '', stderr: 'git: not found' });
   await expect(configGet(run, 'core.excludesfile')).rejects.toBeInstanceOf(
-    AppError,
+    ProvisioningError,
   );
 });
 
