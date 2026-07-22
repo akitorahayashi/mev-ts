@@ -156,6 +156,14 @@ export function renderMakeReport(
       actionLines.push(...failedEntryLines(activation));
       actionLines.push('');
     }
+    if (group.markerError) {
+      actionNumber += 1;
+      actionLines.push(
+        `${actionNumber}. ${group.targetName} activated but its applied marker was not recorded`,
+      );
+      actionLines.push(`   ${group.markerError}`);
+      actionLines.push('');
+    }
   }
   if (actionLines.length > 0) {
     while (actionLines.at(-1) === '') actionLines.pop();
@@ -166,7 +174,8 @@ export function renderMakeReport(
     .filter(
       (group) =>
         group.blockers.length > 0 ||
-        group.reports.some((activation) => activation.status === 'failed'),
+        group.reports.some((activation) => activation.status === 'failed') ||
+        group.markerError !== undefined,
     )
     .map((group) => group.targetName);
   if (retryTags.length > 0) {

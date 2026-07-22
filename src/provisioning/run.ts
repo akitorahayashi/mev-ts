@@ -33,6 +33,12 @@ export interface ActivationGroupReport {
   readonly targetName: string;
   readonly blockers: readonly ActivationBlocker[];
   readonly reports: readonly ActivationReport[];
+  /**
+   * Set when the target activated successfully but recording its applied marker
+   * failed. Isolated per group so one unwritable marker never aborts the run;
+   * the target simply re-selects on the next sync (the safe direction).
+   */
+  readonly markerError?: string;
 }
 
 export interface MakeReport {
@@ -283,9 +289,22 @@ export async function runMake(
       });
       reports.push(await runActivation(activation, context));
     }
-    const groupReport = { targetName: group.targetName, blockers, reports };
+    const baseReport: ActivationGroupReport = {
+      targetName: group.targetName,
+      blockers,
+      reports,
+    };
+    // Isolate the marker write: a failure here surfaces on this group's report
+    // and the loop continues, so later targets still activate.
+    let markerError: string | undefined;
+    try {
+      await recordSuccessfulTarget(baseReport, context);
+    } catch (error) {
+      markerError = errorMessage(error);
+    }
+    const groupReport: ActivationGroupReport =
+      markerError === undefined ? baseReport : { ...baseReport, markerError };
     groups.push(groupReport);
-    await recordSuccessfulTarget(groupReport, context);
     request.onActivationTargetComplete?.(groupReport);
   }
 
@@ -295,7 +314,9 @@ export async function runMake(
     install.some((r) => r.status === 'failed') ||
     groups.some(
       (g) =>
-        g.blockers.length > 0 || g.reports.some((r) => r.status === 'failed'),
+        g.blockers.length > 0 ||
+        g.reports.some((r) => r.status === 'failed') ||
+        g.markerError !== undefined,
     );
 
   return { selection, deploys, install, groups, failed };

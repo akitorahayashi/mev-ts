@@ -4,11 +4,7 @@ import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
-import {
-  AppError,
-  CommandLineError,
-  ProvisioningError,
-} from '../../src/errors';
+import { AppError, CommandLineError } from '../../src/errors';
 import { bunCommandRunner } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import {
@@ -243,33 +239,47 @@ sandboxTest(
 );
 
 sandboxTest(
-  'successful target completion is not reported before applied state is persisted',
+  'a marker-write failure is isolated so later targets still activate',
   async (sandbox) => {
-    const events: string[] = [];
-    await expect(
-      runMake(
-        {
-          selectors: ['git'],
-          onActivationPhaseStart: () => {
-            events.push('phase');
-          },
-          onActivationStart: (event) => {
-            events.push(`start:${event.targetName}`);
-            mkdirSync(appliedPath(sandbox, event.targetName), {
-              recursive: true,
-            });
-          },
-          onActivationTargetComplete: (group) => {
-            events.push(`complete:${group.targetName}`);
-          },
-        },
-        contextFor(sandbox),
-      ),
-    ).rejects.toBeInstanceOf(ProvisioningError);
+    const selectors = ['git', 'shell'];
+    let firstTarget: string | undefined;
+    const completed: string[] = [];
 
-    expect(events[0]).toBe('phase');
-    expect(events.some((event) => event === 'start:git')).toBe(true);
-    expect(events.some((event) => event === 'complete:git')).toBe(false);
+    const report = await runMake(
+      {
+        selectors,
+        onActivationStart: (event) => {
+          if (firstTarget === undefined) firstTarget = event.targetName;
+          // Turn the first target's marker path into a directory so its
+          // writeApplied fails after its activations have already succeeded.
+          if (event.targetName === firstTarget) {
+            mkdirSync(appliedPath(sandbox, firstTarget), { recursive: true });
+          }
+        },
+        onActivationTargetComplete: (group) => completed.push(group.targetName),
+      },
+      contextFor(sandbox),
+    );
+
+    const secondName = selectors.find((name) => name !== firstTarget) as string;
+    const firstGroup = report.groups.find((g) => g.targetName === firstTarget);
+    const secondGroup = report.groups.find((g) => g.targetName === secondName);
+
+    // The first target activated cleanly but could not record its marker.
+    expect(firstGroup?.reports.every((r) => r.status === 'changed')).toBe(true);
+    expect(firstGroup?.markerError).toContain(
+      'Failed to write applied signature',
+    );
+
+    // The run did not abort: the second target still activated and recorded.
+    expect(completed).toContain(secondName);
+    expect(secondGroup?.markerError).toBeUndefined();
+    expect(await readApplied(appliedPath(sandbox, secondName))).toBe(
+      await targetSignature(resolveTarget(secondName), embeddedAssets),
+    );
+
+    // The marker failure is surfaced rather than swallowed.
+    expect(report.failed).toBe(true);
   },
 );
 
