@@ -5,6 +5,8 @@ import { withTemporaryDirectory } from './fixtures/temporary-directory';
 
 const SHA256 =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const MISMATCHED_SHA256 =
+  'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
 
 async function fakeCommands(dir: string, log: string): Promise<string> {
   const bashEnv = join(dir, 'fake-commands.bash');
@@ -186,6 +188,52 @@ test('installer cleans temporary files after download failure', async () => {
       expect(await readdir(tmp)).toEqual([]);
     },
     { prefix: 'installer-download-failure-' },
+  );
+});
+
+test('installer aborts and installs nothing when the checksum does not match', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const tmp = join(dir, 'tmp root');
+      await mkdir(tmp);
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: MISMATCHED_SHA256,
+        TMPDIR: tmp,
+      });
+
+      expect(result.code).not.toBe(0);
+      expect(result.stderr).toContain('SHA256 mismatch');
+      expect(result.stderr).toContain(MISMATCHED_SHA256);
+      expect(result.stderr).toContain(SHA256);
+      expect(await Bun.file(join(dir, 'bin', 'mev')).exists()).toBe(false);
+      expect(await readdir(tmp)).toEqual([]);
+    },
+    { prefix: 'installer-mismatch-' },
+  );
+});
+
+test('installer aborts and installs nothing when the checksum format is invalid', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const tmp = join(dir, 'tmp root');
+      await mkdir(tmp);
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: 'not-a-valid-sha256',
+        TMPDIR: tmp,
+      });
+
+      expect(result.code).not.toBe(0);
+      expect(result.stderr).toContain('Invalid SHA256 checksum format');
+      expect(await Bun.file(join(dir, 'bin', 'mev')).exists()).toBe(false);
+      expect(await readdir(tmp)).toEqual([]);
+    },
+    { prefix: 'installer-malformed-' },
   );
 });
 
