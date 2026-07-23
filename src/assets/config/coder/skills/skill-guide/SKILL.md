@@ -86,6 +86,8 @@ assets/	Templates, images, sample inputs	When the task needs material
 
 Use Markdown tables only when rendered visual scanning is part of the skill's purpose. If cells may contain tabs, multiline values, or nested data, use YAML list records instead.
 
+This TSV default is scoped to skill text consumed by agents. It does not apply to user-facing conversation replies or to documentation meant for human readers, such as README.md; those contexts keep rendered Markdown tables.
+
 ## Creating a skill
 
 When asked to organize something as a skill:
