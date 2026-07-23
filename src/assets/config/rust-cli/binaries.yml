@@ -4,14 +4,8 @@
 #   - name: binary name, also the release asset's <name> segment (required)
 #   - repo: GitHub repo as owner/name (required)
 #   - tag: release tag to install (required)
-#   - private: use an authenticated `gh release download` instead of an
-#       anonymous curl fetch (optional, defaults to false)
 # Run `bun run lock` after changing entries; digests live in binaries.lock.yml.
 binaries:
-  - name: astm
-    repo: asterismhq/asterism
-    tag: v27.3.1
-    private: true
   - name: kpv
     repo: akitorahayashi/kpv
     tag: v0.6.0

@@ -1,12 +1,4 @@
 binaries:
-  - name: astm
-    repo: asterismhq/asterism
-    tag: v27.3.1
-    assets:
-      darwin-aarch64:
-        sha256: 0fe2c2e11d296c56edcf5f3626b4db30208634220e647110b70e54b4c1fa8559
-      darwin-x86_64:
-        sha256: fe09a901b3598582ea5ee2a6e074ba05583c0f9e2952b05ae2fba45d9d48c565
   - name: kpv
     repo: akitorahayashi/kpv
     tag: v0.6.0

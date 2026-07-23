@@ -4,11 +4,10 @@ import {
   mkdir,
   readdir,
   readFile,
-  realpath,
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import {
   releaseBinaries,
   runActivation,
@@ -32,9 +31,8 @@ function releaseContext(home: string, responder: Responder) {
     assets: emptyAssets,
     async respond(command, args) {
       const result = await responder(command, args);
-      if (result.code === 0 && (command === 'curl' || command === 'gh')) {
-        const flag = command === 'curl' ? '-o' : '--output';
-        const i = args.indexOf(flag);
+      if (result.code === 0 && command === 'curl') {
+        const i = args.indexOf('-o');
         if (i >= 0) await writeFile(args[i + 1] as string, command);
       }
       return result;
@@ -44,10 +42,10 @@ function releaseContext(home: string, responder: Responder) {
 
 const CONFIG_KEY = 'rust-cli/binaries.yml';
 
-// Digests of the bytes the responder writes for each transport.
+// Digest of the bytes the responder writes for a successful download.
 const CURL_SHA =
   '427e4b79b1f0fc90306cbe064b1297b21dc6835bfa656d3bf46bc156e3f24bb0';
-const GH_SHA =
+const WRONG_SHA =
   'fb2b7fce0940161406a6aa3e4d8b4aa6104014774ffa665743f8d9704f0eb0ec';
 
 const PUBLIC_YAML = `
@@ -217,63 +215,6 @@ binaries:
 );
 
 sandboxTest(
-  'a private binary is fetched with an authenticated gh download',
-  async (home) => {
-    await deployBinaries(
-      home,
-      `
-binaries:
-  - name: astm
-    repo: asterismhq/asterism
-    tag: v27.0.2
-    private: true
-`.trimStart(),
-      `
-binaries:
-  - name: astm
-    repo: asterismhq/asterism
-    tag: v27.0.2
-    assets:
-      darwin-aarch64:
-        sha256: ${GH_SHA}
-`.trimStart(),
-    );
-    const { context, calls } = releaseContext(home, (command) => {
-      if (command === 'uname') return ok('arm64');
-      if (command === 'gh') return ok();
-      return fail();
-    });
-
-    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('changed');
-    expect(calls.some((c) => c.command === 'curl')).toBe(false);
-    const gh = calls.find((c) => c.command === 'gh');
-    expect(gh).toBeDefined();
-    const output = gh?.args[gh.args.indexOf('--output') + 1] as string;
-    expect(dirname(dirname(output))).toBe(
-      await realpath(join(home, '.cargo', 'bin')),
-    );
-    expect(basename(dirname(output)).startsWith('.astm.')).toBe(true);
-    expect(gh?.args).toEqual([
-      'release',
-      'download',
-      'v27.0.2',
-      '--repo',
-      'asterismhq/asterism',
-      '--pattern',
-      'astm-darwin-aarch64',
-      '--output',
-      output,
-      '--clobber',
-    ]);
-    expect(await readFile(join(home, '.cargo', 'bin', 'astm'), 'utf8')).toBe(
-      'gh',
-    );
-  },
-);
-
-sandboxTest(
   'duplicate release names fail before architecture probing',
   async (home) => {
     await deployBinaries(
@@ -349,7 +290,7 @@ binaries:
     tag: v0.6.0
     assets:
       darwin-aarch64:
-        sha256: ${GH_SHA}
+        sha256: ${WRONG_SHA}
 `.trimStart(),
     );
     const { context } = releaseContext(home, (command) => {

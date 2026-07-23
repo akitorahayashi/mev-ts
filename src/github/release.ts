@@ -15,16 +15,13 @@ import {
 import { loadYaml } from '../host/yaml';
 
 /**
- * A prebuilt CLI binary distributed through GitHub Releases. `repo` is
- * `owner/name`; the release asset is named `<name>-<os>-<arch>`. `private`
- * selects an authenticated `gh release download` over an anonymous `curl`, the
- * only difference being the fetch mechanism.
+ * A prebuilt CLI binary distributed through a public GitHub Release. `repo` is
+ * `owner/name`; the release asset is named `<name>-<os>-<arch>`.
  */
 export interface ReleaseBinary {
   readonly name: string;
   readonly repo: string;
   readonly tag: string;
-  readonly private?: boolean;
 }
 
 export const releaseArchitectures = ['aarch64', 'x86_64'] as const;
@@ -54,13 +51,10 @@ export interface ReleaseLock {
   readonly binaries: readonly ReleaseLockEntry[];
 }
 
-// Release fields flow into a tool's argument DSL: `name` becomes the `gh
-// release download --pattern` glob and part of the public download URL, `tag`
-// is passed positionally to `gh` and into the URL path, and `repo` is both a
-// `--repo` value and a URL segment. Validate the repo-owned manifest against
-// explicit character sets (as `brew/install.ts` does for Homebrew tokens) so a
-// glob metacharacter cannot match a different asset and a leading '-' cannot
-// parse as a flag.
+// Release fields flow into the public download URL, and `name` also determines
+// the release asset filename. Validate the repo-owned manifest against explicit
+// character sets (as `brew/install.ts` does for Homebrew tokens) so URL segments
+// and asset names remain unambiguous.
 const SAFE_ASSET_NAME = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_TAG = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -101,7 +95,7 @@ export function parseReleaseBinaries(
     }
     requireExactKeys(
       entry,
-      ['name', 'repo', 'tag', 'private'],
+      ['name', 'repo', 'tag'],
       `Invalid release binaries manifest entry ${index + 1}`,
     );
     if (typeof entry['name'] !== 'string' || entry['name'].length === 0) {
@@ -117,14 +111,6 @@ export function parseReleaseBinaries(
     if (typeof entry['tag'] !== 'string' || entry['tag'].length === 0) {
       throw new ProvisioningError(
         `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'tag' must be a non-empty string.`,
-      );
-    }
-    if (
-      entry['private'] !== undefined &&
-      typeof entry['private'] !== 'boolean'
-    ) {
-      throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'private' must be a boolean.`,
       );
     }
     if (!SAFE_ASSET_NAME.test(entry['name'])) {
@@ -146,7 +132,6 @@ export function parseReleaseBinaries(
       name: entry['name'],
       repo: entry['repo'],
       tag: entry['tag'],
-      private: entry['private'],
     };
   });
   requireUniqueBy(
@@ -315,9 +300,8 @@ export async function installedMatches(
 /**
  * Download the release asset `<name>-<os>-<arch>` for `binary`, verify it
  * against the locked digest, and install it into `dest` marked executable.
- * Private repositories require an authenticated `gh release download`; public
- * ones are fetched anonymously over HTTPS. A digest mismatch throws before the
- * downloaded file can replace `dest`, so unreviewed bytes never land.
+ * Assets are fetched anonymously over HTTPS. A digest mismatch throws before
+ * the downloaded file can replace `dest`, so unreviewed bytes never land.
  */
 export async function fetchReleaseBinary(
   binary: ReleaseBinary,
@@ -328,28 +312,8 @@ export async function fetchReleaseBinary(
 ): Promise<void> {
   const asset = releaseAssetName(binary, arch);
   await replaceFileAtomically(dest, async (tmp) => {
-    if (binary.private) {
-      await runProcessStep(
-        context.commands,
-        'gh',
-        [
-          'release',
-          'download',
-          binary.tag,
-          '--repo',
-          binary.repo,
-          '--pattern',
-          asset,
-          '--output',
-          tmp,
-          '--clobber',
-        ],
-        `gh release download failed for ${binary.name}`,
-      );
-    } else {
-      const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
-      await downloadOverHttps(context.commands, url, tmp, binary.name);
-    }
+    const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
+    await downloadOverHttps(context.commands, url, tmp, binary.name);
     const actual = await fileSha256(tmp);
     if (actual !== digest.sha256) {
       throw new ProvisioningError(
