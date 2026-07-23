@@ -11,8 +11,10 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0"
   },
   "awaySummaryEnabled": false,
+  "autoMemoryEnabled": false,
   "theme": "light",
   "autoCompactEnabled": false,
+  "copyOnSelect": false,
   "attribution": {
     "commit": "",
     "pr": ""
