@@ -27,7 +27,6 @@ import {
 import { readTextIfPresent } from '../src/host/absence';
 import { writeFileAtomically } from '../src/host/atomic-file';
 import { bunCommandRunner } from '../src/host/command';
-import { runProcessStep } from '../src/host/command-run';
 import { downloadOverHttps } from '../src/host/https-download';
 import { dumpYaml } from '../src/host/yaml';
 
@@ -51,26 +50,6 @@ async function downloadBinary(
   output: string,
 ): Promise<void> {
   const asset = releaseAssetName(binary, arch);
-  if (binary.private) {
-    await runProcessStep(
-      bunCommandRunner,
-      'gh',
-      [
-        'release',
-        'download',
-        binary.tag,
-        '--repo',
-        binary.repo,
-        '--pattern',
-        asset,
-        '--output',
-        output,
-        '--clobber',
-      ],
-      `gh release download failed for ${asset}`,
-    );
-    return;
-  }
   const url = `https://github.com/${binary.repo}/releases/download/${binary.tag}/${asset}`;
   await downloadOverHttps(bunCommandRunner, url, output, asset);
 }

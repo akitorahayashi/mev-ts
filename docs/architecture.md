@@ -177,7 +177,7 @@ Several activation kinds delegate external-tool protocol and state detection to 
 | `duti/` | `duti -x` output parse; `duti -s` apply |
 | `editor/` | `--list-extensions` parse; `--install-extension` |
 | `coder/` | Coder section/skill catalogs, manifests, and renderers |
-| `github/` | GitHub release download via `curl` (public) or `gh release download` (private) |
+| `github/` | Public GitHub release download via `curl` |
 | `git/` | Git config mutation and locale-pinned git command helpers |
 | `zed/` | Zed override catalog, manifest, and settings renderer |
 

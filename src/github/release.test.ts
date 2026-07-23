@@ -30,9 +30,19 @@ test('parseReleaseBinaries accepts a well-formed entry', () => {
       name: 'kpv',
       repo: 'akitorahayashi/kpv',
       tag: 'v0.6.0',
-      private: undefined,
     },
   ]);
+});
+
+test('parseReleaseBinaries rejects an unknown entry field', () => {
+  expect(() =>
+    parseReleaseBinaries(
+      entry(
+        'name: kpv\n    repo: akitorahayashi/kpv\n    tag: v0.6.0\n    extra: true',
+      ),
+      CONFIG,
+    ),
+  ).toThrow(ProvisioningError);
 });
 
 test('parseReleaseBinaries rejects a tag beginning with a dash', () => {
