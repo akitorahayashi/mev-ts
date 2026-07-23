@@ -1,6 +1,6 @@
 ---
 name: task-doc
-description: Organize requirements and tasks into concise task documents, especially requests like "put this into a task document".
+description: Use when converting a software implementation request—such as a feature, bug fix, refactoring, migration, or repository change—into a concise task document with current state, implementation plan, constraints, and acceptance criteria.
 ---
 
 # Task Doc
