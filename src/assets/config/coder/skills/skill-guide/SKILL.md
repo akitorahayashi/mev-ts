@@ -39,7 +39,7 @@ description: <What the skill does, and which requests reach for it.>
 <Reusable instructions, workflow, rules, or knowledge.>
 ```
 
-`name` matches the skill directory name exactly, using 1–64 characters of lowercase letters, digits, and interior hyphens.
+`name` matches the skill directory name exactly, using 1–64 characters of lowercase letters, digits, and single hyphens, with no leading, trailing, or consecutive hyphen.
 
 `description` states both what the skill does and which requests reach for it. It is the only routing information available before the skill is activated:
 

@@ -16,7 +16,7 @@ Codex keeps its settings out of `SKILL.md`, in `agents/openai.yaml` inside the s
 | Model and user | `policy.allow_implicit_invocation: true`, the default |
 | User only, by typing `$<skill-name>` | `policy.allow_implicit_invocation: false` |
 
-Codex packages a skill for distribution only when `SKILL.md` leaves `disable-model-invocation` unset or false, so a skill restricted to explicit invocation declares it here rather than with the Claude Code field.
+Codex does not read Claude Code's `disable-model-invocation`, so a skill restricted to explicit invocation on both tools sets `policy.allow_implicit_invocation: false` here and keeps the Claude Code field in `SKILL.md`.
 
 ## How the skill appears
 

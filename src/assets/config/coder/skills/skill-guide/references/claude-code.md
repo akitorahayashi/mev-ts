@@ -1,6 +1,6 @@
 # Claude Code
 
-Claude Code reads these settings from `SKILL.md` frontmatter and processes them itself, so they carry no instruction to the model. Common-specification fields it does not act on, such as `license` and `compatibility`, are ignored without error.
+Claude Code reads these settings from `SKILL.md` frontmatter and processes them itself, so they carry no instruction to the model. Common-specification fields it does not act on, such as `license` and `compatibility`, are ignored without error. Beyond the common-specification rules, it rejects a `name` containing the reserved word `anthropic` or `claude`.
 
 ## Skill locations
 
@@ -21,7 +21,7 @@ Claude Code reads these settings from `SKILL.md` frontmatter and processes them 
 
 | intent | frontmatter |
 | --- | --- |
-| Expand into the current conversation | `context: inline`, the default |
+| Expand into the current conversation | Omit `context`, the default |
 | Run in a subagent that reports back as a task notification | `context: fork` |
 | Run in a subagent that blocks the turn until it returns | `context: fork` with `background: false` |
 | Choose the subagent type | `agent: Explore`, or any agent type including entries under `.claude/agents/` |
@@ -33,7 +33,7 @@ Claude Code reads these settings from `SKILL.md` frontmatter and processes them 
 | field | accepted values |
 | --- | --- |
 | `model` | `haiku`, `sonnet`, `opus`, `fable`, a full model ID, or `inherit` for the parent conversation's model |
-| `effort` | `low`, `medium`, `high`, `max`, or an integer |
+| `effort` | `low`, `medium`, `high`, `xhigh`, or `max`, subject to model support |
 | `allowed-tools` | Tool patterns as a comma-separated string or YAML list, such as `Read, Grep, Bash(git log:*)` |
 | `disallowed-tools` | Same form as `allowed-tools`; the removal is cleared when the user sends the next message |
 
