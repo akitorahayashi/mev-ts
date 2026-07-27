@@ -7,18 +7,20 @@ description: The user mentions Agent Skills or asks to organize reusable instruc
 
 Agent Skills are reusable instruction packages for AI agents. A skill must be understandable without the original conversation.
 
+## What a skill carries
+
+- Procedural skill: a task performed the same way each time, such as validation or conversion. It names each input and how the input is obtained, the output format, and the handling for a missing input.
+- Judgment skill: criteria applied while doing something else, such as design principles or naming rules. It names the decisions it governs and the criteria for each, and defines no inputs, no deliverable format, and no invocation situation, which the conversation supplies.
+
 ## Location
 
 If the user specifies a location, create the skill there and put `SKILL.md` inside the skill directory.
 
 Otherwise the skill belongs to the current project, at the first location that applies:
 
-```tsv
-condition	location
-The project has .agents/skills/	.agents/skills/<skill-name>/
-The project has .claude/	.claude/skills/<skill-name>/
-Neither exists	.agents/skills/<skill-name>/
-```
+1. `.agents/skills/<skill-name>/`, when the project has `.agents/skills/`.
+2. `.claude/skills/<skill-name>/`, when the project has `.claude/`.
+3. `.agents/skills/<skill-name>/`, when neither exists.
 
 A location under the home directory is used only when the user names one. [Claude Code](references/claude-code.md) and [Codex](references/codex.md) list the directories each tool searches.
 
@@ -53,7 +55,7 @@ compatibility: Requires Python 3.12 and network access
 
 ## Frontmatter and body
 
-Frontmatter carries what the host application processes: identification, discovery, invocation policy, tool permissions, and compatibility. The Markdown body carries what the model follows: procedures, decision criteria, safety requirements, output format, and the conditions for reading supporting files. Whether frontmatter reaches the model is implementation-defined, so every instruction the model must follow appears in the body.
+Frontmatter carries what the host application processes: identification, discovery, invocation policy, tool permissions, and compatibility. The Markdown body carries what the model follows: procedures, decision criteria, safety requirements, output format, and the conditions for reading supporting files, as the skill's kind requires. Whether frontmatter reaches the model is implementation-defined, so every instruction the model must follow appears in the body.
 
 Host-specific frontmatter differs by tool. Read [Claude Code](references/claude-code.md) or [Codex](references/codex.md) when the skill sets invocation policy, model selection, or tool permissions.
 
@@ -87,7 +89,7 @@ Use only what the skill needs.
 
 - Write declaratively; avoid including transitional or process-oriented information.
 - Target prohibitions at actions that could actually occur within the workflow. Prohibiting actions that cannot happen creates noise and serves no purpose. Whenever possible, opt for clear instructions rather than prohibitions.
-- For all input information, explicitly state how it is obtained and how to handle cases where the information is missing (e.g., asking the user).
+- For each input consumed, a procedural skill specifies how it is obtained and what happens if the input is missing (such as querying the user). Some skills—such as those introducing design concepts—do not involve inputs or outputs.
 
 ## Path rules
 
@@ -104,22 +106,6 @@ Run [validator](scripts/validate.py).
 `references/` is flat, and `SKILL.md` links each file directly.
 
 Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve the script path relative to the skill directory and pass project files as explicit arguments.
-
-## Compact tables
-
-Tables in skill text use fenced TSV by default:
-
-```tsv
-path	purpose	when_to_read
-SKILL.md	Primary skill instructions	Always
-references/	Detailed rules, specs, examples	Only when directly relevant
-scripts/	Repeatable validation or conversion logic	When execution is useful
-assets/	Templates, images, sample inputs	When the task needs material
-```
-
-Use Markdown tables only when rendered visual scanning is part of the skill's purpose. If cells may contain tabs, multiline values, or nested data, use YAML list records instead.
-
-This TSV default is scoped to skill text consumed by agents. It does not apply to user-facing conversation replies or to documentation meant for human readers, such as README.md; those contexts keep rendered Markdown tables.
 
 ## Creating a skill
 

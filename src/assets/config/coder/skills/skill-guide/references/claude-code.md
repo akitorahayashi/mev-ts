@@ -4,53 +4,48 @@ Claude Code reads these settings from `SKILL.md` frontmatter and processes them 
 
 ## Skill locations
 
-```tsv
-path	scope
-.claude/skills/<skill-name>/SKILL.md	The project containing it
-~/.claude/skills/<skill-name>/SKILL.md	Every project
-```
+| path | scope |
+| --- | --- |
+| `.claude/skills/<skill-name>/SKILL.md` | The project containing it |
+| `~/.claude/skills/<skill-name>/SKILL.md` | Every project |
 
 ## Who can invoke the skill
 
-```tsv
-intended callers	frontmatter
-Model and user	Neither field
-User only, by typing /<skill-name>	disable-model-invocation: true
-Model only, through the Skill tool	user-invocable: false
-```
+| intended callers | frontmatter |
+| --- | --- |
+| Model and user | Neither field |
+| User only, by typing `/<skill-name>` | `disable-model-invocation: true` |
+| Model only, through the Skill tool | `user-invocable: false` |
 
 ## Where the skill runs
 
-```tsv
-intent	frontmatter
-Expand into the current conversation	context: inline, the default
-Run in a subagent that reports back as a task notification	context: fork
-Run in a subagent that blocks the turn until it returns	context: fork with background: false
-Choose the subagent type	agent: Explore, or any agent type including entries under .claude/agents/
-```
+| intent | frontmatter |
+| --- | --- |
+| Expand into the current conversation | `context: inline`, the default |
+| Run in a subagent that reports back as a task notification | `context: fork` |
+| Run in a subagent that blocks the turn until it returns | `context: fork` with `background: false` |
+| Choose the subagent type | `agent: Explore`, or any agent type including entries under `.claude/agents/` |
 
 `agent` and `background` apply only to `context: fork`.
 
 ## What the skill may use
 
-```tsv
-field	accepted values
-model	haiku, sonnet, opus, fable, a full model ID, or inherit for the parent conversation's model
-effort	low, medium, high, max, or an integer
-allowed-tools	Tool patterns as a comma-separated string or YAML list, such as Read, Grep, Bash(git log:*)
-disallowed-tools	Same form as allowed-tools; the removal is cleared when the user sends the next message
-```
+| field | accepted values |
+| --- | --- |
+| `model` | `haiku`, `sonnet`, `opus`, `fable`, a full model ID, or `inherit` for the parent conversation's model |
+| `effort` | `low`, `medium`, `high`, `max`, or an integer |
+| `allowed-tools` | Tool patterns as a comma-separated string or YAML list, such as `Read, Grep, Bash(git log:*)` |
+| `disallowed-tools` | Same form as `allowed-tools`; the removal is cleared when the user sends the next message |
 
 ## When the skill loads, and how it appears
 
-```tsv
-field	accepted values	effect
-when_to_use	Free text	Appended to the skill's Skill tool description
-paths	Glob patterns as a comma-separated string or YAML list	The skill loads only when the model touches a matching file
-hooks	Same shape as settings.json hooks	Hooks registered while the skill is active
-argument-hint	Free text	Placeholder shown after the slash command name
-shell	bash, the default on every platform, or powershell	Shell for `!` command blocks
-```
+| field | accepted values | effect |
+| --- | --- | --- |
+| `when_to_use` | Free text | Appended to the skill's Skill tool description |
+| `paths` | Glob patterns as a comma-separated string or YAML list | The skill loads only when the model touches a matching file |
+| `hooks` | Same shape as `settings.json` hooks | Hooks registered while the skill is active |
+| `argument-hint` | Free text | Placeholder shown after the slash command name |
+| `shell` | `bash`, the default on every platform, or `powershell` | Shell for `!` command blocks |
 
 ## Example
 
