@@ -1,5 +1,7 @@
 # Claude Code
 
+Claude Code reads these settings from `SKILL.md` frontmatter and processes them itself, so they carry no instruction to the model. Common-specification fields it does not act on, such as `license` and `compatibility`, are ignored without error.
+
 ## Skill locations
 
 ```tsv
@@ -8,31 +10,58 @@ path	scope
 ~/.claude/skills/<skill-name>/SKILL.md	Every project
 ```
 
-## Frontmatter fields
+## Who can invoke the skill
 
-Claude Code reads these fields in `SKILL.md` frontmatter in addition to the common ones, and processes them itself, so they carry no instruction to the model.
+```tsv
+intended callers	frontmatter
+Model and user	Neither field
+User only, by typing /<skill-name>	disable-model-invocation: true
+Model only, through the Skill tool	user-invocable: false
+```
+
+## Where the skill runs
+
+```tsv
+intent	frontmatter
+Expand into the current conversation	context: inline, the default
+Run in a subagent that reports back as a task notification	context: fork
+Run in a subagent that blocks the turn until it returns	context: fork with background: false
+Choose the subagent type	agent: Explore, or any agent type including entries under .claude/agents/
+```
+
+`agent` and `background` apply only to `context: fork`.
+
+## What the skill may use
+
+```tsv
+field	accepted values
+model	haiku, sonnet, opus, fable, a full model ID, or inherit for the parent conversation's model
+effort	low, medium, high, max, or an integer
+allowed-tools	Tool patterns as a comma-separated string or YAML list, such as Read, Grep, Bash(git log:*)
+disallowed-tools	Same form as allowed-tools; the removal is cleared when the user sends the next message
+```
+
+## When the skill loads, and how it appears
+
+```tsv
+field	accepted values	effect
+when_to_use	Free text	Appended to the skill's Skill tool description
+paths	Glob patterns as a comma-separated string or YAML list	The skill loads only when the model touches a matching file
+hooks	Same shape as settings.json hooks	Hooks registered while the skill is active
+argument-hint	Free text	Placeholder shown after the slash command name
+shell	bash, the default on every platform, or powershell	Shell for `!` command blocks
+```
+
+## Example
 
 ```yaml
 ---
 name: release-audit
 description: Audits a release branch for unreleased migrations. Use when the user asks whether a branch is ready to release.
 disable-model-invocation: true
-user-invocable: true
-model: opus
 context: fork
 agent: Explore
+model: opus
 allowed-tools: Read, Grep, Bash(git log:*)
-disallowed-tools: Write, Edit
 ---
-```
-
-```tsv
-field	accepted values	effect
-disable-model-invocation	true, false	true removes the skill from the Skill tool, leaving the user's `/release-audit`
-user-invocable	true, false	false hides the slash command, leaving invocation through the Skill tool
-model	haiku, sonnet, opus, fable, a full model ID, inherit	Model that runs the skill; inherit matches the parent conversation
-context	inline, fork	inline expands the skill into the current conversation; fork runs it in a subagent
-agent	An agent type such as Explore, Plan, general-purpose, or one defined under .claude/agents/	Agent type spawned by context: fork
-allowed-tools	Comma-separated string or YAML list of tool patterns	Tools available while the skill is active
-disallowed-tools	Comma-separated string or YAML list of tool patterns	Tools removed while the skill is active, until the user sends the next message
 ```

@@ -1,5 +1,7 @@
 # Codex
 
+Codex keeps its settings out of `SKILL.md`, in `agents/openai.yaml` inside the skill directory, and reads that file itself, so it carries no instruction to the model. The file has three sections — `interface`, `policy`, and `dependencies` — with quoted string values and unquoted keys.
+
 ## Skill locations
 
 ```tsv
@@ -9,19 +11,41 @@ path	scope
 ~/.codex/skills/<skill-name>/SKILL.md	Every project, Codex only
 ```
 
-## agents/openai.yaml
+## Who can invoke the skill
 
-Codex keeps its settings out of `SKILL.md`, in `agents/openai.yaml` inside the skill directory. Codex reads this file itself, so it carries no instruction to the model.
-
-```text
-<skill-name>/
-├── SKILL.md
-├── assets/
-│   ├── icon-small.svg
-│   └── icon-large.png
-└── agents/
-    └── openai.yaml
+```tsv
+intended callers	agents/openai.yaml
+Model and user	policy.allow_implicit_invocation: true, the default
+User only, by typing $<skill-name>	policy.allow_implicit_invocation: false
 ```
+
+Codex packages a skill for distribution only when `SKILL.md` leaves `disable-model-invocation` unset or false, so a skill restricted to explicit invocation declares it here rather than with the Claude Code field.
+
+## How the skill appears
+
+```tsv
+field	accepted values
+interface.display_name	Title shown in skill lists and chips
+interface.short_description	25–64 characters, for quick scanning
+interface.icon_small	Path relative to the skill directory, kept under ./assets/
+interface.icon_large	Path relative to the skill directory, kept under ./assets/
+interface.brand_color	#RRGGBB
+interface.default_prompt	One sentence naming the skill as $<skill-name>, inserted when a user starts from the skill
+```
+
+## What the skill requires
+
+```tsv
+field	accepted values
+dependencies.tools[].type	mcp, the only supported category
+dependencies.tools[].value	Server identifier, such as github
+dependencies.tools[].description	Reason the server is required
+dependencies.tools[].transport	streamable_http, which reads url; stdio, which reads command
+dependencies.tools[].url	Endpoint of a streamable_http server
+dependencies.tools[].command	Launch command of a stdio server
+```
+
+## Example
 
 ```yaml
 interface:
@@ -43,23 +67,3 @@ dependencies:
 policy:
   allow_implicit_invocation: false
 ```
-
-String values are quoted and keys are unquoted. Every section is optional, and `interface` is required once the file exists.
-
-```tsv
-field	accepted values	effect
-interface.display_name	Human-facing title	Names the skill in skill lists and chips
-interface.short_description	25–64 characters	Blurb shown for quick scanning
-interface.icon_small	Path relative to the skill directory, kept under ./assets/	Small icon asset
-interface.icon_large	Path relative to the skill directory, kept under ./assets/	Larger logo asset
-interface.brand_color	#RRGGBB	Accent color for badges
-interface.default_prompt	One sentence naming the skill as $<skill-name>	Prompt inserted when a user starts from the skill
-dependencies.tools[].type	mcp	Dependency category; mcp is the only supported value
-dependencies.tools[].value	MCP server identifier, such as github	Names the required server
-dependencies.tools[].description	Human-readable explanation	States why the server is required
-dependencies.tools[].transport	streamable_http, stdio	streamable_http reads url; stdio reads command
-dependencies.tools[].url	MCP server URL	Endpoint of a streamable_http server
-policy.allow_implicit_invocation	true, false	false keeps the skill out of the model context, leaving explicit $<skill-name> invocation. Defaults to true
-```
-
-Codex packages a skill for distribution only when `SKILL.md` leaves `disable-model-invocation` unset or false, so a skill restricted to explicit invocation carries `policy.allow_implicit_invocation: false` here rather than the Claude Code field.
