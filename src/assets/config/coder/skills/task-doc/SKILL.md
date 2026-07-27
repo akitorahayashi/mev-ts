@@ -1,6 +1,7 @@
 ---
 name: task-doc
-description: Use when converting a software implementation request—such as a feature, bug fix, refactoring, migration, or repository change—into a concise task document with current state, implementation plan, constraints, and acceptance criteria.
+description: Converts a software implementation request into a concise task document with current state, implementation plan, constraints, and acceptance criteria.
+disable-model-invocation: true
 ---
 
 # Task Doc
@@ -9,40 +10,9 @@ description: Use when converting a software implementation request—such as a f
 
 Organize requirements, context, and implementation work into a concise task document.
 
-## When To Use
-
-This skill applies when the user asks to create, write, organize, or convert requirements and tasks into a task document.
-
-Common trigger phrasing includes:
-- "put this into a task document"
-- "turn this into a task document"
-- "create a task document for ..."
-
 ## Output Schema
 
-```md
-## Goal
-
-<desired outcome>
-
-## Current State
-
-<what currently exists and why it is insufficient>
-- `<relevant file/module/component>`: <current responsibility and problem>
-
-## Plan
-
-1. <step>
-2. <step>
-
-## Constraints
-
-- <constraint or assumption>
-
-## Acceptance Criteria
-
-- <externally observable completion condition>
-```
+The task document follows [template](assets/template.md), with each placeholder replaced by the task's own content.
 
 ## Schema Meaning
 

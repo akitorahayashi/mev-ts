@@ -47,6 +47,12 @@ description: <What the skill does, and which requests reach for it.>
 description: Extracts text and tables from PDF files, fills forms, and merges documents. Use when the user asks about PDF extraction, PDF conversion, forms, or document merging.
 ```
 
+A skill restricted to explicit user invocation is reached by name, so its `description` carries no routing information and states concisely, for the user choosing it, what the skill does:
+
+```yaml
+description: Drafts the questions research cannot answer, for the user to relay to another expert.
+```
+
 `compatibility` is optional and states the environment the skill requires, such as a runtime version or network access:
 
 ```yaml
