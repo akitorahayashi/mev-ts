@@ -27,7 +27,7 @@ delay_seconds = 1
 position = "bottom-right"
 
 [ui.sound]
-enabled = false
+enabled = true
 
 [experimental]
 reveal_hidden_cursor_for_cjk_ime = true

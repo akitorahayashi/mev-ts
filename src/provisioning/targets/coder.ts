@@ -22,12 +22,7 @@ const AGENTS_DESTS = [
 ];
 
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
-const SKILLS_TARGETS = [
-  home('.agents/skills'),
-  home('.claude/skills'),
-  home('.config/google/antigravity/skills'),
-  home('.gemini/antigravity-cli/skills'),
-];
+const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
 export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',

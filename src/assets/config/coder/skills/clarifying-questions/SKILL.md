@@ -1,6 +1,7 @@
 ---
 name: clarifying-questions
-description: Draft only the questions research cannot answer, for the user to relay to another expert. Trigger only when the user explicitly invokes the question skill by saying 「質問スキルを使って」 or "use the question skill".
+description: Draft only the questions research cannot answer, for the user to relay to another expert.
+disable-model-invocation: true
 ---
 
 # Clarifying Questions

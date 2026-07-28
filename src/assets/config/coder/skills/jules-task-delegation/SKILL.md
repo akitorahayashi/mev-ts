@@ -1,6 +1,8 @@
 ---
 name: jules-task-delegation
-description: Delegate coding tasks to Google Jules via the Jules API. Activate when the user explicitly requests Jules involvement (e.g. "julesに依頼して", "delegate to Jules", "send to Jules").
+description: Delegate coding tasks to Google Jules via the Jules API.
+disable-model-invocation: true
+compatibility: Requires Bun, git, network access to jules.googleapis.com, and a JULES_API_KEY credential
 ---
 
 # Jules Task Delegation
@@ -8,8 +10,6 @@ description: Delegate coding tasks to Google Jules via the Jules API. Activate w
 Delegate coding tasks to Google Jules by creating API sessions.
 
 ## Workflow
-
-Use this skill only when the user explicitly asks for Jules involvement.
 
 Clarify the task prompt before creating a session. The prompt is self-contained and includes the files, expected changes, constraints, and verification commands Jules needs.
 

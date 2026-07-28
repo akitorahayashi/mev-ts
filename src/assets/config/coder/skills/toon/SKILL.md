@@ -1,6 +1,7 @@
 ---
 name: toon
 description: Use the TOON CLI whenever a task inspects JSON-compatible structured data such as JSON files, API responses, database rows, search results, and structured logs. This skill applies before that data enters agent context.
+compatibility: Requires the toon CLI, and jq for NDJSON slurping and field projection
 ---
 
 # TOON

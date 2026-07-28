@@ -7,15 +7,22 @@ description: The user mentions Agent Skills or asks to organize reusable instruc
 
 Agent Skills are reusable instruction packages for AI agents. A skill must be understandable without the original conversation.
 
+## What a skill carries
+
+- Procedural skill: a task performed the same way each time, such as validation or conversion. It names each input and how the input is obtained, the output format, and the handling for a missing input.
+- Judgment skill: criteria applied while doing something else, such as design principles or naming rules. It names the decisions it governs and the criteria for each, and defines no inputs, no deliverable format, and no invocation situation, which the conversation supplies.
+
 ## Location
 
-If the user does not specify a location, create the skill under the current project:
-
-```text
-.agents/skills/<skill-name>/SKILL.md
-```
-
 If the user specifies a location, create the skill there and put `SKILL.md` inside the skill directory.
+
+Otherwise the skill belongs to the current project, at the first location that applies:
+
+1. `.agents/skills/<skill-name>/`, when the project has `.agents/skills/`.
+2. `.claude/skills/<skill-name>/`, when the project has `.claude/`.
+3. `.agents/skills/<skill-name>/`, when neither exists.
+
+A location under the home directory is used only when the user names one. [Claude Code](references/claude-code.md) and [Codex](references/codex.md) list the directories each tool searches.
 
 ## Required file
 
@@ -24,7 +31,7 @@ Every skill has a `SKILL.md`:
 ```markdown
 ---
 name: <skill-name>
-description: <When this skill should be used.>
+description: <What the skill does, and which requests reach for it.>
 ---
 
 # <Skill Title>
@@ -32,7 +39,31 @@ description: <When this skill should be used.>
 <Reusable instructions, workflow, rules, or knowledge.>
 ```
 
-The `description` should describe when to use the skill.
+`name` matches the skill directory name exactly, using 1–64 characters of lowercase letters, digits, and single hyphens, with no leading, trailing, or consecutive hyphen.
+
+`description` states both what the skill does and which requests reach for it. It is the only routing information available before the skill is activated:
+
+```yaml
+description: Extracts text and tables from PDF files, fills forms, and merges documents. Use when the user asks about PDF extraction, PDF conversion, forms, or document merging.
+```
+
+A skill restricted to explicit user invocation is reached by name, so its `description` carries no routing information and states concisely, for the user choosing it, what the skill does:
+
+```yaml
+description: Drafts the questions research cannot answer, for the user to relay to another expert.
+```
+
+`compatibility` is optional and states the environment the skill requires, such as a runtime version or network access:
+
+```yaml
+compatibility: Requires Python 3.12 and network access
+```
+
+## Frontmatter and body
+
+Frontmatter carries what the host application processes: identification, discovery, invocation policy, tool permissions, and compatibility. The Markdown body carries what the model follows: procedures, decision criteria, safety requirements, output format, and the conditions for reading supporting files, as the skill's kind requires. Whether frontmatter reaches the model is implementation-defined, so every instruction the model must follow appears in the body.
+
+Host-specific frontmatter differs by tool. Read [Claude Code](references/claude-code.md) or [Codex](references/codex.md) when the skill sets invocation policy, model selection, or tool permissions.
 
 ## Optional supporting files
 
@@ -52,11 +83,19 @@ Use only what the skill needs.
 - `scripts/`: repeatable validation, conversion, extraction, or generation logic
 - `assets/`: templates, images, logos, sample inputs, configs, data
 
+`SKILL.md` holds knowledge every run needs; `references/` holds content whose reading depends on the situation, so content read on every run belongs in `SKILL.md`. A script is not added for a decision that reading a file already settles. A template in `assets/` is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
+
 ## Scope discipline
 
 - Match additions to the skill's existing level of detail.
 - Place new rules in the nearest owning section.
 - Prefer tightening an existing rule over adding a parallel rule or section.
+
+## Writing Guidelines
+
+- Write declaratively; avoid including transitional or process-oriented information.
+- Target prohibitions at actions that could actually occur within the workflow. Prohibiting actions that cannot happen creates noise and serves no purpose. Whenever possible, opt for clear instructions rather than prohibitions.
+- For each input consumed, a procedural skill specifies how it is obtained and what happens if the input is missing (such as querying the user). Some skills—such as those introducing design concepts—do not involve inputs or outputs.
 
 ## Path rules
 
@@ -70,30 +109,16 @@ Use [report template](assets/report-template.md).
 Run [validator](scripts/validate.py).
 ```
 
+`references/` is flat, and `SKILL.md` links each file directly.
+
 Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve the script path relative to the skill directory and pass project files as explicit arguments.
-
-## Compact tables
-
-Tables in skill text use fenced TSV by default:
-
-```tsv
-path	purpose	when_to_read
-SKILL.md	Primary skill instructions	Always
-references/	Detailed rules, specs, examples	Only when directly relevant
-scripts/	Repeatable validation or conversion logic	When execution is useful
-assets/	Templates, images, sample inputs	When the task needs material
-```
-
-Use Markdown tables only when rendered visual scanning is part of the skill's purpose. If cells may contain tabs, multiline values, or nested data, use YAML list records instead.
-
-This TSV default is scoped to skill text consumed by agents. It does not apply to user-facing conversation replies or to documentation meant for human readers, such as README.md; those contexts keep rendered Markdown tables.
 
 ## Creating a skill
 
 When asked to organize something as a skill:
 
-1. Choose a clear `<skill-name>`.
-2. Create the skill directory at the requested location, or under `.agents/skills/` if no location is specified.
+1. Choose a clear `<skill-name>` that satisfies the `name` rules.
+2. Create the skill directory at the requested location, or at the project location resolved above.
 3. Write the reusable workflow or knowledge in `SKILL.md`.
 4. Add `references/`, `scripts/`, or `assets/` only when useful.
 5. Link supporting files from `SKILL.md` using paths relative to the skill directory.
