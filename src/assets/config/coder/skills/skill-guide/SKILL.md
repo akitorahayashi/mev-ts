@@ -79,14 +79,14 @@ A skill may include supporting files next to `SKILL.md`:
 
 Use only what the skill needs.
 
-- `references/`: detailed rules, specs, schemas, examples, API notes
-- `scripts/`: repeatable validation, conversion, extraction, or generation logic
-- `assets/`: templates, images, logos, sample inputs, configs, data
-
-`SKILL.md` holds knowledge every run needs; `references/` holds content whose reading depends on the situation, so content read on every run belongs in `SKILL.md`. A script is not added for a decision that reading a file already settles. A template in `assets/` is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
+- `references/`: detailed rules, specs, schemas, examples, and API notes. Content needed on every run belongs in `SKILL.md`.
+- `scripts/`: repeatable validation, conversion, extraction, or generation logic. A script is not added for a decision that reading a file already settles.
+- `assets/`: templates, images, logos, sample inputs, configs, and data. An asset contains only the material its reader or consumer needs. Skill authoring rules, generation logic, classification rules, and operational procedures belong in `SKILL.md`. A template is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
 
 ## Scope discipline
 
+- A skill includes only information that changes how its own task is performed. Workflow context, earlier or later steps, and other skills are omitted when they do not affect that task.
+- A skill states its required inputs, outputs, and boundary contracts directly. It requires reading another skill only when coordinating that skill is part of its defined task.
 - Match additions to the skill's existing level of detail.
 - Place new rules in the nearest owning section.
 - Prefer tightening an existing rule over adding a parallel rule or section.
