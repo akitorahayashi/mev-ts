@@ -7,14 +7,6 @@ binaries:
         sha256: e239286780ad4d28488015d4be302ea8da00c927f52ce0444396da603a5f4ae0
       darwin-x86_64:
         sha256: 571be53c09bf627dff081e5ba1a9f72cbed6241464caa75ee1f42da0a9d82c49
-  - name: mx
-    repo: akitorahayashi/mx
-    tag: v4.0.1
-    assets:
-      darwin-aarch64:
-        sha256: b56a3d51aaeb08d82c170e3c08c795237769cd2a740e8feda67af52dedc4979f
-      darwin-x86_64:
-        sha256: 3de4526d70d8cc19738edf07592c56e710b6365fe8e585817b1450522d15544d
   - name: prf
     repo: akitorahayashi/prf
     tag: v1.1.0
@@ -31,3 +23,11 @@ binaries:
         sha256: 540ce9047ffac29ea01cdc87f345f9a0802024471816f87f9562ad076549a740
       darwin-x86_64:
         sha256: 6d5e48ffb31735403cff2ac33663e5fafaddbaa1fe892962d7941d7cb295f9bb
+  - name: tc
+    repo: akitorahayashi/tmpc
+    tag: v5.0.0
+    assets:
+      darwin-aarch64:
+        sha256: aedcc664fdd89686aa1e95fff8b58489b0834a4af11fc244755091d4646469c9
+      darwin-x86_64:
+        sha256: 4e9edfaa2011d6f285f74089cd68646739a4cc6aae4217196a68a9a848aa5633

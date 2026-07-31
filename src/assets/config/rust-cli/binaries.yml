@@ -9,12 +9,12 @@ binaries:
   - name: kpv
     repo: akitorahayashi/kpv
     tag: v0.6.0
-  - name: mx
-    repo: akitorahayashi/mx
-    tag: v4.0.1
   - name: prf
     repo: akitorahayashi/prf
     tag: v1.1.0
   - name: ssv
     repo: akitorahayashi/ssv
     tag: v0.6.0
+  - name: tc
+    repo: akitorahayashi/tmpc
+    tag: v5.0.0
