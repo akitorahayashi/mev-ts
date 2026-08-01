@@ -41,6 +41,8 @@ description: <What the skill does, and which requests reach for it.>
 
 `name` matches the skill directory name exactly, using 1–64 characters of lowercase letters, digits, and single hyphens, with no leading, trailing, or consecutive hyphen.
 
+A skill name states what the skill does and carries no ordering prefix. Dependency between skills is expressed by the artifact each names as its input.
+
 `description` states both what the skill does and which requests reach for it. It is the only routing information available before the skill is activated:
 
 ```yaml
@@ -80,8 +82,8 @@ A skill may include supporting files next to `SKILL.md`:
 Use only what the skill needs.
 
 - `references/`: detailed rules, specs, schemas, examples, and API notes. Content needed on every run belongs in `SKILL.md`.
-- `scripts/`: repeatable validation, conversion, extraction, or generation logic. A script is not added for a decision that reading a file already settles.
-- `assets/`: templates, images, logos, sample inputs, configs, and data. An asset contains only the material its reader or consumer needs. Skill authoring rules, generation logic, classification rules, and operational procedures belong in `SKILL.md`. A template is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
+- `scripts/`: repeatable validation, conversion, extraction, or generation logic. A script is not added for a decision that reading a file already settles. A check that the authoritative system already performs is not reimplemented in a script.
+- `assets/`: templates, images, logos, sample inputs, configs, and data. An asset contains only the material its reader or consumer needs. Skill authoring rules, generation logic, classification rules, and operational procedures belong in `SKILL.md`. A placeholder names the value it holds in the reader's own vocabulary (`<PR number>`, not `<ID>`). A template is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
 
 ## Scope discipline
 
@@ -94,6 +96,8 @@ Use only what the skill needs.
 ## Writing Guidelines
 
 - Write declaratively; avoid including transitional or process-oriented information.
+- Every sentence states an action, a constraint, or a criterion. A sentence that only explains why a rule exists is removed.
+- A rule appears once, in the section that owns it. An overview, a step, and a checklist do not restate the same rule.
 - Target prohibitions at actions that could actually occur within the workflow. Prohibiting actions that cannot happen creates noise and serves no purpose. Whenever possible, opt for clear instructions rather than prohibitions.
 - For each input consumed, a procedural skill specifies how it is obtained and what happens if the input is missing (such as querying the user). Some skills—such as those introducing design concepts—do not involve inputs or outputs.
 
