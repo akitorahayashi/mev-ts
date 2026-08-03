@@ -2,7 +2,7 @@
   "theme": {
     "mode": "system",
     "light": "One Light",
-    "dark": "One Dark"
+    "dark": "Tokyo Night"
   },
   "base_keymap": "VSCode",
   "format_on_save": "on",
@@ -140,7 +140,8 @@
     "dockerfile": true,
     "docker-compose": true,
     "git-firefly": true,
-    "catppuccin-icons": true
+    "catppuccin-icons": true,
+    "tokyo-night": true
   },
   "languages": {
     "Kotlin": {
