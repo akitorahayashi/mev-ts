@@ -1,6 +1,6 @@
 ---
 name: agent-guide
-description: Designs, creates, and revises custom agents and subagents for Claude Code or Codex. Use when the user asks for an agent definition, delegated role, isolated worker, or agent-specific tools, model, permissions, or output contract.
+description: Creates and revises Claude Code subagents and Codex custom agents, including delegation contracts, tools, permissions, and model settings.
 ---
 
 # Custom Agents

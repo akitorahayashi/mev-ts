@@ -1,52 +1,53 @@
 ---
 name: plugin-guide
-description: Designs, packages, validates, versions, and distributes Claude Code plugins and plugin marketplaces. Use when the user asks about .claude-plugin/plugin.json, plugin components, plugin agents or skills, CLAUDE_PLUGIN_ROOT, local plugin testing, or marketplace.json.
+description: Creates and revises agent plugins and marketplaces for Claude Code, Codex, and ChatGPT.
 ---
 
-# Claude Code Plugins
+# Agent Plugins
 
 ## Scope
 
-A Claude Code plugin is a self-contained distribution unit for skills, agents, hooks, MCP servers, LSP servers, executables, and related configuration. This guide covers Claude Code plugins and marketplaces, not unrelated products that also use the term plugin.
+An agent plugin is a self-contained distribution unit for reusable agent capabilities. It packages host-supported components such as skills, agents, hooks, MCP servers, connectors, executables, UI assets, and related configuration. This guide covers Claude Code plugins and OpenAI plugins for Codex and ChatGPT, not unrelated products that also use the term plugin.
 
 ## Choosing the Distribution Unit
 
 Keep configuration standalone while it is project-specific, personal, or still being shaped. Use a plugin when the same capability needs installation, namespacing, versioning, updates, or reuse across projects or users.
 
-A plugin has one coherent purpose. Each component contributes directly to that purpose:
+A plugin has one coherent purpose. Each host-supported component contributes directly to that purpose:
 
 - a skill carries a user- or model-invoked capability
 - an agent carries isolated delegated work
 - a hook reacts automatically to lifecycle or tool events
 - an MCP server exposes an external service or tool protocol
+- a connector exposes an authenticated external service through a supported host surface
 - an LSP server supplies language intelligence
 - `bin/` carries executables intentionally exposed to shell calls
+- assets carry icons, screenshots, templates, or other material the host or bundled components need
 
 Omit component types that do not improve the plugin's purpose. Packaging does not justify unrelated features.
 
 ## Required Context
 
-Determine the plugin purpose, intended users, plugin root, required components, runtime dependencies, persistent state, installation scope, distribution source, and version strategy from the request and repository.
+Determine the plugin host, purpose, intended users, plugin root, required components, runtime dependencies, persistent state, installation scope, distribution source, and version strategy from the request and repository.
 
-Existing `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, component directories, and release conventions are authoritative local context. When the distribution or version strategy remains materially ambiguous, obtain that decision before publishing configuration.
+Existing `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`, component directories, and release conventions are authoritative local context. When the host, distribution, or version strategy remains materially ambiguous, obtain that decision before publishing configuration.
 
 ## Boundaries
 
 - The plugin root owns every runtime file needed after installation.
-- `.claude-plugin/` contains plugin metadata; component directories remain at the plugin root.
+- Host metadata directories contain plugin metadata; component directories remain at the plugin root.
 - A marketplace catalogs and locates plugins. It does not become the plugin root unless its entry explicitly uses the marketplace root as the source.
 - Component-specific behavior remains in the owning skill, agent, hook, or server definition. The plugin manifest does not duplicate those instructions.
 - Cross-component workflow states each input, output, and caller boundary without making components depend on the original authoring conversation.
 
 ## Paths and State
 
-Installed marketplace plugins run from a versioned cache rather than their source checkout.
+Installed marketplace plugins may run from a copied or versioned cache rather than their source checkout. Runtime references use the path variables and cache rules of the selected host.
 
-- `${CLAUDE_PLUGIN_ROOT}` addresses immutable files bundled with the installed plugin.
-- `${CLAUDE_PLUGIN_DATA}` addresses generated state, installed dependencies, and caches that survive updates.
-- `${CLAUDE_PROJECT_DIR}` addresses files owned by the active project.
+- Claude Code uses `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`.
+- Codex hooks and plugin configuration use `${PLUGIN_ROOT}` for bundled plugin files and store installed plugins under the Codex plugin cache.
 
-Runtime files do not use paths that escape the plugin root. Scripts resolve bundled files from `${CLAUDE_PLUGIN_ROOT}`, accept project paths explicitly, and do not assume the shell working directory. Writes do not target `${CLAUDE_PLUGIN_ROOT}` because an update changes that location.
+Runtime files do not use paths that escape the plugin root. Scripts resolve bundled files from the host's plugin-root variable, accept project paths explicitly, and do not assume the shell working directory. Writes target the host's documented persistent state location rather than immutable installed plugin files.
 
 ## Security
 
@@ -65,7 +66,7 @@ Plugins are trusted code that can execute with the user's operating-system privi
 2. Establish the plugin root separately from any repository or marketplace root.
 3. Select only the component types required by the purpose.
 4. Define each component with its own responsibility and boundary contract.
-5. Add a manifest when stable identity, metadata, custom paths, dependencies, options, or publication require it.
+5. Add or revise the host-specific manifest for stable identity, metadata, custom paths, dependencies, options, or publication.
 6. Replace checkout-relative paths with plugin runtime variables and separate immutable files from persistent state.
 7. Add a marketplace entry only when installation or distribution requires a catalog.
 8. Select explicit semantic versions for reviewed releases or commit-derived versions for continuous internal delivery.
@@ -73,7 +74,7 @@ Plugins are trusted code that can execute with the user's operating-system privi
 
 ## Validation
 
-Run the official validator with warnings treated as failures:
+Use the selected host's validator or installation path. Claude Code provides an explicit validator:
 
 ```bash
 claude plugin validate <plugin-root-or-marketplace-root> --strict
@@ -85,12 +86,14 @@ Load the source directly during development:
 claude --plugin-dir <plugin-root>
 ```
 
-Test component behavior individually, run `/reload-plugins` after plugin component changes, and install from a local marketplace before release. The installed test verifies cache-relative paths, namespacing, manifest discovery, and marketplace source resolution that direct source loading cannot prove.
+For Codex and ChatGPT, test through the local marketplace flow or supported plugin browser because installation proves manifest discovery, marketplace source resolution, cache-relative paths, and enabled component behavior.
 
 Plugin-specific scripts and servers run their own focused tests. A passing manifest validation does not prove their behavior.
 
 ## Reference
 
-Read [Claude Code](references/claude-code.md) for plugin layout, manifests, components, runtime paths, and caching.
+Read [Claude Code](references/claude-code.md) for Claude Code plugin layout, manifests, components, runtime paths, and caching.
 
-Read [Marketplace](references/marketplace.md) for catalogs, source resolution, strict mode, versioning, installation, and distribution.
+Read [Codex](references/codex.md) for Codex and ChatGPT plugin layout, manifests, local marketplaces, runtime paths, MCP servers, and hooks.
+
+Read [Claude Code Marketplace](references/marketplace.md) for Claude Code catalogs, source resolution, strict mode, versioning, installation, and distribution.

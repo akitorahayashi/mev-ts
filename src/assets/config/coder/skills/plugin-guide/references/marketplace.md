@@ -1,4 +1,4 @@
-# Marketplace
+# Claude Code Marketplace
 
 ## Authority
 
