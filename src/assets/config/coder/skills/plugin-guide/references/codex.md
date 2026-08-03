@@ -66,7 +66,9 @@ Connectors are backed by MCP servers and may include custom UI on supported Chat
 
 Manifest paths are relative to the plugin root and start with `./`. Store visual assets under `./assets/` when possible. Use `skills` for bundled skill folders, `mcpServers` for `.mcp.json`, `hooks` for lifecycle hooks, and `apps` for registered MCP server mappings in `.app.json`.
 
-Codex hook commands can reference `${PLUGIN_ROOT}` for bundled plugin files. Hook and MCP commands quote substituted paths when using shell forms.
+Codex plugin hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for writable persistent state. Hook commands quote substituted paths when using shell forms.
+
+For a bundled stdio MCP server, set `cwd` to a path relative to the plugin root, such as `"."`, and keep bundled command arguments relative to that working directory. Codex resolves a relative MCP `cwd` against the installed plugin root. MCP `command` and `args` fields do not expand `${PLUGIN_ROOT}` or `${PLUGIN_DATA}`.
 
 ## Local Marketplace
 

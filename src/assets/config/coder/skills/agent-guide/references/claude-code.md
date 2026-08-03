@@ -48,6 +48,7 @@ Only `name` and `description` are required. `name` uses lowercase letters and hy
 | `effort` | reasoning effort supported by the selected model |
 | `permissionMode` | permission behavior for a standalone agent |
 | `maxTurns` | maximum agentic turns |
+| `initialPrompt` | first user turn when the agent runs as the main session agent; prepended to any user prompt |
 | `skills` | skills whose full contents are preloaded at startup |
 | `mcpServers` | configured server names or inline server definitions |
 | `hooks` | lifecycle hooks active only for this agent |
@@ -60,7 +61,7 @@ Preloading `skills` injects their contents but does not prevent discovery of oth
 
 ## Plugin Agents
 
-Plugin agents support `name`, `description`, `model`, `effort`, `maxTurns`, `tools`, `disallowedTools`, `skills`, `memory`, `background`, and `isolation`. Claude Code ignores `permissionMode`, `mcpServers`, and `hooks` in plugin-shipped agent frontmatter. Session-level settings own those capabilities for plugin agents.
+Plugin agents support `name`, `description`, `model`, `effort`, `maxTurns`, `initialPrompt`, `tools`, `disallowedTools`, `skills`, `memory`, `background`, and `isolation`. Claude Code ignores `permissionMode`, `mcpServers`, and `hooks` in plugin-shipped agent frontmatter. Session-level settings own those capabilities for plugin agents.
 
 Plugin agents are invoked under a scoped name such as `comment-review:pr-reviewer`. The scope prevents collisions with standalone and other plugin agents.
 

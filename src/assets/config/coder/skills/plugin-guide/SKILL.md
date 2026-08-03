@@ -45,9 +45,9 @@ Existing `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.claude-plu
 Installed marketplace plugins may run from a copied or versioned cache rather than their source checkout. Runtime references use the path variables and cache rules of the selected host.
 
 - Claude Code uses `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`.
-- Codex hooks and plugin configuration use `${PLUGIN_ROOT}` for bundled plugin files and store installed plugins under the Codex plugin cache.
+- Codex hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for persistent state. Codex resolves relative MCP `cwd` values against the plugin root.
 
-Runtime files do not use paths that escape the plugin root. Scripts resolve bundled files from the host's plugin-root variable, accept project paths explicitly, and do not assume the shell working directory. Writes target the host's documented persistent state location rather than immutable installed plugin files.
+Runtime files do not use paths that escape the plugin root. Hook scripts resolve bundled files from the host's documented plugin-root variable. Bundled-file paths in Codex MCP commands and arguments are relative to a plugin-root-relative `cwd`; they do not use plugin-variable substitution. Other scripts accept project paths explicitly and do not assume the shell working directory. Writes target the host's documented persistent state location rather than immutable installed plugin files.
 
 ## Security
 

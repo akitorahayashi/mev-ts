@@ -2,6 +2,7 @@
 
 - Commands that discard uncommitted changes (for example `git checkout -- <path>`, `git restore`, `git reset`) are only run after explicit user approval.
 - A request to create branches, commit, push, or perform other Git write operations apply only to the changes requested at that time and do not serve as permanent instructions for subsequent changes.
+- Do not use `rm -rf` for agent-initiated file or directory removal. Use `/usr/bin/trash <path...>` instead so removed items remain recoverable.
 
 ## User-specific
 
