@@ -14,7 +14,7 @@
   "awaySummaryEnabled": false,
   "autoMemoryEnabled": false,
   "copyOnSelect": false,
-  "theme": "light",
+  "theme": "auto",
   "autoCompactEnabled": false,
   "attribution": {
     "commit": "",
