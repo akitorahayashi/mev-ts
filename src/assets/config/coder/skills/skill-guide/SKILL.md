@@ -88,6 +88,7 @@ Use only what the skill needs.
 ## Scope discipline
 
 - A skill includes only information that changes how its own task is performed. Workflow context, earlier or later steps, and other skills are omitted when they do not affect that task.
+- A mention of another skill carries its name only, as the handoff destination for a next step, out-of-scope work, or a rejected input. Another skill's internal behavior — what it selects, verifies, rejects, or writes — is not restated.
 - A skill states its required inputs, outputs, and boundary contracts directly. It requires reading another skill only when coordinating that skill is part of its defined task.
 - Match additions to the skill's existing level of detail.
 - Place new rules in the nearest owning section.

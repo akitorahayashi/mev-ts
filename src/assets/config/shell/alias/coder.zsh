@@ -4,6 +4,10 @@ alias cld="claude"
 alias cld-u="claude update"
 alias cld-r="claude --resume"
 alias cld-rm-c="claude remote-control"
+alias cld-pg-ls="claude plugin list"
+alias cld-pg-i="claude plugin install"
+alias cld-pg-ui="claude plugin uninstall"
+alias cld-pg-u="claude plugin update"
 
 # Link AGENTS.md or README.md to .claude/CLAUDE.md
 alias cld-ln=cld_ln

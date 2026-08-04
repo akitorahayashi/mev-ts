@@ -13,6 +13,7 @@ ORANGE=$'\033[38;5;208m'
 PURPLE=$'\033[38;5;141m'
 GREEN=$'\033[32m'
 RED=$'\033[31m'
+CYAN=$'\033[36m'
 RESET=$'\033[0m'
 
 # Color a "used percentage" by threshold: <75 green, <90 yellow, else red.
@@ -37,6 +38,11 @@ five_h_reset="$(jq_get '.rate_limits.five_hour.resets_at')"
 week="$(jq_get '.rate_limits.seven_day.used_percentage')"
 effort="$(jq_get '.effort.level')"
 thinking="$(jq_get '.thinking.enabled')"
+
+# `/remote-control` exports the bridge id to child processes while the bridge is up
+# and unsets it on teardown, so its presence tracks the live remote-control state.
+remote_session="${CLAUDE_CODE_BRIDGE_SESSION_ID:-}"
+session_name="$(jq_get '.session_name')"
 
 branch="-"
 dirty=""
@@ -86,9 +92,16 @@ seg="$(limit_segment 7d "$week")" && limit_text="${limit_text:+$limit_text / }$s
 effort_text="effort:${effort:-default}"
 [ "$thinking" = "true" ] && effort_text="${effort_text} thinking"
 
+remote_dot=""
+remote_part=""
+if [ -n "$remote_session" ]; then
+	remote_dot="${CYAN}●${RESET} "
+	remote_part=" | ${CYAN}⇄ ${session_name:-remote}${RESET}"
+fi
+
 model_part="${YELLOW}${model:-model?}${RESET}"
 ctx_part="${ORANGE}ctx ${ctx_text}${RESET}"
 branch_part="${BLUE}${branch}${dirty:+ [$dirty]}${RESET}"
 
-echo "${model_part} | ${ctx_part} | ${branch_part}"
+echo "${remote_dot}${model_part} | ${ctx_part} | ${branch_part}${remote_part}"
 echo "${PURPLE}${effort_text}${RESET} | ${limit_text} | ${mins}m"
