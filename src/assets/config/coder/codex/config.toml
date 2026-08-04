@@ -13,7 +13,7 @@ sandbox_mode = "danger-full-access"
 network_access = true
 
 [tui]
-theme = "catppuccin-latte"
+theme = "monokai-extended-origin"
 notifications = false
 show_tooltips = false
 status_line = [
