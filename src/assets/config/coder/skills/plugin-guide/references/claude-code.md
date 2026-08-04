@@ -67,6 +67,8 @@ Plugin skills and agents appear under a plugin namespace such as `/comment-revie
 
 `name` is a kebab-case identifier and owns component namespacing. `displayName`, `version`, `description`, `author`, `homepage`, `repository`, `license`, and `keywords` are metadata. The optional `$schema` field enables editor validation but does not replace the Claude CLI validator.
 
+`dependencies` declares plugin dependencies. Each entry is either a plugin name string or an object with `name`, optional `version`, and optional `marketplace`. A name-only dependency resolves from the same marketplace by default and is installed with the depending plugin. Use `version` only when the depending plugin intentionally requires a specific released dependency version.
+
 Custom component locations use `skills`, `commands`, `agents`, `hooks`, `mcpServers`, `lspServers`, and `outputStyles`. Paths are relative to the plugin root, begin with `./`, and may be arrays where supported. Once a manifest field defines a component's paths, the manifest owns discovery for that component; default and custom layouts are not mixed implicitly.
 
 Use default locations unless a custom layout removes real complexity.
