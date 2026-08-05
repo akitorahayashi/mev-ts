@@ -1,6 +1,7 @@
 import type { CommandClass } from 'clipanion';
 import { ConfigAgentsCommand } from './config/agents';
 import { ConfigHelpCommand } from './config/help';
+import { ConfigPluginHostCommand } from './config/plugin-host';
 import { ConfigSkillsCommand } from './config/skills';
 import { ConfigZedCommand } from './config/zed';
 import { CreateCommand } from './create';
@@ -31,6 +32,7 @@ export const commands: readonly CommandClass[] = [
   ConfigAgentsCommand,
   ConfigSkillsCommand,
   ConfigZedCommand,
+  ConfigPluginHostCommand,
   ListCommand,
   SwitchCommand,
   UserHelpCommand,

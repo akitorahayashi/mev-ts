@@ -11,12 +11,13 @@ src/
   main.ts        CLI entry point
   errors.ts      Typed error hierarchy
   app/           Use-case orchestration (identity; config-toggle.ts, the interactive toggle flow layered over config-selection/)
+  agent-plugin/  Claude Code/Codex marketplace catalogs, inventories, installers, and per-machine SSH source state
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
   coder/         Coder section/skill catalogs, manifests, and renderers
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
-      config/    Config toggle commands built by defineConfigCommand (aliased `cf`)
+      config/    Config toggle commands built by defineConfigCommand plus plugin SSH host configuration (aliased `cf`)
     tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), transient-line.ts (animated-progress line over an injected stream), and the interactive toggle prompt
   config-selection/ Shared config-selection manifest parser/resolver
   defaults/      macOS defaults manifest parser and protocol helpers
@@ -48,6 +49,9 @@ A module is promoted from `app/` into its own `src/<domain>/` directory only whe
 Supply-chain references distinguish trusted first-party sources from third-party
 sources. GitHub Actions and Git-hosted dependencies owned by `akitorahayashi`
 use reviewed major or release tags for convenient trusted maintenance updates.
+First-party agent plugin marketplaces are the exception: their SSH sources
+track `main` for missing-plugin installation, while installed plugins are never
+updated by provisioning.
 Third-party GitHub Actions use full commit SHAs with version comments, and
 third-party Git-hosted dependencies use immutable full commits.
 
@@ -63,7 +67,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `duti/`, `editor/`, `github/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
+`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `duti/`, `editor/`, `agent-plugin/`, `github/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
 
 See docs/architecture.md for the per-kind table and the reconcile/manifest mechanics.
 
@@ -84,7 +88,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 - `Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`, injected through every provisioning call and assembled by `createContext()`; tests supply hand-built fakes via `tests/fixtures/` rather than calling it. See docs/architecture.md for the `basePath`/`tmpRoot`/env-read mechanics and `CommandRunner.run`'s contract.
 - `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
-- `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). `host/path.ts` also exports `mevPath(...segments)`, the sole builder composing mev-owned sub-paths on `mevRoot`, so every mev-managed host path derives from it and no call site hardcodes the `.mev` literal or a parallel root.
+- `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), agent plugin source state, identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). `host/path.ts` also exports `mevPath(...segments)`, the sole builder composing mev-owned sub-paths on `mevRoot`, so every mev-managed host path derives from it and no call site hardcodes the `.mev` literal or a parallel root.
 - `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution. See docs/architecture.md for the full target shape and the `optional` flag's role in `create`/`sync` selection.
 - `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
 

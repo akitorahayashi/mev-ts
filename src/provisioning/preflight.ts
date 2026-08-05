@@ -1,3 +1,4 @@
+import { parsePluginCatalog } from '../agent-plugin/catalog';
 import type { AssetSource } from '../assets/registry';
 import { parseSectionCatalog, reconcileSections } from '../coder/catalog';
 import { parseDefaults } from '../defaults/manifest';
@@ -14,6 +15,7 @@ import {
 import { parseTools } from '../pipx/manifest';
 import { parseJsonObject } from '../zed/settings';
 import {
+  agentPluginsConfigAssets,
   bindCommandRead,
   coderAgentsConfigAssets,
   commandReadKey,
@@ -113,6 +115,13 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
             .filter((name) => name.endsWith('.md') && !name.includes('/'))
             .map((name) => name.slice(0, -'.md'.length));
           reconcileSections(listed, presentStems);
+        },
+      };
+    case 'agentPlugins':
+      return {
+        keys: agentPluginsConfigAssets(activation),
+        validate: (raw, key) => {
+          parsePluginCatalog(raw, key);
         },
       };
     case 'zedSettings':

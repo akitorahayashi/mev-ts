@@ -1,0 +1,26 @@
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+
+marketplaces:
+  - client: claude
+    repository: agent-device-plugin
+    name: agent-device-plugin
+    plugins:
+      - agent-device
+      - device-verification
+  - client: claude
+    repository: comment-review
+    name: comment-review
+    plugins:
+      - comment-review
+  - client: claude
+    repository: xlsx
+    name: xlsx
+    plugins:
+      - xlsx
+  - client: codex
+    repository: xlsx
+    name: xlsx
+    plugins:
+      - xlsx
