@@ -27,8 +27,6 @@ unset _brew_bin _brew_candidate
 
 _path_prepend "$HOME/.local/bin"
 _path_prepend "$HOME/.cargo/bin"
-_path_prepend "$HOME/.local/pipx/venvs/mlx-hub/bin"
-_path_prepend "$HOME/.menv/venvs/mlx-lm/bin"
 _path_prepend "/opt/homebrew/opt/poppler/bin"
 _path_prepend "$PNPM_HOME/bin"
 _path_prepend "$BUN_INSTALL/bin"
