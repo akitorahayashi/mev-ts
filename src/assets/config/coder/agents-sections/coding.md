@@ -11,6 +11,13 @@
 - Validate necessity by contribution to purpose. Usage elsewhere is not a valid justification.
 - Systemic fixes are preferred over patches; invariants and owning components are addressing at boundaries to benefit all call sites without workarounds.
 
+## Comments
+
+- Include only information that cannot be gleaned from the code itself. Do not include descriptions that merely explain how the code works; such comments add no value and only reduce readability.
+- What to include: reasons for choosing a specific implementation (including why other options were rejected), external constraints, past incidents, the rationale behind specifications, counter-intuitive behaviors, common pitfalls, etc.
+- What not to include: the mechanics of the code (details evident from the code), paraphrasing of function or variable names, or simple descriptions of actions (e.g., "initialize X").
+- Do not use comments to address uncertainty in the implementation. Instead, explicitly communicate any uncertainties through interactions with users or in design documentation.
+
 ## Implementation
 
 - Post-implementation inventorying (git status, git diff, etc.) is avoided; only evidential verification (testing, etc.) is performed.
