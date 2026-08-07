@@ -55,7 +55,6 @@ test('installLocalMev installs a Bun-targeted JavaScript bundle', async () => {
         resolve(process.cwd(), 'scripts/generate-assets.ts'),
       ]);
       expect(invocations[codegen]?.cwd).toBe(process.cwd());
-      // The build produces Bun's single-file JS bundle, not a compiled binary.
       expect(invocations[build]?.args).toContain('--target');
       expect(invocations[build]?.args).toContain('bun');
       expect(invocations[build]?.args).not.toContain('--compile');

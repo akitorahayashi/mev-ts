@@ -30,10 +30,6 @@ export async function withTemporaryDirectory<T>(
   );
 }
 
-/**
- * A `test` variant that allocates one temporary directory per case (named with
- * `prefix`) and passes it to the body, removing it afterward.
- */
 export function sandboxedTest(
   prefix: string,
 ): (name: string, body: (directory: string) => Promise<void>) => void {

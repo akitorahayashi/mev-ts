@@ -38,7 +38,6 @@ async function readJson(path: string, label: string): Promise<JsonObject> {
   return parseJsonObject(raw, path, label);
 }
 
-/** Render the base settings merged with the enabled overrides, in catalog order. */
 export async function renderSettings(
   basePath: string,
   sourceDir: string,

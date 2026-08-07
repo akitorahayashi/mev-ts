@@ -16,11 +16,6 @@ export type WithPrompter = <T>(
   run: (prompter: Prompter) => Promise<T>,
 ) => Promise<T>;
 
-/**
- * Open a single readline session bound to the process streams for the duration
- * of `run`, exposing a prompter, and guarantee the session is closed even if
- * `run` throws.
- */
 export const withPrompter: WithPrompter = async <T>(
   run: (prompter: Prompter) => Promise<T>,
 ): Promise<T> => {

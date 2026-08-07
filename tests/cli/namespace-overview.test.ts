@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test';
 import { runCommandLine } from '../../src/main';
 import { captureStreams } from '../fixtures/streams';
 
-/** Run a bare namespace command and return what its overview prints. */
 async function namespaceOverview(namespace: string): Promise<string> {
   const streams = captureStreams();
   const code = await runCommandLine([namespace], {

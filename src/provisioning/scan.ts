@@ -129,7 +129,6 @@ async function deployedEntries(
   return entries.sort(entryOrder);
 }
 
-/** Whether a deployed role differs from the assets embedded in this binary. */
 async function roleHasDrift(
   role: string,
   context: Pick<Context, 'home' | 'assets'>,

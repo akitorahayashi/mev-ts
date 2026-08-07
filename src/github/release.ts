@@ -28,7 +28,6 @@ export const releaseArchitectures = ['aarch64', 'x86_64'] as const;
 export type ReleaseArch = (typeof releaseArchitectures)[number];
 export type ReleaseAssetKey = `darwin-${ReleaseArch}`;
 
-/** The reviewed SHA-256 digest of one release asset. */
 export interface ReleaseDigest {
   readonly asset: ReleaseAssetKey;
   readonly sha256: string;
@@ -60,7 +59,6 @@ const SAFE_TAG = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 
-/** The release asset name `<name>-darwin-<arch>` for one binary and architecture. */
 export function releaseAssetName(
   binary: ReleaseBinary,
   arch: ReleaseArch,
@@ -68,7 +66,6 @@ export function releaseAssetName(
   return `${binary.name}-${OS}-${arch}`;
 }
 
-/** The digest lock's key, a `.lock.yml` sibling of the binaries manifest key. */
 export function releaseLockKey(configKey: string): string {
   return configKey.replace(/\.ya?ml$/, '.lock.yml');
 }
@@ -247,7 +244,6 @@ const ARCH_BY_MACHINE: Readonly<Record<string, ReleaseArch>> = {
   arm64: 'aarch64',
 };
 
-/** Resolve the running machine's architecture as a GitHub release asset segment. */
 export async function detectArch(context: Context): Promise<ReleaseArch> {
   const result = await runProcessStep(
     context.commands,
@@ -265,7 +261,6 @@ export async function detectArch(context: Context): Promise<ReleaseArch> {
   return arch;
 }
 
-/** SHA-256 of the file at `path`, or null when it does not exist. */
 export async function fileSha256(path: string): Promise<string | null> {
   let bytes: Uint8Array;
   try {

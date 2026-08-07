@@ -24,7 +24,6 @@ function installerContext(
   });
 }
 
-/** Installer workspaces leaked inside the sandbox, if any. */
 async function leakedWorkspaces(dir: string): Promise<string[]> {
   return (await readdir(dir))
     .filter((name) => name.startsWith('mev-installer-'))

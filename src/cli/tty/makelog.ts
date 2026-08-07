@@ -46,7 +46,6 @@ export function renderDeployLine(
   return c.dim(`  Deployed config for ${result.role}${suffix}`);
 }
 
-/** The `Running targets` / `Required ...` header block. */
 export function renderHeader(selection: MakePlan): string {
   const lines = [`Running targets: ${selection.targetNames.join(', ')}`];
   const { taps, formulae, casks } = selection.packages;
@@ -116,7 +115,6 @@ function failedEntryLines(report: ActivationReport): string[] {
   );
 }
 
-/** Classify a blocked group's action-required title by its blocker cause. */
 function blockerTitle(group: ActivationGroupReport): string {
   const [only] = group.blockers;
   if (group.blockers.length === 1 && only?.kind === 'package') {
@@ -128,8 +126,6 @@ function blockerTitle(group: ActivationGroupReport): string {
   return `${group.targetName} blocked by prerequisite failures`;
 }
 
-/** The numbered "Action required" entries: blockers, failed activations, and
- * unrecorded markers, each as a titled block with detail lines. */
 function actionRequiredLines(
   groups: readonly ActivationGroupReport[],
 ): string[] {
@@ -164,7 +160,6 @@ function actionRequiredLines(
   return lines;
 }
 
-/** The targets a retry should re-run: any blocked, failed, or unrecorded group. */
 function retryTargets(groups: readonly ActivationGroupReport[]): string[] {
   return groups
     .filter(

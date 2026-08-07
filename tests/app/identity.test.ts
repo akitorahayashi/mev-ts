@@ -39,7 +39,6 @@ function sandboxTest(name: string, body: () => Promise<void>): void {
   });
 }
 
-/** Runner that answers global reads from a map and records explicit-file writes. */
 function gitRunner(
   globals: Record<string, string>,
   writes: { path: string; key: string; value: string }[] = [],

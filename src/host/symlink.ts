@@ -4,7 +4,6 @@ import { lstatIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
 import { swapWithBackup, transactionDirectory } from './transaction';
 
-/** Whether `link` is a symlink whose target is exactly `target`. */
 export async function isSymlinkTo(
   link: string,
   target: string,

@@ -78,7 +78,6 @@ sandboxTest(
     const foreign = join(dir, 'foreign');
     await writeFile(foreign, 'f');
     await symlink(foreign, join(root, 'keep'));
-    // A real file.
     await writeFile(join(root, 'real'), 'r');
 
     const changed = await reconcileManagedLinks(

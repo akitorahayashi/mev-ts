@@ -47,7 +47,6 @@ export function formatCommandFailure(
   return `${failure} with code ${result.code}: ${commandFailureDetail(result, fallback)}`;
 }
 
-/** Runs external commands through Bun's process spawner. */
 export const bunCommandRunner: CommandRunner = {
   async run(command, args, options): Promise<CommandResult> {
     const stdoutMode = options?.stdout ?? 'pipe';

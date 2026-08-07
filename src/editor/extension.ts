@@ -60,7 +60,6 @@ export async function listInstalled(
   );
 }
 
-/** Install `extension` through the editor CLI. Throws on failure. */
 export async function installExtension(
   command: string,
   extension: string,

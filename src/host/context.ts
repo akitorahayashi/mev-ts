@@ -18,7 +18,6 @@ export interface Context {
   readonly tmpRoot: string;
 }
 
-/** Resolve the current user's home directory or surface a typed failure. */
 export function resolveHome(): string {
   const home = process.env['HOME'] ?? homedir();
   if (!home) {
@@ -37,7 +36,6 @@ export function liveCommandDeps(): { run: CommandRunner; home: string } {
   return { run: bunCommandRunner, home: resolveHome() };
 }
 
-/** Build the live execution context bound to the current user's environment. */
 export function createContext(): Context {
   return {
     home: resolveHome(),

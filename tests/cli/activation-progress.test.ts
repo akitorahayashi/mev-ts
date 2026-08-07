@@ -44,7 +44,6 @@ test('the TTY activation progress renders the in-flight line and a completion li
   const terminal = stream.output();
   expect(terminal).toContain('link git/.gitconfig -> ~/.gitconfig');
   expect(terminal).toMatch(/\[[0-9;]*[JK]/);
-  // The header and the completion line go to the out sink.
   expect(out).toContain('Activating targets');
   const plainOut = Bun.stripANSI(out);
   expect(plainOut).toContain('git');
@@ -77,7 +76,6 @@ test('the non-TTY activation progress writes plain lines only to out', () => {
   });
   progress.finish();
 
-  // No animated output on the stream when not a TTY.
   expect(stream.output()).toBe('');
   expect(out).toContain('git: changed');
 });

@@ -37,7 +37,6 @@ function dedup(lists: readonly (readonly string[])[]): string[] {
   return out;
 }
 
-/** Merge requirements across targets, deduping while preserving first-seen order. */
 export function mergePackages(
   reqs: readonly PackageRequirement[],
 ): PackageRequirement {
@@ -55,7 +54,6 @@ export interface PackageToken {
   readonly name: string;
 }
 
-/** Flatten a requirement into install-ordered tokens: taps, formulae, casks. */
 export function tokens(req: PackageRequirement): PackageToken[] {
   return [
     ...req.taps.map((name) => ({ kind: 'tap' as const, name })),

@@ -163,7 +163,6 @@ export interface CommandStep {
 
 export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
 
-/** Per-entry report for the multi-action kinds (`defaults` writes, command steps). */
 export interface StepReport {
   readonly key: string;
   /**

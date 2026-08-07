@@ -16,7 +16,6 @@ interface NameSplit {
   readonly unknown: readonly string[];
 }
 
-/** How a selection manifest's stored list is interpreted against the catalog. */
 export type SelectionMode = 'opt-in' | 'opt-out';
 
 /** A catalog resolved against a stored list under one polarity. */

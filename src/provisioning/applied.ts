@@ -7,7 +7,6 @@ import { mevRoot } from '../host/path';
 
 const signaturePattern = /^sha256:[0-9a-f]{64}$/;
 
-/** Resolve the successful-signature file owned by one canonical target. */
 export function appliedPath(home: string, target: string): string {
   return join(home, mevRoot, 'applied', target);
 }
@@ -21,7 +20,6 @@ function validateSignature(signature: string, path: string): string {
   return signature;
 }
 
-/** Read a target's last successful signature, or null when none exists. */
 export async function readApplied(path: string): Promise<string | null> {
   try {
     const content = await readTextIfPresent(path);
@@ -55,7 +53,6 @@ export async function invalidateApplied(path: string): Promise<void> {
   }
 }
 
-/** Persist a target's successful signature through an atomic replacement. */
 export async function writeApplied(
   path: string,
   signature: string,

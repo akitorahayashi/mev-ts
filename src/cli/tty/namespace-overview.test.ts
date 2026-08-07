@@ -42,7 +42,6 @@ test('lists the category subcommands under a header', () => {
   expect(output).toContain('mev config <command>');
   expect(output).toContain('mev config agents');
   expect(output).toContain('Select sections.');
-  // The namespace's own overview is excluded by structural path match.
   expect(output).not.toContain('Show config subcommands.');
   // Commands from other categories are excluded.
   expect(output).not.toContain('mev make');

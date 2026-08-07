@@ -10,7 +10,6 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Narrow `value` to a mapping or throw a labeled ProvisioningError. */
 export function requireRecord(
   value: unknown,
   label: string,
@@ -21,7 +20,6 @@ export function requireRecord(
   return value;
 }
 
-/** Narrow `value` to a sequence of strings or throw a labeled ProvisioningError. */
 export function requireStringArray(value: unknown, label: string): string[] {
   if (!Array.isArray(value)) {
     throw new ProvisioningError(`${label} must be a sequence.`);

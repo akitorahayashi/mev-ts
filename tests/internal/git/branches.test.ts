@@ -13,11 +13,7 @@ const ok = { code: 0, stdout: '', stderr: '' };
 test('moves to the default branch, pulls, deletes, and prunes', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [
-      defaultBranch,
-      branchExists, // feature/a
-      branchExists, // feature/b
-    ],
+    [defaultBranch, branchExists, branchExists],
     calls,
   );
 
@@ -115,7 +111,7 @@ test('rejects unknown local branches before any state changes', async () => {
   const run = sequenceRunner(
     [
       defaultBranch,
-      branchExists, // feature/a
+      branchExists,
       { code: 1, stdout: '', stderr: '' }, // typo — not a local branch
     ],
     calls,
@@ -148,9 +144,9 @@ test('stops before delete when pull fails', async () => {
   const run = sequenceRunner(
     [
       defaultBranch,
-      branchExists, // feature/a
-      ok, // checkout
-      { code: 1, stdout: '', stderr: 'pull failed' }, // pull
+      branchExists,
+      ok,
+      { code: 1, stdout: '', stderr: 'pull failed' },
     ],
     calls,
   );
@@ -179,12 +175,7 @@ test('rejects a dash-leading destination before running any command', async () =
 test('reports inherited command failures without pretending output was captured', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [
-      defaultBranch,
-      branchExists, // feature/a
-      ok, // checkout
-      { code: 1, stdout: '', stderr: '' }, // pull
-    ],
+    [defaultBranch, branchExists, ok, { code: 1, stdout: '', stderr: '' }],
     calls,
   );
 

@@ -3,7 +3,6 @@ import type { Activation } from './activation';
 import { resolveTarget } from './registry';
 import type { Target } from './target';
 
-/** Activations contributed by one selected target, kept attributed to its name. */
 export interface ActivationGroup {
   readonly targetName: string;
   readonly role: string;

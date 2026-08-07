@@ -36,7 +36,6 @@ async function seedCurrentEnvironment(sandbox: string): Promise<void> {
   }
 }
 
-/** Run `mev sync` with a sandboxed HOME/PATH, capturing its streams. */
 async function runSync(
   sandbox: string,
 ): Promise<{ code: number; stdout: string; stderr: string }> {

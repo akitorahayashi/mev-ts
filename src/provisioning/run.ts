@@ -176,7 +176,6 @@ async function runDeployPhase(
   return { deploys, failedRoles, failedMigrations };
 }
 
-/** The deploy and package failures that prevent a group from activating. */
 function computeBlockers(
   group: MakeGroup,
   failedRoles: ReadonlyMap<string, string>,
@@ -236,7 +235,6 @@ export async function runMake(
 
   await invalidateSelectedTargets(selection.targetNames, context);
 
-  // Phase 1: deploy configs for each role and migrate legacy symlinks.
   const { deploys, failedRoles, failedMigrations } = await runDeployPhase(
     selection,
     context,
@@ -245,7 +243,6 @@ export async function runMake(
 
   request.onHeader?.(selection);
 
-  // Phase 2: resolve required packages as a batch with a progress bar.
   const install = await installPackages(selection.packages, context, {
     onStart: request.onInstallStart,
     onTokenStart: request.onInstallTokenStart,
@@ -253,7 +250,6 @@ export async function runMake(
   });
   const failedPackages = install.filter((r) => r.status === 'failed');
 
-  // Phase 3: activate deployed assets, grouped and attributed by tag.
   const groups: ActivationGroupReport[] = [];
   if (selection.groups.length > 0) {
     request.onActivationPhaseStart?.({

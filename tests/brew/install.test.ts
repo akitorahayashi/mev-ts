@@ -20,8 +20,6 @@ interface BrewState {
   readonly installCode?: number;
 }
 
-// Answers enumeration probes from the declared installed state and captures
-// `brew bundle` invocations (with their temporary Brewfile) into the sink.
 function brewContext(
   state: BrewState,
   sink: Sink = {},
