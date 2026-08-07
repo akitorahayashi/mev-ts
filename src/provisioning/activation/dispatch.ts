@@ -49,7 +49,6 @@ export function describeActivation(activation: Activation): Described {
   }
 }
 
-/** Report for an activation whose prerequisites failed and so cannot proceed. */
 export function blockedReport(
   activation: Activation,
   reason?: string,
@@ -61,7 +60,6 @@ export function blockedReport(
   };
 }
 
-/** Apply an activation and return the report that drives the execution log. */
 export function runActivation(
   activation: Activation,
   context: Context,

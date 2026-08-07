@@ -1,10 +1,8 @@
 import { ProvisioningError } from '../errors';
 import { assetContents, executableAssets } from './registry.generated';
 
-/** Content hash of the source tree the registry was generated from. */
 export { registrySourceHash } from './registry.generated';
 
-/** Read access to embedded assets, plus enumeration of a deploy role's files. */
 export interface AssetSource {
   read(key: string): Promise<string>;
   keysByPrefix(prefix: string): readonly string[];

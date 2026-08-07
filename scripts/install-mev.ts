@@ -32,7 +32,6 @@ export async function installLocalMev(
 
   await runWithCleanup(
     async () => {
-      // A Bun-targeted single-file JavaScript bundle, not a compiled binary.
       await buildBundle({
         projectRoot: options.projectRoot,
         outfile: stageDest,

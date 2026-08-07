@@ -50,7 +50,6 @@ async function runCli(
 test('list routes to the target listing under both its name and alias', async () => {
   const byName = await runCli(['list']);
   expect(byName.code).toBe(0);
-  // A registered target name and column header prove the registry was rendered.
   expect(byName.stdout).toContain('git');
   expect(byName.stdout).toContain('TARGET');
 

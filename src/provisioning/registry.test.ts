@@ -13,7 +13,6 @@ import {
 // embedded assets and own a distinct set of selectors. Adding a target is
 // covered automatically.
 
-/** An asset an activation reads: a single key, or every key under a prefix. */
 type AssetReference = { readonly key: string } | { readonly prefix: string };
 
 /**

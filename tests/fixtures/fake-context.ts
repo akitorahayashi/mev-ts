@@ -3,7 +3,6 @@ import type { AssetSource } from '../../src/assets/registry';
 import type { CommandOptions, CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 
-/** An AssetSource that embeds nothing. */
 export const emptyAssets: AssetSource = {
   async read() {
     return '';
@@ -16,7 +15,6 @@ export const emptyAssets: AssetSource = {
   },
 };
 
-/** A command invocation recorded by a recording context. */
 export interface Invocation {
   readonly command: string;
   readonly args: readonly string[];
@@ -39,16 +37,11 @@ export interface RecordingContextOptions {
   readonly assets?: AssetSource;
   readonly basePath?: string;
   readonly respond?: Responder;
-  /** Scratch root; defaults to the system temp dir unless a sandbox is given. */
   readonly tmpRoot?: string;
 }
 
 const succeed: Responder = () => ({ code: 0, stdout: '', stderr: '' });
 
-/**
- * Build a Responder that dispatches by command name and falls back to success
- * for unhandled commands. Handlers may be async.
- */
 export function respondByCommand(
   handlers: Readonly<Record<string, Responder>>,
   fallback: Responder = succeed,
@@ -57,11 +50,6 @@ export function respondByCommand(
     (handlers[command] ?? fallback)(command, args, options);
 }
 
-/**
- * Build a Context whose command runner records every invocation into `calls`
- * and answers with `respond` (a constant success when omitted). Assets default
- * to `emptyAssets`.
- */
 export function recordingContext(options: RecordingContextOptions): {
   readonly context: Context;
   readonly calls: Invocation[];

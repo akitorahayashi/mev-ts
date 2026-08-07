@@ -14,7 +14,6 @@ export interface EditorTargetSpec {
   readonly aliases: readonly string[];
   readonly cask: string;
   readonly extensionCli: string;
-  /** The app's User directory, relative to home. */
   readonly userDir: string;
 }
 

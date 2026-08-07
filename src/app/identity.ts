@@ -18,8 +18,6 @@ export interface IdentityDeps {
   readonly home: string;
 }
 
-/** The Git identity currently applied to the global config, classified
- * against the stored profiles so callers can show which scope is active. */
 export type CurrentIdentity =
   | {
       readonly kind: 'matched';
@@ -40,7 +38,6 @@ export interface IdentityInput {
   readonly email: string;
 }
 
-/** Load stored identities, or an empty state when none are configured yet. */
 export async function loadIdentities(deps: {
   readonly home: string;
 }): Promise<IdentityState> {
@@ -48,7 +45,6 @@ export async function loadIdentities(deps: {
   return state ?? emptyState();
 }
 
-/** Stored identities plus the identity Git currently has applied globally. */
 export async function showIdentity(deps: IdentityDeps): Promise<IdentityView> {
   const path = identityFilePath(deps.home);
   const state = await readState(path);
@@ -64,7 +60,6 @@ export async function showIdentity(deps: IdentityDeps): Promise<IdentityView> {
   };
 }
 
-/** Persist the given identities, replacing any existing configuration. */
 export async function setIdentity(
   deps: { readonly home: string },
   inputs: Record<IdentityScope, IdentityInput>,
@@ -77,7 +72,6 @@ export async function setIdentity(
   return { path, state };
 }
 
-/** Apply a stored identity to the global Git config. */
 export async function switchIdentity(
   deps: IdentityDeps,
   scope: IdentityScope,

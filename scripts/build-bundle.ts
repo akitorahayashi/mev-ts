@@ -15,7 +15,6 @@ export interface BundleBuildOptions {
   readonly outfile: string;
   /** Working directory of the compile step; codegen and validation run at the root. */
   readonly buildCwd: string;
-  /** Emit a standalone executable (`--compile`) rather than a JavaScript bundle. */
   readonly compile: boolean;
   /** Bun `--target`; the release binary may cross-compile, the local install pins `bun`. */
   readonly target?: string;
@@ -23,7 +22,6 @@ export interface BundleBuildOptions {
   readonly runCommand: RunBuildCommand;
 }
 
-/** Compile the mev bundle through Bun's process spawner. */
 export async function runBunBuild(
   invocation: BuildInvocation,
 ): Promise<number> {

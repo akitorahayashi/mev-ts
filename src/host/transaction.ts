@@ -12,13 +12,9 @@ export async function transactionDirectory(path: string): Promise<string> {
   return mkdtemp(join(parent, `.${basename(path)}.`));
 }
 
-/** The staging, destination, and backup paths of one move-aside swap. */
 export interface SwapPaths {
-  /** The path being replaced; its current contents move to `backup` first. */
   readonly dest: string;
-  /** The already-built replacement to move into `dest`. */
   readonly staged: string;
-  /** Where `dest`'s previous contents are held during the swap. */
   readonly backup: string;
 }
 

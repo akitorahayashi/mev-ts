@@ -32,7 +32,6 @@ async function readTextAsset(key: string): Promise<string> {
   }
 }
 
-/** Walk the config tree into sorted, content-loaded asset entries. */
 export async function collectAssets(): Promise<AssetEntry[]> {
   const glob = new Glob('**/*');
   const keys: string[] = [];
@@ -68,7 +67,6 @@ export function assetSourceHash(entries: readonly AssetEntry[]): string {
   return `sha256:${createHash('sha256').update(JSON.stringify(canonical)).digest('hex')}`;
 }
 
-/** Render the generated registry module body from the collected asset entries. */
 export function renderRegistry(entries: readonly AssetEntry[]): string {
   const contents = entries
     .map(

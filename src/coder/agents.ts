@@ -3,14 +3,8 @@ import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
 import { readDeployedText } from '../host/deployed-file';
 
-/** Title that precedes the concatenated sections. */
 const TITLE = '# Rules';
 
-/**
- * Concatenate the enabled sections, in catalog order, into a single document.
- * Each `<name>.md` body is taken verbatim (headings included), trailing
- * whitespace trimmed, and joined by a blank line under the title.
- */
 async function renderAgents(
   sourceDir: string,
   enabled: readonly string[],

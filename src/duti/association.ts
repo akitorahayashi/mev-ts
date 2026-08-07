@@ -117,7 +117,6 @@ export async function currentApp(
   return bundleId ?? null;
 }
 
-/** Register `bundleId` as the handler for `.${extension}`. Throws on failure. */
 export async function setApp(
   bundleId: string,
   extension: string,

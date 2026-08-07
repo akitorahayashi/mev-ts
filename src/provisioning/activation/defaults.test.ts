@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test';
 import type { AssetSource } from '../../assets/registry';
 import { applyDefaultsTree } from './defaults';
 
-/** An asset source whose enumeration is a fixed, injected key set. */
 function assetsWithKeys(keys: readonly string[]): AssetSource {
   return {
     async read() {
@@ -17,7 +16,6 @@ function assetsWithKeys(keys: readonly string[]): AssetSource {
   };
 }
 
-/** The config keys of the defaults activations produced by the tree factory. */
 function configKeys(
   activations: ReturnType<typeof applyDefaultsTree>,
 ): string[] {

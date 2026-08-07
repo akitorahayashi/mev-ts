@@ -94,7 +94,6 @@ const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
 export const describeRelease = releaseKind.describe;
 export const runRelease = releaseKind.run;
 
-/** The manifest plus the digest lock that rides along as its sibling asset. */
 export function releaseConfigAssets(
   activation: ReleaseActivation,
 ): readonly string[] {

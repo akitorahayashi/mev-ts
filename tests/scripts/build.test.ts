@@ -115,7 +115,6 @@ test('buildMev preserves build failure when cleanup also fails', async () => {
           outfile: join(dir, 'mev'),
           stdio: 'ignore',
           async runBuildCommand() {
-            // Codegen and validation succeed; the compile fails.
             calls += 1;
             return calls < 3 ? 0 : 1;
           },

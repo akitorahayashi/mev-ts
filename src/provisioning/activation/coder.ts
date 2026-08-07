@@ -51,7 +51,6 @@ export function coderAgents(
   return { kind: 'coderAgents', sectionsPrefix, dests };
 }
 
-/** The embedded section catalog a `coderAgents` activation validates. */
 export function coderAgentsConfigAssets(
   activation: CoderAgentsActivation,
 ): readonly string[] {
@@ -89,7 +88,6 @@ export function describeCoderSkills(
   };
 }
 
-/** The outcome of a fan-out: whether anything changed, plus isolated failures. */
 interface LinkFanout {
   readonly changed: boolean;
   readonly failed: readonly StepReport[];

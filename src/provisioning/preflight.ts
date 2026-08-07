@@ -34,7 +34,6 @@ type AssetValidator = (
   assets: AssetSource,
 ) => void | Promise<void>;
 
-/** The embedded config assets an activation kind validates, and how. */
 interface AssetCheck {
   readonly keys: readonly string[];
   readonly validate: AssetValidator;

@@ -12,10 +12,8 @@ export interface Identity {
   readonly email: string;
 }
 
-/** The persisted identities, one entry per scope (null when unconfigured). */
 export type IdentityState = Record<IdentityScope, Identity | null>;
 
-/** Build a validated identity, or null when either field is blank. */
 export function makeIdentity(name: string, email: string): Identity | null {
   const trimmedName = name.trim();
   const trimmedEmail = email.trim();
@@ -23,12 +21,10 @@ export function makeIdentity(name: string, email: string): Identity | null {
   return { name: trimmedName, email: trimmedEmail };
 }
 
-/** Resolve `~/.mev/identity.json` under the given home directory. */
 export function identityFilePath(home: string): string {
   return join(home, mevRoot, 'identity.json');
 }
 
-/** The state with every scope unconfigured. */
 export function emptyState(): IdentityState {
   return Object.fromEntries(
     allScopes().map((scope) => [scope, null]),

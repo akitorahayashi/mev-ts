@@ -32,7 +32,6 @@ export function symbolic(target: HostPath): string {
   return `~/${target.rel}`;
 }
 
-/** Concrete filesystem path, resolved against the running user's home. */
 export function resolveHostPath(target: HostPath, homeDir: string): string {
   return join(homeDir, target.rel);
 }

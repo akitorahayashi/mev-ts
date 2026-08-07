@@ -5,11 +5,6 @@ import { runCapture, runStep } from '../../git/run';
 import { lstatIfPresent } from '../../host/absence';
 import { type CommandRunner, formatCommandFailure } from '../../host/command';
 
-/**
- * Delete a git submodule completely from the repository in the current working
- * directory: deinit the worktree, remove the tracked path, delete the
- * `.git/modules/<path>` directory, and drop the `.gitmodules` config section.
- */
 export async function deleteSubmodule(
   run: CommandRunner,
   tokens: readonly string[],

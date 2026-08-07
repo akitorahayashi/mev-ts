@@ -75,7 +75,6 @@ function blockedSummary(group: ActivationGroupReport): string | null {
   return `${blocker.token.kind} ${blocker.token.name} failed`;
 }
 
-/** A one-line summary of the group's outcome, or null when nothing changed. */
 export function summarizeGroup(group: ActivationGroupReport): string | null {
   switch (groupStatus(group)) {
     case 'changed':

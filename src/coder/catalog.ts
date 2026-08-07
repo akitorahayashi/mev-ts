@@ -71,7 +71,6 @@ export function parseSectionCatalog(raw: string, path: string): string[] {
   return listed;
 }
 
-/** Read and validate the AGENTS.md section catalog from a deployed source dir. */
 export async function readSections(sourceDir: string): Promise<string[]> {
   const catalogPath = join(sourceDir, 'catalog.yml');
   const raw = await readTextIfPresent(catalogPath);
@@ -95,7 +94,6 @@ export async function readSections(sourceDir: string): Promise<string[]> {
   return reconcileSections(listed, presentStems);
 }
 
-/** Read the skills catalog by scanning the deployed skills source directory. */
 export async function readSkills(sourceDir: string): Promise<string[]> {
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {

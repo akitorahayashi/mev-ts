@@ -51,7 +51,6 @@ const targets: readonly Target[] = [
   xcodeTarget,
 ];
 
-/** Resolve a target name or alias to its owning target. */
 export function resolveTarget(selector: string): Target {
   const match = targets.find(
     (target) => target.name === selector || target.aliases.includes(selector),
@@ -69,7 +68,6 @@ export function availableSelectors(): string[] {
   return targets.flatMap((target) => [target.name, ...target.aliases]);
 }
 
-/** Every registered target, in declaration order. */
 export function allTargets(): readonly Target[] {
   return targets;
 }

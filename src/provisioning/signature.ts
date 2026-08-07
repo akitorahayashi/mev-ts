@@ -69,7 +69,6 @@ async function assetIntents(
   );
 }
 
-/** Hash the user-visible desired state of one target, excluding runner code. */
 export async function targetSignature(
   target: Target,
   assets: AssetSource,

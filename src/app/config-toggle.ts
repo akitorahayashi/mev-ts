@@ -14,7 +14,6 @@ export type SelectEntries = (
   enabled: readonly string[],
 ) => Promise<string[] | null>;
 
-/** One selectable surface: its catalog plus how its manifest is read/written. */
 export interface ConfigToggleSurface {
   readonly catalog: readonly string[];
   readonly read: () => Promise<string[]>;
@@ -69,7 +68,6 @@ function persistedList(
   chosen: readonly string[],
   mode: SelectionMode,
 ): readonly string[] {
-  // Opt-out stores the disabled complement; opt-in stores the enabled set.
   return mode === 'opt-out'
     ? catalog.filter((name) => !chosen.includes(name))
     : chosen;

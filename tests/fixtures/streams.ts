@@ -1,4 +1,3 @@
-/** A stdout/stderr pair that buffers writes for assertion in CLI tests. */
 export interface CapturedStreams {
   readonly stdout: { write(chunk: unknown): boolean };
   readonly stderr: { write(chunk: unknown): boolean };
@@ -32,7 +31,6 @@ export function captureStreams(): CapturedStreams {
   };
 }
 
-/** A fake terminal stream for exercising the animated (TTY) progress path. */
 export interface FakeTtyStream {
   readonly isTTY: true;
   readonly columns: number;
