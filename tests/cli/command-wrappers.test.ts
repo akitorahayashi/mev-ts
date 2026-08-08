@@ -74,6 +74,22 @@ sandboxTest('make requires at least one selector', async (sandbox) => {
   expect(result.code).not.toBe(0);
 });
 
+sandboxTest(
+  'make consumes --update as a flag rather than a selector',
+  async (sandbox) => {
+    const result = await runCli(
+      ['make', '-u', 'definitely-not-a-target'],
+      sandbox,
+    );
+
+    expect(result.code).not.toBe(0);
+    // The usage error names the selector, proving -u was parsed as an option
+    // and the command still reached selector validation.
+    expect(result.stdout).toContain('definitely-not-a-target');
+    expect(await Bun.file(join(sandbox, '.mev')).exists()).toBe(false);
+  },
+);
+
 sandboxTest('switch rejects an unknown identity scope', async (sandbox) => {
   const result = await runCli(['switch', 'not-a-scope'], sandbox);
   expect(result.code).not.toBe(0);

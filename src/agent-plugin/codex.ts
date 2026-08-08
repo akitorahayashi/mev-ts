@@ -3,7 +3,14 @@ import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 import { capturePluginJson } from './output';
 
-export async function listCodexPlugins(context: Context): Promise<Set<string>> {
+/**
+ * Installed plugin ids mapped to their reported version. The version is kept
+ * optional because only the pluginId is contractual; update mode uses the
+ * version to classify an update as changed or unchanged when reported.
+ */
+export async function listCodexPlugins(
+  context: Context,
+): Promise<Map<string, string | undefined>> {
   const raw = await capturePluginJson(
     context.commands,
     'codex',
@@ -15,14 +22,17 @@ export async function listCodexPlugins(context: Context): Promise<Set<string>> {
       'Codex plugin inventory requires an installed array.',
     );
   }
-  const installed = new Set<string>();
+  const installed = new Map<string, string | undefined>();
   for (const [index, entry] of raw['installed'].entries()) {
     if (!isRecord(entry) || typeof entry['pluginId'] !== 'string') {
       throw new ProvisioningError(
         `Codex plugin inventory entry ${index + 1} requires a string pluginId.`,
       );
     }
-    installed.add(entry['pluginId']);
+    installed.set(
+      entry['pluginId'],
+      typeof entry['version'] === 'string' ? entry['version'] : undefined,
+    );
   }
   return installed;
 }

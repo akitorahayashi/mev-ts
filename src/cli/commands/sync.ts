@@ -1,4 +1,4 @@
-import { Command } from 'clipanion';
+import { Command, Option } from 'clipanion';
 import { runMake } from '../../provisioning/run';
 import { isScanError, scanTargets } from '../../provisioning/scan';
 import { executeProvisioningRun } from '../provisioning-run';
@@ -13,6 +13,13 @@ export class SyncCommand extends Command {
       'Apply changed full-environment targets.',
       SyncCommand.paths,
     ),
+  });
+
+  // Update mode does not widen the selection: it refreshes latest-assumed
+  // tools only within the targets staleness already selected, so a
+  // synchronized environment stays a fast no-op with no network access.
+  update = Option.Boolean('-u,--update', false, {
+    description: 'Also update installed latest-assumed tools in stale targets',
   });
 
   async execute() {
@@ -45,6 +52,7 @@ export class SyncCommand extends Command {
 
       const code = await executeProvisioningRun({
         selectors,
+        update: this.update,
         intro: 'mev: Syncing environment',
         run: (request) => runMake(request, context),
         out: (text) => this.context.stdout.write(text),

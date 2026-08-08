@@ -8,6 +8,7 @@ export { bindCommandRead, commandReadKey, runCommand } from './command';
 export type {
   Activation,
   ActivationReport,
+  ActivationRunOptions,
   ActivationStatus,
   ChangedWhen,
   CommandArg,

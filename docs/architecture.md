@@ -41,6 +41,8 @@ Before invalidating applied signatures or entering the phases, each selected tar
 2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
 3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
 
+Each activation also receives the run's `ActivationRunOptions`. Its `update` flag (the `--update`/`-u` CLI option on `make`, `create`, and `sync`) is execution intent, not desired state: it makes the `pipx` and `agentPlugins` kinds refresh installed latest-assumed items, never contributes to target signatures or sync staleness, and leaves version-pinned entries untouched.
+
 ## Activation DSL (provisioning/activation/)
 
 The `activation/` module is the internal DSL for all provisioning operations. Targets declare what they want using factories exported from `activation/index.ts`; the runtime dispatches by `kind`.
@@ -73,11 +75,11 @@ Thirteen activation kinds:
 | `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; replaces declared destinations and prunes managed stale links |
 | `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
 | `duti` | `applyDuti(configKey)` | Reads a YAML list of `{bundle_id, extension}` pairs; applies `duti -s` for each that differs |
-| `pipx` | `applyPipx(configKey)` | Reconciles pipx-managed tools against a YAML manifest; installs, injects, and post-installs |
+| `pipx` | `applyPipx(configKey)` | Reconciles pipx-managed tools against a YAML manifest; installs, injects, and post-installs; update mode upgrades unpinned installed tools |
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
-| `agentPlugins` | `installAgentPlugins(configKey)` | Installs missing Claude Code and Codex plugins from SSH-backed `main` marketplaces without updating installed plugins |
+| `agentPlugins` | `installAgentPlugins(configKey)` | Installs missing Claude Code and Codex plugins from SSH-backed `main` marketplaces; installed plugins are updated only in update mode |
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips when the installed bytes match the locked SHA-256 digest |
@@ -95,7 +97,9 @@ Thirteen activation kinds:
 
 `coderAgents` and `coderSkills` do not use this envelope but apply the same per-item boundary to their symlink fan-out: a read or build failure fails the whole activation, while an unwritable destination directory fails only its own entry and its siblings still apply.
 
-`agentPlugins` inventories Claude Code and Codex once per client. A marketplace with no missing declared plugins performs no marketplace operation. For a missing plugin, the activation adds the SSH marketplace at `main`, or refreshes an existing marketplace only when its URL and ref match the declaration, then installs only the missing IDs. Installed disabled plugins still count as present. Marketplace source conflicts fail without removing or replacing user state, and a final client inventory verifies successful install commands. Antigravity plugins are outside this activation.
+`agentPlugins` inventories Claude Code and Codex once per client. Outside update mode, a marketplace with no missing declared plugins performs no marketplace operation. For a missing plugin, the activation adds the SSH marketplace at `main`, or refreshes an existing marketplace only when its URL and ref match the declaration, then installs only the missing IDs. Installed disabled plugins still count as present. Marketplace source conflicts fail without removing or replacing user state, and a final client inventory verifies successful install commands. Antigravity plugins are outside this activation.
+
+In update mode every declared marketplace is refreshed from `main` first, then each installed declared plugin is updated: Claude Code through `plugin update`, Codex by re-adding the plugin, which re-resolves its version from the refreshed snapshot because the Codex CLI has no plugin-level update verb. The final client inventory classifies each update as changed or unchanged by version diff; when a client reports no version, the update stays classified as changed because a no-op cannot be proven. An unreachable marketplace fails its installed plugins as `update blocked` instead of reporting them unchanged.
 
 `manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause. Every parser narrows parsed-`unknown` data through `host/parse.ts` (`isRecord`, `requireRecord`, `requireStringArray`), so the record predicate lives once and rejection messages share one shape instead of each module re-improvising validation.
 
@@ -146,6 +150,8 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 The signature proving that each target is currently applied is stored atomically at `~/.mev/applied/{target}`. `runMake()` invalidates selected target signatures before deployment and records each signature again only after that target's deploy, package resolution, and activation complete successfully. A failed or interrupted run therefore remains selected even when deployment repaired its role drift before a later phase failed. This state is shared by `make`, `create`, and `sync` rather than owned by the sync command.
 
 `scan.ts` compares current and applied signatures and separately compares each embedded role tree with `~/.mev/roles/{role}/`, including paths, contents, and executable attributes. A signature mismatch or deployed drift selects the target. Scans run concurrently, while selected targets run through one normal provisioning plan so Homebrew and activation writes retain their established ordering. Optional targets are outside the scanned selection.
+
+Update mode never widens this selection: `sync --update` applies update mode only within the targets the scan already selected, so a synchronized environment exits without provisioning or network access. A deliberate full refresh of latest-assumed tools is `create --update` or `make <target> --update`.
 
 The registry test (`src/provisioning/registry.test.ts`) validates asset existence and selector uniqueness automatically for all registered targets. Adding a target does not require new test files.
 
