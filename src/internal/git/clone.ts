@@ -1,6 +1,6 @@
 import { CommandLineError } from '../../errors';
-import { runStep } from '../../git/run';
 import type { CommandRunner } from '../../host/command';
+import { runProcessStep } from '../../host/command-run';
 
 function displayCloneUrl(url: string): string {
   try {
@@ -15,10 +15,8 @@ function displayCloneUrl(url: string): string {
 }
 
 /**
- * Clone each repository URL in order, stopping at the first failure.
- *
- * Tokens before a `--` separator are repository URLs; tokens after it are
- * `git clone` flags applied to every clone (e.g. `urlA urlB -- --depth 1`).
+ * Clone each repository URL through grove's local clone cache in order,
+ * stopping at the first failure.
  */
 export async function cloneRepositories(
   run: CommandRunner,
@@ -32,8 +30,13 @@ export async function cloneRepositories(
   if (urls.length === 0) {
     throw new CommandLineError('At least one repository URL is required.');
   }
+  if (flags.length > 0) {
+    throw new CommandLineError(
+      '`mev internal git clone` uses `gv clone` and does not accept git clone flags.',
+    );
+  }
 
-  // A dash-leading positional would be parsed by git as a flag (argument
+  // A dash-leading positional would be parsed by gv as a flag (argument
   // injection, no shell involved); repository URLs never start with '-'.
   const flaggish = urls.find((url) => url.startsWith('-'));
   if (flaggish !== undefined) {
@@ -45,8 +48,18 @@ export async function cloneRepositories(
   for (const url of urls) {
     const displayUrl = displayCloneUrl(url);
     write(`Cloning ${displayUrl}...\n`);
-    // The raw url is passed to git, but the failure label uses the redacted one
+    // The raw url is passed to gv, but the failure label uses the redacted one
     // so credentials never reach the error output.
-    await runStep(run, ['clone', ...flags, url], `git clone ${displayUrl}`);
+    await runProcessStep(
+      run,
+      'gv',
+      ['clone', url],
+      `gv clone ${displayUrl} failed`,
+      {
+        stdout: 'inherit',
+        stderr: 'inherit',
+        fallback: 'see command output above',
+      },
+    );
   }
 }
