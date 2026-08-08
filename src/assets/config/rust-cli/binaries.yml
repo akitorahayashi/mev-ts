@@ -3,18 +3,22 @@
 # Each entry:
 #   - name: binary name, also the release asset's <name> segment (required)
 #   - repo: GitHub repo as owner/name (required)
-#   - tag: release tag to install (required)
-# Run `bun run lock` after changing entries; digests live in binaries.lock.yml.
+#   - tag: `latest` to track the repository's newest release, or an exact
+#     release tag to pin (required)
+# A `latest` entry is resolved when the binary is absent and re-resolved only
+# under `--update`; a pinned tag is never re-resolved. Idempotency comes from
+# `<binary> --version`, so every declared binary must report `<name> <version>`
+# and its release tag must be that version, optionally prefixed with `v`.
 binaries:
   - name: kpv
     repo: akitorahayashi/kpv
-    tag: v0.6.0
+    tag: latest
   - name: prf
     repo: akitorahayashi/prf
-    tag: v1.1.0
+    tag: latest
   - name: ssv
     repo: akitorahayashi/ssv
-    tag: v0.6.0
+    tag: latest
   - name: tc
     repo: akitorahayashi/tmpc
-    tag: v5.0.0
+    tag: latest

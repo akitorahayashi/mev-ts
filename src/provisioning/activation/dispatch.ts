@@ -109,6 +109,6 @@ export function runActivation(
     case 'remoteInstaller':
       return runRemoteInstaller(activation, context);
     case 'release':
-      return runRelease(activation, context);
+      return runRelease(activation, context, options);
   }
 }
