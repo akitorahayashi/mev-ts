@@ -14,6 +14,10 @@ marketplaces:
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
+    uninstall: [legacy-tool]
+removed_marketplaces:
+  - client: claude
+    name: retired
 `;
 
 test('parsePluginCatalog preserves declared marketplace and plugin order', () => {
@@ -29,6 +33,13 @@ test('parsePluginCatalog preserves declared marketplace and plugin order', () =>
     ['claude', ['agent-device', 'device-verification']],
     ['codex', ['xlsx']],
   ]);
+  expect(catalog.marketplaces.map(({ uninstall }) => uninstall)).toEqual([
+    [],
+    ['legacy-tool'],
+  ]);
+  expect(catalog.removedMarketplaces).toEqual([
+    { client: 'claude', name: 'retired' },
+  ]);
 });
 
 test('parsePluginCatalog rejects duplicate plugin identities per client', () => {
@@ -41,6 +52,57 @@ test('parsePluginCatalog rejects duplicate plugin identities per client', () => 
       'plugins.yml',
     ),
   ).toThrow(/duplicate 'codex:xlsx'/);
+});
+
+test('parsePluginCatalog treats omitted removal lists as nothing to remove', () => {
+  const catalog = parsePluginCatalog(
+    VALID.slice(0, VALID.indexOf('removed_marketplaces')),
+    'plugins.yml',
+  );
+
+  expect(catalog.marketplaces[0]?.uninstall).toEqual([]);
+  expect(catalog.removedMarketplaces).toEqual([]);
+});
+
+test('parsePluginCatalog rejects a name declared in both plugins and uninstall', () => {
+  expect(() =>
+    parsePluginCatalog(
+      VALID.replace('uninstall: [legacy-tool]', 'uninstall: [xlsx]'),
+      'plugins.yml',
+    ),
+  ).toThrow(/duplicate 'xlsx'/);
+});
+
+test('parsePluginCatalog accepts a removal-only catalog', () => {
+  const catalog = parsePluginCatalog(
+    `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces: []
+removed_marketplaces:
+  - client: claude
+    name: retired
+`,
+    'plugins.yml',
+  );
+
+  expect(catalog.marketplaces).toEqual([]);
+  expect(catalog.removedMarketplaces).toEqual([
+    { client: 'claude', name: 'retired' },
+  ]);
+});
+
+test('parsePluginCatalog rejects a removed marketplace still declared active', () => {
+  expect(() =>
+    parsePluginCatalog(
+      VALID.replace('name: retired', 'name: xlsx').replace(
+        'client: claude\n    name: xlsx',
+        'client: codex\n    name: xlsx',
+      ),
+      'plugins.yml',
+    ),
+  ).toThrow(/'codex:xlsx', which is still declared/);
 });
 
 for (const unsafe of ['github.com/work', 'git@github.com', '-alias', '']) {

@@ -373,6 +373,11 @@ sandboxTest(
       'codex plugin marketplace upgrade xlsx --json',
     );
     expect(invocations).toContain('codex plugin add xlsx@xlsx --json');
+    // The refresh of an existing marketplace is a probe: no entry of its own.
+    expect(report.entries?.some(({ key }) => key === 'claude:xlsx')).toBe(
+      false,
+    );
+    expect(report.entries?.some(({ key }) => key === 'codex:xlsx')).toBe(false);
     const claudeEntry = report.entries?.find(
       ({ key }) => key === 'claude:xlsx@xlsx',
     );
@@ -432,6 +437,9 @@ sandboxTest(
       { update: true },
     );
 
+    // With refreshes reported as probes, a run that moved nothing is fully
+    // idempotent: the activation itself reports unchanged.
+    expect(report.status).toBe('unchanged');
     const claudeEntry = report.entries?.find(
       ({ key }) => key === 'claude:xlsx@xlsx',
     );
@@ -580,5 +588,355 @@ marketplaces:
       report.entries?.some(({ error }) => error?.includes('different source')),
     ).toBe(true);
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(false);
+  },
+);
+
+const UNINSTALL_CATALOG = `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces:
+  - client: claude
+    repository: xlsx
+    name: xlsx
+    plugins: [xlsx]
+    uninstall: [old-tool]
+  - client: codex
+    repository: xlsx
+    name: xlsx
+    plugins: [xlsx]
+    uninstall: [legacy]
+`;
+
+sandboxTest(
+  'uninstalls only the listed plugins and converges to already absent',
+  async (home) => {
+    await deployCatalog(home, UNINSTALL_CATALOG);
+    const claudeInstalled = new Set([
+      'xlsx@xlsx',
+      'old-tool@xlsx',
+      'manual@elsewhere',
+    ]);
+    const codexInstalled = new Set(['xlsx@xlsx', 'legacy@xlsx']);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory([...claudeInstalled]));
+        }
+        if (command === 'claude' && args[1] === 'uninstall') {
+          claudeInstalled.delete(args[2] as string);
+          return ok();
+        }
+        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+          return ok(codexInventory([...codexInstalled]));
+        }
+        if (command === 'codex' && args[1] === 'remove') {
+          codexInstalled.delete(args[2] as string);
+          return ok();
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const first = await runActivation(installAgentPlugins(CONFIG_KEY), context);
+
+    expect(first.status).toBe('changed');
+    const invocations = calls.map(
+      ({ command, args }) => `${command} ${args.join(' ')}`,
+    );
+    expect(invocations).toContain(
+      'claude plugin uninstall old-tool@xlsx --scope user',
+    );
+    expect(invocations).toContain('codex plugin remove legacy@xlsx');
+    // Only listed names are removed; declared and unrelated installs survive.
+    expect(claudeInstalled).toEqual(new Set(['xlsx@xlsx', 'manual@elsewhere']));
+    expect(codexInstalled).toEqual(new Set(['xlsx@xlsx']));
+    expect(
+      first.entries?.find(({ key }) => key === 'claude:old-tool@xlsx')?.value,
+    ).toBe('uninstalled');
+    expect(
+      first.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.value,
+    ).toBe('already installed');
+
+    const second = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(second.status).toBe('unchanged');
+    expect(
+      second.entries?.find(({ key }) => key === 'claude:old-tool@xlsx')?.value,
+    ).toBe('already absent');
+  },
+);
+
+sandboxTest(
+  'removes a declared marketplace after uninstalling its namespace',
+  async (home) => {
+    const catalog = `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces:
+  - client: claude
+    repository: xlsx
+    name: xlsx
+    plugins: [xlsx]
+removed_marketplaces:
+  - client: claude
+    name: retired
+  - client: codex
+    name: retired
+`;
+    await deployCatalog(home, catalog);
+    const claudeInstalled = new Set([
+      'xlsx@xlsx',
+      'tool-a@retired',
+      'tool-b@retired',
+    ]);
+    const codexInstalled = new Set(['tool-c@retired']);
+    let claudeRegistered = ['retired'];
+    let codexRegistered = ['retired'];
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory([...claudeInstalled]));
+        }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify(
+              claudeRegistered.map((name) => ({ name, source: 'git' })),
+            ),
+          );
+        }
+        if (command === 'claude' && args[1] === 'uninstall') {
+          claudeInstalled.delete(args[2] as string);
+          return ok();
+        }
+        if (
+          command === 'claude' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'remove'
+        ) {
+          claudeRegistered = claudeRegistered.filter(
+            (name) => name !== args[3],
+          );
+          return ok();
+        }
+        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+          return ok(codexInventory([...codexInstalled]));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify({
+              marketplaces: codexRegistered.map((name) => ({ name })),
+            }),
+          );
+        }
+        if (command === 'codex' && args[1] === 'remove') {
+          codexInstalled.delete(args[2] as string);
+          return ok();
+        }
+        if (
+          command === 'codex' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'remove'
+        ) {
+          codexRegistered = codexRegistered.filter((name) => name !== args[3]);
+          return ok('{}');
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const first = await runActivation(installAgentPlugins(CONFIG_KEY), context);
+
+    expect(first.status).toBe('changed');
+    const invocations = calls.map(
+      ({ command, args }) => `${command} ${args.join(' ')}`,
+    );
+    // Namespace plugins are uninstalled before the marketplace is removed.
+    expect(
+      invocations.indexOf(
+        'claude plugin uninstall tool-a@retired --scope user',
+      ),
+    ).toBeLessThan(
+      invocations.indexOf(
+        'claude plugin marketplace remove retired --scope user',
+      ),
+    );
+    expect(invocations).toContain(
+      'claude plugin uninstall tool-b@retired --scope user',
+    );
+    expect(
+      invocations.indexOf('codex plugin remove tool-c@retired'),
+    ).toBeLessThan(
+      invocations.indexOf('codex plugin marketplace remove retired --json'),
+    );
+    expect(claudeInstalled).toEqual(new Set(['xlsx@xlsx']));
+    expect(
+      first.entries?.find(({ key }) => key === 'claude:retired')?.value,
+    ).toBe('marketplace removed');
+    expect(
+      first.entries?.find(({ key }) => key === 'codex:retired')?.value,
+    ).toBe('marketplace removed');
+
+    const second = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(second.status).toBe('unchanged');
+    expect(
+      second.entries?.find(({ key }) => key === 'claude:retired')?.value,
+    ).toBe('marketplace already absent');
+  },
+);
+
+sandboxTest(
+  'fails an uninstall whose plugin survives the post-run inventory',
+  async (home) => {
+    const catalog = `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces:
+  - client: claude
+    repository: xlsx
+    name: xlsx
+    plugins: [xlsx]
+    uninstall: [old-tool]
+`;
+    await deployCatalog(home, catalog);
+    const { context } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory(['xlsx@xlsx', 'old-tool@xlsx']));
+        }
+        // The uninstall reports success but the inventory never changes.
+        if (command === 'claude' && args[1] === 'uninstall') return ok();
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(report.status).toBe('failed');
+    const entry = report.entries?.find(
+      ({ key }) => key === 'claude:old-tool@xlsx',
+    );
+    expect(entry?.value).toBe('verification failed');
+    expect(entry?.error).toContain('still present');
+  },
+);
+
+sandboxTest(
+  'uninstalls listed plugins even when the marketplace is unreachable',
+  async (home) => {
+    const catalog = `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces:
+  - client: claude
+    repository: xlsx
+    name: xlsx
+    plugins: [xlsx]
+    uninstall: [old-tool]
+`;
+    await deployCatalog(home, catalog);
+    const claudeInstalled = new Set(['old-tool@xlsx']);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory([...claudeInstalled]));
+        }
+        if (command === 'claude' && args[1] === 'uninstall') {
+          claudeInstalled.delete(args[2] as string);
+          return ok();
+        }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return fail('offline');
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    // The install of the missing declared plugin fails offline, but the
+    // local-only uninstall still converges.
+    expect(report.status).toBe('failed');
+    expect(calls.map(({ args }) => args[1])).toContain('uninstall');
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:old-tool@xlsx')?.value,
+    ).toBe('uninstalled');
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.value,
+    ).toBe('install blocked');
+  },
+);
+
+sandboxTest(
+  'keeps a marketplace registered when its plugins survive a clean uninstall',
+  async (home) => {
+    const catalog = `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces: []
+removed_marketplaces:
+  - client: claude
+    name: retired
+`;
+    await deployCatalog(home, catalog);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory(['tool-a@retired']));
+        }
+        // The uninstall exits cleanly but the plugin is still installed.
+        if (command === 'claude' && args[1] === 'uninstall') return ok();
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(
+      calls.some(
+        ({ args }) => args[1] === 'marketplace' && args[2] === 'remove',
+      ),
+    ).toBe(false);
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:tool-a@retired')?.value,
+    ).toBe('verification failed');
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:retired')?.value,
+    ).toBe('marketplace removal blocked');
   },
 );

@@ -5,19 +5,25 @@ import {
   type PluginMarketplace,
   parsePluginCatalog,
   pluginId,
+  type RemovedMarketplace,
 } from '../../agent-plugin/catalog';
 import {
   addClaudeMarketplace,
   installClaudePlugin,
   listClaudeMarketplaces,
   listClaudePlugins,
+  removeClaudeMarketplace,
+  uninstallClaudePlugin,
   updateClaudeMarketplace,
   updateClaudePlugin,
 } from '../../agent-plugin/claude';
 import {
   ensureCodexMarketplace,
   installCodexPlugin,
+  listCodexMarketplaces,
   listCodexPlugins,
+  removeCodexMarketplace,
+  removeCodexPlugin,
   upgradeCodexMarketplace,
 } from '../../agent-plugin/codex';
 import { readPluginSshHost } from '../../agent-plugin/source';
@@ -120,6 +126,32 @@ async function updatePlugin(
   }
 }
 
+async function uninstallPlugin(
+  client: PluginClient,
+  id: string,
+  context: Context,
+): Promise<void> {
+  switch (client) {
+    case 'claude':
+      return uninstallClaudePlugin(id, context);
+    case 'codex':
+      return removeCodexPlugin(id, context);
+  }
+}
+
+async function removeMarketplace(
+  client: PluginClient,
+  name: string,
+  context: Context,
+): Promise<void> {
+  switch (client) {
+    case 'claude':
+      return removeClaudeMarketplace(name, context);
+    case 'codex':
+      return removeCodexMarketplace(name, context);
+  }
+}
+
 function inventoryFailureEntries(
   marketplace: PluginMarketplace,
   error: string,
@@ -174,12 +206,22 @@ function marketplaceFailureEntries(
   ];
 }
 
+/**
+ * The marketplace ensure outcome. `added` distinguishes registering a new
+ * marketplace (an observable config change) from refreshing an existing one —
+ * a probe whose observable effects surface through per-plugin version diffs.
+ */
+interface EnsuredMarketplace {
+  readonly added: boolean;
+  readonly report: StepReport;
+}
+
 async function ensureClaudeMarketplace(
   marketplace: PluginMarketplace,
   url: string,
   context: Context,
   cache: { inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>> },
-): Promise<StepReport> {
+): Promise<EnsuredMarketplace> {
   cache.inventory ??= await listClaudeMarketplaces(context);
   const current = cache.inventory.get(marketplace.name);
   if (!current) {
@@ -190,9 +232,12 @@ async function ensureClaudeMarketplace(
       ref: 'main',
     });
     return {
-      key: `claude:${marketplace.name}`,
-      value: 'marketplace added from main',
-      status: 'changed',
+      added: true,
+      report: {
+        key: `claude:${marketplace.name}`,
+        value: 'marketplace added from main',
+        status: 'changed',
+      },
     };
   }
   if (
@@ -206,9 +251,12 @@ async function ensureClaudeMarketplace(
   }
   await updateClaudeMarketplace(marketplace.name, context);
   return {
-    key: `claude:${marketplace.name}`,
-    value: 'marketplace refreshed from main',
-    status: 'changed',
+    added: false,
+    report: {
+      key: `claude:${marketplace.name}`,
+      value: 'marketplace refreshed from main',
+      status: 'changed',
+    },
   };
 }
 
@@ -219,7 +267,7 @@ async function ensureMarketplace(
   claudeCache: {
     inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
   },
-): Promise<StepReport> {
+): Promise<EnsuredMarketplace> {
   switch (marketplace.client) {
     case 'claude':
       return ensureClaudeMarketplace(marketplace, url, context, claudeCache);
@@ -229,13 +277,197 @@ async function ensureMarketplace(
         await upgradeCodexMarketplace(marketplace.name, context);
       }
       return {
-        key: `codex:${marketplace.name}`,
-        value: alreadyAdded
-          ? 'marketplace refreshed from main'
-          : 'marketplace added from main',
-        status: 'changed',
+        added: !alreadyAdded,
+        report: {
+          key: `codex:${marketplace.name}`,
+          value: alreadyAdded
+            ? 'marketplace refreshed from main'
+            : 'marketplace added from main',
+          status: 'changed',
+        },
       };
     }
+  }
+}
+
+const SURVIVED_UNINSTALL =
+  'Plugin was still present in the post-uninstall inventory.';
+
+/**
+ * Uninstall one installed plugin, mutating the in-memory inventory so later
+ * phases see post-removal state. Returns the index of the pushed entry, or
+ * null when the uninstall command failed; the caller decides where the
+ * absence is verified.
+ */
+async function uninstallInstalled(
+  client: PluginClient,
+  id: string,
+  installed: PluginInventory,
+  context: Context,
+  entries: StepReport[],
+): Promise<number | null> {
+  const entryIndex = entries.length;
+  try {
+    await uninstallPlugin(client, id, context);
+    installed.delete(id);
+    entries.push({
+      key: `${client}:${id}`,
+      value: 'uninstalled',
+      status: 'changed',
+    });
+    return entryIndex;
+  } catch (error) {
+    entries.push({
+      key: `${client}:${id}`,
+      value: 'uninstall failed',
+      status: 'failed',
+      error: errorMessage(error),
+    });
+    return null;
+  }
+}
+
+async function marketplaceRegistered(
+  removed: RemovedMarketplace,
+  context: Context,
+  claudeCache: {
+    inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
+  },
+  codexCache: { names?: Set<string> },
+): Promise<boolean> {
+  switch (removed.client) {
+    case 'claude':
+      claudeCache.inventory ??= await listClaudeMarketplaces(context);
+      return claudeCache.inventory.has(removed.name);
+    case 'codex':
+      codexCache.names ??= await listCodexMarketplaces(context);
+      return codexCache.names.has(removed.name);
+  }
+}
+
+/**
+ * Confirm the plugins just uninstalled are absent, rewriting the entry of any
+ * that survived. A zero exit status is not proof of removal, and this verdict
+ * gates deregistration, so it cannot wait for the shared post-run pass.
+ */
+async function confirmUninstalled(
+  client: PluginClient,
+  issued: readonly VerificationTarget[],
+  installed: PluginInventory,
+  context: Context,
+  entries: StepReport[],
+): Promise<boolean> {
+  if (issued.length === 0) return true;
+  let confirmed = true;
+  try {
+    const remaining = await listInstalled(client, context);
+    for (const target of issued) {
+      if (!remaining.has(target.id)) continue;
+      installed.set(target.id, remaining.get(target.id));
+      entries[target.entryIndex] = {
+        key: `${client}:${target.id}`,
+        value: 'verification failed',
+        status: 'failed',
+        error: SURVIVED_UNINSTALL,
+      };
+      confirmed = false;
+    }
+  } catch (error) {
+    for (const target of issued) {
+      entries[target.entryIndex] = {
+        key: `${client}:${target.id}`,
+        value: 'verification failed',
+        status: 'failed',
+        error: errorMessage(error),
+      };
+    }
+    confirmed = false;
+  }
+  return confirmed;
+}
+
+/**
+ * Converge one `removed_marketplaces` entry: uninstall every installed plugin
+ * in the marketplace's id namespace, confirm they are gone, then deregister
+ * the marketplace. The order is fixed here because neither client documents
+ * whether marketplace removal cascades; deregistering while a plugin survives
+ * would orphan it from its marketplace, so an unconfirmed removal blocks.
+ */
+async function removeDeclaredMarketplace(
+  removed: RemovedMarketplace,
+  installed: PluginInventory,
+  context: Context,
+  claudeCache: {
+    inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
+  },
+  codexCache: { names?: Set<string> },
+  entries: StepReport[],
+): Promise<void> {
+  const suffix = `@${removed.name}`;
+  const ids = [...installed.keys()].filter((id) => id.endsWith(suffix));
+  const issued: VerificationTarget[] = [];
+  let blocked = false;
+  for (const id of ids) {
+    const entryIndex = await uninstallInstalled(
+      removed.client,
+      id,
+      installed,
+      context,
+      entries,
+    );
+    if (entryIndex === null) blocked = true;
+    else issued.push({ client: removed.client, id, entryIndex });
+  }
+  if (
+    !(await confirmUninstalled(
+      removed.client,
+      issued,
+      installed,
+      context,
+      entries,
+    ))
+  ) {
+    blocked = true;
+  }
+  const key = `${removed.client}:${removed.name}`;
+  if (blocked) {
+    entries.push({
+      key,
+      value: 'marketplace removal blocked',
+      status: 'failed',
+      error: 'A plugin from this marketplace could not be uninstalled.',
+    });
+    return;
+  }
+  try {
+    const registered = await marketplaceRegistered(
+      removed,
+      context,
+      claudeCache,
+      codexCache,
+    );
+    if (!registered) {
+      entries.push({
+        key,
+        value: 'marketplace already absent',
+        status: 'unchanged',
+      });
+      return;
+    }
+    await removeMarketplace(removed.client, removed.name, context);
+    if (removed.client === 'claude') {
+      claudeCache.inventory?.delete(removed.name);
+    } else {
+      codexCache.names?.delete(removed.name);
+    }
+    entries.push({ key, value: 'marketplace removed', status: 'changed' });
+  } catch (error) {
+    entries.push({
+      key,
+      value: 'marketplace remove failed',
+      status: 'failed',
+      error: errorMessage(error),
+    });
   }
 }
 
@@ -252,7 +484,32 @@ async function reconcileMarketplace(
   entries: StepReport[],
   verification: VerificationTarget[],
   updates: UpdateTarget[],
+  removals: VerificationTarget[],
 ): Promise<void> {
+  // Uninstalls are local-only, so they run before — and independently of — the
+  // network-bound marketplace phase below.
+  for (const plugin of marketplace.uninstall) {
+    const id = pluginId(plugin, marketplace.name);
+    if (!installed.has(id)) {
+      entries.push({
+        key: `${marketplace.client}:${id}`,
+        value: 'already absent',
+        status: 'unchanged',
+      });
+      continue;
+    }
+    const entryIndex = await uninstallInstalled(
+      marketplace.client,
+      id,
+      installed,
+      context,
+      entries,
+    );
+    if (entryIndex !== null) {
+      removals.push({ client: marketplace.client, id, entryIndex });
+    }
+  }
+
   const desired = marketplace.plugins.map((plugin) =>
     pluginId(plugin, marketplace.name),
   );
@@ -276,9 +533,18 @@ async function reconcileMarketplace(
     marketplace.repository,
   );
   try {
-    entries.push(
-      await ensureMarketplace(marketplace, url, context, claudeCache),
+    const ensured = await ensureMarketplace(
+      marketplace,
+      url,
+      context,
+      claudeCache,
     );
+    // In update mode a refresh of an existing marketplace is a probe: the
+    // fetch itself would otherwise report every run as changed, so change is
+    // reported solely through the per-plugin version diffs it enables.
+    if (ensured.added || !update) {
+      entries.push(ensured.report);
+    }
   } catch (error) {
     entries.push(
       ...marketplaceFailureEntries(marketplace, installed, error, update),
@@ -344,9 +610,10 @@ async function reconcileMarketplace(
 }
 
 /**
- * One post-run inventory per client settles both outcome kinds: an install
- * must be present to stand, and an update entry is refined to changed or
- * unchanged by comparing the reported version against the pre-run one.
+ * One post-run inventory per client settles every outcome kind: an install
+ * must be present to stand, an uninstall must be absent, and an update entry
+ * is refined to changed or unchanged by comparing the reported version
+ * against the pre-run one.
  */
 async function verifyOutcomes(
   clients: readonly PluginClient[],
@@ -354,13 +621,23 @@ async function verifyOutcomes(
   entries: StepReport[],
   installs: readonly VerificationTarget[],
   updates: readonly UpdateTarget[],
+  removals: readonly VerificationTarget[],
 ): Promise<void> {
   for (const client of clients) {
     const clientInstalls = installs.filter(
       (target) => target.client === client,
     );
     const clientUpdates = updates.filter((target) => target.client === client);
-    if (clientInstalls.length === 0 && clientUpdates.length === 0) continue;
+    const clientRemovals = removals.filter(
+      (target) => target.client === client,
+    );
+    if (
+      clientInstalls.length === 0 &&
+      clientUpdates.length === 0 &&
+      clientRemovals.length === 0
+    ) {
+      continue;
+    }
     try {
       const installed = await listInstalled(client, context);
       for (const target of clientInstalls) {
@@ -370,6 +647,15 @@ async function verifyOutcomes(
           value: 'verification failed',
           status: 'failed',
           error: 'Plugin was not present in the post-install inventory.',
+        };
+      }
+      for (const target of clientRemovals) {
+        if (!installed.has(target.id)) continue;
+        entries[target.entryIndex] = {
+          key: `${client}:${target.id}`,
+          value: 'verification failed',
+          status: 'failed',
+          error: SURVIVED_UNINSTALL,
         };
       }
       for (const target of clientUpdates) {
@@ -402,7 +688,11 @@ async function verifyOutcomes(
               };
       }
     } catch (error) {
-      for (const target of [...clientInstalls, ...clientUpdates]) {
+      for (const target of [
+        ...clientInstalls,
+        ...clientUpdates,
+        ...clientRemovals,
+      ]) {
         entries[target.entryIndex] = {
           key: `${client}:${target.id}`,
           value: 'verification failed',
@@ -432,7 +722,10 @@ export function runAgentPlugins(
       catalog.source.defaultSshHost,
     );
     const clients = [
-      ...new Set(catalog.marketplaces.map(({ client }) => client)),
+      ...new Set([
+        ...catalog.marketplaces.map(({ client }) => client),
+        ...catalog.removedMarketplaces.map(({ client }) => client),
+      ]),
     ];
     const inventories = new Map<PluginClient, ClientInventory>();
     for (const client of clients) {
@@ -448,9 +741,11 @@ export function runAgentPlugins(
     const entries: StepReport[] = [];
     const verification: VerificationTarget[] = [];
     const updates: UpdateTarget[] = [];
+    const removals: VerificationTarget[] = [];
     const claudeCache: {
       inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
     } = {};
+    const codexCache: { names?: Set<string> } = {};
     for (const marketplace of catalog.marketplaces) {
       const inventory = inventories.get(marketplace.client);
       if (!inventory?.installed) {
@@ -473,10 +768,38 @@ export function runAgentPlugins(
         entries,
         verification,
         updates,
+        removals,
+      );
+    }
+    for (const removed of catalog.removedMarketplaces) {
+      const inventory = inventories.get(removed.client);
+      if (!inventory?.installed) {
+        entries.push({
+          key: `${removed.client}:${removed.name}`,
+          value: 'inventory failed',
+          status: 'failed',
+          error: inventory?.error ?? 'Plugin inventory is unavailable.',
+        });
+        continue;
+      }
+      await removeDeclaredMarketplace(
+        removed,
+        inventory.installed,
+        context,
+        claudeCache,
+        codexCache,
+        entries,
       );
     }
 
-    await verifyOutcomes(clients, context, entries, verification, updates);
+    await verifyOutcomes(
+      clients,
+      context,
+      entries,
+      verification,
+      updates,
+      removals,
+    );
     return {
       ...base,
       status: aggregateStatus(entries),

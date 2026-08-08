@@ -14,7 +14,7 @@ src/
   agent-plugin/  Claude Code/Codex marketplace catalogs, inventories, installers, and per-machine SSH source state
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
-  coder/         Coder section/skill catalogs, manifests, and renderers
+  coder/         Coder section/skill catalogs, manifests, renderers, and the codex config merge
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
       config/    Config toggle commands built by defineConfigCommand plus plugin SSH host configuration (aliased `cf`)
@@ -25,7 +25,7 @@ src/
   editor/        Editor extension list and install operations
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), transaction.ts (atomic staging), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
@@ -51,7 +51,8 @@ sources. GitHub Actions and Git-hosted dependencies owned by `akitorahayashi`
 use reviewed major or release tags for convenient trusted maintenance updates.
 First-party agent plugin marketplaces are the exception: their SSH sources
 track `main` for missing-plugin installation, while installed plugins are
-updated only by an explicit `--update` run, never implicitly.
+updated only by an explicit `--update` run, never implicitly, and removed
+only when the catalog explicitly lists them for uninstall.
 Third-party GitHub Actions use full commit SHAs with version comments, and
 third-party Git-hosted dependencies use immutable full commits.
 
