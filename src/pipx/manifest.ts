@@ -16,19 +16,17 @@ import { loadYaml } from '../host/yaml';
 // The manifest is repo-owned, so this is defense-in-depth.
 const SAFE_PACKAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 
-/**
- * The latest-assumed version vocabulary. pipx has no `latest` of its own the
- * way npm has the dist-tag, so this is mev's reserved literal and never reaches
- * an install spec.
- */
+/** mev's reserved literal: pipx has no `latest` the way npm has the dist-tag. */
 export const latestVersion = 'latest';
 
-// PEP 440's normalized form. A pin is compared literally against the version
-// pipx reports, which pip has normalized, so a range (`>=1.2`, `~=1.2`), a
-// wildcard, or an unnormalized spelling (`1.0.0-rc1`, `01.2`) could never match
-// and would uninstall and reinstall the tool on every run.
-const EXACT_VERSION =
-  /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?$/;
+// PEP 440's normalized public version. A pin is compared literally against the
+// version pipx reports, so a spelling pip resolves (`>=1.2`, `1.*`) or
+// normalizes away (`1.0.0-rc1`, a leading zero in any numeric component)
+// reinstalls the tool on every run.
+const NUMBER = String.raw`(?:0|[1-9]\d*)`;
+const EXACT_VERSION = new RegExp(
+  String.raw`^(?:${NUMBER}!)?${NUMBER}(?:\.${NUMBER})*(?:(?:a|b|rc)${NUMBER})?(?:\.post${NUMBER})?(?:\.dev${NUMBER})?$`,
+);
 
 export interface PostInstall {
   readonly bin: string;
@@ -97,37 +95,20 @@ export function parseManifest(raw: string, path: string): PipxEntry[] {
   ];
 }
 
-// A bare scalar is shorthand for `{ version: <scalar> }`, covering the common
-// case of a tool with no inject or post_install; the object form is needed
-// only when those fields are declared.
+// A bare scalar is shorthand for `{ version: <scalar> }`.
 function parseTool(pkg: string, value: unknown): PipxTool {
   if (!SAFE_PACKAGE_NAME.test(pkg)) {
     throw new ProvisioningError(
       `Invalid pipx config tool name '${pkg}': must contain only letters, digits, and ._- and not start with '-' or '.'.`,
     );
   }
-  const entry = typeof value === 'string' ? { version: value } : value;
-  if (!isRecord(entry)) {
-    throw new ProvisioningError(
-      `Invalid entry in pipx config for '${pkg}': must be a version or a mapping with 'version'.`,
-    );
-  }
+  const entry = isRecord(value) ? value : { version: value };
   requireExactKeys(
     entry,
     ['version', 'inject', 'post_install'],
     `Invalid entry in pipx config for '${pkg}'`,
   );
-  const version = entry['version'];
-  if (typeof version !== 'string') {
-    throw new ProvisioningError(
-      `Invalid entry in pipx config for '${pkg}': 'version' must be '${latestVersion}' or an exact version pin.`,
-    );
-  }
-  if (version !== latestVersion && !EXACT_VERSION.test(version)) {
-    throw new ProvisioningError(
-      `Invalid entry in pipx config for '${pkg}': 'version' must be '${latestVersion}' or an exact version pin, not '${version}'.`,
-    );
-  }
+  const version = requireVersion(entry['version'], pkg);
   const inject =
     entry['inject'] === undefined
       ? undefined
@@ -152,6 +133,31 @@ function parseTool(pkg: string, value: unknown): PipxTool {
       ? undefined
       : parsePostInstall(entry['post_install'], pkg);
   return { package: pkg, version, inject, post_install };
+}
+
+/**
+ * Unquoted `1.0` and `20250625` are valid PEP 440 versions that YAML types as
+ * numbers, and rendering one back as text resolves to a different pin than the
+ * author wrote (`1.10` to `1.1`), so quoting is required rather than inferred.
+ */
+function requireVersion(value: unknown, pkg: string): string {
+  const label = `Invalid entry in pipx config for '${pkg}'`;
+  if (typeof value === 'number') {
+    throw new ProvisioningError(
+      `${label}: 'version' ${value} must be quoted so YAML preserves it as written.`,
+    );
+  }
+  if (typeof value !== 'string') {
+    throw new ProvisioningError(
+      `${label}: 'version' must be '${latestVersion}' or an exact version pin.`,
+    );
+  }
+  if (value !== latestVersion && !EXACT_VERSION.test(value)) {
+    throw new ProvisioningError(
+      `${label}: 'version' must be '${latestVersion}' or an exact version pin, not '${value}'.`,
+    );
+  }
+  return value;
 }
 
 function parsePostInstall(value: unknown, pkg: string): PostInstall {
