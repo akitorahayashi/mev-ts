@@ -39,13 +39,11 @@ An absent manifest means an empty stored list, interpreted per polarity (all ena
 
 Every GitHub connection over SSH resolves its host alias from one per-machine store at `~/.mev/ssh-host`, a plain text file holding the alias on its own line:
 
-```
+```text
 github-personal
 ```
 
-`mev config ssh-host <ssh-host>` writes this file atomically. The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default.
-
-Changing the SSH host affects later missing-plugin installations. The command does not run provisioning or alter plugins already installed; `mev make coder` applies the current declaration when needed.
+The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default.
 
 ## Agent Plugin Catalog
 
