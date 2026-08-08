@@ -102,7 +102,7 @@ test('interactive git clone fails with recovery guidance when gv is unavailable'
 
     const stderr = await new Response(process.stderr).text();
     expect(await process.exited).toBe(127);
-    expect(stderr).toContain("run 'mev make grove --update'");
+    expect(stderr).toContain("run 'mev make grove --upgrade'");
   }));
 
 test('rf-cl runs gv clone from the references directory with unchanged arguments', () =>
