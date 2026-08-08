@@ -9,6 +9,7 @@ import { formulaeTarget } from './targets/formulae';
 import { ghTarget } from './targets/gh';
 import { ghosttyTarget } from './targets/ghostty';
 import { gitTarget } from './targets/git';
+import { groveTarget } from './targets/grove';
 import { herdrTarget } from './targets/herdr';
 import { nodejsTarget } from './targets/nodejs';
 import { nvimTarget } from './targets/nvim';
@@ -40,6 +41,7 @@ const targets: readonly Target[] = [
   bunTarget,
   rustTarget,
   rustCliTarget,
+  groveTarget,
   nvimTarget,
   ghosttyTarget,
   herdrTarget,

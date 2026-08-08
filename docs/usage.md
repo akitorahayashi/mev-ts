@@ -25,6 +25,20 @@ mev s                           # Alias for sync
 
 `sync --update` (alias `-u`) applies update mode only within the targets the scan selected; the selection itself is unchanged, so a synchronized environment still exits immediately without provisioning or network access. A deliberate full refresh of latest-assumed tools is `create -u` or `make <target> -u`.
 
+## Repository Workspace
+
+The non-optional `grove` target installs the `gv` release binary and materializes
+the embedded repository catalog as the regular file `~/Desktop/grove.toml`.
+Provisioning does not clone or update its declared repositories. After GitHub
+SSH authentication, repository synchronization remains an explicit Grove
+operation from the catalog root:
+
+```bash
+gh auth login --hostname github.com --git-protocol ssh --web
+cd ~/Desktop
+gv sync
+```
+
 ## Listing Targets
 
 ```bash

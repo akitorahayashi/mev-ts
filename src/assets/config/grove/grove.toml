@@ -1,0 +1,37 @@
+version = 1
+
+[repos.prf]
+path = "Rust/prf"
+url = "git@github.com:akitorahayashi/prf.git"
+
+[repos.asterism]
+path = "Rust/asterism"
+url = "git@github.com:asterismhq/asterism.git"
+
+[repos.grove]
+path = "Rust/grove"
+url = "git@github.com:akitorahayashi/grove.git"
+
+[repos.tmpc]
+path = "Rust/tmpc"
+url = "git@github.com:akitorahayashi/tmpc.git"
+
+[repos.comment-review]
+path = "Skills/comment-review"
+url = "git@github.com:akitorahayashi/comment-review.git"
+
+[repos.xlsx]
+path = "Skills/xlsx"
+url = "git@github.com:akitorahayashi/xlsx.git"
+
+[repos.prune-comments]
+path = "Skills/prune-comments"
+url = "git@github.com:akitorahayashi/prune-comments.git"
+
+[repos.agent-device-plugin]
+path = "Skills/agent-device-plugin"
+url = "git@github.com:akitorahayashi/agent-device-plugin.git"
+
+[repos.mev-ts]
+path = "TypeScript/mev-ts"
+url = "git@github.com:akitorahayashi/mev-ts.git"

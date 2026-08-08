@@ -1,0 +1,4 @@
+binaries:
+  - name: gv
+    repo: akitorahayashi/grove
+    tag: latest
