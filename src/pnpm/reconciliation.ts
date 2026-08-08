@@ -19,12 +19,12 @@ export function needsInstall(
 
 /**
  * `latest` is the only latest-assumed vocabulary, so a pinned package is never
- * upgraded; re-resolution happens only in update mode.
+ * upgraded; re-resolution happens only in upgrade mode.
  */
 export function shouldUpgrade(
   pkg: PnpmPackage,
   installed: InstalledPackage | undefined,
-  update: boolean,
+  upgrade: boolean,
 ): boolean {
-  return update && installed !== undefined && pkg.version === latestVersion;
+  return upgrade && installed !== undefined && pkg.version === latestVersion;
 }

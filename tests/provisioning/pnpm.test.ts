@@ -118,7 +118,7 @@ sandboxTest('a pin mismatch re-adds the pinned version', async (dir) => {
 });
 
 sandboxTest(
-  'update mode re-resolves latest-assumed packages and skips pinned ones',
+  'upgrade mode re-resolves latest-assumed packages and skips pinned ones',
   async (dir) => {
     await deployConfig(
       dir,
@@ -138,7 +138,7 @@ sandboxTest(
     });
 
     const report = await runActivation(applyPnpm(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.status).toBe('changed');
@@ -155,7 +155,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode reports packages already at latest as unchanged',
+  'upgrade mode reports packages already at latest as unchanged',
   async (dir) => {
     await deployConfig(dir, 'packages:\n  "@marp-team/marp-cli": latest\n');
     const listed = lsJson({ '@marp-team/marp-cli': '4.5.0' });
@@ -165,7 +165,7 @@ sandboxTest(
     });
 
     const report = await runActivation(applyPnpm(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.status).toBe('unchanged');

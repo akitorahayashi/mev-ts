@@ -83,7 +83,7 @@ export function blockedReport(
 export function runActivation(
   activation: Activation,
   context: Context,
-  options: ActivationRunOptions = { update: false },
+  options: ActivationRunOptions = { upgrade: false },
 ): Promise<ActivationReport> {
   switch (activation.kind) {
     case 'file':

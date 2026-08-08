@@ -33,7 +33,7 @@ function installed(
 ): StepReport {
   return {
     key: binary.name,
-    value: previous === null ? `installed ${tag}` : `updated to ${tag}`,
+    value: previous === null ? `installed ${tag}` : `upgraded to ${tag}`,
     status: 'changed',
   };
 }
@@ -43,7 +43,7 @@ function releaseStep(
   arch: ReleaseArch,
   binDir: string,
   context: Context,
-  update: boolean,
+  upgrade: boolean,
 ): ReconcileStep {
   const dest = join(binDir, binary.name);
   return {
@@ -57,9 +57,9 @@ function releaseStep(
         return installed(binary, binary.tag, reported);
       }
       // A latest-assumed binary that is already installed holds still until
-      // update mode asks for re-resolution, so a routine run neither reaches
+      // upgrade mode asks for re-resolution, so a routine run neither reaches
       // the network nor moves a working binary.
-      if (reported !== null && !update) {
+      if (reported !== null && !upgrade) {
         return { key: binary.name, value: 'up to date', status: 'unchanged' };
       }
       const tag = await resolveLatestTag(binary, context);
@@ -97,7 +97,7 @@ const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
     const binDir = join(context.home, BIN_DIR);
     await mkdir(binDir, { recursive: true });
     return binaries.map((binary) =>
-      releaseStep(binary, arch, binDir, context, runOptions.update),
+      releaseStep(binary, arch, binDir, context, runOptions.upgrade),
     );
   },
 });

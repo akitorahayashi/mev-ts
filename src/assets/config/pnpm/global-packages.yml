@@ -1,6 +1,6 @@
 # pnpm-managed global packages, applied as `pnpm add -g <name>@<version>`.
 # A version is either an exact pin or `latest`; `latest` re-resolves only in
-# update mode (`--update`).
+# upgrade mode (`--upgrade`).
 packages:
   "@marp-team/marp-cli": latest
   "@toon-format/cli": latest

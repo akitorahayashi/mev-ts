@@ -75,7 +75,7 @@ sandboxTest('make requires at least one selector', async (sandbox) => {
 });
 
 sandboxTest(
-  'make consumes --update as a flag rather than a selector',
+  'make consumes --upgrade as a flag rather than a selector',
   async (sandbox) => {
     const result = await runCli(
       ['make', '-u', 'definitely-not-a-target'],

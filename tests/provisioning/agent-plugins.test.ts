@@ -76,7 +76,7 @@ function codexVersionedInventory(
   });
 }
 
-const UPDATE_CATALOG = `
+const UPGRADE_CATALOG = `
 marketplaces:
   - client: claude
     repo: akitorahayashi/xlsx
@@ -350,9 +350,9 @@ marketplaces:
 );
 
 sandboxTest(
-  'update mode refreshes marketplaces and updates installed plugins',
+  'upgrade mode refreshes marketplaces and upgrades installed plugins',
   async (home) => {
-    await deployCatalog(home, UPDATE_CATALOG);
+    await deployCatalog(home, UPGRADE_CATALOG);
     let claudeVersion = '1.0.0';
     let codexVersion = '0.1.0';
     const { context, calls } = recordingContext({
@@ -400,7 +400,7 @@ sandboxTest(
     const report = await runActivation(
       installAgentPlugins(CONFIG_KEY),
       context,
-      { update: true },
+      { upgrade: true },
     );
 
     expect(report.status).toBe('changed');
@@ -422,19 +422,19 @@ sandboxTest(
       ({ key }) => key === 'claude:xlsx@xlsx',
     );
     expect(claudeEntry?.status).toBe('changed');
-    expect(claudeEntry?.value).toBe('updated to 1.1.0');
+    expect(claudeEntry?.value).toBe('upgraded to 1.1.0');
     const codexEntry = report.entries?.find(
       ({ key }) => key === 'codex:xlsx@xlsx',
     );
     expect(codexEntry?.status).toBe('changed');
-    expect(codexEntry?.value).toBe('updated to 0.2.0');
+    expect(codexEntry?.value).toBe('upgraded to 0.2.0');
   },
 );
 
 sandboxTest(
-  'update mode reports plugins already at the marketplace version as unchanged',
+  'upgrade mode reports plugins already at the marketplace version as unchanged',
   async (home) => {
-    await deployCatalog(home, UPDATE_CATALOG);
+    await deployCatalog(home, UPGRADE_CATALOG);
     const { context } = recordingContext({
       home,
       respond: (command, args) => {
@@ -474,7 +474,7 @@ sandboxTest(
     const report = await runActivation(
       installAgentPlugins(CONFIG_KEY),
       context,
-      { update: true },
+      { upgrade: true },
     );
 
     // With refreshes reported as probes, a run that moved nothing is fully
@@ -494,7 +494,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode keeps an update as changed when the client reports no versions',
+  'upgrade mode keeps an upgrade as changed when the client reports no versions',
   async (home) => {
     const catalog = `
 marketplaces:
@@ -524,17 +524,17 @@ marketplaces:
     const report = await runActivation(
       installAgentPlugins(CONFIG_KEY),
       context,
-      { update: true },
+      { upgrade: true },
     );
 
     const entry = report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx');
     expect(entry?.status).toBe('changed');
-    expect(entry?.value).toBe('updated');
+    expect(entry?.value).toBe('upgraded');
   },
 );
 
 sandboxTest(
-  'update mode fails installed plugins when the marketplace refresh fails',
+  'upgrade mode fails installed plugins when the marketplace refresh fails',
   async (home) => {
     const catalog = `
 marketplaces:
@@ -565,13 +565,13 @@ marketplaces:
     const report = await runActivation(
       installAgentPlugins(CONFIG_KEY),
       context,
-      { update: true },
+      { upgrade: true },
     );
 
     expect(report.status).toBe('failed');
     const entry = report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx');
     expect(entry?.status).toBe('failed');
-    expect(entry?.value).toBe('update blocked');
+    expect(entry?.value).toBe('upgrade blocked');
     expect(calls.some(({ args }) => args[1] === 'update')).toBe(false);
   },
 );

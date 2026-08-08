@@ -6,7 +6,7 @@ import {
   install,
   postInstall,
   uninstall,
-  upgrade,
+  upgrade as upgradePackage,
 } from '../../pipx/command';
 import { brewEnv, localVenvs } from '../../pipx/environment';
 import { type Installed, listInstalled } from '../../pipx/inventory';
@@ -43,7 +43,7 @@ function pipxStep(
   context: Context,
   options: CommandOptions,
   venvs: string,
-  update: boolean,
+  upgrade: boolean,
 ): ReconcileStep {
   const actions: string[] = [];
   return {
@@ -60,8 +60,8 @@ function pipxStep(
         actions.push('installed');
       }
       let justUpgraded = false;
-      if (installed && shouldUpgrade(tool, installed, update)) {
-        await upgrade(context, options, tool.package);
+      if (installed && shouldUpgrade(tool, installed, upgrade)) {
+        await upgradePackage(context, options, tool.package);
         // Classification diffs the pre/post inventory versions instead of
         // pipx's machine-readable upgrade output, which only exists in recent
         // pipx releases that provisioning never guarantees (the install phase
@@ -175,7 +175,7 @@ const pipxKind = manifestKind<PipxActivation, PipxEntry>({
             context,
             options,
             venvs,
-            runOptions.update,
+            runOptions.upgrade,
           ),
     );
   },

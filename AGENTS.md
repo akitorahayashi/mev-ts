@@ -52,7 +52,7 @@ sources. GitHub Actions and Git-hosted dependencies owned by `akitorahayashi`
 use reviewed major or release tags for convenient trusted maintenance updates.
 First-party agent plugin marketplaces are the exception: their SSH sources
 track `main` for missing-plugin installation, while installed plugins are
-updated only by an explicit `--update` run, never implicitly, and removed
+upgraded only by an explicit `--upgrade` run, never implicitly, and removed
 only when the catalog explicitly lists them for uninstall.
 Third-party GitHub Actions use full commit SHAs with version comments, and
 third-party Git-hosted dependencies use immutable full commits.

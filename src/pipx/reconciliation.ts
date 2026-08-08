@@ -16,7 +16,7 @@ export function installSpec(tool: PipxTool): string {
 }
 
 /**
- * Whether update mode re-resolves this tool against the latest release.
+ * Whether upgrade mode re-resolves this tool against the latest release.
  * `latest` is the only latest-assumed vocabulary, so a pinned tool is never
  * upgraded; a pin that diverges from the installed version is a reinstall
  * rather than an upgrade.
@@ -24,9 +24,9 @@ export function installSpec(tool: PipxTool): string {
 export function shouldUpgrade(
   tool: PipxTool,
   installed: Installed | undefined,
-  update: boolean,
+  upgrade: boolean,
 ): boolean {
-  return update && installed !== undefined && tool.version === latestVersion;
+  return upgrade && installed !== undefined && tool.version === latestVersion;
 }
 
 export function shouldInject(

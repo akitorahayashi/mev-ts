@@ -60,8 +60,8 @@ export interface ActivationStartEvent {
 
 export interface MakeRequest {
   readonly selectors: readonly string[];
-  /** Update mode (`--update`): refresh installed latest-assumed items. */
-  readonly update?: boolean;
+  /** Upgrade mode (`--upgrade`): refresh installed latest-assumed items. */
+  readonly upgrade?: boolean;
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
@@ -287,7 +287,7 @@ export async function runMake(
       });
       reports.push(
         await runActivation(activation, context, {
-          update: request.update ?? false,
+          upgrade: request.upgrade ?? false,
         }),
       );
     }
