@@ -24,6 +24,7 @@ type AssetReference = { readonly key: string } | { readonly prefix: string };
 function referencedAssets(activation: Activation): AssetReference[] {
   switch (activation.kind) {
     case 'file':
+    case 'materializedFile':
       return [{ key: activation.source.key }];
     case 'tree':
       return [{ prefix: activation.prefix }];

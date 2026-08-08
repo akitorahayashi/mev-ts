@@ -128,6 +128,7 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
         },
       };
     case 'file':
+    case 'materializedFile':
     case 'tree':
     case 'command':
     case 'remoteInstaller':

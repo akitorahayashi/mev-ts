@@ -26,6 +26,11 @@ export type Activation =
       readonly dest: HostPath;
     }
   | {
+      readonly kind: 'materializedFile';
+      readonly source: AssetRef;
+      readonly dest: HostPath;
+    }
+  | {
       readonly kind: 'tree';
       readonly prefix: string;
       readonly dest: HostPath;
