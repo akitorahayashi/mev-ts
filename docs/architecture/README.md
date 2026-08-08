@@ -29,14 +29,14 @@ src/
 
 ## Documents
 
-- cli.md — command registration, dispatch, and the error/exit-code model
-- provisioning.md — the 3-phase engine and the preservation boundary
-- targets.md — target shape, registry-driven selection, and semantic sync
-- activation.md — the activation DSL, the kind table, the reconcile envelope, shared manifest vocabulary, selection manifests, and the capability module boundary
-- agent-plugins.md — the agentPlugins reconciler and the codexConfig ownership inversion
-- command-pipeline.md — the command activation kind's scope and step vocabulary
-- release.md — release binary reconciliation and reviewed remote installers
-- host.md — Context assembly and CommandRunner's contract
-- assets.md — asset embedding, codegen, and the deploy store layout
-- identity.md — the Git identity domain
-- document.md — Markdown/PDF conversion mechanics
+- [cli.md](cli.md) — command registration, dispatch, and the error/exit-code model
+- [provisioning.md](provisioning.md) — the 3-phase engine and the preservation boundary
+- [targets.md](targets.md) — target shape, registry-driven selection, and semantic sync
+- [activation.md](activation.md) — the activation DSL, the kind table, the reconcile envelope, shared manifest vocabulary, selection manifests, and the capability module boundary
+- [agent-plugins.md](agent-plugins.md) — the agentPlugins reconciler and the codexConfig ownership inversion
+- [command-pipeline.md](command-pipeline.md) — the command activation kind's scope and step vocabulary
+- [release.md](release.md) — release binary reconciliation and reviewed remote installers
+- [host.md](host.md) — Context assembly and CommandRunner's contract
+- [assets.md](assets.md) — asset embedding, codegen, and the deploy store layout
+- [identity.md](identity.md) — the Git identity domain
+- [document.md](document.md) — Markdown/PDF conversion mechanics
