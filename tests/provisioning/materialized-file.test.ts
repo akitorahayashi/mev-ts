@@ -1,5 +1,6 @@
 import { expect } from 'bun:test';
 import {
+  chmod,
   lstat,
   mkdir,
   readFile,
@@ -64,6 +65,18 @@ sandbox('replaces different regular-file contents', async (dir) => {
 
   expect(report.status).toBe('changed');
   expect(await readFile(dest, 'utf8')).toBe('enabled = true\n');
+});
+
+sandbox('repairs executable-bit drift', async (dir) => {
+  const { activation, context, deployed, dest } = await fixture(dir);
+  await chmod(deployed, 0o755);
+  await mkdir(dirname(dest), { recursive: true });
+  await writeFile(dest, 'enabled = true\n', { mode: 0o644 });
+
+  const report = await runActivation(activation, context);
+
+  expect(report.status).toBe('changed');
+  expect((await stat(dest)).mode & 0o111).toBe(0o111);
 });
 
 sandbox('materializes an identical symlink as a regular file', async (dir) => {

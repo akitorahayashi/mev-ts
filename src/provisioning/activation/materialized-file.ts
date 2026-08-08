@@ -32,9 +32,14 @@ export function describeMaterializedFile(
   };
 }
 
-async function matchesRegularFile(path: string, expected: Buffer) {
+async function matchesRegularFile(
+  path: string,
+  expected: Buffer,
+  expectedMode: number,
+) {
   const current = await lstatIfPresent(path);
   if (!current?.isFile() || current.isSymbolicLink()) return false;
+  if ((current.mode & 0o111) !== (expectedMode & 0o111)) return false;
   if (current.size !== expected.byteLength) return false;
   return (await readFile(path)).equals(expected);
 }
@@ -80,10 +85,10 @@ export async function runMaterializedFile(
     const source = deployedPath(activation.source, context.home);
     const dest = resolveHostPath(activation.dest, context.home);
     const contents = await readFile(source);
-    if (await matchesRegularFile(dest, contents)) {
+    const sourceMode = (await stat(source)).mode & 0o7777;
+    if (await matchesRegularFile(dest, contents, sourceMode)) {
       return { ...base, status: 'unchanged' };
     }
-    const sourceMode = (await stat(source)).mode & 0o7777;
     await placeRegularFile(dest, contents, sourceMode);
     return { ...base, status: 'changed' };
   });
