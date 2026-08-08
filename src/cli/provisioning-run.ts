@@ -20,6 +20,8 @@ export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 
 interface ProvisioningRunOptions {
   readonly selectors: readonly string[];
+  /** Update mode (`--update`): refresh installed latest-assumed items. */
+  readonly update?: boolean;
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
@@ -56,6 +58,7 @@ export async function executeProvisioningRun(
   try {
     const report = await run({
       selectors: options.selectors,
+      update: options.update,
       onDeploy(result) {
         const line = renderDeployLine(result, isTTY);
         if (line) out(`${line}\n`);

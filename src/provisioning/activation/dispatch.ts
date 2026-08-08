@@ -7,7 +7,12 @@ import {
   runCoderSkills,
 } from './coder';
 import { describeCommand, runCommandActivation } from './command';
-import type { Activation, ActivationReport, Described } from './contract';
+import type {
+  Activation,
+  ActivationReport,
+  ActivationRunOptions,
+  Described,
+} from './contract';
 import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
 import { describeExtensions, runExtensions } from './extensions';
@@ -66,6 +71,7 @@ export function blockedReport(
 export function runActivation(
   activation: Activation,
   context: Context,
+  options: ActivationRunOptions = { update: false },
 ): Promise<ActivationReport> {
   switch (activation.kind) {
     case 'file':
@@ -77,7 +83,7 @@ export function runActivation(
     case 'duti':
       return runDuti(activation, context);
     case 'pipx':
-      return runPipx(activation, context);
+      return runPipx(activation, context, options);
     case 'editorExtensions':
       return runExtensions(activation, context);
     case 'coderAgents':
@@ -85,7 +91,7 @@ export function runActivation(
     case 'coderSkills':
       return runCoderSkills(activation, context);
     case 'agentPlugins':
-      return runAgentPlugins(activation, context);
+      return runAgentPlugins(activation, context, options);
     case 'zedSettings':
       return runZedSettings(activation, context);
     case 'command':

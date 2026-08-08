@@ -10,7 +10,9 @@ import {
   needsReinstall,
   shouldInject,
   shouldPostInstall,
+  shouldUpgrade,
 } from '../../pipx/reconciliation';
+import { upgrade } from '../../pipx/upgrade';
 import type { Activation } from './contract';
 import { manifestKind, manifestSource } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
@@ -31,6 +33,7 @@ function pipxStep(
   context: Context,
   options: CommandOptions,
   venvs: string,
+  update: boolean,
 ): ReconcileStep {
   const actions: string[] = [];
   return {
@@ -46,6 +49,25 @@ function pipxStep(
         justInstalled = true;
         actions.push('installed');
       }
+      let justUpgraded = false;
+      if (shouldUpgrade(tool, installed, update)) {
+        const report = await upgrade(
+          context,
+          options,
+          tool.package,
+          (tool.inject ?? []).length > 0,
+        );
+        if (report.status === 'upgraded') {
+          justUpgraded = true;
+          actions.push(`upgraded to ${report.version}`);
+        }
+        if (report.injectedUpgraded.length > 0) {
+          justUpgraded = true;
+          actions.push(
+            `upgraded injected ${report.injectedUpgraded.join(', ')}`,
+          );
+        }
+      }
       let justInjected = false;
       if (shouldInject(tool, installed, justInstalled)) {
         await inject(context, options, tool.package, tool.inject ?? []);
@@ -54,7 +76,7 @@ function pipxStep(
       }
       if (
         tool.post_install &&
-        shouldPostInstall(tool, justInstalled, justInjected)
+        shouldPostInstall(tool, justInstalled, justInjected, justUpgraded)
       ) {
         await postInstall(
           context,
@@ -90,14 +112,21 @@ const pipxKind = manifestKind<PipxActivation, PipxTool>({
     source: manifestSource(activation.configKey),
     dest: 'python tools',
   }),
-  steps: async (tools, _activation, context) => {
+  steps: async (tools, _activation, context, runOptions) => {
     const options = await brewEnv(context);
     const installed = await listInstalled(context, options);
     const venvs = tools.some((tool) => tool.post_install)
       ? await localVenvs(context, options)
       : '';
     return tools.map((tool) =>
-      pipxStep(tool, installed.get(tool.package), context, options, venvs),
+      pipxStep(
+        tool,
+        installed.get(tool.package),
+        context,
+        options,
+        venvs,
+        runOptions.update,
+      ),
     );
   },
 });

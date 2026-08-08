@@ -60,6 +60,8 @@ export interface ActivationStartEvent {
 
 export interface MakeRequest {
   readonly selectors: readonly string[];
+  /** Update mode (`--update`): refresh installed latest-assumed items. */
+  readonly update?: boolean;
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
@@ -283,7 +285,11 @@ export async function runMake(
         targetName: group.targetName,
         activation: describeActivation(activation),
       });
-      reports.push(await runActivation(activation, context));
+      reports.push(
+        await runActivation(activation, context, {
+          update: request.update ?? false,
+        }),
+      );
     }
     const baseReport: ActivationGroupReport = {
       targetName: group.targetName,

@@ -1,4 +1,4 @@
-import { Command } from 'clipanion';
+import { Command, Option } from 'clipanion';
 import { allTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import type { Target } from '../../provisioning/target';
@@ -27,6 +27,10 @@ export class CreateCommand extends Command {
     ),
   });
 
+  update = Option.Boolean('-u,--update', false, {
+    description: 'Also update installed latest-assumed tools',
+  });
+
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
       const { context, targets } = await prepareFullSetup((text) =>
@@ -37,6 +41,7 @@ export class CreateCommand extends Command {
 
       return executeProvisioningRun({
         selectors,
+        update: this.update,
         intro: 'mev: Creating environment',
         footer: (report) => (report.failed ? undefined : optionalFooter()),
         run: (request) => runMake(request, context),

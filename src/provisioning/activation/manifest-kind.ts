@@ -1,6 +1,10 @@
 import { basename, extname } from 'node:path';
 import type { Context } from '../../host/context';
-import type { ActivationReport, Described } from './contract';
+import type {
+  ActivationReport,
+  ActivationRunOptions,
+  Described,
+} from './contract';
 import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';
 
@@ -17,6 +21,7 @@ interface ManifestKindSpec<A extends ManifestActivation, D> {
     declared: readonly D[],
     activation: A,
     context: Context,
+    options: ActivationRunOptions,
   ) => Promise<readonly ReconcileStep[]>;
   /** Bounded parallelism for IO-bound, independent items; serial when unset. */
   readonly concurrency?: number;
@@ -25,7 +30,11 @@ interface ManifestKindSpec<A extends ManifestActivation, D> {
 export interface ManifestKind<A extends ManifestActivation> {
   describe(activation: A): Described;
   configAssets(activation: A): readonly string[];
-  run(activation: A, context: Context): Promise<ActivationReport>;
+  run(
+    activation: A,
+    context: Context,
+    options?: ActivationRunOptions,
+  ): Promise<ActivationReport>;
 }
 
 /**
@@ -41,7 +50,7 @@ export function manifestKind<A extends ManifestActivation, D>(
   return {
     describe: spec.describe,
     configAssets: (activation) => [activation.configKey],
-    run: (activation, context) =>
+    run: (activation, context, options = { update: false }) =>
       reconcile<D>(spec.describe(activation), {
         declare: () =>
           readDeployedManifest(
@@ -50,7 +59,7 @@ export function manifestKind<A extends ManifestActivation, D>(
             spec.parse,
             spec.manifestLabel,
           ),
-        steps: (declared) => spec.steps(declared, activation, context),
+        steps: (declared) => spec.steps(declared, activation, context, options),
         concurrent: spec.concurrency,
       }),
   };

@@ -12,6 +12,7 @@ import {
   listClaudeMarketplaces,
   listClaudePlugins,
   updateClaudeMarketplace,
+  updateClaudePlugin,
 } from '../../agent-plugin/claude';
 import {
   ensureCodexMarketplace,
@@ -25,6 +26,7 @@ import type { Context } from '../../host/context';
 import type {
   Activation,
   ActivationReport,
+  ActivationRunOptions,
   Described,
   StepReport,
 } from './contract';
@@ -34,8 +36,11 @@ import { aggregateStatus, guarded } from './reconcile';
 
 type AgentPluginsActivation = Extract<Activation, { kind: 'agentPlugins' }>;
 
+/** Installed plugin ids with the version the client reported, if any. */
+type PluginInventory = Map<string, string | undefined>;
+
 interface ClientInventory {
-  readonly installed?: Set<string>;
+  readonly installed?: PluginInventory;
   readonly error?: string;
 }
 
@@ -43,6 +48,13 @@ interface VerificationTarget {
   readonly client: PluginClient;
   readonly id: string;
   readonly entryIndex: number;
+}
+
+interface UpdateTarget {
+  readonly client: PluginClient;
+  readonly id: string;
+  readonly entryIndex: number;
+  readonly previousVersion: string | undefined;
 }
 
 export function installAgentPlugins(configKey: string): Activation {
@@ -68,7 +80,7 @@ export function describeAgentPlugins(
 async function listInstalled(
   client: PluginClient,
   context: Context,
-): Promise<Set<string>> {
+): Promise<PluginInventory> {
   switch (client) {
     case 'claude':
       return listClaudePlugins(context);
@@ -90,6 +102,24 @@ async function installPlugin(
   }
 }
 
+async function updatePlugin(
+  client: PluginClient,
+  id: string,
+  context: Context,
+): Promise<void> {
+  switch (client) {
+    case 'claude':
+      return updateClaudePlugin(id, context);
+    case 'codex':
+      // codex has no plugin-level update verb. Re-adding an installed plugin is
+      // idempotent and re-resolves its version from the marketplace snapshot
+      // that ensureMarketplace just refreshed (verified against the codex CLI:
+      // `plugin add` on an installed plugin succeeds and reports the resolved
+      // version).
+      return installCodexPlugin(id, context);
+  }
+}
+
 function inventoryFailureEntries(
   marketplace: PluginMarketplace,
   error: string,
@@ -104,8 +134,9 @@ function inventoryFailureEntries(
 
 function marketplaceFailureEntries(
   marketplace: PluginMarketplace,
-  installed: ReadonlySet<string>,
+  installed: PluginInventory,
   error: unknown,
+  update: boolean,
 ): StepReport[] {
   const detail = errorMessage(error);
   return [
@@ -117,17 +148,27 @@ function marketplaceFailureEntries(
     },
     ...marketplace.plugins.map((plugin): StepReport => {
       const id = pluginId(plugin, marketplace.name);
-      return installed.has(id)
+      if (!installed.has(id)) {
+        return {
+          key: `${marketplace.client}:${id}`,
+          value: 'install blocked',
+          status: 'failed',
+          error: detail,
+        };
+      }
+      // In update mode an unreachable marketplace blocks the requested update,
+      // so the installed plugin is a failure rather than an unchanged presence.
+      return update
         ? {
             key: `${marketplace.client}:${id}`,
-            value: 'already installed',
-            status: 'unchanged',
+            value: 'update blocked',
+            status: 'failed',
+            error: detail,
           }
         : {
             key: `${marketplace.client}:${id}`,
-            value: 'install blocked',
-            status: 'failed',
-            error: detail,
+            value: 'already installed',
+            status: 'unchanged',
           };
     }),
   ];
@@ -202,19 +243,21 @@ async function reconcileMarketplace(
   marketplace: PluginMarketplace,
   catalog: PluginCatalog,
   sshHost: string,
-  installed: Set<string>,
+  installed: PluginInventory,
+  update: boolean,
   context: Context,
   claudeCache: {
     inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
   },
   entries: StepReport[],
   verification: VerificationTarget[],
+  updates: UpdateTarget[],
 ): Promise<void> {
   const desired = marketplace.plugins.map((plugin) =>
     pluginId(plugin, marketplace.name),
   );
   const missing = desired.filter((id) => !installed.has(id));
-  if (missing.length === 0) {
+  if (!update && missing.length === 0) {
     entries.push(
       ...desired.map(
         (id): StepReport => ({
@@ -237,23 +280,52 @@ async function reconcileMarketplace(
       await ensureMarketplace(marketplace, url, context, claudeCache),
     );
   } catch (error) {
-    entries.push(...marketplaceFailureEntries(marketplace, installed, error));
+    entries.push(
+      ...marketplaceFailureEntries(marketplace, installed, error, update),
+    );
     return;
   }
 
   for (const id of desired) {
     if (installed.has(id)) {
-      entries.push({
-        key: `${marketplace.client}:${id}`,
-        value: 'already installed',
-        status: 'unchanged',
-      });
+      if (!update) {
+        entries.push({
+          key: `${marketplace.client}:${id}`,
+          value: 'already installed',
+          status: 'unchanged',
+        });
+        continue;
+      }
+      const entryIndex = entries.length;
+      try {
+        await updatePlugin(marketplace.client, id, context);
+        // Provisional: the post-run inventory refines this entry to changed or
+        // unchanged by version diff.
+        entries.push({
+          key: `${marketplace.client}:${id}`,
+          value: 'updated',
+          status: 'changed',
+        });
+        updates.push({
+          client: marketplace.client,
+          id,
+          entryIndex,
+          previousVersion: installed.get(id),
+        });
+      } catch (error) {
+        entries.push({
+          key: `${marketplace.client}:${id}`,
+          value: 'update failed',
+          status: 'failed',
+          error: errorMessage(error),
+        });
+      }
       continue;
     }
     const entryIndex = entries.length;
     try {
       await installPlugin(marketplace.client, id, context);
-      installed.add(id);
+      installed.set(id, undefined);
       entries.push({
         key: `${marketplace.client}:${id}`,
         value: 'installed',
@@ -271,18 +343,27 @@ async function reconcileMarketplace(
   }
 }
 
-async function verifyInstalls(
+/**
+ * One post-run inventory per client settles both outcome kinds: an install
+ * must be present to stand, and an update entry is refined to changed or
+ * unchanged by comparing the reported version against the pre-run one.
+ */
+async function verifyOutcomes(
   clients: readonly PluginClient[],
   context: Context,
   entries: StepReport[],
-  targets: readonly VerificationTarget[],
+  installs: readonly VerificationTarget[],
+  updates: readonly UpdateTarget[],
 ): Promise<void> {
   for (const client of clients) {
-    const clientTargets = targets.filter((target) => target.client === client);
-    if (clientTargets.length === 0) continue;
+    const clientInstalls = installs.filter(
+      (target) => target.client === client,
+    );
+    const clientUpdates = updates.filter((target) => target.client === client);
+    if (clientInstalls.length === 0 && clientUpdates.length === 0) continue;
     try {
       const installed = await listInstalled(client, context);
-      for (const target of clientTargets) {
+      for (const target of clientInstalls) {
         if (installed.has(target.id)) continue;
         entries[target.entryIndex] = {
           key: `${client}:${target.id}`,
@@ -291,8 +372,37 @@ async function verifyInstalls(
           error: 'Plugin was not present in the post-install inventory.',
         };
       }
+      for (const target of clientUpdates) {
+        if (!installed.has(target.id)) {
+          entries[target.entryIndex] = {
+            key: `${client}:${target.id}`,
+            value: 'verification failed',
+            status: 'failed',
+            error: 'Plugin was not present in the post-update inventory.',
+          };
+          continue;
+        }
+        const version = installed.get(target.id);
+        if (target.previousVersion === undefined || version === undefined) {
+          // Without versions on both sides a no-op cannot be proven, so the
+          // provisional 'updated' (changed) entry stands.
+          continue;
+        }
+        entries[target.entryIndex] =
+          version === target.previousVersion
+            ? {
+                key: `${client}:${target.id}`,
+                value: `already latest (${version})`,
+                status: 'unchanged',
+              }
+            : {
+                key: `${client}:${target.id}`,
+                value: `updated to ${version}`,
+                status: 'changed',
+              };
+      }
     } catch (error) {
-      for (const target of clientTargets) {
+      for (const target of [...clientInstalls, ...clientUpdates]) {
         entries[target.entryIndex] = {
           key: `${client}:${target.id}`,
           value: 'verification failed',
@@ -307,6 +417,7 @@ async function verifyInstalls(
 export function runAgentPlugins(
   activation: AgentPluginsActivation,
   context: Context,
+  options: ActivationRunOptions = { update: false },
 ): Promise<ActivationReport> {
   const base = describeAgentPlugins(activation);
   return guarded(base, async () => {
@@ -336,6 +447,7 @@ export function runAgentPlugins(
 
     const entries: StepReport[] = [];
     const verification: VerificationTarget[] = [];
+    const updates: UpdateTarget[] = [];
     const claudeCache: {
       inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
     } = {};
@@ -355,14 +467,16 @@ export function runAgentPlugins(
         catalog,
         sshHost,
         inventory.installed,
+        options.update,
         context,
         claudeCache,
         entries,
         verification,
+        updates,
       );
     }
 
-    await verifyInstalls(clients, context, entries, verification);
+    await verifyOutcomes(clients, context, entries, verification, updates);
     return {
       ...base,
       status: aggregateStatus(entries),

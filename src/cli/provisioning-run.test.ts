@@ -126,6 +126,14 @@ test('executeProvisioningRun renders a successful run and returns zero', async (
   expect(result.stdout).toContain('Baseline Homebrew casks: mev make br-c');
 });
 
+test('executeProvisioningRun forwards update mode to the run request', async () => {
+  const { run, requests } = runReturning(reportWithStatus('unchanged'));
+
+  await capture({ selectors: ['shell'], update: true, run });
+
+  expect(requests[0]?.update).toBe(true);
+});
+
 test('executeProvisioningRun drives animated progress on an injected TTY stream', async () => {
   const { run } = runReturning(reportWithStatus('changed'));
   // Inline fake terminal (kept hermetic: no fixtures import in a colocated test).

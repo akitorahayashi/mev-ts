@@ -10,9 +10,14 @@ export interface ClaudeMarketplace {
   readonly ref: string | undefined;
 }
 
+/**
+ * Installed plugin ids mapped to their reported version. The version is kept
+ * optional because only the id is contractual; update mode uses the version to
+ * classify an update as changed or unchanged when the client reports it.
+ */
 export async function listClaudePlugins(
   context: Context,
-): Promise<Set<string>> {
+): Promise<Map<string, string | undefined>> {
   const raw = await capturePluginJson(
     context.commands,
     'claude',
@@ -24,14 +29,17 @@ export async function listClaudePlugins(
       'Claude plugin inventory must be a JSON array.',
     );
   }
-  const installed = new Set<string>();
+  const installed = new Map<string, string | undefined>();
   for (const [index, entry] of raw.entries()) {
     if (!isRecord(entry) || typeof entry['id'] !== 'string') {
       throw new ProvisioningError(
         `Claude plugin inventory entry ${index + 1} requires a string id.`,
       );
     }
-    installed.add(entry['id']);
+    installed.set(
+      entry['id'],
+      typeof entry['version'] === 'string' ? entry['version'] : undefined,
+    );
   }
   return installed;
 }
@@ -103,5 +111,17 @@ export async function installClaudePlugin(
     'claude',
     ['plugin', 'install', id],
     `Claude plugin install ${id}`,
+  );
+}
+
+export async function updateClaudePlugin(
+  id: string,
+  context: Context,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'claude',
+    ['plugin', 'update', id],
+    `Claude plugin update ${id}`,
   );
 }

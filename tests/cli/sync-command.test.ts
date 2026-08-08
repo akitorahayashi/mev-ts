@@ -38,6 +38,7 @@ async function seedCurrentEnvironment(sandbox: string): Promise<void> {
 
 async function runSync(
   sandbox: string,
+  extraArgs: readonly string[] = [],
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const streams = captureStreams();
   const previousHome = process.env['HOME'];
@@ -47,7 +48,7 @@ async function runSync(
   process.env['HOME'] = sandbox;
   process.env['PATH'] = bin;
   try {
-    const code = await runCommandLine(['sync'], {
+    const code = await runCommandLine(['sync', ...extraArgs], {
       colorDepth: 1,
       stdout: streams.stdout as NodeJS.WriteStream,
       stderr: streams.stderr as NodeJS.WriteStream,
@@ -65,6 +66,21 @@ sandboxTest(
     await seedCurrentEnvironment(sandbox);
 
     const { code, stdout, stderr } = await runSync(sandbox);
+
+    expect(code).toBe(0);
+    expect(stdout).toBe('mev: environment is synchronized\n');
+    expect(stderr).toBe('');
+  },
+);
+
+sandboxTest(
+  'sync --update stays a no-op when the full setup is current',
+  async (sandbox) => {
+    // Update mode never widens the selection: a synchronized environment must
+    // exit without provisioning or network access even under --update.
+    await seedCurrentEnvironment(sandbox);
+
+    const { code, stdout, stderr } = await runSync(sandbox, ['--update']);
 
     expect(code).toBe(0);
     expect(stdout).toBe('mev: environment is synchronized\n');
