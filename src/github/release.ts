@@ -31,8 +31,8 @@ export type ReleaseArch = (typeof releaseArchitectures)[number];
 /**
  * The latest-assumed tag vocabulary, matching the pnpm manifest's `latest`. An
  * entry declaring it is resolved against the repository's latest release when
- * the binary is absent or when update mode asks for re-resolution; every other
- * tag is an exact pin that is never re-resolved.
+ * the binary is missing or unverifiable, or when upgrade mode asks for
+ * re-resolution; every other tag is an exact pin that is never re-resolved.
  */
 export const latestTag = 'latest';
 
@@ -211,10 +211,10 @@ async function repairExecuteBit(dest: string): Promise<void> {
 
 /**
  * The tag of the repository's latest release. Reached only when a
- * `latest`-declared binary is absent or update mode asks for re-resolution, so
- * a routine run of a fully installed environment makes no request at all.
- * Resolution yields a concrete tag, keeping one download URL shape for pinned
- * and latest-assumed entries alike.
+ * `latest`-declared binary is missing or unverifiable, or upgrade mode asks for
+ * re-resolution, so a routine run of a fully installed environment makes no
+ * request at all. Resolution yields a concrete tag, keeping one download URL
+ * shape for pinned and latest-assumed entries alike.
  */
 export async function resolveLatestTag(
   binary: ReleaseBinary,

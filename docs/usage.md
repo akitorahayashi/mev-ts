@@ -11,7 +11,7 @@ mev make git shell              # Provision multiple targets at once
 
 `make` (alias `mk`) resolves each selector to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. The repository config is the source of truth for declared outputs, so existing files, directories, or symlinks at those destinations are replaced by the current config. Activations report `changed`, `unchanged`, or `failed` per item. Each run ends with a report that summarizes required action, phase counts, changed targets, and retry selectors. See docs/architecture.md for the phase mechanics.
 
-`--update` (alias `-u`) additionally refreshes installed latest-assumed items in the selected targets: `latest`-declared pipx tools are upgraded to their latest release, `latest`-declared pnpm global packages and release binaries are re-resolved, and installed agent plugins are updated from their refreshed `main` marketplaces. Version-pinned entries are never touched, injected pipx dependencies stay presence-managed rather than upgraded, and update mode does not affect target signatures or sync staleness.
+`--upgrade` (alias `-u`) additionally refreshes installed latest-assumed items in the selected targets: `latest`-declared pipx tools are upgraded to their latest release, `latest`-declared pnpm global packages and release binaries are re-resolved, and installed agent plugins are upgraded from their refreshed `main` marketplaces. Version-pinned entries are never touched, injected pipx dependencies stay presence-managed rather than upgraded, and upgrade mode does not affect target signatures or sync staleness.
 
 ```bash
 mev create                      # Provision the full environment
@@ -19,11 +19,11 @@ mev sync                        # Apply changed full-setup targets
 mev s                           # Alias for sync
 ```
 
-`create` (alias `cr`) provisions the full environment by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`. `create --update` (alias `-u`) applies the same update mode as `make --update` across the full run.
+`create` (alias `cr`) provisions the full environment by running every target except the optional ones through the same phases as `make`. Optional GUI casks are deferred; install them on demand with `mev make br-c`. `create --upgrade` (alias `-u`) applies the same upgrade mode as `make --upgrade` across the full run.
 
 `sync` (alias `s`) scans the same non-optional target set and runs only targets whose declared packages, activation intent, or embedded assets changed since their last successful application, plus targets whose deployed role assets drifted. Successful target signatures are stored under `~/.mev/applied/`; optional targets remain explicit `make` operations. See docs/architecture.md for the signature and staleness mechanics.
 
-`sync --update` (alias `-u`) applies update mode only within the targets the scan selected; the selection itself is unchanged, so a synchronized environment still exits immediately without provisioning or network access. A deliberate full refresh of latest-assumed tools is `create -u` or `make <target> -u`.
+`sync --upgrade` (alias `-u`) applies upgrade mode only within the targets the scan selected; the selection itself is unchanged, so a synchronized environment still exits immediately without provisioning or network access. A deliberate full refresh of latest-assumed tools is `create -u` or `make <target> -u`.
 
 ## Repository Workspace
 

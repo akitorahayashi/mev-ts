@@ -28,7 +28,7 @@ function installStep(
   inventory: () => Promise<ReadonlyMap<string, InstalledPackage>>,
   context: Context,
   runtime: PnpmRuntime,
-  update: boolean,
+  upgrade: boolean,
 ): ReconcileStep {
   return {
     async run() {
@@ -37,7 +37,7 @@ function installStep(
         await add(context, runtime, installSpec(pkg));
         return { key: pkg.name, value: 'installed', status: 'changed' };
       }
-      if (installed && shouldUpgrade(pkg, installed, update)) {
+      if (installed && shouldUpgrade(pkg, installed, upgrade)) {
         await add(context, runtime, installSpec(pkg));
         // Classification diffs the pre/post inventory versions: `pnpm add -g`
         // reports success identically whether it changed anything or not.
@@ -133,7 +133,7 @@ const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
             inventory,
             context,
             runtime,
-            runOptions.update,
+            runOptions.upgrade,
           ),
     );
   },

@@ -55,7 +55,7 @@ interface VerificationTarget {
   readonly entryIndex: number;
 }
 
-interface UpdateTarget {
+interface UpgradeTarget {
   readonly client: PluginClient;
   readonly id: string;
   readonly entryIndex: number;
@@ -107,7 +107,7 @@ async function installPlugin(
   }
 }
 
-async function updatePlugin(
+async function upgradePlugin(
   client: PluginClient,
   id: string,
   context: Context,
@@ -167,7 +167,7 @@ function marketplaceFailureEntries(
   marketplace: PluginMarketplace,
   installed: PluginInventory,
   error: unknown,
-  update: boolean,
+  upgrade: boolean,
 ): StepReport[] {
   const detail = errorMessage(error);
   return [
@@ -187,12 +187,13 @@ function marketplaceFailureEntries(
           error: detail,
         };
       }
-      // In update mode an unreachable marketplace blocks the requested update,
-      // so the installed plugin is a failure rather than an unchanged presence.
-      return update
+      // In upgrade mode an unreachable marketplace blocks the requested
+      // upgrade, so the installed plugin is a failure rather than an
+      // unchanged presence.
+      return upgrade
         ? {
             key: `${marketplace.client}:${id}`,
-            value: 'update blocked',
+            value: 'upgrade blocked',
             status: 'failed',
             error: detail,
           }
@@ -521,14 +522,14 @@ async function reconcileMarketplace(
   marketplace: PluginMarketplace,
   sshHost: string,
   installed: PluginInventory,
-  update: boolean,
+  upgrade: boolean,
   context: Context,
   claudeCache: {
     inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
   },
   entries: StepReport[],
   verification: VerificationTarget[],
-  updates: UpdateTarget[],
+  upgrades: UpgradeTarget[],
   removals: VerificationTarget[],
 ): Promise<void> {
   // Uninstalls are local-only, so they run before — and independently of — the
@@ -559,7 +560,7 @@ async function reconcileMarketplace(
     pluginId(plugin, marketplace.name),
   );
   const missing = desired.filter((id) => !installed.has(id));
-  if (!update && missing.length === 0) {
+  if (!upgrade && missing.length === 0) {
     entries.push(
       ...desired.map(
         (id): StepReport => ({
@@ -580,22 +581,22 @@ async function reconcileMarketplace(
       context,
       claudeCache,
     );
-    // In update mode a refresh of an existing marketplace is a probe: the
+    // In upgrade mode a refresh of an existing marketplace is a probe: the
     // fetch itself would otherwise report every run as changed, so change is
     // reported solely through the per-plugin version diffs it enables.
-    if (ensured.added || !update) {
+    if (ensured.added || !upgrade) {
       entries.push(ensured.report);
     }
   } catch (error) {
     entries.push(
-      ...marketplaceFailureEntries(marketplace, installed, error, update),
+      ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
     );
     return;
   }
 
   for (const id of desired) {
     if (installed.has(id)) {
-      if (!update) {
+      if (!upgrade) {
         entries.push({
           key: `${marketplace.client}:${id}`,
           value: 'already installed',
@@ -605,15 +606,15 @@ async function reconcileMarketplace(
       }
       const entryIndex = entries.length;
       try {
-        await updatePlugin(marketplace.client, id, context);
+        await upgradePlugin(marketplace.client, id, context);
         // Provisional: the post-run inventory refines this entry to changed or
         // unchanged by version diff.
         entries.push({
           key: `${marketplace.client}:${id}`,
-          value: 'updated',
+          value: 'upgraded',
           status: 'changed',
         });
-        updates.push({
+        upgrades.push({
           client: marketplace.client,
           id,
           entryIndex,
@@ -622,7 +623,7 @@ async function reconcileMarketplace(
       } catch (error) {
         entries.push({
           key: `${marketplace.client}:${id}`,
-          value: 'update failed',
+          value: 'upgrade failed',
           status: 'failed',
           error: errorMessage(error),
         });
@@ -652,7 +653,7 @@ async function reconcileMarketplace(
 
 /**
  * One post-run inventory per client settles every outcome kind: an install
- * must be present to stand, an uninstall must be absent, and an update entry
+ * must be present to stand, an uninstall must be absent, and an upgrade entry
  * is refined to changed or unchanged by comparing the reported version
  * against the pre-run one.
  */
@@ -661,20 +662,22 @@ async function verifyOutcomes(
   context: Context,
   entries: StepReport[],
   installs: readonly VerificationTarget[],
-  updates: readonly UpdateTarget[],
+  upgrades: readonly UpgradeTarget[],
   removals: readonly VerificationTarget[],
 ): Promise<void> {
   for (const client of clients) {
     const clientInstalls = installs.filter(
       (target) => target.client === client,
     );
-    const clientUpdates = updates.filter((target) => target.client === client);
+    const clientUpgrades = upgrades.filter(
+      (target) => target.client === client,
+    );
     const clientRemovals = removals.filter(
       (target) => target.client === client,
     );
     if (
       clientInstalls.length === 0 &&
-      clientUpdates.length === 0 &&
+      clientUpgrades.length === 0 &&
       clientRemovals.length === 0
     ) {
       continue;
@@ -699,20 +702,20 @@ async function verifyOutcomes(
           error: SURVIVED_UNINSTALL,
         };
       }
-      for (const target of clientUpdates) {
+      for (const target of clientUpgrades) {
         if (!installed.has(target.id)) {
           entries[target.entryIndex] = {
             key: `${client}:${target.id}`,
             value: 'verification failed',
             status: 'failed',
-            error: 'Plugin was not present in the post-update inventory.',
+            error: 'Plugin was not present in the post-upgrade inventory.',
           };
           continue;
         }
         const version = installed.get(target.id);
         if (target.previousVersion === undefined || version === undefined) {
           // Without versions on both sides a no-op cannot be proven, so the
-          // provisional 'updated' (changed) entry stands.
+          // provisional 'upgraded' (changed) entry stands.
           continue;
         }
         entries[target.entryIndex] =
@@ -724,14 +727,14 @@ async function verifyOutcomes(
               }
             : {
                 key: `${client}:${target.id}`,
-                value: `updated to ${version}`,
+                value: `upgraded to ${version}`,
                 status: 'changed',
               };
       }
     } catch (error) {
       for (const target of [
         ...clientInstalls,
-        ...clientUpdates,
+        ...clientUpgrades,
         ...clientRemovals,
       ]) {
         entries[target.entryIndex] = {
@@ -748,7 +751,7 @@ async function verifyOutcomes(
 export function runAgentPlugins(
   activation: AgentPluginsActivation,
   context: Context,
-  options: ActivationRunOptions = { update: false },
+  options: ActivationRunOptions = { upgrade: false },
 ): Promise<ActivationReport> {
   const base = describeAgentPlugins(activation);
   return guarded(base, async () => {
@@ -778,7 +781,7 @@ export function runAgentPlugins(
 
     const entries: StepReport[] = [];
     const verification: VerificationTarget[] = [];
-    const updates: UpdateTarget[] = [];
+    const upgrades: UpgradeTarget[] = [];
     const removals: VerificationTarget[] = [];
     const claudeCache: {
       inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
@@ -801,12 +804,12 @@ export function runAgentPlugins(
         marketplace,
         sshHost,
         inventory.installed,
-        options.update,
+        options.upgrade,
         context,
         claudeCache,
         entries,
         verification,
-        updates,
+        upgrades,
         removals,
       );
     }
@@ -836,7 +839,7 @@ export function runAgentPlugins(
       context,
       entries,
       verification,
-      updates,
+      upgrades,
       removals,
     );
     return {

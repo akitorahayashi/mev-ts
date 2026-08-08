@@ -38,7 +38,7 @@ const config = { key: 'demo/config' };
 // these targets' assets/definition) must update these constants knowingly.
 const GOLDEN_SIGNATURES: Readonly<Record<string, string>> = {
   git: 'sha256:e80b1eeab78e5a83b52c204f95fb396552f8e82fd188fb34aec68803458e6325',
-  pnpm: 'sha256:05c3d3d4cf22abdd185a86a859ff38b0f09e8e5962e880a1dcaaeb0319e7d939',
+  pnpm: 'sha256:3d2b4a44157b1c0f3ca9cec04fb2ffdac08624cea7bfa2cc1ca64e3a237e993e',
 };
 
 for (const [selector, expected] of Object.entries(GOLDEN_SIGNATURES)) {

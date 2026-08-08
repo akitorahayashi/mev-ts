@@ -6,8 +6,8 @@ import { capturePluginJson } from './output';
 
 /**
  * Installed plugin ids mapped to their reported version. The version is kept
- * optional because only the pluginId is contractual; update mode uses the
- * version to classify an update as changed or unchanged when reported.
+ * optional because only the pluginId is contractual; upgrade mode uses the
+ * version to classify an upgrade as changed or unchanged when reported.
  */
 export async function listCodexPlugins(
   context: Context,

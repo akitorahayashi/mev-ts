@@ -27,8 +27,8 @@ export class CreateCommand extends Command {
     ),
   });
 
-  update = Option.Boolean('-u,--update', false, {
-    description: 'Also update installed latest-assumed tools',
+  upgrade = Option.Boolean('-u,--upgrade', false, {
+    description: 'Also upgrade installed latest-assumed tools',
   });
 
   async execute() {
@@ -41,7 +41,7 @@ export class CreateCommand extends Command {
 
       return executeProvisioningRun({
         selectors,
-        update: this.update,
+        upgrade: this.upgrade,
         intro: 'mev: Creating environment',
         footer: (report) => (report.failed ? undefined : optionalFooter()),
         run: (request) => runMake(request, context),

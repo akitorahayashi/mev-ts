@@ -50,7 +50,7 @@ export function manifestKind<A extends ManifestActivation, D>(
   return {
     describe: spec.describe,
     configAssets: (activation) => [activation.configKey],
-    run: (activation, context, options = { update: false }) =>
+    run: (activation, context, options = { upgrade: false }) =>
       reconcile<D>(spec.describe(activation), {
         declare: () =>
           readDeployedManifest(

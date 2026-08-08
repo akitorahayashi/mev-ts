@@ -181,12 +181,12 @@ export interface CommandStep {
 
 /**
  * Per-run execution intent threaded from the CLI into the runners that consume
- * it. `update` re-resolves latest for installed latest-assumed items (the
- * explicit `--update` flag); it never alters declared intent, so target
+ * it. `upgrade` re-resolves latest for installed latest-assumed items (the
+ * explicit `--upgrade` flag); it never alters declared intent, so target
  * signatures and sync staleness are unaffected.
  */
 export interface ActivationRunOptions {
-  readonly update: boolean;
+  readonly upgrade: boolean;
 }
 
 export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';

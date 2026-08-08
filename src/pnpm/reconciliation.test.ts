@@ -20,7 +20,7 @@ test('needsInstall re-adds only on a pin mismatch', () => {
   expect(needsInstall(latest, { version: '5.5.0' })).toBeFalse();
 });
 
-test('shouldUpgrade re-resolves only installed latest-assumed packages in update mode', () => {
+test('shouldUpgrade re-resolves only installed latest-assumed packages in upgrade mode', () => {
   expect(shouldUpgrade(latest, { version: '5.5.0' }, true)).toBeTrue();
   expect(shouldUpgrade(latest, { version: '5.5.0' }, false)).toBeFalse();
   expect(shouldUpgrade(latest, undefined, true)).toBeFalse();

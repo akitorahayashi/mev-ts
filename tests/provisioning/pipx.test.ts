@@ -160,7 +160,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode upgrades latest-declared installed tools and skips pinned ones',
+  'upgrade mode upgrades latest-declared installed tools and skips pinned ones',
   async (dir) => {
     await deployConfig(dir);
     let ytdlpVersion = '1.0';
@@ -188,7 +188,7 @@ sandboxTest(
     });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.status).toBe('changed');
@@ -204,7 +204,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode reports tools already at latest as unchanged',
+  'upgrade mode reports tools already at latest as unchanged',
   async (dir) => {
     await deployConfig(dir);
     const listed = listJson({
@@ -227,7 +227,7 @@ sandboxTest(
     });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.status).toBe('unchanged');
@@ -239,7 +239,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode upgrades only the main package and re-runs post-install',
+  'upgrade mode upgrades only the main package and re-runs post-install',
   async (dir) => {
     const roleDir = join(dir, '.mev', 'roles', 'pipx');
     await mkdir(roleDir, { recursive: true });
@@ -278,7 +278,7 @@ sandboxTest(
     });
 
     const report = await runActivation(applyPipx(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.status).toBe('changed');
