@@ -68,6 +68,11 @@ export type Activation =
       readonly dest: HostPath;
     }
   | {
+      readonly kind: 'codexConfig';
+      readonly source: AssetRef;
+      readonly dest: HostPath;
+    }
+  | {
       readonly kind: 'command';
       readonly label: string;
       readonly reads?: Readonly<Record<string, CommandRead>>;

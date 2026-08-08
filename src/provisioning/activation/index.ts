@@ -4,6 +4,7 @@ export {
 } from './agent-plugins';
 export { brewPath, brewPrefixCapture } from './brew-path';
 export { coderAgents, coderAgentsConfigAssets, coderSkills } from './coder';
+export { codexConfig, codexConfigAssets } from './codex-config';
 export { bindCommandRead, commandReadKey, runCommand } from './command';
 export type {
   Activation,

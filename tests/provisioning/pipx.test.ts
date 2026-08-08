@@ -72,38 +72,6 @@ function baseResponder(listOutput: string) {
   };
 }
 
-function upgradeJson(
-  packages: ReadonlyArray<{
-    pkg: string;
-    prev: string;
-    version: string;
-    status: string;
-    injected?: boolean;
-  }>,
-): string {
-  return JSON.stringify({
-    pipx_result_version: '0.1',
-    command: ['upgrade'],
-    status: 'success',
-    exit_code: 0,
-    data: {
-      packages: packages.map((p) => ({
-        environment: p.pkg,
-        package: p.pkg,
-        previous_version: p.prev,
-        version: p.version,
-        status: p.status,
-        injected: p.injected ?? false,
-        location: join(VENVS, p.pkg),
-        interpreter: null,
-        backend: 'pip',
-      })),
-      skipped: [],
-    },
-    errors: [],
-  });
-}
-
 sandboxTest(
   'all tools current: no install/inject/post-install runs',
   async (dir) => {
@@ -202,35 +170,29 @@ sandboxTest(
   'update mode upgrades unpinned installed tools and skips pinned ones',
   async (dir) => {
     await deployConfig(dir);
-    const listed = listJson({
-      'yt-dlp': {
-        package: 'yt-dlp',
-        package_or_url: 'yt-dlp',
-        package_version: '1.0',
-      },
-      'browser-tool': {
-        package: 'browser-tool',
-        package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
-        package_version: '1.0.0',
-        deps: ['browser-driver'],
-      },
-    });
+    let ytdlpVersion = '1.0';
+    const currentList = () =>
+      listJson({
+        'yt-dlp': {
+          package: 'yt-dlp',
+          package_or_url: 'yt-dlp',
+          package_version: ytdlpVersion,
+        },
+        'browser-tool': {
+          package: 'browser-tool',
+          package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
+          package_version: '1.0.0',
+          deps: ['browser-driver'],
+        },
+      });
     const { context, calls } = recordingContext({
       home: dir,
       respond: (cmd, args) => {
         if (cmd === 'pipx' && args[0] === 'upgrade') {
-          return ok(
-            upgradeJson([
-              {
-                pkg: 'yt-dlp',
-                prev: '1.0',
-                version: '2.0',
-                status: 'upgraded',
-              },
-            ]),
-          );
+          ytdlpVersion = '2.0';
+          return ok();
         }
-        return baseResponder(listed)(cmd, args);
+        return baseResponder(currentList())(cmd, args);
       },
     });
 
@@ -240,9 +202,7 @@ sandboxTest(
 
     expect(report.status).toBe('changed');
     const upgrades = calls.filter((c) => c.args[0] === 'upgrade');
-    expect(upgrades.map((c) => c.args)).toEqual([
-      ['upgrade', '--output', 'json', 'yt-dlp'],
-    ]);
+    expect(upgrades.map((c) => c.args)).toEqual([['upgrade', 'yt-dlp']]);
     expect(report.entries?.find((e) => e.key === 'yt-dlp')?.value).toBe(
       'upgraded to 2.0',
     );
@@ -269,21 +229,10 @@ sandboxTest(
         deps: ['browser-driver'],
       },
     });
-    const { context } = recordingContext({
+    const { context, calls } = recordingContext({
       home: dir,
       respond: (cmd, args) => {
-        if (cmd === 'pipx' && args[0] === 'upgrade') {
-          return ok(
-            upgradeJson([
-              {
-                pkg: 'yt-dlp',
-                prev: '1.0',
-                version: '1.0',
-                status: 'unchanged',
-              },
-            ]),
-          );
-        }
+        if (cmd === 'pipx' && args[0] === 'upgrade') return ok();
         return baseResponder(listed)(cmd, args);
       },
     });
@@ -293,6 +242,7 @@ sandboxTest(
     });
 
     expect(report.status).toBe('unchanged');
+    expect(calls.some((c) => c.args[0] === 'upgrade')).toBe(true);
     expect(report.entries?.find((e) => e.key === 'yt-dlp')?.value).toBe(
       'up to date',
     );
@@ -300,7 +250,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode upgrades injected dependencies and re-runs post-install',
+  'update mode upgrades only the main package and re-runs post-install',
   async (dir) => {
     const roleDir = join(dir, '.mev', 'roles', 'pipx');
     await mkdir(roleDir, { recursive: true });
@@ -317,37 +267,24 @@ sandboxTest(
         '',
       ].join('\n'),
     );
-    const listed = listJson({
-      'media-tool': {
-        package: 'media-tool',
-        package_or_url: 'media-tool',
-        package_version: '1.0',
-        deps: ['media-driver'],
-      },
-    });
+    let mediaToolVersion = '1.0';
+    const currentList = () =>
+      listJson({
+        'media-tool': {
+          package: 'media-tool',
+          package_or_url: 'media-tool',
+          package_version: mediaToolVersion,
+          deps: ['media-driver'],
+        },
+      });
     const { context, calls } = recordingContext({
       home: dir,
       respond: (cmd, args) => {
         if (cmd === 'pipx' && args[0] === 'upgrade') {
-          return ok(
-            upgradeJson([
-              {
-                pkg: 'media-tool',
-                prev: '1.0',
-                version: '1.0',
-                status: 'unchanged',
-              },
-              {
-                pkg: 'media-driver',
-                prev: '0.1',
-                version: '0.2',
-                status: 'upgraded',
-                injected: true,
-              },
-            ]),
-          );
+          mediaToolVersion = '1.1';
+          return ok();
         }
-        return baseResponder(listed)(cmd, args);
+        return baseResponder(currentList())(cmd, args);
       },
     });
 
@@ -357,15 +294,11 @@ sandboxTest(
 
     expect(report.status).toBe('changed');
     const upgrade = calls.find((c) => c.args[0] === 'upgrade');
-    expect(upgrade?.args).toEqual([
-      'upgrade',
-      '--output',
-      'json',
-      '--include-injected',
-      'media-tool',
-    ]);
+    // No --include-injected: only the declared main package is upgraded, so an
+    // injection mev does not own is never touched.
+    expect(upgrade?.args).toEqual(['upgrade', 'media-tool']);
     expect(report.entries?.find((e) => e.key === 'media-tool')?.value).toBe(
-      'upgraded injected media-driver, post-installed',
+      'upgraded to 1.1, post-installed',
     );
     const post = calls.find((c) => c.command.endsWith('media-tool'));
     expect(post?.command).toBe(join(VENVS, 'media-tool', 'bin', 'media-tool'));

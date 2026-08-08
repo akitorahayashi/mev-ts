@@ -9,18 +9,24 @@ marketplaces:
     plugins:
       - agent-device
       - device-verification
+    uninstall: []
   - client: claude
     repository: comment-review
     name: comment-review
     plugins:
       - comment-review
+    uninstall: []
   - client: claude
     repository: xlsx
     name: xlsx
     plugins:
       - xlsx
+    uninstall: []
   - client: codex
     repository: xlsx
     name: xlsx
     plugins:
       - xlsx
+    uninstall: []
+
+removed_marketplaces: []

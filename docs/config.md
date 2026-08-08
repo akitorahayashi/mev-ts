@@ -47,6 +47,21 @@ ssh_host: github-personal
 
 Changing the SSH host affects later missing-plugin installations. The command does not run provisioning or alter plugins already installed; `mev make coder` applies the current declaration when needed.
 
+The catalog also declares removals explicitly. Every marketplace entry carries a required `uninstall` list and the catalog root a required `removed_marketplaces` list, both usually empty:
+
+```yaml
+marketplaces:
+  - client: claude
+    repository: xlsx
+    name: xlsx
+    plugins:
+      - xlsx
+    uninstall: []
+removed_marketplaces: []
+```
+
+Moving a plugin name from `plugins` to `uninstall` uninstalls it on the next run; moving a whole entry to `removed_marketplaces` (as `client` and `name`) uninstalls its remaining installed plugins and deregisters the marketplace. Only listed items are removed — plugins installed by hand outside the catalog are never touched. Because the catalog is an embedded asset, these edits mark the coder target stale and `mev sync` converges them.
+
 ## Extending the Catalogs
 
 A new Zed override is a `<name>.json` file dropped into `src/assets/config/zed/overrides/`; a new skill is a new skill subdirectory — neither needs a registration step. A new AGENTS.md section needs both the `<name>.md` file and a listing entry in `catalog.yml`; adding only one half fails loudly the next time the catalog is read.

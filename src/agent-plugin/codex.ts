@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 import { capturePluginJson } from './output';
@@ -76,5 +77,57 @@ export async function installCodexPlugin(
     'codex',
     ['plugin', 'add', id, '--json'],
     `Codex plugin install ${id}`,
+  );
+}
+
+/** Registered marketplace names, for probing before a declarative removal. */
+export async function listCodexMarketplaces(
+  context: Context,
+): Promise<Set<string>> {
+  const raw = await capturePluginJson(
+    context.commands,
+    'codex',
+    ['plugin', 'marketplace', 'list', '--json'],
+    'Codex marketplace inventory',
+  );
+  if (!isRecord(raw) || !Array.isArray(raw['marketplaces'])) {
+    throw new ProvisioningError(
+      'Codex marketplace inventory requires a marketplaces array.',
+    );
+  }
+  const names = new Set<string>();
+  for (const [index, entry] of raw['marketplaces'].entries()) {
+    if (!isRecord(entry) || typeof entry['name'] !== 'string') {
+      throw new ProvisioningError(
+        `Codex marketplace inventory entry ${index + 1} requires a string name.`,
+      );
+    }
+    names.add(entry['name']);
+  }
+  return names;
+}
+
+// `codex plugin remove` documents no --json flag, unlike its siblings.
+export async function removeCodexPlugin(
+  id: string,
+  context: Context,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'codex',
+    ['plugin', 'remove', id],
+    `Codex plugin remove ${id}`,
+  );
+}
+
+export async function removeCodexMarketplace(
+  name: string,
+  context: Context,
+): Promise<void> {
+  await capturePluginJson(
+    context.commands,
+    'codex',
+    ['plugin', 'marketplace', 'remove', name, '--json'],
+    `Codex marketplace remove ${name}`,
   );
 }

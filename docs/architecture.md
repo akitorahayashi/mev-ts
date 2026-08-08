@@ -60,6 +60,7 @@ activation/
   extensions.ts 'editorExtensions' factory and runner
   agent-plugins.ts 'agentPlugins' marketplace and plugin reconciler
   coder.ts      'coderAgents' + 'coderSkills' factories and runners
+  codex-config.ts 'codexConfig' factory and runner
   zed.ts        'zedSettings' factory and runner
   command.ts    'command' factory and step execution engine
   release.ts    'release' factory and runner
@@ -67,7 +68,7 @@ activation/
   index.ts      public barrel
 ```
 
-Thirteen activation kinds:
+Fourteen activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
@@ -79,8 +80,9 @@ Thirteen activation kinds:
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
-| `agentPlugins` | `installAgentPlugins(configKey)` | Installs missing Claude Code and Codex plugins from SSH-backed `main` marketplaces; installed plugins are updated only in update mode |
+| `agentPlugins` | `installAgentPlugins(configKey)` | Installs missing Claude Code and Codex plugins from SSH-backed `main` marketplaces; installed plugins are updated only in update mode; uninstalls only the plugins and marketplaces the catalog explicitly lists for removal |
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
+| `codexConfig` | `codexConfig(source, dest)` | Enforces the declared TOML values into the codex-owned config file, preserving runtime tables; equality is structural, so codex's own rewrites never re-trigger it |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips when the installed bytes match the locked SHA-256 digest |
 | `remoteInstaller` | `remoteInstaller({ label, url, interpreter, args, creates, integrity })` | Downloads a reviewed HTTPS installer script or binary to a temporary file, satisfies its required `integrity` discriminant, runs it with declared arguments, and cleans the temporary file |
@@ -99,7 +101,11 @@ Thirteen activation kinds:
 
 `agentPlugins` inventories Claude Code and Codex once per client. Outside update mode, a marketplace with no missing declared plugins performs no marketplace operation. For a missing plugin, the activation adds the SSH marketplace at `main`, or refreshes an existing marketplace only when its URL and ref match the declaration, then installs only the missing IDs. Installed disabled plugins still count as present. Marketplace source conflicts fail without removing or replacing user state, and a final client inventory verifies successful install commands. Antigravity plugins are outside this activation.
 
-In update mode every declared marketplace is refreshed from `main` first, then each installed declared plugin is updated: Claude Code through `plugin update`, Codex by re-adding the plugin, which re-resolves its version from the refreshed snapshot because the Codex CLI has no plugin-level update verb. The final client inventory classifies each update as changed or unchanged by version diff; when a client reports no version, the update stays classified as changed because a no-op cannot be proven. An unreachable marketplace fails its installed plugins as `update blocked` instead of reporting them unchanged.
+Removal is declarative and strictly explicit: each catalog marketplace carries a required `uninstall` list, and the catalog root carries a required `removed_marketplaces` list — both usually empty, kept present so every manifest documents the vocabulary. A name in `uninstall` is uninstalled as `<name>@<marketplace>`; a `removed_marketplaces` entry first uninstalls every installed plugin in that marketplace's id namespace, then deregisters the marketplace, in that order because neither client documents whether marketplace removal cascades. Nothing is ever derived from inventory diffs against the declared plugins, so per-machine manual installs are never touched. Uninstalls are local-only — they run before and independently of the network-bound marketplace phase and ignore the update flag — and the final client inventory verifies each removed id is absent. Claude removals pin `--scope user`, the only scope mev installs into.
+
+In update mode every declared marketplace is refreshed from `main` first, then each installed declared plugin is updated: Claude Code through `plugin update`, Codex by re-adding the plugin, which re-resolves its version from the refreshed snapshot because the Codex CLI has no plugin-level update verb. The refresh of an existing marketplace is a probe and produces no report entry — only marketplace additions and failures do — so a run that moved nothing reports unchanged; change surfaces through the per-plugin version diffs. The final client inventory classifies each update as changed or unchanged by that diff; when a client reports no version, the update stays classified as changed because a no-op cannot be proven. An unreachable marketplace fails its installed plugins as `update blocked` instead of reporting them unchanged.
+
+`codexConfig` inverts ownership relative to the linked configs: `~/.codex/config.toml` is a mutable file codex rewrites wholesale at runtime (plugin and marketplace registrations, app-managed MCP servers), so mev enforces only the keys the embedded asset declares. Declared tables merge per key with declared values winning, declared scalars and arrays replace, and host-only tables pass through untouched. The unchanged check compares parsed values rather than bytes, so codex reserializing the file never re-triggers a write, and the destination is materialized as a regular file — a symlink into the deploy store would route codex's writes into the deployed role (permanent drift) while every deploy would wipe codex's registrations.
 
 `manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause. Every parser narrows parsed-`unknown` data through `host/parse.ts` (`isRecord`, `requireRecord`, `requireStringArray`), so the record predicate lives once and rejection messages share one shape instead of each module re-improvising validation.
 

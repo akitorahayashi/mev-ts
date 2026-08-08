@@ -12,12 +12,14 @@ import {
   releaseLockKey,
   resolveReleaseDigest,
 } from '../github/release';
+import { loadToml } from '../host/toml';
 import { parseTools } from '../pipx/manifest';
 import { parseJsonObject } from '../zed/settings';
 import {
   agentPluginsConfigAssets,
   bindCommandRead,
   coderAgentsConfigAssets,
+  codexConfigAssets,
   commandReadKey,
   defaultsConfigAssets,
   dutiConfigAssets,
@@ -128,6 +130,13 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
         keys: zedSettingsConfigAssets(activation),
         validate: (raw, key) => {
           parseJsonObject(raw, key, 'Zed base settings');
+        },
+      };
+    case 'codexConfig':
+      return {
+        keys: codexConfigAssets(activation),
+        validate: (raw, key) => {
+          loadToml(raw, key);
         },
       };
     case 'file':

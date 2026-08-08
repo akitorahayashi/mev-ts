@@ -1,7 +1,13 @@
-import { errorMessage } from '../../errors';
+import { errorMessage, ProvisioningError } from '../../errors';
 import type { CommandOptions } from '../../host/command';
 import type { Context } from '../../host/context';
-import { inject, install, postInstall, uninstall } from '../../pipx/command';
+import {
+  inject,
+  install,
+  postInstall,
+  uninstall,
+  upgrade,
+} from '../../pipx/command';
 import { brewEnv, localVenvs } from '../../pipx/environment';
 import { type Installed, listInstalled } from '../../pipx/inventory';
 import { type PipxTool, parseTools } from '../../pipx/manifest';
@@ -12,7 +18,6 @@ import {
   shouldPostInstall,
   shouldUpgrade,
 } from '../../pipx/reconciliation';
-import { upgrade } from '../../pipx/upgrade';
 import type { Activation } from './contract';
 import { manifestKind, manifestSource } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
@@ -50,22 +55,23 @@ function pipxStep(
         actions.push('installed');
       }
       let justUpgraded = false;
-      if (shouldUpgrade(tool, installed, update)) {
-        const report = await upgrade(
-          context,
-          options,
+      if (installed && shouldUpgrade(tool, installed, update)) {
+        await upgrade(context, options, tool.package);
+        // Classification diffs the pre/post inventory versions instead of
+        // pipx's machine-readable upgrade output, which only exists in recent
+        // pipx releases that provisioning never guarantees (the install phase
+        // runs `brew bundle install --no-upgrade`, so an older pipx stays).
+        const refreshed = (await listInstalled(context, options)).get(
           tool.package,
-          (tool.inject ?? []).length > 0,
         );
-        if (report.status === 'upgraded') {
-          justUpgraded = true;
-          actions.push(`upgraded to ${report.version}`);
-        }
-        if (report.injectedUpgraded.length > 0) {
-          justUpgraded = true;
-          actions.push(
-            `upgraded injected ${report.injectedUpgraded.join(', ')}`,
+        if (!refreshed) {
+          throw new ProvisioningError(
+            `pipx upgrade for ${tool.package} left the tool absent from the pipx inventory.`,
           );
+        }
+        if (refreshed.version !== installed.version) {
+          justUpgraded = true;
+          actions.push(`upgraded to ${refreshed.version}`);
         }
       }
       let justInjected = false;

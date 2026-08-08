@@ -125,3 +125,30 @@ export async function updateClaudePlugin(
     `Claude plugin update ${id}`,
   );
 }
+
+// mev installs only into the user scope, so removals pin --scope user: both
+// verbs default to acting on every scope (uninstall via its default, marketplace
+// remove explicitly documented as all-scope when the flag is omitted).
+export async function uninstallClaudePlugin(
+  id: string,
+  context: Context,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'claude',
+    ['plugin', 'uninstall', id, '--scope', 'user'],
+    `Claude plugin uninstall ${id}`,
+  );
+}
+
+export async function removeClaudeMarketplace(
+  name: string,
+  context: Context,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'claude',
+    ['plugin', 'marketplace', 'remove', name, '--scope', 'user'],
+    `Claude marketplace remove ${name}`,
+  );
+}

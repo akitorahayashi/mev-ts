@@ -6,6 +6,7 @@ import {
   runCoderAgents,
   runCoderSkills,
 } from './coder';
+import { describeCodexConfig, runCodexConfig } from './codex-config';
 import { describeCommand, runCommandActivation } from './command';
 import type {
   Activation,
@@ -48,6 +49,8 @@ export function describeActivation(activation: Activation): Described {
       return describeAgentPlugins(activation);
     case 'zedSettings':
       return describeZedSettings(activation);
+    case 'codexConfig':
+      return describeCodexConfig(activation);
     case 'command':
       return describeCommand(activation);
     case 'remoteInstaller':
@@ -94,6 +97,8 @@ export function runActivation(
       return runAgentPlugins(activation, context, options);
     case 'zedSettings':
       return runZedSettings(activation, context);
+    case 'codexConfig':
+      return runCodexConfig(activation, context);
     case 'command':
       return runCommandActivation(activation, context);
     case 'remoteInstaller':

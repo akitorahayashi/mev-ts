@@ -32,6 +32,25 @@ export async function install(
   );
 }
 
+/**
+ * Only the declared main package is upgraded: `--include-injected` would also
+ * upgrade injections mev does not own, since reconciliation manages declared
+ * injected dependencies by presence only.
+ */
+export async function upgrade(
+  context: Context,
+  options: CommandOptions,
+  pkg: string,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'pipx',
+    ['upgrade', pkg],
+    `pipx upgrade failed for ${pkg}`,
+    options,
+  );
+}
+
 export async function inject(
   context: Context,
   options: CommandOptions,

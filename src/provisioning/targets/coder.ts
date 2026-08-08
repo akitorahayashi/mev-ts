@@ -6,6 +6,7 @@ import {
   brewPrefixCapture,
   coderAgents,
   coderSkills,
+  codexConfig,
   installAgentPlugins,
   link,
   remoteInstaller,
@@ -81,7 +82,11 @@ export const coderTarget = target('coder', {
     }),
     link(asset('coder/claude/settings.json'), home('.claude/settings.json')),
     link(asset('coder/claude/statusline.sh'), home('.claude/statusline.sh')),
-    link(asset('coder/codex/config.toml'), home('.codex/config.toml')),
+    // Merged, not linked: codex persists plugin/marketplace registrations and
+    // app-managed tables in this file at runtime, so a symlink into the deploy
+    // store would route those writes into the deployed role and every deploy
+    // would wipe them.
+    codexConfig(asset('coder/codex/config.toml'), home('.codex/config.toml')),
     link(asset('coder/codex/hooks.json'), home('.codex/hooks.json')),
     link(
       asset('coder/antigravity-cli/settings.json'),

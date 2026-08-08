@@ -43,6 +43,8 @@ function referencedAssets(activation: Activation): AssetReference[] {
         { key: activation.base.key },
         { prefix: activation.overridesPrefix },
       ];
+    case 'codexConfig':
+      return [{ key: activation.source.key }];
     case 'command':
       return Object.values(activation.reads ?? {}).map((read) => ({
         key: commandReadKey(read),
