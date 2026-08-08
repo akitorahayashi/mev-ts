@@ -29,6 +29,7 @@ export { blockedReport, describeActivation, runActivation } from './dispatch';
 export { applyDuti, dutiConfigAssets } from './duti';
 export { extensionsConfigAssets, installExtensions } from './extensions';
 export { applyPipx, pipxConfigAssets } from './pipx';
+export { applyPnpm, pnpmConfigAssets } from './pnpm';
 export { releaseBinaries, releaseConfigAssets } from './release';
 export { remoteInstaller } from './remote-installer';
 export { link, linkTree, migrateLegacySymlinks } from './symlink';

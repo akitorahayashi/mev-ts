@@ -10,7 +10,11 @@ import {
 } from '../../pipx/command';
 import { brewEnv, localVenvs } from '../../pipx/environment';
 import { type Installed, listInstalled } from '../../pipx/inventory';
-import { type PipxTool, parseTools } from '../../pipx/manifest';
+import {
+  type PipxEntry,
+  type PipxTool,
+  parseManifest,
+} from '../../pipx/manifest';
 import {
   installSpec,
   needsReinstall,
@@ -110,29 +114,68 @@ function pipxStep(
   };
 }
 
-const pipxKind = manifestKind<PipxActivation, PipxTool>({
-  parse: parseTools,
+// Removal is guarded by the inventory, so a name that is already absent
+// reports unchanged instead of failing — repeat runs stay idempotent.
+function pipxUninstallStep(
+  pkg: string,
+  installed: Installed | undefined,
+  context: Context,
+  options: CommandOptions,
+): ReconcileStep {
+  return {
+    async run() {
+      if (!installed) {
+        return { key: pkg, value: 'already absent', status: 'unchanged' };
+      }
+      await uninstall(context, options, pkg);
+      return { key: pkg, value: 'uninstalled', status: 'changed' };
+    },
+    onError(error) {
+      return {
+        key: pkg,
+        value: 'uninstall',
+        status: 'failed',
+        error: errorMessage(error),
+      };
+    },
+  };
+}
+
+const pipxKind = manifestKind<PipxActivation, PipxEntry>({
+  parse: parseManifest,
   manifestLabel: 'Pipx config file',
   describe: (activation) => ({
     verb: 'apply',
     source: manifestSource(activation.configKey),
     dest: 'python tools',
   }),
-  steps: async (tools, _activation, context, runOptions) => {
+  steps: async (entries, _activation, context, runOptions) => {
     const options = await brewEnv(context);
     const installed = await listInstalled(context, options);
+    const tools = entries.flatMap((entry) =>
+      entry.action === 'install' ? [entry.tool] : [],
+    );
     const venvs = tools.some((tool) => tool.post_install)
       ? await localVenvs(context, options)
       : '';
-    return tools.map((tool) =>
-      pipxStep(
-        tool,
-        installed.get(tool.package),
-        context,
-        options,
-        venvs,
-        runOptions.update,
-      ),
+    // parseManifest orders removals ahead of tools, so mapping in manifest
+    // order preserves the uninstall-before-install convention.
+    return entries.map((entry) =>
+      entry.action === 'uninstall'
+        ? pipxUninstallStep(
+            entry.package,
+            installed.get(entry.package),
+            context,
+            options,
+          )
+        : pipxStep(
+            entry.tool,
+            installed.get(entry.tool.package),
+            context,
+            options,
+            venvs,
+            runOptions.update,
+          ),
     );
   },
 });

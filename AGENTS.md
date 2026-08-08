@@ -32,6 +32,7 @@ src/
     gh/          GitHub CLI wrappers
     git/         Git wrappers (branches, clone, submodule)
   pipx/          pipx install, inject, and post-install operations
+  pnpm/          pnpm global package install and remove through the fnm runtime
   provisioning/
     activation/  Activation DSL vocabulary, per-kind runners, reconcile envelope, manifest loader
     targets/     One file per provisioning target
@@ -68,7 +69,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `duti/`, `editor/`, `agent-plugin/`, `github/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
+`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
 
 See docs/architecture.md for the per-kind table and the reconcile/manifest mechanics.
 

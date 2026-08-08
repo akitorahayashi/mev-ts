@@ -30,6 +30,7 @@ function referencedAssets(activation: Activation): AssetReference[] {
     case 'defaults':
     case 'duti':
     case 'pipx':
+    case 'pnpm':
     case 'editorExtensions':
     case 'release':
     case 'agentPlugins':

@@ -1,0 +1,10 @@
+# pnpm-managed global packages, applied as `pnpm add -g <name>@<version>`.
+# A version is either an exact pin or `latest`; `latest` re-resolves only in
+# update mode (`--update`).
+packages:
+  "@marp-team/marp-cli": latest
+  "@toon-format/cli": latest
+# To uninstall a package, move it out of packages into an uninstall list;
+# only names written there are ever removed:
+uninstall:
+  - "@github/copilot"
