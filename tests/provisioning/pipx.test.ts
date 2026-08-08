@@ -24,10 +24,10 @@ tools:
 
 const sandboxTest = sandboxedTest('pipx-');
 
-async function deployConfig(dir: string): Promise<void> {
+async function deployConfig(dir: string, yaml: string = YAML): Promise<void> {
   const roleDir = join(dir, '.mev', 'roles', 'pipx');
   await mkdir(roleDir, { recursive: true });
-  await writeFile(join(roleDir, 'tools.yml'), YAML);
+  await writeFile(join(roleDir, 'tools.yml'), yaml);
 }
 
 const PREFIX = '/opt/homebrew';
@@ -440,5 +440,132 @@ sandboxTest(
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain("venv 'broken-tool' must be an object");
+  },
+);
+
+const UNINSTALL_YAML = `
+tools:
+  - package: yt-dlp
+uninstall:
+  - old-tool
+`.trimStart();
+
+sandboxTest(
+  'uninstall removes a listed installed tool before installs run',
+  async (dir) => {
+    await deployConfig(dir, UNINSTALL_YAML);
+    const listed = listJson({
+      'old-tool': {
+        package: 'old-tool',
+        package_or_url: 'old-tool',
+        package_version: '1.0',
+      },
+    });
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listed),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    expect(report.entries?.find((e) => e.key === 'old-tool')?.value).toBe(
+      'uninstalled',
+    );
+    const verbs = calls
+      .filter(
+        (c) =>
+          c.command === 'pipx' &&
+          (c.args[0] === 'uninstall' || c.args[0] === 'install'),
+      )
+      .map((c) => c.args);
+    expect(verbs).toEqual([
+      ['uninstall', 'old-tool'],
+      ['install', 'yt-dlp'],
+    ]);
+  },
+);
+
+sandboxTest(
+  'uninstall of an already absent tool runs nothing and reports unchanged',
+  async (dir) => {
+    await deployConfig(dir, UNINSTALL_YAML);
+    const listed = listJson({
+      'yt-dlp': {
+        package: 'yt-dlp',
+        package_or_url: 'yt-dlp',
+        package_version: '1.0',
+      },
+    });
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listed),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    expect(report.entries?.find((e) => e.key === 'old-tool')?.value).toBe(
+      'already absent',
+    );
+    expect(calls.some((c) => c.args[0] === 'uninstall')).toBe(false);
+  },
+);
+
+sandboxTest(
+  'failed when a name is declared in both tools and uninstall',
+  async (dir) => {
+    await deployConfig(
+      dir,
+      'tools:\n  - package: yt-dlp\nuninstall:\n  - yt_dlp\n',
+    );
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: () => ok(),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('duplicate');
+    expect(calls).toHaveLength(0);
+  },
+);
+
+sandboxTest(
+  'manifest spellings resolve to installed tools across hyphen/underscore variants',
+  async (dir) => {
+    await deployConfig(
+      dir,
+      'tools:\n  - package: yt_dlp\nuninstall:\n  - old_tool\n',
+    );
+    const listed = listJson({
+      'yt-dlp': {
+        package: 'yt-dlp',
+        package_or_url: 'yt-dlp',
+        package_version: '1.0',
+      },
+      'old-tool': {
+        package: 'old-tool',
+        package_or_url: 'old-tool',
+        package_version: '1.0',
+      },
+    });
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listed),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    // The already-installed variant spelling is recognized, not reinstalled.
+    expect(report.entries?.find((e) => e.key === 'yt_dlp')?.value).toBe(
+      'up to date',
+    );
+    expect(calls.some((c) => c.args[0] === 'install')).toBe(false);
+    // The removal command receives pipx's reported spelling, not the manifest's.
+    const uninstalls = calls.filter((c) => c.args[0] === 'uninstall');
+    expect(uninstalls.map((c) => c.args)).toEqual([['uninstall', 'old-tool']]);
   },
 );

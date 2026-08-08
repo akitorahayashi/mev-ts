@@ -3,8 +3,14 @@ import type { CommandOptions } from '../host/command';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
+import { normalizedPackageName } from './manifest';
 
 export interface Installed {
+  /**
+   * The spelling pipx reports, preserved because pipx addresses venvs by that
+   * literal name: uninstall must pass this form, not the manifest's.
+   */
+  readonly name: string;
   readonly packageOrUrl: string;
   readonly version: string;
   readonly dependencies: readonly string[];
@@ -26,6 +32,11 @@ interface PipxListJson {
   >;
 }
 
+/**
+ * Keyed by `normalizedPackageName`, since PyPI treats hyphen, underscore, and
+ * case variants as one name — lookups must normalize the queried name the same
+ * way so a manifest spelling always finds the installed tool.
+ */
 export async function listInstalled(
   context: Context,
   options: CommandOptions,
@@ -90,7 +101,8 @@ export async function listInstalled(
         `Invalid pipx list --json output: app_paths_of_dependencies for '${name}' must be an object.`,
       );
     }
-    map.set(main['package'], {
+    map.set(normalizedPackageName(main['package']), {
+      name: main['package'],
       packageOrUrl: main['package_or_url'],
       version: main['package_version'],
       dependencies: Object.keys(deps ?? {}),

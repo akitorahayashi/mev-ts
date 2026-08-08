@@ -18,6 +18,7 @@ import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
 import { describeExtensions, runExtensions } from './extensions';
 import { describePipx, runPipx } from './pipx';
+import { describePnpm, runPnpm } from './pnpm';
 import { describeRelease, runRelease } from './release';
 import {
   describeRemoteInstaller,
@@ -39,6 +40,8 @@ export function describeActivation(activation: Activation): Described {
       return describeDuti(activation);
     case 'pipx':
       return describePipx(activation);
+    case 'pnpm':
+      return describePnpm(activation);
     case 'editorExtensions':
       return describeExtensions(activation);
     case 'coderAgents':
@@ -87,6 +90,8 @@ export function runActivation(
       return runDuti(activation, context);
     case 'pipx':
       return runPipx(activation, context, options);
+    case 'pnpm':
+      return runPnpm(activation, context, options);
     case 'editorExtensions':
       return runExtensions(activation, context);
     case 'coderAgents':

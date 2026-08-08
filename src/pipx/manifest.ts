@@ -29,18 +29,23 @@ export interface PipxTool {
   readonly post_install?: PostInstall;
 }
 
+/** A declared tool to reconcile, or a name explicitly listed for removal. */
+export type PipxEntry =
+  | { readonly action: 'install'; readonly tool: PipxTool }
+  | { readonly action: 'uninstall'; readonly package: string };
+
 export function normalizedPackageName(name: string): string {
   return name.toLowerCase().replace(/[-_.]+/g, '-');
 }
 
-export function parseTools(raw: string, path: string): PipxTool[] {
+export function parseManifest(raw: string, path: string): PipxEntry[] {
   const parsed = loadYaml(raw, path);
   if (!isRecord(parsed)) {
     throw new ProvisioningError(
       `Pipx config must contain a tools sequence: ${path}`,
     );
   }
-  requireExactKeys(parsed, ['tools'], `Pipx config ${path}`);
+  requireExactKeys(parsed, ['tools', 'uninstall'], `Pipx config ${path}`);
   const tools = parsed['tools'];
   if (!Array.isArray(tools)) {
     throw new ProvisioningError(
@@ -48,12 +53,33 @@ export function parseTools(raw: string, path: string): PipxTool[] {
     );
   }
   const parsedTools = tools.map((entry) => parseTool(entry));
+  // Absent means nothing to remove; only names written here are ever
+  // uninstalled.
+  const uninstall =
+    parsed['uninstall'] === undefined
+      ? []
+      : requireStringArray(
+          parsed['uninstall'],
+          `Pipx config ${path} uninstall`,
+        );
+  for (const name of uninstall) {
+    if (!SAFE_PACKAGE_NAME.test(name)) {
+      throw new ProvisioningError(
+        `Pipx config ${path} uninstall contains an invalid package name '${name}'.`,
+      );
+    }
+  }
   requireUniqueBy(
-    parsedTools,
-    (tool) => normalizedPackageName(tool.package),
+    [...parsedTools.map((tool) => tool.package), ...uninstall],
+    normalizedPackageName,
     `Pipx config ${path}`,
   );
-  return parsedTools;
+  return [
+    ...uninstall.map(
+      (name) => ({ action: 'uninstall', package: name }) as const,
+    ),
+    ...parsedTools.map((tool) => ({ action: 'install', tool }) as const),
+  ];
 }
 
 function parseTool(entry: unknown): PipxTool {

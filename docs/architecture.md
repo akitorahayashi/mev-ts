@@ -41,7 +41,7 @@ Before invalidating applied signatures or entering the phases, each selected tar
 2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
 3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
 
-Each activation also receives the run's `ActivationRunOptions`. Its `update` flag (the `--update`/`-u` CLI option on `make`, `create`, and `sync`) is execution intent, not desired state: it makes the `pipx` and `agentPlugins` kinds refresh installed latest-assumed items, never contributes to target signatures or sync staleness, and leaves version-pinned entries untouched.
+Each activation also receives the run's `ActivationRunOptions`. Its `update` flag (the `--update`/`-u` CLI option on `make`, `create`, and `sync`) is execution intent, not desired state: it makes the `pipx`, `pnpm`, and `agentPlugins` kinds refresh installed latest-assumed items, never contributes to target signatures or sync staleness, and leaves version-pinned entries untouched.
 
 ## Activation DSL (provisioning/activation/)
 
@@ -57,6 +57,7 @@ activation/
   defaults.ts   'defaults' factory and runner
   duti.ts       'duti' factory and runner
   pipx.ts       'pipx' factory and runner
+  pnpm.ts       'pnpm' factory and runner
   extensions.ts 'editorExtensions' factory and runner
   agent-plugins.ts 'agentPlugins' marketplace and plugin reconciler
   coder.ts      'coderAgents' + 'coderSkills' factories and runners
@@ -68,7 +69,7 @@ activation/
   index.ts      public barrel
 ```
 
-Fourteen activation kinds:
+Fifteen activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
@@ -76,7 +77,8 @@ Fourteen activation kinds:
 | `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; replaces declared destinations and prunes managed stale links |
 | `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
 | `duti` | `applyDuti(configKey)` | Reads a YAML list of `{bundle_id, extension}` pairs; applies `duti -s` for each that differs |
-| `pipx` | `applyPipx(configKey)` | Reconciles pipx-managed tools against a YAML manifest; installs, injects, and post-installs; update mode upgrades unpinned installed tools |
+| `pipx` | `applyPipx(configKey)` | Reconciles pipx-managed tools against a YAML manifest; installs, injects, and post-installs; uninstalls only the names the manifest's `uninstall` list declares; update mode upgrades unpinned installed tools |
+| `pnpm` | `applyPnpm(configKey)` | Reconciles pnpm global packages against a YAML manifest through `fnm exec`; installs missing and pin-mismatched packages; uninstalls only the names the manifest's `uninstall` list declares; update mode re-resolves latest-assumed packages |
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
@@ -89,7 +91,7 @@ Fourteen activation kinds:
 
 ### Reconcile Envelope
 
-`reconcile.ts` provides the shared execution envelope used by the multi-item activation kinds that call into it (`defaults`, `duti`, `pipx`, `editorExtensions`, `release`). It enforces a structural error boundary at the per-item level rather than leaving it to each implementation:
+`reconcile.ts` provides the shared execution envelope used by the multi-item activation kinds that call into it (`defaults`, `duti`, `pipx`, `pnpm`, `editorExtensions`, `release`). It enforces a structural error boundary at the per-item level rather than leaving it to each implementation:
 
 - `declare()` — yields the set of items to process. A failure here aborts the whole activation.
 - `steps(declared)` — builds one `ReconcileStep` per item. This phase runs shared probes (e.g. listing installed tools or extensions) before returning the per-item work. A failure here also aborts the whole activation.
@@ -106,6 +108,8 @@ Removal is declarative and strictly explicit: a catalog marketplace may carry an
 In update mode every declared marketplace is refreshed from `main` first, then each installed declared plugin is updated: Claude Code through `plugin update`, Codex by re-adding the plugin, which re-resolves its version from the refreshed snapshot because the Codex CLI has no plugin-level update verb. The refresh of an existing marketplace is a probe and produces no report entry — only marketplace additions and failures do — so a run that moved nothing reports unchanged; change surfaces through the per-plugin version diffs. The final client inventory classifies each update as changed or unchanged by that diff; when a client reports no version, the update stays classified as changed because a no-op cannot be proven. An unreachable marketplace fails its installed plugins as `update blocked` instead of reporting them unchanged.
 
 `codexConfig` inverts ownership relative to the linked configs: `~/.codex/config.toml` is a mutable file codex rewrites wholesale at runtime (plugin and marketplace registrations, app-managed MCP servers), so mev enforces only the keys the embedded asset declares. On machines provisioned before this kind existed the path is still a symlink into the deploy store, so the coder target's `preserveBeforeDeploy` materializes it into a regular file ahead of the deploy phase; without that, the deploy would reset the role file — and with it codex's registrations — before the activation ever read them. Declared tables merge per key with declared values winning, declared scalars and arrays replace, and host-only tables pass through untouched. The unchanged check compares parsed values rather than bytes, so codex reserializing the file never re-triggers a write, and the destination is materialized as a regular file — a symlink into the deploy store would route codex's writes into the deployed role (permanent drift) while every deploy would wipe codex's registrations.
+
+The `pipx` and `pnpm` manifests share the same removal vocabulary: an optional root `uninstall` list, absent by default, whose names alone are ever removed. A listed name still present in the tool's inventory is uninstalled; an already absent name reports unchanged, so repeat runs stay idempotent. Removals run before installs, and nothing is ever derived from inventory diffs against the declared items, so mev never targets a package it was not told to remove. pnpm itself removes at installation-group granularity, so whenever a listed removal actually runs, the pnpm installs reconcile against a re-read inventory rather than the pre-removal snapshot — a declared package that a group removal swept away is reinstalled in the same run.
 
 `manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause. Every parser narrows parsed-`unknown` data through `host/parse.ts` (`isRecord`, `requireRecord`, `requireStringArray`), so the record predicate lives once and rejection messages share one shape instead of each module re-improvising validation.
 
@@ -190,6 +194,7 @@ Several activation kinds delegate external-tool protocol and state detection to 
 | Directory | Capability |
 |---|---|
 | `pipx/` | `pipx list --json` parse; install, inject, and post-install operations |
+| `pnpm/` | `pnpm ls -g --json` parse; global add/remove through the fnm default node runtime |
 | `defaults/` | defaults manifest validation and macOS defaults read/write comparison helpers |
 | `duti/` | `duti -x` output parse; `duti -s` apply |
 | `editor/` | `--list-extensions` parse; `--install-extension` |

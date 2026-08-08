@@ -43,6 +43,10 @@ export type Activation =
       readonly configKey: string;
     }
   | {
+      readonly kind: 'pnpm';
+      readonly configKey: string;
+    }
+  | {
       readonly kind: 'editorExtensions';
       readonly command: string;
       readonly configKey: string;

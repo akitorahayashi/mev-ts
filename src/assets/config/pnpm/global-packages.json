@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@github/copilot": "latest",
-    "@marp-team/marp-cli": "latest",
-    "@toon-format/cli": "latest"
-  }
-}

@@ -13,7 +13,8 @@ import {
   resolveReleaseDigest,
 } from '../github/release';
 import { loadToml } from '../host/toml';
-import { parseTools } from '../pipx/manifest';
+import { parseManifest as parsePipxManifest } from '../pipx/manifest';
+import { parseManifest as parsePnpmManifest } from '../pnpm/manifest';
 import { parseJsonObject } from '../zed/settings';
 import {
   agentPluginsConfigAssets,
@@ -25,6 +26,7 @@ import {
   dutiConfigAssets,
   extensionsConfigAssets,
   pipxConfigAssets,
+  pnpmConfigAssets,
   releaseConfigAssets,
   zedSettingsConfigAssets,
 } from './activation';
@@ -72,7 +74,14 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
       return {
         keys: pipxConfigAssets(activation),
         validate: (raw, key) => {
-          parseTools(raw, key);
+          parsePipxManifest(raw, key);
+        },
+      };
+    case 'pnpm':
+      return {
+        keys: pnpmConfigAssets(activation),
+        validate: (raw, key) => {
+          parsePnpmManifest(raw, key);
         },
       };
     case 'editorExtensions':

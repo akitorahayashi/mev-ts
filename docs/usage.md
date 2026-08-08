@@ -11,7 +11,7 @@ mev make git shell              # Provision multiple targets at once
 
 `make` (alias `mk`) resolves each selector to a target, deploys embedded config assets to `~/.mev/roles/`, installs any missing Homebrew packages, then runs each activation idempotently. The repository config is the source of truth for declared outputs, so existing files, directories, or symlinks at those destinations are replaced by the current config. Activations report `changed`, `unchanged`, or `failed` per item. Each run ends with a report that summarizes required action, phase counts, changed targets, and retry selectors. See docs/architecture.md for the phase mechanics.
 
-`--update` (alias `-u`) additionally refreshes installed latest-assumed items in the selected targets: unpinned pipx tools are upgraded to their latest release, and installed agent plugins are updated from their refreshed `main` marketplaces. Version-pinned entries are never touched, injected pipx dependencies stay presence-managed rather than upgraded, and update mode does not affect target signatures or sync staleness.
+`--update` (alias `-u`) additionally refreshes installed latest-assumed items in the selected targets: unpinned pipx tools are upgraded to their latest release, `latest`-declared pnpm global packages are re-resolved, and installed agent plugins are updated from their refreshed `main` marketplaces. Version-pinned entries are never touched, injected pipx dependencies stay presence-managed rather than upgraded, and update mode does not affect target signatures or sync staleness.
 
 ```bash
 mev create                      # Provision the full environment

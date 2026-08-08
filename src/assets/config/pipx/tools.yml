@@ -14,3 +14,7 @@ tools:
   - package: yt-dlp
   - package: huggingface-hub
   - package: openai-whisper
+# To uninstall a tool, move its package name out of tools into an uninstall
+# list at the root; only names written there are ever removed:
+#   uninstall:
+#     - mlx-hub

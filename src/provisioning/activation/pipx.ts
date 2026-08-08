@@ -10,7 +10,12 @@ import {
 } from '../../pipx/command';
 import { brewEnv, localVenvs } from '../../pipx/environment';
 import { type Installed, listInstalled } from '../../pipx/inventory';
-import { type PipxTool, parseTools } from '../../pipx/manifest';
+import {
+  normalizedPackageName,
+  type PipxEntry,
+  type PipxTool,
+  parseManifest,
+} from '../../pipx/manifest';
 import {
   installSpec,
   needsReinstall,
@@ -45,7 +50,7 @@ function pipxStep(
     async run() {
       const reinstall = needsReinstall(tool, installed);
       if (reinstall && installed) {
-        await uninstall(context, options, tool.package);
+        await uninstall(context, options, installed.name);
         actions.push('uninstalled');
       }
       let justInstalled = false;
@@ -62,7 +67,7 @@ function pipxStep(
         // pipx releases that provisioning never guarantees (the install phase
         // runs `brew bundle install --no-upgrade`, so an older pipx stays).
         const refreshed = (await listInstalled(context, options)).get(
-          tool.package,
+          normalizedPackageName(tool.package),
         );
         if (!refreshed) {
           throw new ProvisioningError(
@@ -110,29 +115,68 @@ function pipxStep(
   };
 }
 
-const pipxKind = manifestKind<PipxActivation, PipxTool>({
-  parse: parseTools,
+// Removal is guarded by the inventory, so a name that is already absent
+// reports unchanged instead of failing — repeat runs stay idempotent.
+function pipxUninstallStep(
+  pkg: string,
+  installed: Installed | undefined,
+  context: Context,
+  options: CommandOptions,
+): ReconcileStep {
+  return {
+    async run() {
+      if (!installed) {
+        return { key: pkg, value: 'already absent', status: 'unchanged' };
+      }
+      await uninstall(context, options, installed.name);
+      return { key: pkg, value: 'uninstalled', status: 'changed' };
+    },
+    onError(error) {
+      return {
+        key: pkg,
+        value: 'uninstall',
+        status: 'failed',
+        error: errorMessage(error),
+      };
+    },
+  };
+}
+
+const pipxKind = manifestKind<PipxActivation, PipxEntry>({
+  parse: parseManifest,
   manifestLabel: 'Pipx config file',
   describe: (activation) => ({
     verb: 'apply',
     source: manifestSource(activation.configKey),
     dest: 'python tools',
   }),
-  steps: async (tools, _activation, context, runOptions) => {
+  steps: async (entries, _activation, context, runOptions) => {
     const options = await brewEnv(context);
     const installed = await listInstalled(context, options);
+    const tools = entries.flatMap((entry) =>
+      entry.action === 'install' ? [entry.tool] : [],
+    );
     const venvs = tools.some((tool) => tool.post_install)
       ? await localVenvs(context, options)
       : '';
-    return tools.map((tool) =>
-      pipxStep(
-        tool,
-        installed.get(tool.package),
-        context,
-        options,
-        venvs,
-        runOptions.update,
-      ),
+    // parseManifest orders removals ahead of tools, so mapping in manifest
+    // order preserves the uninstall-before-install convention.
+    return entries.map((entry) =>
+      entry.action === 'uninstall'
+        ? pipxUninstallStep(
+            entry.package,
+            installed.get(normalizedPackageName(entry.package)),
+            context,
+            options,
+          )
+        : pipxStep(
+            entry.tool,
+            installed.get(normalizedPackageName(entry.tool.package)),
+            context,
+            options,
+            venvs,
+            runOptions.update,
+          ),
     );
   },
 });
