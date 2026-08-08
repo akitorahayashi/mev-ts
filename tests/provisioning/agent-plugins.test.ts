@@ -19,23 +19,18 @@ marketplaces:
     repository: agent-device-plugin
     name: agent-device-plugin
     plugins: [agent-device, device-verification]
-    uninstall: []
   - client: claude
     repository: comment-review
     name: comment-review
     plugins: [comment-review]
-    uninstall: []
   - client: claude
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
   - client: codex
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
-removed_marketplaces: []
 `;
 
 const sandboxTest = sandboxedTest('agent-plugins-');
@@ -94,13 +89,10 @@ marketplaces:
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
   - client: codex
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
-removed_marketplaces: []
 `;
 
 const CLAUDE_XLSX_MARKETPLACES = JSON.stringify([
@@ -237,13 +229,10 @@ marketplaces:
     repository: agent-device-plugin
     name: agent-device-plugin
     plugins: [agent-device, device-verification]
-    uninstall: []
   - client: codex
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
-removed_marketplaces: []
 `;
     await deployCatalog(home, catalog);
     const claudeInstalled = new Set(['agent-device@agent-device-plugin']);
@@ -476,8 +465,6 @@ marketplaces:
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
-removed_marketplaces: []
 `;
     await deployCatalog(home, catalog);
     const { context } = recordingContext({
@@ -522,8 +509,6 @@ marketplaces:
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
-removed_marketplaces: []
 `;
     await deployCatalog(home, catalog);
     const { context, calls } = recordingContext({
@@ -571,8 +556,6 @@ marketplaces:
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
-removed_marketplaces: []
 `;
     await deployCatalog(home, catalog);
     const { context, calls } = recordingContext({
@@ -623,7 +606,6 @@ marketplaces:
     name: xlsx
     plugins: [xlsx]
     uninstall: [legacy]
-removed_marketplaces: []
 `;
 
 sandboxTest(
@@ -701,7 +683,6 @@ marketplaces:
     repository: xlsx
     name: xlsx
     plugins: [xlsx]
-    uninstall: []
 removed_marketplaces:
   - client: claude
     name: retired
@@ -833,7 +814,6 @@ marketplaces:
     name: xlsx
     plugins: [xlsx]
     uninstall: [old-tool]
-removed_marketplaces: []
 `;
     await deployCatalog(home, catalog);
     const { context } = recordingContext({
@@ -875,7 +855,6 @@ marketplaces:
     name: xlsx
     plugins: [xlsx]
     uninstall: [old-tool]
-removed_marketplaces: []
 `;
     await deployCatalog(home, catalog);
     const claudeInstalled = new Set(['old-tool@xlsx']);
@@ -914,5 +893,50 @@ removed_marketplaces: []
     expect(
       report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.value,
     ).toBe('install blocked');
+  },
+);
+
+sandboxTest(
+  'keeps a marketplace registered when its plugins survive a clean uninstall',
+  async (home) => {
+    const catalog = `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces: []
+removed_marketplaces:
+  - client: claude
+    name: retired
+`;
+    await deployCatalog(home, catalog);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory(['tool-a@retired']));
+        }
+        // The uninstall exits cleanly but the plugin is still installed.
+        if (command === 'claude' && args[1] === 'uninstall') return ok();
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(
+      calls.some(
+        ({ args }) => args[1] === 'marketplace' && args[2] === 'remove',
+      ),
+    ).toBe(false);
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:tool-a@retired')?.value,
+    ).toBe('verification failed');
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:retired')?.value,
+    ).toBe('marketplace removal blocked');
   },
 );

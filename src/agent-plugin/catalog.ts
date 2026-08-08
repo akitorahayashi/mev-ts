@@ -72,12 +72,12 @@ function parseMarketplace(value: unknown, index: number): PluginMarketplace {
   if (plugins.length === 0) {
     throw new ProvisioningError(`${label} plugins must not be empty.`);
   }
-  // `uninstall` is required even when empty so every entry documents the
-  // removal vocabulary in place; only names written here are ever uninstalled.
-  const uninstall = requireStringArray(
-    record['uninstall'],
-    `${label} uninstall`,
-  );
+  // Absent means nothing to remove; only names written here are ever
+  // uninstalled.
+  const uninstall =
+    record['uninstall'] === undefined
+      ? []
+      : requireStringArray(record['uninstall'], `${label} uninstall`);
   const parsed = {
     client: requireClient(record['client'], `${label} client`),
     repository: requireSafeName(record['repository'], `${label} repository`),
@@ -126,9 +126,8 @@ export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
   if (!Array.isArray(marketplaceValues)) {
     throw new ProvisioningError(`${label} marketplaces must be a sequence.`);
   }
-  if (marketplaceValues.length === 0) {
-    throw new ProvisioningError(`${label} marketplaces must not be empty.`);
-  }
+  // An empty sequence is a valid end state: it is what declaring the removal
+  // of the last active marketplace leaves behind.
   const marketplaces = marketplaceValues.map(parseMarketplace);
   requireUniqueBy(
     marketplaces,
@@ -143,7 +142,7 @@ export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
     `${label} plugins`,
   );
 
-  const removedValues = root['removed_marketplaces'];
+  const removedValues = root['removed_marketplaces'] ?? [];
   if (!Array.isArray(removedValues)) {
     throw new ProvisioningError(
       `${label} removed_marketplaces must be a sequence.`,

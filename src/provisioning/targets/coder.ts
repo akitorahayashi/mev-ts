@@ -1,6 +1,7 @@
 import { asset } from '../../assets/ref';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../coder/paths';
-import { home, mevPath } from '../../host/path';
+import { home, mevPath, resolveHostPath } from '../../host/path';
+import { materializeSymlink } from '../../host/symlink';
 import {
   brewPath,
   brewPrefixCapture,
@@ -26,11 +27,21 @@ const AGENTS_DESTS = [
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
 const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
+const CODEX_CONFIG = home('.codex/config.toml');
+
 export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
   aliases: ['cdr'],
   role: 'coder',
   packages: { formulae: ['rtk'] },
+  // Machines provisioned before codexConfig still have this path symlinked into
+  // the deploy store, where codex has been writing its plugin, marketplace, and
+  // MCP registrations. The deploy phase replaces that store file, so the state
+  // is detached into a regular file first and codexConfig then merges the
+  // declared keys into it; without this the first upgraded run loses it.
+  preserveBeforeDeploy: async (context) => {
+    await materializeSymlink(resolveHostPath(CODEX_CONFIG, context.home));
+  },
   activations: [
     remoteInstaller({
       label: 'install claude',
@@ -86,7 +97,7 @@ export const coderTarget = target('coder', {
     // app-managed tables in this file at runtime, so a symlink into the deploy
     // store would route those writes into the deployed role and every deploy
     // would wipe them.
-    codexConfig(asset('coder/codex/config.toml'), home('.codex/config.toml')),
+    codexConfig(asset('coder/codex/config.toml'), CODEX_CONFIG),
     link(asset('coder/codex/hooks.json'), home('.codex/hooks.json')),
     link(
       asset('coder/antigravity-cli/settings.json'),

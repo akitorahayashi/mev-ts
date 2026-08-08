@@ -10,7 +10,6 @@ marketplaces:
     repository: agent-device-plugin
     name: agent-device-plugin
     plugins: [agent-device, device-verification]
-    uninstall: []
   - client: codex
     repository: xlsx
     name: xlsx
@@ -48,17 +47,21 @@ test('parsePluginCatalog rejects duplicate plugin identities per client', () => 
     parsePluginCatalog(
       VALID.replace(
         'plugins: [xlsx]',
-        'plugins: [xlsx]\n    uninstall: []\n  - client: codex\n    repository: other\n    name: other\n    plugins: [xlsx]',
+        'plugins: [xlsx]\n  - client: codex\n    repository: other\n    name: other\n    plugins: [xlsx]',
       ),
       'plugins.yml',
     ),
   ).toThrow(/duplicate 'codex:xlsx'/);
 });
 
-test('parsePluginCatalog rejects a missing uninstall list', () => {
-  expect(() =>
-    parsePluginCatalog(VALID.replace('    uninstall: []\n', ''), 'plugins.yml'),
-  ).toThrow(/uninstall must be a sequence/);
+test('parsePluginCatalog treats omitted removal lists as nothing to remove', () => {
+  const catalog = parsePluginCatalog(
+    VALID.slice(0, VALID.indexOf('removed_marketplaces')),
+    'plugins.yml',
+  );
+
+  expect(catalog.marketplaces[0]?.uninstall).toEqual([]);
+  expect(catalog.removedMarketplaces).toEqual([]);
 });
 
 test('parsePluginCatalog rejects a name declared in both plugins and uninstall', () => {
@@ -70,11 +73,24 @@ test('parsePluginCatalog rejects a name declared in both plugins and uninstall',
   ).toThrow(/duplicate 'xlsx'/);
 });
 
-test('parsePluginCatalog rejects a missing removed_marketplaces list', () => {
-  const withoutRemoved = VALID.slice(0, VALID.indexOf('removed_marketplaces'));
-  expect(() => parsePluginCatalog(withoutRemoved, 'plugins.yml')).toThrow(
-    /removed_marketplaces must be a sequence/,
+test('parsePluginCatalog accepts a removal-only catalog', () => {
+  const catalog = parsePluginCatalog(
+    `
+source:
+  owner: akitorahayashi
+  default_ssh_host: github.com
+marketplaces: []
+removed_marketplaces:
+  - client: claude
+    name: retired
+`,
+    'plugins.yml',
   );
+
+  expect(catalog.marketplaces).toEqual([]);
+  expect(catalog.removedMarketplaces).toEqual([
+    { client: 'claude', name: 'retired' },
+  ]);
 });
 
 test('parsePluginCatalog rejects a removed marketplace still declared active', () => {

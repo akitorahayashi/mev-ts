@@ -9,24 +9,27 @@ marketplaces:
     plugins:
       - agent-device
       - device-verification
-    uninstall: []
+    # To uninstall a plugin, move its name out of plugins into an uninstall
+    # list on the same entry:
+    #   plugins: [agent-device]
+    #   uninstall: [device-verification]
   - client: claude
     repository: comment-review
     name: comment-review
     plugins:
       - comment-review
-    uninstall: []
   - client: claude
     repository: xlsx
     name: xlsx
     plugins:
       - xlsx
-    uninstall: []
   - client: codex
     repository: xlsx
     name: xlsx
     plugins:
       - xlsx
-    uninstall: []
-
-removed_marketplaces: []
+# To remove a marketplace and uninstall the plugins it still has installed,
+# delete its entry above and name it at the end of this file:
+#   removed_marketplaces:
+#     - client: claude
+#       name: comment-review

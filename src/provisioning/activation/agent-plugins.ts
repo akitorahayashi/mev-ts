@@ -290,9 +290,14 @@ async function ensureMarketplace(
   }
 }
 
+const SURVIVED_UNINSTALL =
+  'Plugin was still present in the post-uninstall inventory.';
+
 /**
  * Uninstall one installed plugin, mutating the in-memory inventory so later
- * phases see post-removal state. Returns false when the uninstall failed.
+ * phases see post-removal state. Returns the index of the pushed entry, or
+ * null when the uninstall command failed; the caller decides where the
+ * absence is verified.
  */
 async function uninstallInstalled(
   client: PluginClient,
@@ -300,8 +305,7 @@ async function uninstallInstalled(
   installed: PluginInventory,
   context: Context,
   entries: StepReport[],
-  removals: VerificationTarget[],
-): Promise<boolean> {
+): Promise<number | null> {
   const entryIndex = entries.length;
   try {
     await uninstallPlugin(client, id, context);
@@ -311,8 +315,7 @@ async function uninstallInstalled(
       value: 'uninstalled',
       status: 'changed',
     });
-    removals.push({ client, id, entryIndex });
-    return true;
+    return entryIndex;
   } catch (error) {
     entries.push({
       key: `${client}:${id}`,
@@ -320,7 +323,7 @@ async function uninstallInstalled(
       status: 'failed',
       error: errorMessage(error),
     });
-    return false;
+    return null;
   }
 }
 
@@ -343,11 +346,52 @@ async function marketplaceRegistered(
 }
 
 /**
+ * Confirm the plugins just uninstalled are absent, rewriting the entry of any
+ * that survived. A zero exit status is not proof of removal, and this verdict
+ * gates deregistration, so it cannot wait for the shared post-run pass.
+ */
+async function confirmUninstalled(
+  client: PluginClient,
+  issued: readonly VerificationTarget[],
+  installed: PluginInventory,
+  context: Context,
+  entries: StepReport[],
+): Promise<boolean> {
+  if (issued.length === 0) return true;
+  let confirmed = true;
+  try {
+    const remaining = await listInstalled(client, context);
+    for (const target of issued) {
+      if (!remaining.has(target.id)) continue;
+      installed.set(target.id, remaining.get(target.id));
+      entries[target.entryIndex] = {
+        key: `${client}:${target.id}`,
+        value: 'verification failed',
+        status: 'failed',
+        error: SURVIVED_UNINSTALL,
+      };
+      confirmed = false;
+    }
+  } catch (error) {
+    for (const target of issued) {
+      entries[target.entryIndex] = {
+        key: `${client}:${target.id}`,
+        value: 'verification failed',
+        status: 'failed',
+        error: errorMessage(error),
+      };
+    }
+    confirmed = false;
+  }
+  return confirmed;
+}
+
+/**
  * Converge one `removed_marketplaces` entry: uninstall every installed plugin
- * in the marketplace's id namespace, then deregister the marketplace. The
- * order is fixed here because neither client documents whether marketplace
- * removal cascades, and a leftover uninstall blocks the deregistration so a
- * plugin is never orphaned from its removed marketplace.
+ * in the marketplace's id namespace, confirm they are gone, then deregister
+ * the marketplace. The order is fixed here because neither client documents
+ * whether marketplace removal cascades; deregistering while a plugin survives
+ * would orphan it from its marketplace, so an unconfirmed removal blocks.
  */
 async function removeDeclaredMarketplace(
   removed: RemovedMarketplace,
@@ -358,21 +402,32 @@ async function removeDeclaredMarketplace(
   },
   codexCache: { names?: Set<string> },
   entries: StepReport[],
-  removals: VerificationTarget[],
 ): Promise<void> {
   const suffix = `@${removed.name}`;
   const ids = [...installed.keys()].filter((id) => id.endsWith(suffix));
+  const issued: VerificationTarget[] = [];
   let blocked = false;
   for (const id of ids) {
-    const uninstalled = await uninstallInstalled(
+    const entryIndex = await uninstallInstalled(
       removed.client,
       id,
       installed,
       context,
       entries,
-      removals,
     );
-    if (!uninstalled) blocked = true;
+    if (entryIndex === null) blocked = true;
+    else issued.push({ client: removed.client, id, entryIndex });
+  }
+  if (
+    !(await confirmUninstalled(
+      removed.client,
+      issued,
+      installed,
+      context,
+      entries,
+    ))
+  ) {
+    blocked = true;
   }
   const key = `${removed.client}:${removed.name}`;
   if (blocked) {
@@ -443,14 +498,16 @@ async function reconcileMarketplace(
       });
       continue;
     }
-    await uninstallInstalled(
+    const entryIndex = await uninstallInstalled(
       marketplace.client,
       id,
       installed,
       context,
       entries,
-      removals,
     );
+    if (entryIndex !== null) {
+      removals.push({ client: marketplace.client, id, entryIndex });
+    }
   }
 
   const desired = marketplace.plugins.map((plugin) =>
@@ -598,7 +655,7 @@ async function verifyOutcomes(
           key: `${client}:${target.id}`,
           value: 'verification failed',
           status: 'failed',
-          error: 'Plugin was still present in the post-uninstall inventory.',
+          error: SURVIVED_UNINSTALL,
         };
       }
       for (const target of clientUpdates) {
@@ -732,7 +789,6 @@ export function runAgentPlugins(
         claudeCache,
         codexCache,
         entries,
-        removals,
       );
     }
 

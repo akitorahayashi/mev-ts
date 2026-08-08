@@ -5,6 +5,7 @@ import { asset } from '../../src/assets/ref';
 import { home } from '../../src/host/path';
 import { loadToml } from '../../src/host/toml';
 import { codexConfig, runActivation } from '../../src/provisioning/activation';
+import { coderTarget } from '../../src/provisioning/targets/coder';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -144,6 +145,50 @@ sandboxTest(
     expect(stats.isFile()).toBe(true);
     // The deploy store copy stays pristine.
     expect(await readFile(storePath, 'utf8')).toBe(DECLARED);
+  },
+);
+
+sandboxTest(
+  'codex state written through a legacy link survives the deploy that follows',
+  async (dir) => {
+    // The pre-codexConfig layout: the host path is a link into the deploy
+    // store, so codex's registrations live in the role file the deploy phase
+    // is about to replace.
+    const role = join(dir, '.mev/roles/coder/codex');
+    await mkdir(role, { recursive: true });
+    const storePath = join(role, 'config.toml');
+    await writeFile(
+      storePath,
+      [
+        'model = "stale"',
+        '',
+        '[marketplaces.xlsx]',
+        'source = "git@github.com:akitorahayashi/xlsx.git"',
+        '',
+        '[plugins."xlsx@xlsx"]',
+        'enabled = true',
+        '',
+      ].join('\n'),
+    );
+    await mkdir(join(dir, '.codex'), { recursive: true });
+    await symlink(storePath, hostConfigPath(dir));
+    const { context } = recordingContext({ home: dir });
+
+    await coderTarget.preserveBeforeDeploy?.(context);
+    // The deploy phase resets the role to the embedded asset.
+    await writeFile(storePath, DECLARED);
+    const report = await runActivation(activation(), context);
+
+    expect(report.status).toBe('changed');
+    const written = loadToml(
+      await readFile(hostConfigPath(dir), 'utf8'),
+      'host',
+    );
+    expect(written['model']).toBe('gpt-test');
+    expect(written['marketplaces']).toEqual({
+      xlsx: { source: 'git@github.com:akitorahayashi/xlsx.git' },
+    });
+    expect(written['plugins']).toEqual({ 'xlsx@xlsx': { enabled: true } });
   },
 );
 

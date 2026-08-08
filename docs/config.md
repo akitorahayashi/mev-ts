@@ -47,20 +47,26 @@ ssh_host: github-personal
 
 Changing the SSH host affects later missing-plugin installations. The command does not run provisioning or alter plugins already installed; `mev make coder` applies the current declaration when needed.
 
-The catalog also declares removals explicitly. Every marketplace entry carries a required `uninstall` list and the catalog root a required `removed_marketplaces` list, both usually empty:
+The catalog also declares removals explicitly, through two optional lists that are absent while there is nothing to remove. Moving a plugin name out of a marketplace's `plugins` into an `uninstall` list on the same entry uninstalls it:
 
 ```yaml
 marketplaces:
   - client: claude
-    repository: xlsx
-    name: xlsx
-    plugins:
-      - xlsx
-    uninstall: []
-removed_marketplaces: []
+    repository: agent-device-plugin
+    name: agent-device-plugin
+    plugins: [agent-device]
+    uninstall: [device-verification]
 ```
 
-Moving a plugin name from `plugins` to `uninstall` uninstalls it on the next run; moving a whole entry to `removed_marketplaces` (as `client` and `name`) uninstalls its remaining installed plugins and deregisters the marketplace. Only listed items are removed — plugins installed by hand outside the catalog are never touched. Because the catalog is an embedded asset, these edits mark the coder target stale and `mev sync` converges them.
+Deleting a whole marketplace entry and naming it under a root `removed_marketplaces` list uninstalls the plugins it still has installed, then deregisters the marketplace:
+
+```yaml
+removed_marketplaces:
+  - client: claude
+    name: comment-review
+```
+
+Only listed items are removed — plugins installed by hand outside the catalog are never touched. Because the catalog is an embedded asset, these edits mark the coder target stale and `mev sync` converges them.
 
 ## Extending the Catalogs
 
