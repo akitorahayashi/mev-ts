@@ -16,6 +16,20 @@ import { loadYaml } from '../host/yaml';
 // The manifest is repo-owned, so this is defense-in-depth.
 const SAFE_PACKAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 
+/**
+ * The latest-assumed version vocabulary. pipx has no `latest` of its own the
+ * way npm has the dist-tag, so this is mev's reserved literal and never reaches
+ * an install spec.
+ */
+export const latestVersion = 'latest';
+
+// PEP 440's normalized form. A pin is compared literally against the version
+// pipx reports, which pip has normalized, so a range (`>=1.2`, `~=1.2`), a
+// wildcard, or an unnormalized spelling (`1.0.0-rc1`, `01.2`) could never match
+// and would uninstall and reinstall the tool on every run.
+const EXACT_VERSION =
+  /^(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?$/;
+
 export interface PostInstall {
   readonly bin: string;
   readonly args?: readonly string[];
@@ -23,8 +37,8 @@ export interface PostInstall {
 
 export interface PipxTool {
   readonly package: string;
-  readonly version?: string;
-  readonly install_spec?: string;
+  /** The literal `latest` (latest-assumed) or an exact version pin. */
+  readonly version: string;
   readonly inject?: readonly string[];
   readonly post_install?: PostInstall;
 }
@@ -39,20 +53,21 @@ export function normalizedPackageName(name: string): string {
 }
 
 export function parseManifest(raw: string, path: string): PipxEntry[] {
+  const label = `Pipx config ${path}`;
   const parsed = loadYaml(raw, path);
   if (!isRecord(parsed)) {
-    throw new ProvisioningError(
-      `Pipx config must contain a tools sequence: ${path}`,
-    );
+    throw new ProvisioningError(`${label} must be a mapping.`);
   }
-  requireExactKeys(parsed, ['tools', 'uninstall'], `Pipx config ${path}`);
+  requireExactKeys(parsed, ['tools', 'uninstall'], label);
   const tools = parsed['tools'];
-  if (!Array.isArray(tools)) {
+  if (!isRecord(tools)) {
     throw new ProvisioningError(
-      `Pipx config must contain a tools sequence: ${path}`,
+      `${label} tools must be a mapping of package names to versions.`,
     );
   }
-  const parsedTools = tools.map((entry) => parseTool(entry));
+  const parsedTools = Object.entries(tools).map(([name, value]) =>
+    parseTool(name, value),
+  );
   // Absent means nothing to remove; only names written here are ever
   // uninstalled.
   const uninstall =
@@ -72,7 +87,7 @@ export function parseManifest(raw: string, path: string): PipxEntry[] {
   requireUniqueBy(
     [...parsedTools.map((tool) => tool.package), ...uninstall],
     normalizedPackageName,
-    `Pipx config ${path}`,
+    label,
   );
   return [
     ...uninstall.map(
@@ -82,41 +97,35 @@ export function parseManifest(raw: string, path: string): PipxEntry[] {
   ];
 }
 
-function parseTool(entry: unknown): PipxTool {
+// A bare scalar is shorthand for `{ version: <scalar> }`, covering the common
+// case of a tool with no inject or post_install; the object form is needed
+// only when those fields are declared.
+function parseTool(pkg: string, value: unknown): PipxTool {
+  if (!SAFE_PACKAGE_NAME.test(pkg)) {
+    throw new ProvisioningError(
+      `Invalid pipx config tool name '${pkg}': must contain only letters, digits, and ._- and not start with '-' or '.'.`,
+    );
+  }
+  const entry = typeof value === 'string' ? { version: value } : value;
   if (!isRecord(entry)) {
     throw new ProvisioningError(
-      'Invalid entry in pipx config: each tool must be a mapping.',
+      `Invalid entry in pipx config for '${pkg}': must be a version or a mapping with 'version'.`,
     );
   }
   requireExactKeys(
     entry,
-    ['package', 'version', 'install_spec', 'inject', 'post_install'],
-    'Invalid entry in pipx config',
+    ['version', 'inject', 'post_install'],
+    `Invalid entry in pipx config for '${pkg}'`,
   );
-  if (
-    typeof entry['package'] !== 'string' ||
-    !SAFE_PACKAGE_NAME.test(entry['package'])
-  ) {
+  const version = entry['version'];
+  if (typeof version !== 'string') {
     throw new ProvisioningError(
-      "Invalid entry in pipx config: each tool must have a package name of letters, digits, and ._- that does not start with '-' or '.'.",
+      `Invalid entry in pipx config for '${pkg}': 'version' must be '${latestVersion}' or an exact version pin.`,
     );
   }
-  const pkg = entry['package'];
-  if (
-    entry['version'] !== undefined &&
-    (typeof entry['version'] !== 'string' || entry['version'].length === 0)
-  ) {
+  if (version !== latestVersion && !EXACT_VERSION.test(version)) {
     throw new ProvisioningError(
-      `Invalid entry in pipx config for '${pkg}': 'version' must be a non-empty string.`,
-    );
-  }
-  if (
-    entry['install_spec'] !== undefined &&
-    (typeof entry['install_spec'] !== 'string' ||
-      entry['install_spec'].length === 0)
-  ) {
-    throw new ProvisioningError(
-      `Invalid entry in pipx config for '${pkg}': 'install_spec' must be a non-empty string.`,
+      `Invalid entry in pipx config for '${pkg}': 'version' must be '${latestVersion}' or an exact version pin, not '${version}'.`,
     );
   }
   const inject =
@@ -142,13 +151,7 @@ function parseTool(entry: unknown): PipxTool {
     entry['post_install'] === undefined
       ? undefined
       : parsePostInstall(entry['post_install'], pkg);
-  return {
-    package: pkg,
-    version: entry['version'],
-    install_spec: entry['install_spec'],
-    inject,
-    post_install,
-  };
+  return { package: pkg, version, inject, post_install };
 }
 
 function parsePostInstall(value: unknown, pkg: string): PostInstall {

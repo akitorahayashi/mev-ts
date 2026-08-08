@@ -11,10 +11,9 @@ const CONFIG_KEY = 'pipx/tools.yml';
 
 const YAML = `
 tools:
-  - package: yt-dlp
-  - package: browser-tool
+  yt-dlp: latest
+  browser-tool:
     version: 1.0.0
-    install_spec: git+https://example.com/browser-tool.git@v1.0.0
     inject:
       - browser-driver
     post_install:
@@ -37,7 +36,6 @@ function listJson(
     string,
     {
       package: string;
-      package_or_url: string;
       package_version: string;
       deps?: string[];
     }
@@ -49,7 +47,6 @@ function listJson(
       metadata: {
         main_package: {
           package: v.package,
-          package_or_url: v.package_or_url,
           package_version: v.package_version,
           app_paths_of_dependencies: Object.fromEntries(
             (v.deps ?? []).map((d) => [d, []]),
@@ -79,12 +76,10 @@ sandboxTest(
     const listed = listJson({
       'yt-dlp': {
         package: 'yt-dlp',
-        package_or_url: 'yt-dlp',
         package_version: '1.0',
       },
       'browser-tool': {
         package: 'browser-tool',
-        package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
         package_version: '1.0.0',
         deps: ['browser-driver'],
       },
@@ -138,13 +133,11 @@ sandboxTest(
     const listed = listJson({
       'browser-tool': {
         package: 'browser-tool',
-        package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
         package_version: '0.9.0',
         deps: ['browser-driver'],
       },
       'yt-dlp': {
         package: 'yt-dlp',
-        package_or_url: 'yt-dlp',
         package_version: '1.0',
       },
     });
@@ -167,7 +160,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode upgrades unpinned installed tools and skips pinned ones',
+  'update mode upgrades latest-declared installed tools and skips pinned ones',
   async (dir) => {
     await deployConfig(dir);
     let ytdlpVersion = '1.0';
@@ -175,12 +168,10 @@ sandboxTest(
       listJson({
         'yt-dlp': {
           package: 'yt-dlp',
-          package_or_url: 'yt-dlp',
           package_version: ytdlpVersion,
         },
         'browser-tool': {
           package: 'browser-tool',
-          package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
           package_version: '1.0.0',
           deps: ['browser-driver'],
         },
@@ -219,12 +210,10 @@ sandboxTest(
     const listed = listJson({
       'yt-dlp': {
         package: 'yt-dlp',
-        package_or_url: 'yt-dlp',
         package_version: '1.0',
       },
       'browser-tool': {
         package: 'browser-tool',
-        package_or_url: 'git+https://example.com/browser-tool.git@v1.0.0',
         package_version: '1.0.0',
         deps: ['browser-driver'],
       },
@@ -258,7 +247,8 @@ sandboxTest(
       join(roleDir, 'tools.yml'),
       [
         'tools:',
-        '  - package: media-tool',
+        '  media-tool:',
+        '    version: latest',
         '    inject:',
         '      - media-driver',
         '    post_install:',
@@ -272,7 +262,6 @@ sandboxTest(
       listJson({
         'media-tool': {
           package: 'media-tool',
-          package_or_url: 'media-tool',
           package_version: mediaToolVersion,
           deps: ['media-driver'],
         },
@@ -334,11 +323,14 @@ sandboxTest(
 );
 
 sandboxTest(
-  'failed when the pipx manifest contains non-string package names',
+  'failed when the pipx manifest tools value is not a mapping',
   async (dir) => {
     const roleDir = join(dir, '.mev', 'roles', 'pipx');
     await mkdir(roleDir, { recursive: true });
-    await writeFile(join(roleDir, 'tools.yml'), 'tools:\n  - package: 42\n');
+    await writeFile(
+      join(roleDir, 'tools.yml'),
+      'tools:\n  - package: yt-dlp\n    version: latest\n',
+    );
     const { context, calls } = recordingContext({
       home: dir,
       respond: () => ok(),
@@ -347,7 +339,9 @@ sandboxTest(
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain('package name');
+    expect(report.error).toContain(
+      'tools must be a mapping of package names to versions',
+    );
     expect(calls).toHaveLength(0);
   },
 );
@@ -359,7 +353,7 @@ sandboxTest(
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'tools.yml'),
-      'tools:\n  - package: yt-dlp\n    comment: old schema\n',
+      'tools:\n  yt-dlp:\n    version: latest\n    comment: old schema\n',
     );
     const { context, calls } = recordingContext({
       home: dir,
@@ -381,7 +375,7 @@ sandboxTest(
     await mkdir(roleDir, { recursive: true });
     await writeFile(
       join(roleDir, 'tools.yml'),
-      'tools:\n  - package: demo.tool\n  - package: demo-tool\n',
+      'tools:\n  demo.tool: latest\n  demo-tool: latest\n',
     );
     const { context, calls } = recordingContext({
       home: dir,
@@ -406,7 +400,6 @@ sandboxTest(
           metadata: {
             main_package: {
               package: 'broken-tool',
-              package_or_url: 'broken-tool',
             },
           },
         },
@@ -445,7 +438,7 @@ sandboxTest(
 
 const UNINSTALL_YAML = `
 tools:
-  - package: yt-dlp
+  yt-dlp: latest
 uninstall:
   - old-tool
 `.trimStart();
@@ -457,7 +450,6 @@ sandboxTest(
     const listed = listJson({
       'old-tool': {
         package: 'old-tool',
-        package_or_url: 'old-tool',
         package_version: '1.0',
       },
     });
@@ -493,7 +485,6 @@ sandboxTest(
     const listed = listJson({
       'yt-dlp': {
         package: 'yt-dlp',
-        package_or_url: 'yt-dlp',
         package_version: '1.0',
       },
     });
@@ -517,7 +508,7 @@ sandboxTest(
   async (dir) => {
     await deployConfig(
       dir,
-      'tools:\n  - package: yt-dlp\nuninstall:\n  - yt_dlp\n',
+      'tools:\n  yt-dlp: latest\nuninstall:\n  - yt_dlp\n',
     );
     const { context, calls } = recordingContext({
       home: dir,
@@ -537,17 +528,15 @@ sandboxTest(
   async (dir) => {
     await deployConfig(
       dir,
-      'tools:\n  - package: yt_dlp\nuninstall:\n  - old_tool\n',
+      'tools:\n  yt_dlp: latest\nuninstall:\n  - old_tool\n',
     );
     const listed = listJson({
       'yt-dlp': {
         package: 'yt-dlp',
-        package_or_url: 'yt-dlp',
         package_version: '1.0',
       },
       'old-tool': {
         package: 'old-tool',
-        package_or_url: 'old-tool',
         package_version: '1.0',
       },
     });

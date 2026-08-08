@@ -11,7 +11,6 @@ export interface Installed {
    * literal name: uninstall must pass this form, not the manifest's.
    */
   readonly name: string;
-  readonly packageOrUrl: string;
   readonly version: string;
   readonly dependencies: readonly string[];
 }
@@ -23,7 +22,6 @@ interface PipxListJson {
       readonly metadata?: {
         readonly main_package?: {
           readonly package: string;
-          readonly package_or_url: string;
           readonly package_version: string;
           readonly app_paths_of_dependencies?: Record<string, unknown>;
         };
@@ -88,11 +86,10 @@ export async function listInstalled(
     }
     if (
       typeof main['package'] !== 'string' ||
-      typeof main['package_or_url'] !== 'string' ||
       typeof main['package_version'] !== 'string'
     ) {
       throw new ProvisioningError(
-        `Invalid pipx list --json output: main_package for '${name}' must contain string package, package_or_url, and package_version.`,
+        `Invalid pipx list --json output: main_package for '${name}' must contain string package and package_version.`,
       );
     }
     const deps = main['app_paths_of_dependencies'];
@@ -103,7 +100,6 @@ export async function listInstalled(
     }
     map.set(normalizedPackageName(main['package']), {
       name: main['package'],
-      packageOrUrl: main['package_or_url'],
       version: main['package_version'],
       dependencies: Object.keys(deps ?? {}),
     });

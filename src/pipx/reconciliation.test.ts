@@ -1,65 +1,73 @@
 import { expect, test } from 'bun:test';
 import type { Installed } from './inventory';
-import { shouldPostInstall, shouldUpgrade } from './reconciliation';
+import {
+  installSpec,
+  needsReinstall,
+  shouldPostInstall,
+  shouldUpgrade,
+} from './reconciliation';
 
 const installed: Installed = {
   name: 'yt-dlp',
-  packageOrUrl: 'yt-dlp',
   version: '1.0',
   dependencies: [],
 };
 
+test('installSpec resolves latest to the bare package name', () => {
+  expect(installSpec({ package: 'yt-dlp', version: 'latest' })).toBe('yt-dlp');
+});
+
+test('installSpec pins with the == operator', () => {
+  expect(installSpec({ package: 'yt-dlp', version: '2.0' })).toBe(
+    'yt-dlp==2.0',
+  );
+});
+
+test('needsReinstall ignores the installed version of a latest tool', () => {
+  expect(
+    needsReinstall({ package: 'yt-dlp', version: 'latest' }, installed),
+  ).toBe(false);
+  expect(
+    needsReinstall({ package: 'yt-dlp', version: 'latest' }, undefined),
+  ).toBe(true);
+});
+
+test('needsReinstall follows a pin that diverges from the installed version', () => {
+  expect(needsReinstall({ package: 'yt-dlp', version: '1.0' }, installed)).toBe(
+    false,
+  );
+  expect(needsReinstall({ package: 'yt-dlp', version: '2.0' }, installed)).toBe(
+    true,
+  );
+});
+
 test('shouldUpgrade requires update mode', () => {
-  expect(shouldUpgrade({ package: 'yt-dlp' }, installed, false)).toBe(false);
-  expect(shouldUpgrade({ package: 'yt-dlp' }, installed, true)).toBe(true);
+  const tool = { package: 'yt-dlp', version: 'latest' };
+  expect(shouldUpgrade(tool, installed, false)).toBe(false);
+  expect(shouldUpgrade(tool, installed, true)).toBe(true);
 });
 
 test('shouldUpgrade skips tools that are not installed', () => {
-  expect(shouldUpgrade({ package: 'yt-dlp' }, undefined, true)).toBe(false);
+  expect(
+    shouldUpgrade({ package: 'yt-dlp', version: 'latest' }, undefined, true),
+  ).toBe(false);
 });
 
 test('shouldUpgrade never touches a version-pinned tool', () => {
   expect(
     shouldUpgrade({ package: 'yt-dlp', version: '1.0' }, installed, true),
   ).toBe(false);
-});
-
-test('shouldUpgrade defers to reinstall when the pin or spec diverges', () => {
   expect(
     shouldUpgrade({ package: 'yt-dlp', version: '2.0' }, installed, true),
   ).toBe(false);
-  expect(
-    shouldUpgrade(
-      { package: 'yt-dlp', install_spec: 'git+https://example.com/x.git' },
-      installed,
-      true,
-    ),
-  ).toBe(false);
-});
-
-test('shouldUpgrade treats a matching unpinned install_spec as latest-assumed', () => {
-  const spec = 'git+https://example.com/x.git';
-  expect(
-    shouldUpgrade(
-      { package: 'yt-dlp', install_spec: spec },
-      { ...installed, packageOrUrl: spec },
-      true,
-    ),
-  ).toBe(true);
 });
 
 test('shouldPostInstall runs after an upgrade only when declared', () => {
   const post = { bin: 'tool' };
+  const tool = { package: 'x', version: 'latest', post_install: post };
+  expect(shouldPostInstall(tool, false, false, true)).toBe(true);
+  expect(shouldPostInstall(tool, false, false, false)).toBe(false);
   expect(
-    shouldPostInstall({ package: 'x', post_install: post }, false, false, true),
-  ).toBe(true);
-  expect(
-    shouldPostInstall(
-      { package: 'x', post_install: post },
-      false,
-      false,
-      false,
-    ),
+    shouldPostInstall({ package: 'x', version: 'latest' }, false, false, true),
   ).toBe(false);
-  expect(shouldPostInstall({ package: 'x' }, false, false, true)).toBe(false);
 });
