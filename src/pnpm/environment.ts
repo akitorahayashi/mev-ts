@@ -31,7 +31,11 @@ export async function pnpmRuntime(context: Context): Promise<PnpmRuntime> {
   const options: CommandOptions = {
     env: {
       PNPM_HOME: pnpmHome,
-      PATH: [pnpmHome, `${prefix}/bin`, context.basePath]
+      // pnpm 11 places global binaries under $PNPM_HOME/bin and refuses every
+      // global command — including `ls -g` — when that directory is not on
+      // PATH; pnpm 10 used $PNPM_HOME itself, so both are present. Homebrew's
+      // bin stays ahead of the user-managed global binaries.
+      PATH: [`${prefix}/bin`, `${pnpmHome}/bin`, pnpmHome, context.basePath]
         .filter(Boolean)
         .join(':'),
     },

@@ -290,7 +290,7 @@ sandboxTest('failed when pnpm ls output is not JSON', async (dir) => {
 });
 
 sandboxTest(
-  'pnpm runs under PNPM_HOME with brew and pnpm on PATH',
+  'pnpm runs under PNPM_HOME with its global bin directory on PATH',
   async (dir) => {
     await deployConfig(dir, 'packages:\n  typescript: latest\n');
     const { context, calls } = recordingContext({
@@ -308,9 +308,57 @@ sandboxTest(
       '--',
       PNPM_BIN,
     ]);
+    const pnpmHome = join(dir, 'Library/pnpm');
     expect(add?.options?.env).toEqual({
-      PNPM_HOME: join(dir, 'Library/pnpm'),
-      PATH: `${join(dir, 'Library/pnpm')}:${PREFIX}/bin:/usr/bin`,
+      PNPM_HOME: pnpmHome,
+      // pnpm 11 rejects every global command when $PNPM_HOME/bin is off PATH.
+      PATH: `${PREFIX}/bin:${pnpmHome}/bin:${pnpmHome}:/usr/bin`,
     });
+  },
+);
+
+sandboxTest(
+  'a removal that sweeps a declared package reinstalls it from the refreshed inventory',
+  async (dir) => {
+    await deployConfig(
+      dir,
+      'packages:\n  typescript: latest\nuninstall:\n  - old-cli\n',
+    );
+    // pnpm removes whole installation groups: removing old-cli also sweeps
+    // typescript here, which only the post-removal inventory can reveal.
+    const before = lsJson({ 'old-cli': '1.0.0', typescript: '5.6.2' });
+    const after = lsJson({});
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder([before, after]),
+    });
+
+    const report = await runActivation(applyPnpm(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    expect(packageOps(calls)).toEqual([
+      ['remove', '-g', 'old-cli'],
+      ['add', '-g', 'typescript@latest'],
+    ]);
+    expect(report.entries?.find((e) => e.key === 'typescript')?.value).toBe(
+      'installed',
+    );
+  },
+);
+
+sandboxTest(
+  'no removals: installs reconcile against the initial inventory without a re-read',
+  async (dir) => {
+    await deployConfig(dir, 'packages:\n  typescript: latest\n');
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder([lsJson({ typescript: '5.6.2' })]),
+    });
+
+    const report = await runActivation(applyPnpm(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    const lists = calls.filter((c) => pnpmArgs(c)?.[0] === 'ls');
+    expect(lists).toHaveLength(1);
   },
 );

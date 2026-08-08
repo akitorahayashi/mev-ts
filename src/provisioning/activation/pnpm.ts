@@ -25,13 +25,14 @@ export function applyPnpm(configKey: string): Activation {
 
 function installStep(
   pkg: PnpmPackage,
-  installed: InstalledPackage | undefined,
+  inventory: () => Promise<ReadonlyMap<string, InstalledPackage>>,
   context: Context,
   runtime: PnpmRuntime,
   update: boolean,
 ): ReconcileStep {
   return {
     async run() {
+      const installed = (await inventory()).get(pkg.name);
       if (needsInstall(pkg, installed)) {
         await add(context, runtime, installSpec(pkg));
         return { key: pkg.name, value: 'installed', status: 'changed' };
@@ -106,6 +107,22 @@ const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
   steps: async (entries, _activation, context, runOptions) => {
     const runtime = await pnpmRuntime(context);
     const installed = await listGlobal(context, runtime);
+    // pnpm removes at installation-group granularity, so a removal may sweep
+    // packages beyond the named one. When any listed removal will actually
+    // run, installs reconcile against a re-read inventory instead of the
+    // pre-removal snapshot; a declared package a group removal swept away is
+    // then seen as missing and reinstalled in the same run. Steps execute
+    // serially and removals precede installs, so the lazy re-read happens
+    // after every removal has finished.
+    const willRemove = entries.some(
+      (entry) => entry.action === 'uninstall' && installed.has(entry.name),
+    );
+    let refreshed: Promise<Map<string, InstalledPackage>> | undefined;
+    const inventory = (): Promise<ReadonlyMap<string, InstalledPackage>> => {
+      if (!willRemove) return Promise.resolve(installed);
+      refreshed ??= listGlobal(context, runtime);
+      return refreshed;
+    };
     // parseManifest orders removals ahead of packages, so mapping in manifest
     // order preserves the uninstall-before-install convention.
     return entries.map((entry) =>
@@ -113,7 +130,7 @@ const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
         ? uninstallStep(entry.name, installed.get(entry.name), context, runtime)
         : installStep(
             entry.package,
-            installed.get(entry.package.name),
+            inventory,
             context,
             runtime,
             runOptions.update,
