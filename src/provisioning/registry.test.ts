@@ -32,6 +32,7 @@ function referencedAssets(activation: Activation): AssetReference[] {
     case 'pipx':
     case 'editorExtensions':
     case 'release':
+    case 'agentPlugins':
       return [{ key: activation.configKey }];
     case 'coderAgents':
       return [{ prefix: activation.sectionsPrefix }];

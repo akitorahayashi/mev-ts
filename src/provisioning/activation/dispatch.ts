@@ -1,4 +1,5 @@
 import type { Context } from '../../host/context';
+import { describeAgentPlugins, runAgentPlugins } from './agent-plugins';
 import {
   describeCoderAgents,
   describeCoderSkills,
@@ -38,6 +39,8 @@ export function describeActivation(activation: Activation): Described {
       return describeCoderAgents(activation);
     case 'coderSkills':
       return describeCoderSkills(activation);
+    case 'agentPlugins':
+      return describeAgentPlugins(activation);
     case 'zedSettings':
       return describeZedSettings(activation);
     case 'command':
@@ -81,6 +84,8 @@ export function runActivation(
       return runCoderAgents(activation, context);
     case 'coderSkills':
       return runCoderSkills(activation, context);
+    case 'agentPlugins':
+      return runAgentPlugins(activation, context);
     case 'zedSettings':
       return runZedSettings(activation, context);
     case 'command':

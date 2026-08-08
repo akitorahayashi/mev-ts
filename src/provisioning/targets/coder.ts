@@ -6,6 +6,7 @@ import {
   brewPrefixCapture,
   coderAgents,
   coderSkills,
+  installAgentPlugins,
   link,
   remoteInstaller,
   runCommand,
@@ -101,5 +102,6 @@ export const coderTarget = target('coder', {
     ),
     coderAgents(AGENTS_SECTIONS_PREFIX, AGENTS_DESTS),
     coderSkills(SKILLS_PREFIX, SKILLS_TARGETS),
+    installAgentPlugins('coder/plugins.yml'),
   ],
 });

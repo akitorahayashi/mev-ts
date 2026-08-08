@@ -1,3 +1,7 @@
+export {
+  agentPluginsConfigAssets,
+  installAgentPlugins,
+} from './agent-plugins';
 export { brewPath, brewPrefixCapture } from './brew-path';
 export { coderAgents, coderAgentsConfigAssets, coderSkills } from './coder';
 export { bindCommandRead, commandReadKey, runCommand } from './command';

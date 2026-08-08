@@ -1,6 +1,6 @@
 # Config
 
-`mev config` (alias `cf`) manages three independently selectable surfaces — coder AGENTS.md sections, coder skills, and Zed settings overrides — each resolved from a catalog against a stored selection manifest under `~/.mev/`. Command syntax for `config agents`, `config skills`, `config zed`, and `--clear` is in docs/usage.md. How the resulting `coderAgents`, `coderSkills`, and `zedSettings` activations apply the selection to the host is in docs/architecture.md.
+`mev config` (alias `cf`) manages three independently selectable surfaces — coder AGENTS.md sections, coder skills, and Zed settings overrides — plus the per-machine SSH host used for agent plugin installation. The selectable surfaces resolve a catalog against a stored selection manifest under `~/.mev/`. Command syntax is in docs/usage.md; activation behavior is in docs/architecture.md.
 
 ## Selectable Surfaces
 
@@ -34,6 +34,18 @@ An absent manifest means an empty stored list, interpreted per polarity (all ena
 - `combineOverrides` (`zed/merge.ts`) deep-merges the enabled overrides into one fragment first, tracking which override name owns each JSON path. Two overrides setting the same leaf key throw a `ProvisioningError` naming both, rather than letting catalog order silently decide a winner — including the asymmetric case where one override sets an entire subtree as a primitive while another nests keys under that same path, in either declaration order.
 - `deepMerge` then applies the combined overrides onto the base settings, with the overlay winning on every leaf it defines.
 - Override fragments reject `__proto__`, `constructor`, and `prototype` keys outright, since none are legitimate Zed setting names. This check runs over override data only; the base settings asset is not separately validated for these keys.
+
+## Agent Plugin SSH Host
+
+The embedded agent plugin catalog declares `github.com` as its default SSH host and lists the first-party marketplaces and plugin IDs for Claude Code and Codex. A per-machine override lives at `~/.mev/coder/plugin-source.yml`:
+
+```yaml
+ssh_host: github-personal
+```
+
+`mev config plugin-host <ssh-host>` writes this file atomically. The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent override uses the catalog's explicit default. A malformed present file fails rather than reverting to the default.
+
+Changing the SSH host affects later missing-plugin installations. The command does not run provisioning or alter plugins already installed; `mev make coder` applies the current declaration when needed.
 
 ## Extending the Catalogs
 

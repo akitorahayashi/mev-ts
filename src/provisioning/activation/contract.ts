@@ -58,6 +58,10 @@ export type Activation =
       readonly targetDirs: readonly HostPath[];
     }
   | {
+      readonly kind: 'agentPlugins';
+      readonly configKey: string;
+    }
+  | {
       readonly kind: 'zedSettings';
       readonly base: AssetRef;
       readonly overridesPrefix: string;

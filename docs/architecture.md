@@ -13,6 +13,7 @@ src/
   cli/          argv parsing, exit code mapping, terminal rendering (clipanion)
   app/          use-case orchestration (identity, config selection)
   provisioning/ target DSL, activation engines, 3-phase orchestrator
+  agent-plugin/ Claude Code/Codex marketplace inventory and install protocols
   brew/         Homebrew install
   coder/        Coder catalogs, manifests, and renderers
   config-selection/ shared selection manifest parser/resolver
@@ -55,6 +56,7 @@ activation/
   duti.ts       'duti' factory and runner
   pipx.ts       'pipx' factory and runner
   extensions.ts 'editorExtensions' factory and runner
+  agent-plugins.ts 'agentPlugins' marketplace and plugin reconciler
   coder.ts      'coderAgents' + 'coderSkills' factories and runners
   zed.ts        'zedSettings' factory and runner
   command.ts    'command' factory and step execution engine
@@ -63,7 +65,7 @@ activation/
   index.ts      public barrel
 ```
 
-Twelve activation kinds:
+Thirteen activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
@@ -75,6 +77,7 @@ Twelve activation kinds:
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
+| `agentPlugins` | `installAgentPlugins(configKey)` | Installs missing Claude Code and Codex plugins from SSH-backed `main` marketplaces without updating installed plugins |
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches versioned GitHub release binaries; skips when the installed bytes match the locked SHA-256 digest |
@@ -91,6 +94,8 @@ Twelve activation kinds:
 - Concurrency — kinds default to serial execution; only `release` opts into a bounded parallel loop because its items are independent network downloads.
 
 `coderAgents` and `coderSkills` do not use this envelope but apply the same per-item boundary to their symlink fan-out: a read or build failure fails the whole activation, while an unwritable destination directory fails only its own entry and its siblings still apply.
+
+`agentPlugins` inventories Claude Code and Codex once per client. A marketplace with no missing declared plugins performs no marketplace operation. For a missing plugin, the activation adds the SSH marketplace at `main`, or refreshes an existing marketplace only when its URL and ref match the declaration, then installs only the missing IDs. Installed disabled plugins still count as present. Marketplace source conflicts fail without removing or replacing user state, and a final client inventory verifies successful install commands. Antigravity plugins are outside this activation.
 
 `manifest.ts` provides `readDeployedManifest()`, used by YAML-driven kinds. It translates only `ENOENT` into a labeled "deploy first" message, preserving the original error for all other codes so `EISDIR` or `EACCES` surfaces its real cause. Every parser narrows parsed-`unknown` data through `host/parse.ts` (`isRecord`, `requireRecord`, `requireStringArray`), so the record predicate lives once and rejection messages share one shape instead of each module re-improvising validation.
 
@@ -177,6 +182,7 @@ Several activation kinds delegate external-tool protocol and state detection to 
 | `duti/` | `duti -x` output parse; `duti -s` apply |
 | `editor/` | `--list-extensions` parse; `--install-extension` |
 | `coder/` | Coder section/skill catalogs, manifests, and renderers |
+| `agent-plugin/` | Claude Code/Codex JSON inventories, SSH marketplace operations, and per-machine source state |
 | `github/` | Public GitHub release download via `curl` |
 | `git/` | Git config mutation and locale-pinned git command helpers |
 | `zed/` | Zed override catalog, manifest, and settings renderer |
