@@ -11,6 +11,7 @@ import {
 import { brewEnv, localVenvs } from '../../pipx/environment';
 import { type Installed, listInstalled } from '../../pipx/inventory';
 import {
+  normalizedPackageName,
   type PipxEntry,
   type PipxTool,
   parseManifest,
@@ -49,7 +50,7 @@ function pipxStep(
     async run() {
       const reinstall = needsReinstall(tool, installed);
       if (reinstall && installed) {
-        await uninstall(context, options, tool.package);
+        await uninstall(context, options, installed.name);
         actions.push('uninstalled');
       }
       let justInstalled = false;
@@ -66,7 +67,7 @@ function pipxStep(
         // pipx releases that provisioning never guarantees (the install phase
         // runs `brew bundle install --no-upgrade`, so an older pipx stays).
         const refreshed = (await listInstalled(context, options)).get(
-          tool.package,
+          normalizedPackageName(tool.package),
         );
         if (!refreshed) {
           throw new ProvisioningError(
@@ -127,7 +128,7 @@ function pipxUninstallStep(
       if (!installed) {
         return { key: pkg, value: 'already absent', status: 'unchanged' };
       }
-      await uninstall(context, options, pkg);
+      await uninstall(context, options, installed.name);
       return { key: pkg, value: 'uninstalled', status: 'changed' };
     },
     onError(error) {
@@ -164,13 +165,13 @@ const pipxKind = manifestKind<PipxActivation, PipxEntry>({
       entry.action === 'uninstall'
         ? pipxUninstallStep(
             entry.package,
-            installed.get(entry.package),
+            installed.get(normalizedPackageName(entry.package)),
             context,
             options,
           )
         : pipxStep(
             entry.tool,
-            installed.get(entry.tool.package),
+            installed.get(normalizedPackageName(entry.tool.package)),
             context,
             options,
             venvs,

@@ -3,6 +3,7 @@ import type { Installed } from './inventory';
 import { shouldPostInstall, shouldUpgrade } from './reconciliation';
 
 const installed: Installed = {
+  name: 'yt-dlp',
   packageOrUrl: 'yt-dlp',
   version: '1.0',
   dependencies: [],

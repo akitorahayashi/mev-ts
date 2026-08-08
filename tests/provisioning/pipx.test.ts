@@ -531,3 +531,41 @@ sandboxTest(
     expect(calls).toHaveLength(0);
   },
 );
+
+sandboxTest(
+  'manifest spellings resolve to installed tools across hyphen/underscore variants',
+  async (dir) => {
+    await deployConfig(
+      dir,
+      'tools:\n  - package: yt_dlp\nuninstall:\n  - old_tool\n',
+    );
+    const listed = listJson({
+      'yt-dlp': {
+        package: 'yt-dlp',
+        package_or_url: 'yt-dlp',
+        package_version: '1.0',
+      },
+      'old-tool': {
+        package: 'old-tool',
+        package_or_url: 'old-tool',
+        package_version: '1.0',
+      },
+    });
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder(listed),
+    });
+
+    const report = await runActivation(applyPipx(CONFIG_KEY), context);
+
+    expect(report.status).toBe('changed');
+    // The already-installed variant spelling is recognized, not reinstalled.
+    expect(report.entries?.find((e) => e.key === 'yt_dlp')?.value).toBe(
+      'up to date',
+    );
+    expect(calls.some((c) => c.args[0] === 'install')).toBe(false);
+    // The removal command receives pipx's reported spelling, not the manifest's.
+    const uninstalls = calls.filter((c) => c.args[0] === 'uninstall');
+    expect(uninstalls.map((c) => c.args)).toEqual([['uninstall', 'old-tool']]);
+  },
+);

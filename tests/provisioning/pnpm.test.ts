@@ -362,3 +362,34 @@ sandboxTest(
     expect(lists).toHaveLength(1);
   },
 );
+
+sandboxTest(
+  'a failed removal marks the entry failed but installs still run',
+  async (dir) => {
+    await deployConfig(
+      dir,
+      'packages:\n  typescript: latest\nuninstall:\n  - old-cli\n',
+    );
+    const base = baseResponder([lsJson({ 'old-cli': '1.0.0' })]);
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: (cmd, args) => {
+        if (cmd === 'fnm' && args.includes('remove')) {
+          return fail('store is locked');
+        }
+        return base(cmd, args);
+      },
+    });
+
+    const report = await runActivation(applyPnpm(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    const removal = report.entries?.find((e) => e.key === 'old-cli');
+    expect(removal?.status).toBe('failed');
+    expect(removal?.error).toContain('store is locked');
+    expect(report.entries?.find((e) => e.key === 'typescript')?.status).toBe(
+      'changed',
+    );
+    expect(packageOps(calls).some((args) => args[0] === 'add')).toBe(true);
+  },
+);

@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { ProvisioningError } from '../errors';
 import type { CommandOptions } from '../host/command';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
@@ -27,6 +28,11 @@ export async function pnpmRuntime(context: Context): Promise<PnpmRuntime> {
     'brew --prefix failed',
   );
   const prefix = result.stdout.trim();
+  if (!prefix) {
+    throw new ProvisioningError(
+      'brew --prefix reported an empty prefix; cannot locate the pnpm binary.',
+    );
+  }
   const pnpmHome = join(context.home, 'Library/pnpm');
   const options: CommandOptions = {
     env: {
