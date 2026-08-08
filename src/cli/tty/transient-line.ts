@@ -16,10 +16,20 @@ export interface TransientLine {
 // Carriage return to column 0, then erase the entire line.
 const RESET_LINE = '\r\x1b[2K';
 
-export function createTransientLine(stream: Writable): TransientLine {
+export function createTransientLine(
+  stream: Writable & { columns?: number },
+): TransientLine {
   return {
     render(text) {
-      stream.write(`${RESET_LINE}${text}`);
+      // Clamp to the terminal width so the line never soft-wraps: RESET_LINE
+      // erases only the physical row the cursor is on, so a wrapped first row
+      // would be orphaned on screen. Read columns per render to track resizes.
+      const width = stream.columns;
+      const clamped =
+        width !== undefined && text.length >= width
+          ? `${text.slice(0, Math.max(0, width - 2))}…`
+          : text;
+      stream.write(`${RESET_LINE}${clamped}`);
     },
     clear() {
       stream.write(RESET_LINE);
