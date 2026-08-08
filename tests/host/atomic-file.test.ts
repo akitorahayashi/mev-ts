@@ -1,9 +1,11 @@
 import { expect, test } from 'bun:test';
 import {
   chmod,
+  lstat,
   readdir,
   readFile,
   realpath,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -29,6 +31,35 @@ test('writes the final file without leaving transaction siblings', async () => {
 
     expect(await readFile(dest, 'utf8')).toBe('{"ok":true}\n');
     expect(await runOwnedSiblings(dest)).toEqual([]);
+  });
+});
+
+test('preserves the replaced destination file mode', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const dest = join(dir, 'config.toml');
+    await writeFile(dest, 'secret');
+    await chmod(dest, 0o600);
+
+    await writeFileAtomically(dest, 'updated');
+
+    expect(await readFile(dest, 'utf8')).toBe('updated');
+    expect((await stat(dest)).mode & 0o777).toBe(0o600);
+  });
+});
+
+test('a replaced symlink destination inherits its target mode', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const target = join(dir, 'target');
+    await writeFile(target, 'contents');
+    await chmod(target, 0o600);
+    const dest = join(dir, 'link');
+    await symlink(target, dest);
+
+    await writeFileAtomically(dest, 'updated');
+
+    expect((await lstat(dest)).isSymbolicLink()).toBe(false);
+    expect((await stat(dest)).mode & 0o777).toBe(0o600);
+    expect(await readFile(target, 'utf8')).toBe('contents');
   });
 });
 

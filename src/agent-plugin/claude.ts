@@ -11,8 +11,11 @@ export interface ClaudeMarketplace {
 }
 
 /**
- * Installed plugin ids mapped to their reported version. The version is kept
- * optional because only the id is contractual; update mode uses the version to
+ * Installed user-scope plugin ids mapped to their reported version. Project
+ * and local scope entries are dropped: mev installs and uninstalls only in the
+ * user scope, so a same-id plugin in another scope must neither satisfy an
+ * install nor fail an uninstall verification. The version is kept optional
+ * because only the id is contractual; update mode uses the version to
  * classify an update as changed or unchanged when the client reports it.
  */
 export async function listClaudePlugins(
@@ -31,11 +34,16 @@ export async function listClaudePlugins(
   }
   const installed = new Map<string, string | undefined>();
   for (const [index, entry] of raw.entries()) {
-    if (!isRecord(entry) || typeof entry['id'] !== 'string') {
+    if (
+      !isRecord(entry) ||
+      typeof entry['id'] !== 'string' ||
+      typeof entry['scope'] !== 'string'
+    ) {
       throw new ProvisioningError(
-        `Claude plugin inventory entry ${index + 1} requires a string id.`,
+        `Claude plugin inventory entry ${index + 1} requires string id and scope fields.`,
       );
     }
+    if (entry['scope'] !== 'user') continue;
     installed.set(
       entry['id'],
       typeof entry['version'] === 'string' ? entry['version'] : undefined,

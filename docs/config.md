@@ -35,38 +35,48 @@ An absent manifest means an empty stored list, interpreted per polarity (all ena
 - `deepMerge` then applies the combined overrides onto the base settings, with the overlay winning on every leaf it defines.
 - Override fragments reject `__proto__`, `constructor`, and `prototype` keys outright, since none are legitimate Zed setting names. This check runs over override data only; the base settings asset is not separately validated for these keys.
 
-## Agent Plugin SSH Host
+## GitHub SSH Host
 
-The embedded agent plugin catalog declares `github.com` as its default SSH host and lists the first-party marketplaces and plugin IDs for Claude Code and Codex. A per-machine override lives at `~/.mev/coder/plugin-source.yml`:
+Every GitHub connection over SSH resolves its host alias from one per-machine store at `~/.mev/ssh-host`, a plain text file holding the alias on its own line:
 
-```yaml
-ssh_host: github-personal
+```
+github-personal
 ```
 
-`mev config plugin-host <ssh-host>` writes this file atomically. The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent override uses the catalog's explicit default. A malformed present file fails rather than reverting to the default.
+`mev config ssh-host <ssh-host>` writes this file atomically. The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default.
 
 Changing the SSH host affects later missing-plugin installations. The command does not run provisioning or alter plugins already installed; `mev make coder` applies the current declaration when needed.
+
+## Agent Plugin Catalog
+
+The embedded catalog lists the marketplaces and plugin names for Claude Code and Codex. Each entry names its GitHub repository in `owner/name` form; the registered marketplace name defaults to the repo name and is declared as `name` only when the repository's marketplace.json diverges from it:
+
+```yaml
+marketplaces:
+  - client: claude
+    repo: akitorahayashi/agent-device-plugin
+    plugins: [agent-device, device-verification]
+```
 
 The catalog also declares removals explicitly, through two optional lists that are absent while there is nothing to remove. Moving a plugin name out of a marketplace's `plugins` into an `uninstall` list on the same entry uninstalls it:
 
 ```yaml
 marketplaces:
   - client: claude
-    repository: agent-device-plugin
-    name: agent-device-plugin
+    repo: akitorahayashi/agent-device-plugin
     plugins: [agent-device]
     uninstall: [device-verification]
 ```
 
-Deleting a whole marketplace entry and naming it under a root `removed_marketplaces` list uninstalls the plugins it still has installed, then deregisters the marketplace:
+Deleting a whole marketplace entry and moving its `client` and `repo` lines under a root `removed_marketplaces` list uninstalls the plugins it still has installed, then deregisters the marketplace:
 
 ```yaml
 removed_marketplaces:
   - client: claude
-    name: comment-review
+    repo: akitorahayashi/comment-review
 ```
 
-Only listed items are removed — plugins installed by hand outside the catalog are never touched. Because the catalog is an embedded asset, these edits mark the coder target stale and `mev sync` converges them.
+Only listed items are removed, and a removal dismantles only the marketplace the tombstone's repository actually registered: a same-named marketplace from another source refuses removal, and plugins installed by hand outside the catalog are never touched. Because the catalog is an embedded asset, these edits mark the coder target stale and `mev sync` converges them.
 
 ## Extending the Catalogs
 

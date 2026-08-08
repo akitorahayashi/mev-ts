@@ -80,10 +80,15 @@ export async function installCodexPlugin(
   );
 }
 
-/** Registered marketplace names, for probing before a declarative removal. */
+/**
+ * Registered marketplace names mapped to their source URL, for verifying a
+ * declarative removal against the tombstone's repository. Built-in
+ * marketplaces carry no marketplaceSource and map to undefined, which removal
+ * treats as a foreign source.
+ */
 export async function listCodexMarketplaces(
   context: Context,
-): Promise<Set<string>> {
+): Promise<Map<string, string | undefined>> {
   const raw = await capturePluginJson(
     context.commands,
     'codex',
@@ -95,16 +100,22 @@ export async function listCodexMarketplaces(
       'Codex marketplace inventory requires a marketplaces array.',
     );
   }
-  const names = new Set<string>();
+  const marketplaces = new Map<string, string | undefined>();
   for (const [index, entry] of raw['marketplaces'].entries()) {
     if (!isRecord(entry) || typeof entry['name'] !== 'string') {
       throw new ProvisioningError(
         `Codex marketplace inventory entry ${index + 1} requires a string name.`,
       );
     }
-    names.add(entry['name']);
+    const source = entry['marketplaceSource'];
+    marketplaces.set(
+      entry['name'],
+      isRecord(source) && typeof source['source'] === 'string'
+        ? source['source']
+        : undefined,
+    );
   }
-  return names;
+  return marketplaces;
 }
 
 // `codex plugin remove` documents no --json flag, unlike its siblings.
