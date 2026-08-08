@@ -43,28 +43,39 @@ test('clones each url through grove in order', async () => {
   expect(calls).toEqual([
     {
       command: 'gv',
-      args: ['clone', 'urlA'],
+      args: ['clone', '--', 'urlA'],
       stdout: 'inherit',
       stderr: 'inherit',
     },
     {
       command: 'gv',
-      args: ['clone', 'urlB'],
+      args: ['clone', '--', 'urlB'],
       stdout: 'inherit',
       stderr: 'inherit',
     },
   ]);
 });
 
-test('rejects git clone flags after the separator', async () => {
+test('applies git clone flags after the separator to every url', async () => {
   const calls: CloneCall[] = [];
   const run = cloneRunner([], calls);
 
-  await expect(
-    cloneRepositories(run, ['urlA', 'urlB', '--', '--depth', '1']),
-  ).rejects.toBeInstanceOf(CommandLineError);
+  await cloneRepositories(run, ['urlA', 'urlB', '--', '--depth', '1']);
 
-  expect(calls).toHaveLength(0);
+  expect(calls).toEqual([
+    {
+      command: 'gv',
+      args: ['clone', '--depth', '1', '--', 'urlA'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+    {
+      command: 'gv',
+      args: ['clone', '--depth', '1', '--', 'urlB'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+  ]);
 });
 
 test('rejects a repository URL that could be read as a git flag', async () => {
@@ -111,5 +122,8 @@ test('redacts clone URL credentials from progress and failure output', async () 
   expect(messages).toEqual([
     'Cloning https://REDACTED@example.com/owner/repo.git...\n',
   ]);
-  expect(calls[0]).toMatchObject({ command: 'gv', args: ['clone', url] });
+  expect(calls[0]).toMatchObject({
+    command: 'gv',
+    args: ['clone', '--', url],
+  });
 });

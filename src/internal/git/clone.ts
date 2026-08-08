@@ -16,7 +16,8 @@ function displayCloneUrl(url: string): string {
 
 /**
  * Clone each repository URL through grove's local clone cache in order,
- * stopping at the first failure.
+ * stopping at the first failure. Tokens after `--` are Git clone options
+ * applied to every URL.
  */
 export async function cloneRepositories(
   run: CommandRunner,
@@ -29,11 +30,6 @@ export async function cloneRepositories(
 
   if (urls.length === 0) {
     throw new CommandLineError('At least one repository URL is required.');
-  }
-  if (flags.length > 0) {
-    throw new CommandLineError(
-      '`mev internal git clone` uses `gv clone` and does not accept git clone flags.',
-    );
   }
 
   // A dash-leading positional would be parsed by gv as a flag (argument
@@ -53,7 +49,7 @@ export async function cloneRepositories(
     await runProcessStep(
       run,
       'gv',
-      ['clone', url],
+      ['clone', ...flags, '--', url],
       `gv clone ${displayUrl} failed`,
       {
         stdout: 'inherit',

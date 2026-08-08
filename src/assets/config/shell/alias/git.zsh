@@ -1,3 +1,16 @@
+git() {
+	if [[ "${1-}" == "clone" ]]; then
+		shift
+		if (( ! $+commands[gv] )); then
+			print -u2 -- "git clone requires gv; run 'mev make grove --update'."
+			return 127
+		fi
+		command gv clone "$@"
+	else
+		command git "$@"
+	fi
+}
+
 alias g="git"
 alias gi="git"
 
