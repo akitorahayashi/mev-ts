@@ -22,15 +22,6 @@ export function requireSshHost(value: unknown, label = 'SSH host'): string {
   return value;
 }
 
-/** SCP-style git remote for a repository reached through the SSH host alias. */
-export function sshRemoteUrl(
-  sshHost: string,
-  owner: string,
-  repository: string,
-): string {
-  return `git@${sshHost}:${owner}/${repository}.git`;
-}
-
 export function sshHostPath(home: string): string {
   return resolveHostPath(mevPath('ssh-host'), home);
 }

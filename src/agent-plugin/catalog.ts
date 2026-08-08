@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import type { Repository } from '../github/repository';
 import {
   requireExactKeys,
   requireRecord,
@@ -12,8 +13,7 @@ export type PluginClient = (typeof pluginClients)[number];
 
 export interface PluginMarketplace {
   readonly client: PluginClient;
-  readonly owner: string;
-  readonly repository: string;
+  readonly repo: Repository;
   readonly name: string;
   readonly plugins: readonly string[];
   readonly uninstall: readonly string[];
@@ -22,8 +22,7 @@ export interface PluginMarketplace {
 /** A marketplace whose registration and installed plugins are to be removed. */
 export interface RemovedMarketplace {
   readonly client: PluginClient;
-  readonly owner: string;
-  readonly repository: string;
+  readonly repo: Repository;
   readonly name: string;
 }
 
@@ -43,20 +42,17 @@ function requireSafeName(value: unknown, label: string): string {
   return value;
 }
 
-function requireRepo(
-  value: unknown,
-  label: string,
-): { owner: string; repository: string } {
+function requireRepo(value: unknown, label: string): Repository {
   const segments = typeof value === 'string' ? value.split('/') : [];
   if (segments.length !== 2) {
     throw new ProvisioningError(
       `${label} must be a GitHub repository in owner/name form.`,
     );
   }
-  const [owner = '', repository = ''] = segments;
+  const [owner = '', name = ''] = segments;
   return {
     owner: requireSafeName(owner, `${label} owner`),
-    repository: requireSafeName(repository, `${label} name`),
+    name: requireSafeName(name, `${label} name`),
   };
 }
 
@@ -79,11 +75,11 @@ function requireClient(value: unknown, label: string): PluginClient {
  */
 function marketplaceName(
   record: Record<string, unknown>,
-  repository: string,
+  repo: Repository,
   label: string,
 ): string {
   return record['name'] === undefined
-    ? repository
+    ? repo.name
     : requireSafeName(record['name'], `${label} name`);
 }
 
@@ -95,7 +91,7 @@ function parseMarketplace(value: unknown, index: number): PluginMarketplace {
     ['client', 'repo', 'name', 'plugins', 'uninstall'],
     label,
   );
-  const { owner, repository } = requireRepo(record['repo'], `${label} repo`);
+  const repo = requireRepo(record['repo'], `${label} repo`);
   const plugins = requireStringArray(record['plugins'], `${label} plugins`);
   if (plugins.length === 0) {
     throw new ProvisioningError(`${label} plugins must not be empty.`);
@@ -108,9 +104,8 @@ function parseMarketplace(value: unknown, index: number): PluginMarketplace {
       : requireStringArray(record['uninstall'], `${label} uninstall`);
   const parsed = {
     client: requireClient(record['client'], `${label} client`),
-    owner,
-    repository,
-    name: marketplaceName(record, repository, label),
+    repo,
+    name: marketplaceName(record, repo, label),
     plugins: plugins.map((plugin, pluginIndex) =>
       requireSafeName(plugin, `${label} plugin ${pluginIndex + 1}`),
     ),
@@ -133,12 +128,11 @@ function parseRemovedMarketplace(
   const label = `Agent plugin catalog removed marketplace ${index + 1}`;
   const record = requireRecord(value, label);
   requireExactKeys(record, ['client', 'repo', 'name'], label);
-  const { owner, repository } = requireRepo(record['repo'], `${label} repo`);
+  const repo = requireRepo(record['repo'], `${label} repo`);
   return {
     client: requireClient(record['client'], `${label} client`),
-    owner,
-    repository,
-    name: marketplaceName(record, repository, label),
+    repo,
+    name: marketplaceName(record, repo, label),
   };
 }
 

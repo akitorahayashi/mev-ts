@@ -832,6 +832,124 @@ removed_marketplaces:
 );
 
 sandboxTest(
+  'removes a marketplace registered under a previous SSH host alias',
+  async (home) => {
+    const catalog = `
+marketplaces: []
+removed_marketplaces:
+  - client: claude
+    repo: akitorahayashi/retired
+`;
+    await deployCatalog(home, catalog);
+    let registered = true;
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory([]));
+        }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          // Registered while `mev config ssh-host` named a different alias.
+          return ok(
+            registered
+              ? JSON.stringify([
+                  {
+                    name: 'retired',
+                    source: 'git',
+                    url: 'git@github-personal:akitorahayashi/retired.git',
+                    ref: 'main',
+                  },
+                ])
+              : '[]',
+          );
+        }
+        if (
+          command === 'claude' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'remove'
+        ) {
+          registered = false;
+          return ok();
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(report.status).toBe('changed');
+    expect(
+      calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
+    ).toContain('claude plugin marketplace remove retired --scope user');
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:retired')?.value,
+    ).toBe('marketplace removed');
+  },
+);
+
+sandboxTest(
+  'refreshes a marketplace registered under a previous SSH host alias',
+  async (home) => {
+    const catalog = `
+marketplaces:
+  - client: claude
+    repo: akitorahayashi/xlsx
+    plugins: [xlsx]
+`;
+    await deployCatalog(home, catalog);
+    const installed = new Set<string>();
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory([...installed]));
+        }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify([
+              {
+                name: 'xlsx',
+                source: 'git',
+                url: 'git@github-personal:akitorahayashi/xlsx.git',
+                ref: 'main',
+              },
+            ]),
+          );
+        }
+        if (command === 'claude' && args[1] === 'marketplace') return ok();
+        if (command === 'claude' && args[1] === 'install') {
+          installed.add(args[2] as string);
+          return ok();
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    // The alias is transport, not identity: the registration is still mev's,
+    // so the missing plugin installs instead of failing on a source conflict.
+    expect(report.status).toBe('changed');
+    expect(
+      calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
+    ).toContain('claude plugin marketplace update xlsx');
+    expect(installed).toEqual(new Set(['xlsx@xlsx']));
+  },
+);
+
+sandboxTest(
   'refuses to remove a same-named marketplace from another source',
   async (home) => {
     const catalog = `

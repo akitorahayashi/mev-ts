@@ -63,6 +63,22 @@ test('a replaced symlink destination inherits its target mode', async () => {
   });
 });
 
+test('a mode staged by the writer survives replacing a narrower file', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const dest = join(dir, 'tool');
+    await writeFile(dest, 'stale');
+    await chmod(dest, 0o644);
+
+    await replaceFileAtomically(dest, async (tmp) => {
+      await writeFile(tmp, 'downloaded', { flag: 'wx' });
+      await chmod(tmp, 0o755);
+    });
+
+    expect(await readFile(dest, 'utf8')).toBe('downloaded');
+    expect((await stat(dest)).mode & 0o777).toBe(0o755);
+  });
+});
+
 test('keeps an existing destination when the writer fails', async () => {
   await withTemporaryDirectory(async (dir) => {
     const dest = join(dir, 'state.json');

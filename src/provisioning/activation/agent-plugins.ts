@@ -25,7 +25,8 @@ import {
   upgradeCodexMarketplace,
 } from '../../agent-plugin/codex';
 import { errorMessage, ProvisioningError } from '../../errors';
-import { readSshHost, sshRemoteUrl } from '../../github/ssh-host';
+import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
+import { readSshHost } from '../../github/ssh-host';
 import type { Context } from '../../host/context';
 import type {
   Activation,
@@ -240,7 +241,7 @@ async function ensureClaudeMarketplace(
   }
   if (
     current.source !== 'git' ||
-    current.url !== url ||
+    !remoteMatchesRepository(current.url, marketplace.repo) ||
     current.ref !== 'main'
   ) {
     throw new ProvisioningError(
@@ -329,12 +330,11 @@ type MarketplaceRegistration = 'absent' | 'owned' | 'foreign';
 
 /**
  * Whether the marketplace a tombstone names is registered, and if so whether
- * its registered source is the one the tombstone's repository declares. A
- * same-named marketplace registered from any other source is foreign.
+ * its registered source is the repository the tombstone declares. A same-named
+ * marketplace registered from any other repository is foreign.
  */
 async function probeRemovedRegistration(
   removed: RemovedMarketplace,
-  expectedUrl: string,
   context: Context,
   claudeCache: {
     inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
@@ -347,15 +347,17 @@ async function probeRemovedRegistration(
       const current = claudeCache.inventory.get(removed.name);
       if (!current) return 'absent';
       return current.source === 'git' &&
-        current.url === expectedUrl &&
-        current.ref === 'main'
+        remoteMatchesRepository(current.url, removed.repo)
         ? 'owned'
         : 'foreign';
     }
     case 'codex': {
       codexCache.sources ??= await listCodexMarketplaces(context);
       if (!codexCache.sources.has(removed.name)) return 'absent';
-      return codexCache.sources.get(removed.name) === expectedUrl
+      return remoteMatchesRepository(
+        codexCache.sources.get(removed.name),
+        removed.repo,
+      )
         ? 'owned'
         : 'foreign';
     }
@@ -415,7 +417,6 @@ async function confirmUninstalled(
  */
 async function removeDeclaredMarketplace(
   removed: RemovedMarketplace,
-  sshHost: string,
   installed: PluginInventory,
   context: Context,
   claudeCache: {
@@ -425,12 +426,10 @@ async function removeDeclaredMarketplace(
   entries: StepReport[],
 ): Promise<void> {
   const key = `${removed.client}:${removed.name}`;
-  const expectedUrl = sshRemoteUrl(sshHost, removed.owner, removed.repository);
   let registration: MarketplaceRegistration;
   try {
     registration = await probeRemovedRegistration(
       removed,
-      expectedUrl,
       context,
       claudeCache,
       codexCache,
@@ -449,7 +448,7 @@ async function removeDeclaredMarketplace(
       key,
       value: 'marketplace removal refused',
       status: 'failed',
-      error: `Marketplace '${removed.name}' is configured from a different source; expected ${expectedUrl}.`,
+      error: `Marketplace '${removed.name}' is configured from a different source; expected ${removed.repo.owner}/${removed.repo.name}.`,
     });
     return;
   }
@@ -573,7 +572,7 @@ async function reconcileMarketplace(
     return;
   }
 
-  const url = sshRemoteUrl(sshHost, marketplace.owner, marketplace.repository);
+  const url = sshRemoteUrl(sshHost, marketplace.repo);
   try {
     const ensured = await ensureMarketplace(
       marketplace,
@@ -824,7 +823,6 @@ export function runAgentPlugins(
       }
       await removeDeclaredMarketplace(
         removed,
-        sshHost,
         inventory.installed,
         context,
         claudeCache,

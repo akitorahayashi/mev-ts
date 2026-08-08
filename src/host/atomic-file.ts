@@ -10,6 +10,14 @@ export async function writeFileAtomically(
 ): Promise<void> {
   await replaceFileAtomically(path, async (tmp) => {
     await writeFile(tmp, data, { flag: 'wx' });
+    // Adopted host files can carry tightened modes (e.g. a 0600 config), which
+    // renaming the umask-default temp file over them would widen. Preservation
+    // belongs here rather than in replaceFileAtomically, whose callback owns
+    // the staged file's mode and would have its own chmod overridden.
+    const existing = await statIfPresent(path);
+    if (existing?.isFile()) {
+      await chmod(tmp, existing.mode & 0o7777);
+    }
   });
 }
 
@@ -22,13 +30,6 @@ export async function replaceFileAtomically(
   await runWithCleanup(
     async () => {
       await writeTemp(tmp);
-      // Adopted host files can carry tightened modes (e.g. a 0600 config);
-      // renaming the umask-default temp file over them must not widen those,
-      // so the replacement inherits the destination's resolved mode.
-      const existing = await statIfPresent(path);
-      if (existing?.isFile()) {
-        await chmod(tmp, existing.mode & 0o7777);
-      }
       await rename(tmp, path);
     },
     () => rm(transaction, { force: true, recursive: true }),

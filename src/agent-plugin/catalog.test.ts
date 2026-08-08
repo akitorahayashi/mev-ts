@@ -31,8 +31,7 @@ test('parsePluginCatalog preserves declared marketplace and plugin order', () =>
   expect(catalog.removedMarketplaces).toEqual([
     {
       client: 'claude',
-      owner: 'akitorahayashi',
-      repository: 'retired',
+      repo: { owner: 'akitorahayashi', name: 'retired' },
       name: 'retired',
     },
   ]);
@@ -41,15 +40,12 @@ test('parsePluginCatalog preserves declared marketplace and plugin order', () =>
 test('parsePluginCatalog derives the marketplace name from the repo', () => {
   const catalog = parsePluginCatalog(VALID, 'plugins.yml');
 
-  expect(
-    catalog.marketplaces.map(({ owner, repository, name }) => [
-      owner,
-      repository,
-      name,
-    ]),
-  ).toEqual([
-    ['akitorahayashi', 'agent-device-plugin', 'agent-device-plugin'],
-    ['akitorahayashi', 'xlsx', 'xlsx'],
+  expect(catalog.marketplaces.map(({ repo, name }) => [repo, name])).toEqual([
+    [
+      { owner: 'akitorahayashi', name: 'agent-device-plugin' },
+      'agent-device-plugin',
+    ],
+    [{ owner: 'akitorahayashi', name: 'xlsx' }, 'xlsx'],
   ]);
 });
 
@@ -62,7 +58,7 @@ test('parsePluginCatalog lets a declared name override the repo name', () => {
     'plugins.yml',
   );
 
-  expect(catalog.marketplaces[1]?.repository).toBe('xlsx');
+  expect(catalog.marketplaces[1]?.repo.name).toBe('xlsx');
   expect(catalog.marketplaces[1]?.name).toBe('spreadsheet');
 });
 
