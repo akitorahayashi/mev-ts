@@ -1,19 +1,26 @@
 ---
-# Python applications installed in isolated environments by pipx.
-# Each tool can specify:
-#   - package: package name used by pipx metadata (required)
-#   - version: pinned package version to retain (optional)
-#   - install_spec: explicit pipx install target such as a git URL (optional)
-#   - inject: extra packages to inject into the tool venv (optional)
-#   - post_install: a binary from the tool's own venv to run after install
+# Python applications installed in isolated environments by pipx, keyed by
+# package name. A value is `latest`, upgraded only under `--update`, or a quoted
+# exact version to pin. A pin is compared literally against the version pipx
+# reports, so quote it and write it in PEP 440's normalized form.
+#
+# An entry declares a name and a version, never a source: a venv already
+# installed from a git URL is adopted as-is. Uninstall it to have pipx resolve
+# the name from the package index.
+#
+# inject and post_install need the mapping form:
+#   <package>:
+#     version: `latest` or a quoted exact pin (required)
+#     inject: extra packages injected into the tool venv (optional)
+#     post_install: a binary from the tool's own venv to run after install
 #       bin: executable name resolved under <venvs>/<package>/bin/
 #       args: arguments passed to that executable
 tools:
-  - package: mlx-hub
-  - package: mlx-lm
-  - package: yt-dlp
-  - package: huggingface-hub
-  - package: openai-whisper
+  mlx-hub: latest
+  mlx-lm: latest
+  yt-dlp: latest
+  huggingface-hub: latest
+  openai-whisper: latest
 # To uninstall a tool, move its package name out of tools into an uninstall
 # list at the root; only names written there are ever removed:
 #   uninstall:

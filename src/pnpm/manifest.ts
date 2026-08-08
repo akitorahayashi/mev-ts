@@ -7,6 +7,9 @@ import {
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
+/** npm's own dist-tag, reused here as the latest-assumed version vocabulary. */
+export const latestVersion = 'latest';
+
 export interface PnpmPackage {
   readonly name: string;
   /** The literal `latest` (latest-assumed) or an exact version pin. */
@@ -57,9 +60,9 @@ export function parseManifest(raw: string, path: string): PnpmEntry[] {
         `${label} packages.${name} must be a non-empty string version.`,
       );
     }
-    if (version !== 'latest' && !EXACT_VERSION.test(version)) {
+    if (version !== latestVersion && !EXACT_VERSION.test(version)) {
       throw new ProvisioningError(
-        `${label} packages.${name} must be 'latest' or an exact version pin, not the range '${version}'.`,
+        `${label} packages.${name} must be '${latestVersion}' or an exact version pin, not the range '${version}'.`,
       );
     }
     return { name, version };

@@ -1,5 +1,5 @@
 import type { InstalledPackage } from './inventory';
-import type { PnpmPackage } from './manifest';
+import { latestVersion, type PnpmPackage } from './manifest';
 
 export function installSpec(pkg: PnpmPackage): string {
   return `${pkg.name}@${pkg.version}`;
@@ -14,7 +14,7 @@ export function needsInstall(
   installed: InstalledPackage | undefined,
 ): boolean {
   if (!installed) return true;
-  return pkg.version !== 'latest' && pkg.version !== installed.version;
+  return pkg.version !== latestVersion && pkg.version !== installed.version;
 }
 
 /**
@@ -26,5 +26,5 @@ export function shouldUpgrade(
   installed: InstalledPackage | undefined,
   update: boolean,
 ): boolean {
-  return update && installed !== undefined && pkg.version === 'latest';
+  return update && installed !== undefined && pkg.version === latestVersion;
 }
