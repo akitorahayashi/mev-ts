@@ -74,13 +74,13 @@ sandboxTest(
 );
 
 sandboxTest(
-  'sync --update stays a no-op when the full setup is current',
+  'sync --upgrade stays a no-op when the full setup is current',
   async (sandbox) => {
-    // Update mode never widens the selection: a synchronized environment must
-    // exit without provisioning or network access even under --update.
+    // Upgrade mode never widens the selection: a synchronized environment must
+    // exit without provisioning or network access even under --upgrade.
     await seedCurrentEnvironment(sandbox);
 
-    const { code, stdout, stderr } = await runSync(sandbox, ['--update']);
+    const { code, stdout, stderr } = await runSync(sandbox, ['--upgrade']);
 
     expect(code).toBe(0);
     expect(stdout).toBe('mev: environment is synchronized\n');

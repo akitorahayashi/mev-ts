@@ -151,7 +151,7 @@ sandboxTest(
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.entries?.[0]).toMatchObject({
-      value: 'updated to v0.6.0',
+      value: 'upgraded to v0.6.0',
       status: 'changed',
     });
     expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
@@ -177,7 +177,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'an installed latest binary holds still without update mode',
+  'an installed latest binary holds still without upgrade mode',
   async (home) => {
     await deployBinaries(home, LATEST);
     await install(home, 'kpv', '0.6.0');
@@ -194,7 +194,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode re-resolves latest and installs the newer release',
+  'upgrade mode re-resolves latest and installs the newer release',
   async (home) => {
     await deployBinaries(home, LATEST);
     await install(home, 'kpv', '0.6.0');
@@ -203,11 +203,11 @@ sandboxTest(
     });
 
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.entries?.[0]).toMatchObject({
-      value: 'updated to v0.7.0',
+      value: 'upgraded to v0.7.0',
       status: 'changed',
     });
     expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.7.0');
@@ -215,7 +215,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'update mode resolves but does not download when latest is already installed',
+  'upgrade mode resolves but does not download when latest is already installed',
   async (home) => {
     await deployBinaries(home, LATEST);
     await install(home, 'kpv', '0.7.0');
@@ -224,7 +224,7 @@ sandboxTest(
     });
 
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
-      update: true,
+      upgrade: true,
     });
 
     expect(report.status).toBe('unchanged');

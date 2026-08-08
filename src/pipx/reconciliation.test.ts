@@ -41,7 +41,7 @@ test('needsReinstall follows a pin that diverges from the installed version', ()
   );
 });
 
-test('shouldUpgrade requires update mode', () => {
+test('shouldUpgrade requires upgrade mode', () => {
   const tool = { package: 'yt-dlp', version: 'latest' };
   expect(shouldUpgrade(tool, installed, false)).toBe(false);
   expect(shouldUpgrade(tool, installed, true)).toBe(true);

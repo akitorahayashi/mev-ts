@@ -15,8 +15,8 @@ export interface ClaudeMarketplace {
  * and local scope entries are dropped: mev installs and uninstalls only in the
  * user scope, so a same-id plugin in another scope must neither satisfy an
  * install nor fail an uninstall verification. The version is kept optional
- * because only the id is contractual; update mode uses the version to
- * classify an update as changed or unchanged when the client reports it.
+ * because only the id is contractual; upgrade mode uses the version to
+ * classify an upgrade as changed or unchanged when the client reports it.
  */
 export async function listClaudePlugins(
   context: Context,

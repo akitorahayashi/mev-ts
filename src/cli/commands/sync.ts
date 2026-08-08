@@ -15,11 +15,11 @@ export class SyncCommand extends Command {
     ),
   });
 
-  // Update mode does not widen the selection: it refreshes latest-assumed
+  // Upgrade mode does not widen the selection: it refreshes latest-assumed
   // tools only within the targets staleness already selected, so a
   // synchronized environment stays a fast no-op with no network access.
-  update = Option.Boolean('-u,--update', false, {
-    description: 'Also update installed latest-assumed tools in stale targets',
+  upgrade = Option.Boolean('-u,--upgrade', false, {
+    description: 'Also upgrade installed latest-assumed tools in stale targets',
   });
 
   async execute() {
@@ -52,7 +52,7 @@ export class SyncCommand extends Command {
 
       const code = await executeProvisioningRun({
         selectors,
-        update: this.update,
+        upgrade: this.upgrade,
         intro: 'mev: Syncing environment',
         run: (request) => runMake(request, context),
         out: (text) => this.context.stdout.write(text),

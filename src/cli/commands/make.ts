@@ -12,8 +12,8 @@ export class MakeCommand extends Command {
     ),
   });
 
-  update = Option.Boolean('-u,--update', false, {
-    description: 'Also update installed latest-assumed tools',
+  upgrade = Option.Boolean('-u,--upgrade', false, {
+    description: 'Also upgrade installed latest-assumed tools',
   });
 
   selectors = Option.Rest({ required: 1 });
@@ -22,7 +22,7 @@ export class MakeCommand extends Command {
     return runReportingDomainErrors(this.context.stderr, () =>
       executeProvisioningRun({
         selectors: this.selectors,
-        update: this.update,
+        upgrade: this.upgrade,
         out: (text) => this.context.stdout.write(text),
       }),
     );

@@ -1,6 +1,6 @@
 ---
 # Python applications installed in isolated environments by pipx, keyed by
-# package name. A value is `latest`, upgraded only under `--update`, or a quoted
+# package name. A value is `latest`, upgraded only under `--upgrade`, or a quoted
 # exact version to pin. A pin is compared literally against the version pipx
 # reports, so quote it and write it in PEP 440's normalized form.
 #
