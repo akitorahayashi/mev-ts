@@ -1,0 +1,3 @@
+# CLI (cli/)
+
+`main.ts` owns the clipanion `Cli` and registers the commands enumerated in `cli/commands/registry.ts`, the single registration source; namespace-help routing derives from their paths. Each command subclasses `Command`. `CommandLineError` (= `UsageError`) goes to stdout with usage. Commands that can transitively throw `AppError`/`ProvisioningError` wrap their execute body with `runReportingDomainErrors`, which prints `<name>: <message>` to stderr without stack or usage and returns exit code 1; pure renderers stay unwrapped. `src/errors.ts` documents the `AppError`/`ProvisioningError`/`CommandLineError` taxonomy.

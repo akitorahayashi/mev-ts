@@ -1,0 +1,11 @@
+# 3-Phase Provisioning (provisioning/run.ts)
+
+`runMake()` drives three sequential phases per make request:
+
+Before invalidating applied signatures or entering the phases, each selected target's `preserveBeforeDeploy` operation protects mutable host state that its role replacement could otherwise destroy. A preservation failure aborts before provisioning-managed state changes. The Git target uses this boundary to move legacy identity keys out of its managed XDG config.
+
+1. Deploy — `deployRole()` stages every embedded asset for the selected roles under a sibling directory. If the staged contents and executable attributes match the present role, the role remains in place; otherwise the old role is moved aside and the staged role replaces it. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
+2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
+3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
+
+Each activation also receives the run's `ActivationRunOptions`. Its `upgrade` flag (the `--upgrade`/`-u` CLI option on `make`, `create`, and `sync`) is execution intent, not desired state: it makes the `pipx`, `pnpm`, `release`, and `agentPlugins` kinds refresh installed latest-assumed items, never contributes to target signatures or sync staleness, and leaves version-pinned entries untouched.

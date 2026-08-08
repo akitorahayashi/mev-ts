@@ -1,0 +1,3 @@
+# Identity (identity/)
+
+The identity domain owns Git identity switching independently of the provisioning engine. `identity/scope.ts` is the authority for switchable scopes and their aliases. `identity/store.ts` persists a profile pair to `~/.mev/identity.json` via atomic temp-write + rename. `app/identity.ts` orchestrates the show/set/switch use cases. The managed static Git config is the XDG file at `~/.config/git/config`; `switch` writes the active `user.name` and `user.email` explicitly to the higher-precedence mutable overlay at `~/.gitconfig`. `identity/overlay.ts` preserves legacy identity keys into that overlay before the Git role is replaced, leaving existing overlay values unchanged.
