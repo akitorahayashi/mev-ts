@@ -5,13 +5,7 @@ import { parseDefaults } from '../defaults/manifest';
 import { parseAssociations } from '../duti/association';
 import { parseExtensions } from '../editor/extension';
 import { errorMessage, ProvisioningError } from '../errors';
-import {
-  parseReleaseBinaries,
-  parseReleaseLock,
-  releaseArchitectures,
-  releaseLockKey,
-  resolveReleaseDigest,
-} from '../github/release';
+import { parseReleaseBinaries } from '../github/release';
 import { loadToml } from '../host/toml';
 import { parseManifest as parsePipxManifest } from '../pipx/manifest';
 import { parseManifest as parsePnpmManifest } from '../pnpm/manifest';
@@ -91,28 +85,13 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
           parseExtensions(raw, key);
         },
       };
-    case 'release': {
-      // Beyond per-file parsing, the manifest must be fully covered by its
-      // digest lock, so a manifest edit without `bun run lock` fails at build
-      // time rather than per binary during provisioning.
-      const lockKey = releaseLockKey(activation.configKey);
+    case 'release':
       return {
         keys: releaseConfigAssets(activation),
-        validate: async (raw, key, assets) => {
-          if (key === lockKey) {
-            parseReleaseLock(raw, key);
-            return;
-          }
-          const binaries = parseReleaseBinaries(raw, key);
-          const lock = parseReleaseLock(await assets.read(lockKey), lockKey);
-          for (const binary of binaries) {
-            for (const arch of releaseArchitectures) {
-              resolveReleaseDigest(binary, arch, lock);
-            }
-          }
+        validate: (raw, key) => {
+          parseReleaseBinaries(raw, key);
         },
       };
-    }
     case 'coderAgents':
       return {
         keys: coderAgentsConfigAssets(activation),

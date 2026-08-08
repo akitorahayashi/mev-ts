@@ -1,13 +1,6 @@
 import { expect } from 'bun:test';
-import {
-  chmod,
-  mkdir,
-  readdir,
-  readFile,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import {
   releaseBinaries,
   runActivation,
@@ -22,115 +15,303 @@ import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('release-');
 
-// A successful download writes the destination file, so fetchReleaseBinary has
-// real bytes to digest and mark executable. The async responder performs that
-// side effect, so no bespoke Context is needed.
-function releaseContext(home: string, responder: Responder) {
-  return recordingContext({
-    home,
-    assets: emptyAssets,
-    async respond(command, args) {
-      const result = await responder(command, args);
-      if (result.code === 0 && command === 'curl') {
-        const i = args.indexOf('-o');
-        if (i >= 0) await writeFile(args[i + 1] as string, command);
-      }
-      return result;
-    },
-  });
-}
-
 const CONFIG_KEY = 'rust-cli/binaries.yml';
 
-// Digest of the bytes the responder writes for a successful download.
-const CURL_SHA =
-  '427e4b79b1f0fc90306cbe064b1297b21dc6835bfa656d3bf46bc156e3f24bb0';
-const WRONG_SHA =
-  'fb2b7fce0940161406a6aa3e4d8b4aa6104014774ffa665743f8d9704f0eb0ec';
+interface FakeRelease {
+  /** The tag `releases/latest` resolves to, per repository. */
+  readonly latest?: Readonly<Record<string, string>>;
+  /** The version an asset download writes, overriding the tag it was fetched at. */
+  readonly installs?: Readonly<Record<string, string>>;
+  /** Repositories whose asset download fails. */
+  readonly missingAsset?: readonly string[];
+}
 
-const PUBLIC_YAML = `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-  - name: mx
-    repo: akitorahayashi/mx
-    tag: v3.1.0
-`.trimStart();
+const LATEST_URL = /api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/latest$/;
+const ASSET_URL = /github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
 
-const PUBLIC_LOCK = `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-    assets:
-      darwin-aarch64:
-        sha256: ${CURL_SHA}
-  - name: mx
-    repo: akitorahayashi/mx
-    tag: v3.1.0
-    assets:
-      darwin-aarch64:
-        sha256: ${CURL_SHA}
-`.trimStart();
+function tagVersion(tag: string): string {
+  return tag.startsWith('v') ? tag.slice(1) : tag;
+}
 
-async function deployBinaries(
-  home: string,
-  yaml: string,
-  lock: string | null = PUBLIC_LOCK,
-): Promise<void> {
+/**
+ * A host where a release binary's bytes are the version it reports, so the
+ * `--version` probe the runner relies on is answered from what a download
+ * actually wrote rather than from a script of expected calls.
+ */
+function releaseContext(home: string, release: FakeRelease = {}) {
+  const respond: Responder = async (command, args) => {
+    if (command === 'uname') return ok('arm64');
+    if (command === 'curl') {
+      const output = args[args.indexOf('-o') + 1] as string;
+      const url = args[args.length - 1] as string;
+      const latest = LATEST_URL.exec(url);
+      if (latest?.[1]) {
+        const tag = release.latest?.[latest[1]];
+        if (!tag) return fail('404 not found');
+        await writeFile(output, JSON.stringify({ tag_name: tag }));
+        return ok();
+      }
+      const asset = ASSET_URL.exec(url);
+      if (!asset?.[1] || !asset[2]) return fail(`unexpected url ${url}`);
+      const [, repo, tag] = asset;
+      if (release.missingAsset?.includes(repo)) return fail('404 not found');
+      await writeFile(output, release.installs?.[repo] ?? tagVersion(tag));
+      return ok();
+    }
+    // Anything else is a binary answering --version: its file holds the
+    // version, and an absent file is the not-installed signal (code 127).
+    try {
+      const version = await readFile(command, 'utf8');
+      return ok(`${basename(command)} ${version}\n`);
+    } catch {
+      return { code: 127, stdout: '', stderr: 'no such file' };
+    }
+  };
+  return recordingContext({ home, assets: emptyAssets, respond });
+}
+
+async function deployBinaries(home: string, yaml: string): Promise<void> {
   const roleDir = join(home, '.mev', 'roles', 'rust-cli');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'binaries.yml'), yaml);
-  if (lock !== null) {
-    await writeFile(join(roleDir, 'binaries.lock.yml'), lock);
-  }
 }
 
+function manifest(...entries: readonly (readonly [string, string, string])[]) {
+  return `binaries:\n${entries
+    .map(
+      ([name, repo, tag]) =>
+        `  - name: ${name}\n    repo: ${repo}\n    tag: ${tag}\n`,
+    )
+    .join('')}`;
+}
+
+async function install(
+  home: string,
+  name: string,
+  version: string,
+  mode = 0o755,
+): Promise<string> {
+  const binDir = join(home, '.cargo', 'bin');
+  await mkdir(binDir, { recursive: true });
+  const path = join(binDir, name);
+  await writeFile(path, version, { mode });
+  return path;
+}
+
+const PINNED = manifest(['kpv', 'akitorahayashi/kpv', 'v0.6.0']);
+const LATEST = manifest(['kpv', 'akitorahayashi/kpv', 'latest']);
+
+sandboxTest('a pinned binary that is absent is fetched', async (home) => {
+  await deployBinaries(home, PINNED);
+  const { context, calls } = releaseContext(home);
+
+  const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+  expect(report.status).toBe('changed');
+  expect(report.entries?.[0]).toMatchObject({
+    key: 'kpv',
+    value: 'installed v0.6.0',
+    status: 'changed',
+  });
+  expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
+  // Transport is pinned to HTTPS on request and redirect, with a TLS floor.
+  const curl = calls.find((call) => call.command === 'curl');
+  expect(curl?.args.slice(0, 6)).toEqual([
+    '-fsSL',
+    '--proto',
+    '=https',
+    '--proto-redir',
+    '=https',
+    '--tlsv1.2',
+  ]);
+});
+
 sandboxTest(
-  'first run: an absent binary is fetched and installed, not aborted',
+  'a pinned binary already reporting its tag is left alone without network',
   async (home) => {
-    await deployBinaries(home, PUBLIC_YAML);
-    const { context, calls } = releaseContext(home, (command) => {
-      if (command === 'uname') return ok('arm64');
-      if (command === 'curl') return ok();
-      return fail();
+    await deployBinaries(home, PINNED);
+    await install(home, 'kpv', '0.6.0');
+    const { context, calls } = releaseContext(home);
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    expect(report.entries?.[0]?.value).toBe('up to date');
+    expect(calls.some((call) => call.command === 'curl')).toBe(false);
+  },
+);
+
+sandboxTest(
+  'a pinned binary reporting another version is replaced',
+  async (home) => {
+    await deployBinaries(home, PINNED);
+    await install(home, 'kpv', '0.5.0');
+    const { context } = releaseContext(home);
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.entries?.[0]).toMatchObject({
+      value: 'updated to v0.6.0',
+      status: 'changed',
+    });
+    expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
+  },
+);
+
+sandboxTest(
+  'a latest binary that is absent resolves its tag and installs',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    const { context } = releaseContext(home, {
+      latest: { 'akitorahayashi/kpv': 'v0.7.0' },
     });
 
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
-    expect(report.status).toBe('changed');
-    expect(report.entries?.map((e) => e.status)).toEqual([
-      'changed',
-      'changed',
-    ]);
-    const curls = calls.filter((c) => c.command === 'curl');
-    expect(curls).toHaveLength(2);
-    // Transport is pinned to HTTPS on request and redirect, with a TLS floor.
-    expect(curls[0]?.args.slice(0, 6)).toEqual([
-      '-fsSL',
-      '--proto',
-      '=https',
-      '--proto-redir',
-      '=https',
-      '--tlsv1.2',
-    ]);
-    expect(await readFile(join(home, '.cargo', 'bin', 'kpv'), 'utf8')).toBe(
-      'curl',
-    );
+    expect(report.entries?.[0]).toMatchObject({
+      value: 'installed v0.7.0',
+      status: 'changed',
+    });
+    expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.7.0');
   },
 );
 
+sandboxTest(
+  'an installed latest binary holds still without update mode',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    await install(home, 'kpv', '0.6.0');
+    const { context, calls } = releaseContext(home, {
+      latest: { 'akitorahayashi/kpv': 'v0.7.0' },
+    });
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    expect(calls.some((call) => call.command === 'curl')).toBe(false);
+    expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
+  },
+);
+
+sandboxTest(
+  'update mode re-resolves latest and installs the newer release',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    await install(home, 'kpv', '0.6.0');
+    const { context } = releaseContext(home, {
+      latest: { 'akitorahayashi/kpv': 'v0.7.0' },
+    });
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
+      update: true,
+    });
+
+    expect(report.entries?.[0]).toMatchObject({
+      value: 'updated to v0.7.0',
+      status: 'changed',
+    });
+    expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.7.0');
+  },
+);
+
+sandboxTest(
+  'update mode resolves but does not download when latest is already installed',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    await install(home, 'kpv', '0.7.0');
+    const { context, calls } = releaseContext(home, {
+      latest: { 'akitorahayashi/kpv': 'v0.7.0' },
+    });
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
+      update: true,
+    });
+
+    expect(report.status).toBe('unchanged');
+    const downloads = calls.filter(
+      (call) =>
+        call.command === 'curl' &&
+        call.args.some((arg) => arg.includes('/releases/download/')),
+    );
+    expect(downloads).toHaveLength(0);
+  },
+);
+
+sandboxTest(
+  'a release whose asset disagrees with its tag leaves the previous binary in place',
+  async (home) => {
+    await deployBinaries(home, PINNED);
+    const path = await install(home, 'kpv', '0.4.0');
+    const { context } = releaseContext(home, {
+      installs: { 'akitorahayashi/kpv': '0.5.0' },
+    });
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.entries?.[0]?.error).toContain(
+      'reports version 0.5.0, expected 0.6.0',
+    );
+    expect(await readFile(path, 'utf8')).toBe('0.4.0');
+  },
+);
+
+sandboxTest(
+  'a rejected latest asset is not left to pass as up to date on the next run',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    const { context } = releaseContext(home, {
+      latest: { 'akitorahayashi/kpv': 'v0.7.0' },
+      installs: { 'akitorahayashi/kpv': '0.5.0' },
+    });
+    const activation = releaseBinaries(CONFIG_KEY);
+
+    expect((await runActivation(activation, context)).status).toBe('failed');
+
+    // Nothing landed, so the shortcut that holds an installed latest binary
+    // still has no binary to hold and the failure repeats rather than healing.
+    const second = await runActivation(activation, context);
+    expect(second.status).toBe('failed');
+    expect(second.entries?.[0]?.error).toContain('expected 0.7.0');
+  },
+);
+
+sandboxTest(
+  'a binary whose --version is not <name> <version> fails loudly',
+  async (home) => {
+    await deployBinaries(home, PINNED);
+    await install(home, 'kpv', 'unparseable version banner');
+    const { context } = releaseContext(home);
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.entries?.[0]?.error).toContain("is not '<name> <version>'");
+  },
+);
+
+sandboxTest('a stripped execute bit is repaired in place', async (home) => {
+  await deployBinaries(home, PINNED);
+  const path = await install(home, 'kpv', '0.6.0', 0o644);
+  const { context, calls } = releaseContext(home);
+
+  const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+  expect(report.status).toBe('unchanged');
+  expect((await stat(path)).mode & 0o111).not.toBe(0);
+  expect(calls.some((call) => call.command === 'curl')).toBe(false);
+});
+
 sandboxTest('one binary failing still processes its siblings', async (home) => {
-  await deployBinaries(home, PUBLIC_YAML);
-  const { context } = releaseContext(home, (command, args) => {
-    if (command === 'uname') return ok('arm64');
-    if (command === 'curl') {
-      return args.some((a) => a.includes('mx-darwin'))
-        ? fail('404 not found')
-        : ok();
-    }
-    return fail();
+  await deployBinaries(
+    home,
+    manifest(
+      ['kpv', 'akitorahayashi/kpv', 'v0.6.0'],
+      ['mx', 'akitorahayashi/mx', 'v3.1.0'],
+    ),
+  );
+  const { context } = releaseContext(home, {
+    missingAsset: ['akitorahayashi/mx'],
   });
 
   const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
@@ -143,74 +324,15 @@ sandboxTest('one binary failing still processes its siblings', async (home) => {
 });
 
 sandboxTest(
-  'an up-to-date binary is left unchanged and not re-fetched',
+  'a missing manifest fails the activation with deploy-first guidance',
   async (home) => {
-    await deployBinaries(home, PUBLIC_YAML);
-    const binDir = join(home, '.cargo', 'bin');
-    await mkdir(binDir, { recursive: true });
-    await writeFile(join(binDir, 'kpv'), 'curl');
-    await writeFile(join(binDir, 'mx'), 'curl');
-    const { context, calls } = releaseContext(home, (command) => {
-      if (command === 'uname') return ok('arm64');
-      return fail();
-    });
-
-    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('unchanged');
-    expect(report.entries?.every((e) => e.status === 'unchanged')).toBe(true);
-    expect(calls.some((c) => c.command === 'curl')).toBe(false);
-    // writeFile creates files without +x; installedMatches repairs the mode.
-    expect((await stat(join(binDir, 'kpv'))).mode & 0o111).not.toBe(0);
-    expect((await stat(join(binDir, 'mx'))).mode & 0o111).not.toBe(0);
-  },
-);
-
-sandboxTest(
-  'a missing lock file fails the activation with deploy-first guidance',
-  async (home) => {
-    await deployBinaries(home, PUBLIC_YAML, null);
-    const { context, calls } = releaseContext(home, () => ok('arm64'));
+    const { context, calls } = releaseContext(home);
 
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain('Release binaries lock');
-    expect(calls.some((c) => c.command === 'curl')).toBe(false);
-  },
-);
-
-sandboxTest(
-  'a missing lock entry isolates to the affected binary',
-  async (home) => {
-    const partialLock = `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-    assets:
-      darwin-aarch64:
-        sha256: ${CURL_SHA}
-`.trimStart();
-    await deployBinaries(home, PUBLIC_YAML, partialLock);
-    const { context } = releaseContext(home, (command) => {
-      if (command === 'uname') return ok('arm64');
-      if (command === 'curl') return ok();
-      return fail();
-    });
-
-    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.find((e) => e.key === 'kpv')?.status).toBe(
-      'changed',
-    );
-    const mx = report.entries?.find((e) => e.key === 'mx');
-    expect(mx?.status).toBe('failed');
-    expect(mx?.error).toContain('Release lock is missing');
-    expect(await readFile(join(home, '.cargo', 'bin', 'kpv'), 'utf8')).toBe(
-      'curl',
-    );
+    expect(report.error).toContain('Release binaries manifest');
+    expect(calls).toHaveLength(0);
   },
 );
 
@@ -219,91 +341,17 @@ sandboxTest(
   async (home) => {
     await deployBinaries(
       home,
-      `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-  - name: KPV
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-`.trimStart(),
+      manifest(
+        ['kpv', 'akitorahayashi/kpv', 'v0.6.0'],
+        ['KPV', 'akitorahayashi/kpv', 'v0.6.0'],
+      ),
     );
-    const { context, calls } = releaseContext(home, () => ok());
+    const { context, calls } = releaseContext(home);
 
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain('duplicate');
     expect(calls).toHaveLength(0);
-  },
-);
-
-sandboxTest(
-  'a failed download keeps the existing binary and removes temp files',
-  async (home) => {
-    const existing = join(home, '.cargo', 'bin', 'kpv');
-    await mkdir(join(existing, '..'), { recursive: true });
-    await writeFile(existing, 'old');
-    await deployBinaries(
-      home,
-      `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-`.trimStart(),
-    );
-    const { context } = releaseContext(home, (command) => {
-      if (command === 'uname') return ok('arm64');
-      if (command === 'curl') return fail('network down');
-      return fail();
-    });
-
-    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(await readFile(existing, 'utf8')).toBe('old');
-    expect(await readdir(join(home, '.cargo', 'bin'))).toEqual(['kpv']);
-  },
-);
-
-sandboxTest(
-  'a digest mismatch keeps the existing binary and removes temp files',
-  async (home) => {
-    const existing = join(home, '.cargo', 'bin', 'kpv');
-    await mkdir(join(existing, '..'), { recursive: true });
-    await writeFile(existing, 'old');
-    await chmod(existing, 0o755);
-    await deployBinaries(
-      home,
-      `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-`.trimStart(),
-      `
-binaries:
-  - name: kpv
-    repo: akitorahayashi/kpv
-    tag: v0.6.0
-    assets:
-      darwin-aarch64:
-        sha256: ${WRONG_SHA}
-`.trimStart(),
-    );
-    const { context } = releaseContext(home, (command) => {
-      if (command === 'uname') return ok('arm64');
-      if (command === 'curl') return ok();
-      return fail();
-    });
-
-    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.error).toContain('Digest mismatch for kpv');
-    expect(await readFile(existing, 'utf8')).toBe('old');
-    expect(await readdir(join(home, '.cargo', 'bin'))).toEqual(['kpv']);
   },
 );

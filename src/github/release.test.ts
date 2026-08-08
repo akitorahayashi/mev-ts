@@ -1,23 +1,11 @@
 import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../errors';
-import {
-  parseReleaseBinaries,
-  parseReleaseLock,
-  releaseLockKey,
-  resolveReleaseDigest,
-} from './release';
+import { parseReleaseBinaries, tagVersion } from './release';
 
 const CONFIG = 'rust-cli/binaries.yml';
-const LOCK = 'rust-cli/binaries.lock.yml';
-const SHA_A = 'a'.repeat(64);
-const SHA_B = 'b'.repeat(64);
 
 function entry(fields: string): string {
   return `binaries:\n  - ${fields}\n`;
-}
-
-function lockEntry(assets: string): string {
-  return `binaries:\n  - name: kpv\n    repo: akitorahayashi/kpv\n    tag: v0.6.0\n    assets:\n${assets}`;
 }
 
 test('parseReleaseBinaries accepts a well-formed entry', () => {
@@ -32,6 +20,14 @@ test('parseReleaseBinaries accepts a well-formed entry', () => {
       tag: 'v0.6.0',
     },
   ]);
+});
+
+test('parseReleaseBinaries accepts the latest-assumed tag', () => {
+  const binaries = parseReleaseBinaries(
+    entry('name: kpv\n    repo: akitorahayashi/kpv\n    tag: latest'),
+    CONFIG,
+  );
+  expect(binaries[0]?.tag).toBe('latest');
 });
 
 test('parseReleaseBinaries rejects an unknown entry field', () => {
@@ -72,92 +68,8 @@ test('parseReleaseBinaries rejects a repo that is not owner/name', () => {
   ).toThrow(ProvisioningError);
 });
 
-test('releaseLockKey derives the .lock.yml sibling of a manifest key', () => {
-  expect(releaseLockKey('rust-cli/binaries.yml')).toBe(
-    'rust-cli/binaries.lock.yml',
-  );
-  expect(releaseLockKey('rust-cli/binaries.yaml')).toBe(
-    'rust-cli/binaries.lock.yml',
-  );
-});
-
-test('parseReleaseLock accepts a well-formed entry', () => {
-  const lock = parseReleaseLock(
-    lockEntry(
-      `      darwin-aarch64:\n        sha256: ${SHA_A}\n      darwin-x86_64:\n        sha256: ${SHA_B}\n`,
-    ),
-    LOCK,
-  );
-  expect(lock.binaries).toEqual([
-    {
-      name: 'kpv',
-      repo: 'akitorahayashi/kpv',
-      tag: 'v0.6.0',
-      assets: {
-        'darwin-aarch64': { asset: 'darwin-aarch64', sha256: SHA_A },
-        'darwin-x86_64': { asset: 'darwin-x86_64', sha256: SHA_B },
-      },
-    },
-  ]);
-});
-
-test('parseReleaseLock rejects a malformed sha256', () => {
-  expect(() =>
-    parseReleaseLock(
-      lockEntry('      darwin-aarch64:\n        sha256: not-a-digest\n'),
-      LOCK,
-    ),
-  ).toThrow(ProvisioningError);
-});
-
-test('parseReleaseLock rejects an unsupported asset key', () => {
-  expect(() =>
-    parseReleaseLock(
-      lockEntry(`      linux-x86_64:\n        sha256: ${SHA_A}\n`),
-      LOCK,
-    ),
-  ).toThrow(ProvisioningError);
-});
-
-test('parseReleaseLock rejects an unknown entry field', () => {
-  expect(() =>
-    parseReleaseLock(
-      `${lockEntry(`      darwin-aarch64:\n        sha256: ${SHA_A}\n`)}    extra: true\n`,
-      LOCK,
-    ),
-  ).toThrow(ProvisioningError);
-});
-
-const LOCKED = parseReleaseLock(
-  lockEntry(`      darwin-aarch64:\n        sha256: ${SHA_A}\n`),
-  LOCK,
-);
-
-test('resolveReleaseDigest returns the digest for a locked binary', () => {
-  const digest = resolveReleaseDigest(
-    { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.6.0' },
-    'aarch64',
-    LOCKED,
-  );
-  expect(digest).toEqual({ asset: 'darwin-aarch64', sha256: SHA_A });
-});
-
-test('resolveReleaseDigest rejects a tag absent from the lock', () => {
-  expect(() =>
-    resolveReleaseDigest(
-      { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.7.0' },
-      'aarch64',
-      LOCKED,
-    ),
-  ).toThrow("Run 'bun run lock'");
-});
-
-test('resolveReleaseDigest rejects an architecture absent from the lock', () => {
-  expect(() =>
-    resolveReleaseDigest(
-      { name: 'kpv', repo: 'akitorahayashi/kpv', tag: 'v0.6.0' },
-      'x86_64',
-      LOCKED,
-    ),
-  ).toThrow("Run 'bun run lock'");
+test('tagVersion strips a single leading v and leaves a bare version alone', () => {
+  expect(tagVersion('v5.0.0')).toBe('5.0.0');
+  expect(tagVersion('5.0.0')).toBe('5.0.0');
+  expect(tagVersion('vv1.0.0')).toBe('v1.0.0');
 });

@@ -4,18 +4,16 @@ import { errorMessage } from '../../errors';
 import {
   detectArch,
   fetchReleaseBinary,
-  installedMatches,
+  installedVersion,
+  latestTag,
   parseReleaseBinaries,
-  parseReleaseLock,
   type ReleaseArch,
   type ReleaseBinary,
-  type ReleaseLock,
-  releaseLockKey,
-  resolveReleaseDigest,
+  resolveLatestTag,
+  tagVersion,
 } from '../../github/release';
 import type { Context } from '../../host/context';
-import type { Activation } from './contract';
-import { readDeployedManifest } from './manifest';
+import type { Activation, StepReport } from './contract';
 import { manifestKind, manifestSource } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
@@ -28,27 +26,48 @@ export function releaseBinaries(configKey: string): Activation {
   return { kind: 'release', configKey };
 }
 
+function installed(
+  binary: ReleaseBinary,
+  tag: string,
+  previous: string | null,
+): StepReport {
+  return {
+    key: binary.name,
+    value: previous === null ? `installed ${tag}` : `updated to ${tag}`,
+    status: 'changed',
+  };
+}
+
 function releaseStep(
   binary: ReleaseBinary,
-  lock: ReleaseLock,
   arch: ReleaseArch,
   binDir: string,
   context: Context,
+  update: boolean,
 ): ReconcileStep {
   const dest = join(binDir, binary.name);
   return {
     async run() {
-      // Resolved inside the step so a lock gap fails only its own binary.
-      const digest = resolveReleaseDigest(binary, arch, lock);
-      if (await installedMatches(dest, digest)) {
+      const reported = await installedVersion(dest, context);
+      if (binary.tag !== latestTag) {
+        if (reported === tagVersion(binary.tag)) {
+          return { key: binary.name, value: 'up to date', status: 'unchanged' };
+        }
+        await fetchReleaseBinary(binary, binary.tag, arch, dest, context);
+        return installed(binary, binary.tag, reported);
+      }
+      // A latest-assumed binary that is already installed holds still until
+      // update mode asks for re-resolution, so a routine run neither reaches
+      // the network nor moves a working binary.
+      if (reported !== null && !update) {
         return { key: binary.name, value: 'up to date', status: 'unchanged' };
       }
-      await fetchReleaseBinary(binary, arch, digest, dest, context);
-      return {
-        key: binary.name,
-        value: `installed ${binary.tag}`,
-        status: 'changed',
-      };
+      const tag = await resolveLatestTag(binary, context);
+      if (reported === tagVersion(tag)) {
+        return { key: binary.name, value: 'up to date', status: 'unchanged' };
+      }
+      await fetchReleaseBinary(binary, tag, arch, dest, context);
+      return installed(binary, tag, reported);
     },
     onError(error) {
       return {
@@ -73,29 +92,16 @@ const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
   // reconciliations run concurrently; the envelope isolates a single binary's
   // failure and preserves declaration order.
   concurrency: RELEASE_DOWNLOAD_CONCURRENCY,
-  steps: async (binaries, activation, context) => {
-    // A missing or invalid lock aborts the whole activation with the same
-    // deploy-first guidance as the manifest itself.
-    const lock = await readDeployedManifest(
-      releaseLockKey(activation.configKey),
-      context.home,
-      parseReleaseLock,
-      'Release binaries lock',
-    );
+  steps: async (binaries, _activation, context, runOptions) => {
     const arch = await detectArch(context);
     const binDir = join(context.home, BIN_DIR);
     await mkdir(binDir, { recursive: true });
     return binaries.map((binary) =>
-      releaseStep(binary, lock, arch, binDir, context),
+      releaseStep(binary, arch, binDir, context, runOptions.update),
     );
   },
 });
 
 export const describeRelease = releaseKind.describe;
+export const releaseConfigAssets = releaseKind.configAssets;
 export const runRelease = releaseKind.run;
-
-export function releaseConfigAssets(
-  activation: ReleaseActivation,
-): readonly string[] {
-  return [activation.configKey, releaseLockKey(activation.configKey)];
-}
