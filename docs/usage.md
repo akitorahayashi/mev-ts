@@ -39,6 +39,16 @@ cd ~/Desktop
 gv sync
 ```
 
+The managed Zsh Git function routes an interactive `git clone ...` or
+`g clone ...` invocation through `gv clone ...`; `command git clone ...`
+remains the explicit native-Git path. Git global options before `clone`, such
+as `git -C <directory> clone`, also remain native. The `git cl` alias preserves
+its batch form, `git cl <url>... -- <git-clone-options>...`, and applies the
+same options to each cache-backed clone. `git rf-cl` accepts the regular clone
+arguments and runs `gv clone` from the repository's `references/` directory.
+The interactive route reports how to install Grove and exits with status 127
+when `gv` is unavailable.
+
 ## Listing Targets
 
 ```bash

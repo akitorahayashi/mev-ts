@@ -4,7 +4,7 @@
 [alias]
     ini = init
     cl = !mev internal git clone
-    rf-cl = !mkdir -p references && echo '*' > references/.gitignore && git -C references clone
+    rf-cl = "!f() { mkdir -p references && echo '*' > references/.gitignore && cd references && gv clone \"$@\"; }; f"
 
     co = checkout
     co-m = checkout main

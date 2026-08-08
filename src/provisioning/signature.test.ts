@@ -37,7 +37,7 @@ const config = { key: 'demo/config' };
 // behavior. An intentional signature-schema change (or a legitimate change to
 // these targets' assets/definition) must update these constants knowingly.
 const GOLDEN_SIGNATURES: Readonly<Record<string, string>> = {
-  git: 'sha256:1740fcd972e7e8f398efb0e4206d20a801862ea0886d472f1366d68e8dd22aa6',
+  git: 'sha256:e80b1eeab78e5a83b52c204f95fb396552f8e82fd188fb34aec68803458e6325',
   pnpm: 'sha256:3d2b4a44157b1c0f3ca9cec04fb2ffdac08624cea7bfa2cc1ca64e3a237e993e',
 };
 
