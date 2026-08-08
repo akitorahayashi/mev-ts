@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import type { Repository } from '../github/repository';
 import {
   requireExactKeys,
   requireRecord,
@@ -12,7 +13,7 @@ export type PluginClient = (typeof pluginClients)[number];
 
 export interface PluginMarketplace {
   readonly client: PluginClient;
-  readonly repository: string;
+  readonly repo: Repository;
   readonly name: string;
   readonly plugins: readonly string[];
   readonly uninstall: readonly string[];
@@ -21,14 +22,11 @@ export interface PluginMarketplace {
 /** A marketplace whose registration and installed plugins are to be removed. */
 export interface RemovedMarketplace {
   readonly client: PluginClient;
+  readonly repo: Repository;
   readonly name: string;
 }
 
 export interface PluginCatalog {
-  readonly source: {
-    readonly owner: string;
-    readonly defaultSshHost: string;
-  };
   readonly marketplaces: readonly PluginMarketplace[];
   readonly removedMarketplaces: readonly RemovedMarketplace[];
 }
@@ -44,8 +42,18 @@ function requireSafeName(value: unknown, label: string): string {
   return value;
 }
 
-export function requireSshHost(value: unknown, label = 'SSH host'): string {
-  return requireSafeName(value, label);
+function requireRepo(value: unknown, label: string): Repository {
+  const segments = typeof value === 'string' ? value.split('/') : [];
+  if (segments.length !== 2) {
+    throw new ProvisioningError(
+      `${label} must be a GitHub repository in owner/name form.`,
+    );
+  }
+  const [owner = '', name = ''] = segments;
+  return {
+    owner: requireSafeName(owner, `${label} owner`),
+    name: requireSafeName(name, `${label} name`),
+  };
 }
 
 function requireClient(value: unknown, label: string): PluginClient {
@@ -60,14 +68,30 @@ function requireClient(value: unknown, label: string): PluginClient {
   return value as PluginClient;
 }
 
+/**
+ * The registered marketplace name is self-declared by the repository's
+ * marketplace.json — a separate namespace from the repo name that matches it
+ * in practice, so `name` is declared only when the two diverge.
+ */
+function marketplaceName(
+  record: Record<string, unknown>,
+  repo: Repository,
+  label: string,
+): string {
+  return record['name'] === undefined
+    ? repo.name
+    : requireSafeName(record['name'], `${label} name`);
+}
+
 function parseMarketplace(value: unknown, index: number): PluginMarketplace {
   const label = `Agent plugin catalog marketplace ${index + 1}`;
   const record = requireRecord(value, label);
   requireExactKeys(
     record,
-    ['client', 'repository', 'name', 'plugins', 'uninstall'],
+    ['client', 'repo', 'name', 'plugins', 'uninstall'],
     label,
   );
+  const repo = requireRepo(record['repo'], `${label} repo`);
   const plugins = requireStringArray(record['plugins'], `${label} plugins`);
   if (plugins.length === 0) {
     throw new ProvisioningError(`${label} plugins must not be empty.`);
@@ -80,8 +104,8 @@ function parseMarketplace(value: unknown, index: number): PluginMarketplace {
       : requireStringArray(record['uninstall'], `${label} uninstall`);
   const parsed = {
     client: requireClient(record['client'], `${label} client`),
-    repository: requireSafeName(record['repository'], `${label} repository`),
-    name: requireSafeName(record['name'], `${label} name`),
+    repo,
+    name: marketplaceName(record, repo, label),
     plugins: plugins.map((plugin, pluginIndex) =>
       requireSafeName(plugin, `${label} plugin ${pluginIndex + 1}`),
     ),
@@ -103,24 +127,19 @@ function parseRemovedMarketplace(
 ): RemovedMarketplace {
   const label = `Agent plugin catalog removed marketplace ${index + 1}`;
   const record = requireRecord(value, label);
-  requireExactKeys(record, ['client', 'name'], label);
+  requireExactKeys(record, ['client', 'repo', 'name'], label);
+  const repo = requireRepo(record['repo'], `${label} repo`);
   return {
     client: requireClient(record['client'], `${label} client`),
-    name: requireSafeName(record['name'], `${label} name`),
+    repo,
+    name: marketplaceName(record, repo, label),
   };
 }
 
 export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
   const label = `Agent plugin catalog ${path}`;
   const root = requireRecord(loadYaml(raw, path), label);
-  requireExactKeys(
-    root,
-    ['source', 'marketplaces', 'removed_marketplaces'],
-    label,
-  );
-
-  const source = requireRecord(root['source'], `${label} source`);
-  requireExactKeys(source, ['owner', 'default_ssh_host'], `${label} source`);
+  requireExactKeys(root, ['marketplaces', 'removed_marketplaces'], label);
 
   const marketplaceValues = root['marketplaces'];
   if (!Array.isArray(marketplaceValues)) {
@@ -165,27 +184,9 @@ export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
     }
   }
 
-  return {
-    source: {
-      owner: requireSafeName(source['owner'], `${label} source owner`),
-      defaultSshHost: requireSshHost(
-        source['default_ssh_host'],
-        `${label} source default_ssh_host`,
-      ),
-    },
-    marketplaces,
-    removedMarketplaces,
-  };
+  return { marketplaces, removedMarketplaces };
 }
 
 export function pluginId(plugin: string, marketplace: string): string {
   return `${plugin}@${marketplace}`;
-}
-
-export function marketplaceSshUrl(
-  sshHost: string,
-  owner: string,
-  repository: string,
-): string {
-  return `git@${sshHost}:${owner}/${repository}.git`;
 }

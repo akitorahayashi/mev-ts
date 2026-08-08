@@ -1,11 +1,12 @@
-source:
-  owner: akitorahayashi
-  default_ssh_host: github.com
-
+# Agent plugin marketplaces for Claude Code and Codex.
+# Each entry:
+#   - client: claude | codex
+#   - repo: GitHub repo as owner/name; the marketplace name defaults to the
+#       repo name (declare name: only when marketplace.json differs)
+#   - plugins: plugin names installed from this marketplace
 marketplaces:
   - client: claude
-    repository: agent-device-plugin
-    name: agent-device-plugin
+    repo: akitorahayashi/agent-device-plugin
     plugins:
       - agent-device
       - device-verification
@@ -14,22 +15,19 @@ marketplaces:
     #   plugins: [agent-device]
     #   uninstall: [device-verification]
   - client: claude
-    repository: comment-review
-    name: comment-review
+    repo: akitorahayashi/comment-review
     plugins:
       - comment-review
   - client: claude
-    repository: xlsx
-    name: xlsx
+    repo: akitorahayashi/xlsx
     plugins:
       - xlsx
   - client: codex
-    repository: xlsx
-    name: xlsx
+    repo: akitorahayashi/xlsx
     plugins:
       - xlsx
 # To remove a marketplace and uninstall the plugins it still has installed,
-# delete its entry above and name it at the end of this file:
+# delete its entry above and move its client and repo lines here:
 #   removed_marketplaces:
 #     - client: claude
-#       name: comment-review
+#       repo: akitorahayashi/comment-review

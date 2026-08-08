@@ -1,32 +1,23 @@
 import { expect, test } from 'bun:test';
-import { marketplaceSshUrl, parsePluginCatalog, pluginId } from './catalog';
+import { parsePluginCatalog, pluginId } from './catalog';
 
 const VALID = `
-source:
-  owner: akitorahayashi
-  default_ssh_host: github.com
 marketplaces:
   - client: claude
-    repository: agent-device-plugin
-    name: agent-device-plugin
+    repo: akitorahayashi/agent-device-plugin
     plugins: [agent-device, device-verification]
   - client: codex
-    repository: xlsx
-    name: xlsx
+    repo: akitorahayashi/xlsx
     plugins: [xlsx]
     uninstall: [legacy-tool]
 removed_marketplaces:
   - client: claude
-    name: retired
+    repo: akitorahayashi/retired
 `;
 
 test('parsePluginCatalog preserves declared marketplace and plugin order', () => {
   const catalog = parsePluginCatalog(VALID, 'plugins.yml');
 
-  expect(catalog.source).toEqual({
-    owner: 'akitorahayashi',
-    defaultSshHost: 'github.com',
-  });
   expect(
     catalog.marketplaces.map(({ client, plugins }) => [client, plugins]),
   ).toEqual([
@@ -38,16 +29,59 @@ test('parsePluginCatalog preserves declared marketplace and plugin order', () =>
     ['legacy-tool'],
   ]);
   expect(catalog.removedMarketplaces).toEqual([
-    { client: 'claude', name: 'retired' },
+    {
+      client: 'claude',
+      repo: { owner: 'akitorahayashi', name: 'retired' },
+      name: 'retired',
+    },
   ]);
 });
+
+test('parsePluginCatalog derives the marketplace name from the repo', () => {
+  const catalog = parsePluginCatalog(VALID, 'plugins.yml');
+
+  expect(catalog.marketplaces.map(({ repo, name }) => [repo, name])).toEqual([
+    [
+      { owner: 'akitorahayashi', name: 'agent-device-plugin' },
+      'agent-device-plugin',
+    ],
+    [{ owner: 'akitorahayashi', name: 'xlsx' }, 'xlsx'],
+  ]);
+});
+
+test('parsePluginCatalog lets a declared name override the repo name', () => {
+  const catalog = parsePluginCatalog(
+    VALID.replace(
+      'repo: akitorahayashi/xlsx',
+      'repo: akitorahayashi/xlsx\n    name: spreadsheet',
+    ),
+    'plugins.yml',
+  );
+
+  expect(catalog.marketplaces[1]?.repo.name).toBe('xlsx');
+  expect(catalog.marketplaces[1]?.name).toBe('spreadsheet');
+});
+
+for (const repo of ['xlsx', 'akitorahayashi/xlsx/extra', 'akitorahayashi/']) {
+  test(`parsePluginCatalog rejects repo ${JSON.stringify(repo)}`, () => {
+    expect(() =>
+      parsePluginCatalog(
+        VALID.replace(
+          'repo: akitorahayashi/xlsx',
+          `repo: ${JSON.stringify(repo)}`,
+        ),
+        'plugins.yml',
+      ),
+    ).toThrow(/repo/);
+  });
+}
 
 test('parsePluginCatalog rejects duplicate plugin identities per client', () => {
   expect(() =>
     parsePluginCatalog(
       VALID.replace(
         'plugins: [xlsx]',
-        'plugins: [xlsx]\n  - client: codex\n    repository: other\n    name: other\n    plugins: [xlsx]',
+        'plugins: [xlsx]\n  - client: codex\n    repo: akitorahayashi/other\n    name: xlsx\n    plugins: [xlsx]',
       ),
       'plugins.yml',
     ),
@@ -76,49 +110,32 @@ test('parsePluginCatalog rejects a name declared in both plugins and uninstall',
 test('parsePluginCatalog accepts a removal-only catalog', () => {
   const catalog = parsePluginCatalog(
     `
-source:
-  owner: akitorahayashi
-  default_ssh_host: github.com
 marketplaces: []
 removed_marketplaces:
   - client: claude
-    name: retired
+    repo: akitorahayashi/retired
 `,
     'plugins.yml',
   );
 
   expect(catalog.marketplaces).toEqual([]);
-  expect(catalog.removedMarketplaces).toEqual([
-    { client: 'claude', name: 'retired' },
+  expect(catalog.removedMarketplaces.map(({ name }) => name)).toEqual([
+    'retired',
   ]);
 });
 
 test('parsePluginCatalog rejects a removed marketplace still declared active', () => {
   expect(() =>
     parsePluginCatalog(
-      VALID.replace('name: retired', 'name: xlsx').replace(
-        'client: claude\n    name: xlsx',
-        'client: codex\n    name: xlsx',
+      VALID.replace(
+        'client: claude\n    repo: akitorahayashi/retired',
+        'client: codex\n    repo: akitorahayashi/xlsx',
       ),
       'plugins.yml',
     ),
   ).toThrow(/'codex:xlsx', which is still declared/);
 });
 
-for (const unsafe of ['github.com/work', 'git@github.com', '-alias', '']) {
-  test(`parsePluginCatalog rejects unsafe SSH host ${JSON.stringify(unsafe)}`, () => {
-    expect(() =>
-      parsePluginCatalog(
-        VALID.replace('github.com', JSON.stringify(unsafe)),
-        'plugins.yml',
-      ),
-    ).toThrow(/default_ssh_host/);
-  });
-}
-
-test('plugin source values are derived from catalog identities', () => {
+test('plugin ids are marketplace-scoped', () => {
   expect(pluginId('xlsx', 'xlsx')).toBe('xlsx@xlsx');
-  expect(marketplaceSshUrl('github-personal', 'owner', 'repo')).toBe(
-    'git@github-personal:owner/repo.git',
-  );
 });
