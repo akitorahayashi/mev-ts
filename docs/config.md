@@ -1,6 +1,6 @@
 # Config
 
-`mev config` (alias `cf`) manages three independently selectable surfaces — coder AGENTS.md sections, coder skills, and Zed settings overrides — plus the per-machine SSH host used for agent plugin installation. The selectable surfaces resolve a catalog against a stored selection manifest under `~/.mev/`. Command syntax is in docs/usage.md; activation behavior is in docs/architecture.md.
+`mev config` (alias `cf`) manages three independently selectable surfaces — coder AGENTS.md sections, coder skills, and Zed settings overrides — plus the per-machine SSH host used for agent plugin installation. The selectable surfaces resolve a catalog against a stored selection manifest under `~/.mev/`. Command syntax is in docs/usage.md; activation behavior is in docs/architecture/activation.md.
 
 ## Selectable Surfaces
 

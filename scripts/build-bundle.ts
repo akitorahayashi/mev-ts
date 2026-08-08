@@ -79,7 +79,7 @@ export async function buildBundle(options: BundleBuildOptions): Promise<void> {
     throw new Error(
       "Cannot resolve the pinned deep import 'mermaid/dist/mermaid.min.js' used by " +
         'src/internal/document/browser-print.ts. A mermaid version bump may have ' +
-        'relocated the dist file; see the pin coupling note in docs/architecture.md.',
+        'relocated the dist file; see the pin coupling note in docs/architecture/document.md.',
     );
   }
 

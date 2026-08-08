@@ -17,7 +17,7 @@ export type RemoteInstallerIntegrity =
  * A single config materialization or host mutation. The union is the source of
  * truth for the activation vocabulary — every kind is dispatched exhaustively by
  * `runActivation` and `describeActivation`, and the multi-item kinds share the
- * `reconcile.ts` envelope. See the per-kind table in docs/architecture.md.
+ * `reconcile.ts` envelope. See the per-kind table in docs/architecture/activation.md.
  */
 export type Activation =
   | {
