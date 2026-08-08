@@ -238,9 +238,10 @@ sandboxTest(
 );
 
 sandboxTest(
-  'a release whose asset disagrees with its tag fails instead of reinstalling',
+  'a release whose asset disagrees with its tag leaves the previous binary in place',
   async (home) => {
     await deployBinaries(home, PINNED);
+    const path = await install(home, 'kpv', '0.4.0');
     const { context } = releaseContext(home, {
       installs: { 'akitorahayashi/kpv': '0.5.0' },
     });
@@ -251,6 +252,27 @@ sandboxTest(
     expect(report.entries?.[0]?.error).toContain(
       'reports version 0.5.0, expected 0.6.0',
     );
+    expect(await readFile(path, 'utf8')).toBe('0.4.0');
+  },
+);
+
+sandboxTest(
+  'a rejected latest asset is not left to pass as up to date on the next run',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    const { context } = releaseContext(home, {
+      latest: { 'akitorahayashi/kpv': 'v0.7.0' },
+      installs: { 'akitorahayashi/kpv': '0.5.0' },
+    });
+    const activation = releaseBinaries(CONFIG_KEY);
+
+    expect((await runActivation(activation, context)).status).toBe('failed');
+
+    // Nothing landed, so the shortcut that holds an installed latest binary
+    // still has no binary to hold and the failure repeats rather than healing.
+    const second = await runActivation(activation, context);
+    expect(second.status).toBe('failed');
+    expect(second.entries?.[0]?.error).toContain('expected 0.7.0');
   },
 );
 

@@ -173,13 +173,21 @@ export async function installedVersion(
   context: Context,
 ): Promise<string | null> {
   await repairExecuteBit(dest);
-  const result = await context.commands.run(dest, ['--version']);
+  return reportedVersion(dest, dest, context);
+}
+
+async function reportedVersion(
+  path: string,
+  label: string,
+  context: Context,
+): Promise<string | null> {
+  const result = await context.commands.run(path, ['--version']);
   if (result.code !== 0) return null;
   const first = result.stdout.trim().split('\n', 1)[0]?.trim() ?? '';
   const match = VERSION_OUTPUT.exec(first);
   if (!match?.[1]) {
     throw new ProvisioningError(
-      `${dest} --version printed '${first}', which is not '<name> <version>'.`,
+      `${label} --version printed '${first}', which is not '<name> <version>'.`,
     );
   }
   return match[1];
@@ -238,11 +246,14 @@ export async function resolveLatestTag(
 }
 
 /**
- * Download the release asset `<name>-<os>-<arch>` at `tag`, install it into
- * `dest` marked executable, and confirm the installed binary reports the
- * version that tag denotes. The confirmation is what keeps the `--version`
- * probe trustworthy as the idempotency signal: an asset that disagrees with its
- * own tag fails here instead of reinstalling on every later run.
+ * Download the release asset `<name>-<os>-<arch>` at `tag` and install it into
+ * `dest` marked executable, having confirmed that it reports the version that
+ * tag denotes. The confirmation is what keeps the `--version` probe trustworthy
+ * as the idempotency signal, and it runs against the staged file so a
+ * mislabeled or broken asset never replaces a working binary: rejecting it
+ * inside the callback leaves the rename undone and the previous `dest` intact.
+ * Verifying after the swap would additionally let a bad `latest` install
+ * masquerade as up to date on the next run, which skips re-resolution.
  */
 export async function fetchReleaseBinary(
   binary: ReleaseBinary,
@@ -252,21 +263,22 @@ export async function fetchReleaseBinary(
   context: Context,
 ): Promise<void> {
   const asset = releaseAssetName(binary, arch);
+  const label = `${binary.name} ${tag}`;
   await replaceFileAtomically(dest, async (tmp) => {
     const url = `https://github.com/${binary.repo}/releases/download/${tag}/${asset}`;
     await downloadOverHttps(context.commands, url, tmp, binary.name);
     await chmod(tmp, 0o755);
+    const reported = await reportedVersion(tmp, label, context);
+    if (reported === null) {
+      throw new ProvisioningError(
+        `${label} downloaded from ${binary.repo} does not run.`,
+      );
+    }
+    const expected = tagVersion(tag);
+    if (reported !== expected) {
+      throw new ProvisioningError(
+        `${label} reports version ${reported}, expected ${expected}.`,
+      );
+    }
   });
-  const reported = await installedVersion(dest, context);
-  if (reported === null) {
-    throw new ProvisioningError(
-      `${binary.name} ${tag} was installed to ${dest} but does not run.`,
-    );
-  }
-  const expected = tagVersion(tag);
-  if (reported !== expected) {
-    throw new ProvisioningError(
-      `${binary.name} ${tag} reports version ${reported}, expected ${expected}.`,
-    );
-  }
 }

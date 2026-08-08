@@ -8,7 +8,10 @@
 # A `latest` entry is resolved when the binary is absent and re-resolved only
 # under `--update`; a pinned tag is never re-resolved. Idempotency comes from
 # `<binary> --version`, so every declared binary must report `<name> <version>`
-# and its release tag must be that version, optionally prefixed with `v`.
+# and its release tag must be that version, optionally prefixed with `v`. Only
+# the version is compared, so changing an entry's repo without changing its
+# version leaves the old repository's binary installed; change the tag too, or
+# remove the binary, to force the reinstall.
 binaries:
   - name: kpv
     repo: akitorahayashi/kpv
