@@ -38,7 +38,8 @@ Existing `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.claude-plu
 - Host metadata directories contain plugin metadata; component directories remain at the plugin root.
 - A marketplace catalogs and locates plugins. It does not become the plugin root unless its entry explicitly uses the marketplace root as the source.
 - Component-specific behavior remains in the owning skill, agent, hook, or server definition. The plugin manifest does not duplicate those instructions.
-- Cross-component workflow states each input, output, and caller boundary without making components depend on the original authoring conversation.
+- Cross-component workflow states each input, output, caller boundary, and persistent artifact's owner and mutation policy without making components depend on the original authoring conversation.
+- Component consolidation traces callers, consumers, artifacts, and runtime paths, then assigns responsibilities by comparing owned decisions, outputs, consumers, and lifecycles.
 
 ## Paths and State
 

@@ -9,7 +9,7 @@ Agent Skills are reusable instruction packages for AI agents. A skill must be un
 
 ## What a skill carries
 
-- Procedural skill: a task performed the same way each time, such as validation or conversion. It names each input and how the input is obtained, the output format, and the handling for a missing input.
+- Procedural skill: a task performed the same way each time, such as validation or conversion. It names each input and how the input is obtained, the output format, and the handling for a missing input. For persistent outputs, it also names the consumer, authoritative responsibility, and update semantics.
 - Judgment skill: criteria applied while doing something else, such as design principles or naming rules. It names the decisions it governs and the criteria for each, and defines no inputs, no deliverable format, and no invocation situation, which the conversation supplies.
 
 ## Location

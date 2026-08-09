@@ -66,7 +66,8 @@ Model and reasoning settings follow task difficulty. Fast models fit narrow sear
 - Parallel agents receive independent work with no shared write ownership.
 - Work with ordering dependencies is delegated sequentially, passing only the prior result needed by the next agent.
 - The parent waits for every required result before synthesis.
-- Follow-up work resumes the same agent when its retained context is material; otherwise a new invocation receives a complete task message.
+- Follow-up work on an agent-owned decision or artifact returns to that agent role with the new evidence; resume the existing invocation when its retained context is material.
+- Aggregation qualifies agent-local identifiers with a stable source identity.
 - Agent output is treated as evidence for parent review, not as an automatically accepted decision.
 
 ## Authoring Workflow
