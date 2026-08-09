@@ -81,15 +81,14 @@ A skill may include supporting files next to `SKILL.md`:
 
 Use only what the skill needs.
 
-- `references/`: detailed rules, specs, schemas, examples, and API notes. Content needed on every run belongs in `SKILL.md`.
+- `references/`: decision- or variant-specific knowledge. Each link states the condition that causes the skill to read it. Content used on every run belongs in `SKILL.md`.
 - `scripts/`: repeatable validation, conversion, extraction, or generation logic. A script is not added for a decision that reading a file already settles. A check that the authoritative system already performs is not reimplemented in a script.
 - `assets/`: templates, images, logos, sample inputs, configs, and data. An asset contains only the material its reader or consumer needs. Skill authoring rules, generation logic, classification rules, and operational procedures belong in `SKILL.md`. A placeholder names the value it holds in the reader's own vocabulary (`<PR number>`, not `<ID>`). A template is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
 
 ## Scope discipline
 
-- A skill includes only information that changes how its own task is performed. Workflow context, earlier or later steps, and other skills are omitted when they do not affect that task.
-- A mention of another skill carries its name only, as the handoff destination for a next step, out-of-scope work, or a rejected input. Another skill's internal behavior — what it selects, verifies, rejects, or writes — is not restated.
-- A skill states its required inputs, outputs, and boundary contracts directly. It requires reading another skill only when coordinating that skill is part of its defined task.
+- Define the skill's essential value as the single outcome or decision quality it uniquely improves. Include only the actions, criteria, outputs, failure handling, and knowledge required to deliver it.
+- A shared concept has one owning skill. Each consuming skill names that owner as its handoff, reads it when coordination is part of the task, and states its own inputs, outputs, and local actions.
 - Match additions to the skill's existing level of detail.
 - Place new rules in the nearest owning section.
 - Prefer tightening an existing rule over adding a parallel rule or section.
@@ -97,9 +96,9 @@ Use only what the skill needs.
 ## Writing Guidelines
 
 - Write declaratively; avoid including transitional or process-oriented information.
-- Every sentence states an action, a constraint, or a criterion. A sentence that only explains why a rule exists is removed.
+- Every sentence specifies an action, decision criterion, output or ownership contract, failure handling, or task-required knowledge.
 - A rule appears once, in the section that owns it. An overview, a step, and a checklist do not restate the same rule.
-- Target prohibitions at actions that could actually occur within the workflow. Prohibiting actions that cannot happen creates noise and serves no purpose. Whenever possible, opt for clear instructions rather than prohibitions.
+- State desired actions, outputs, ownership, and allowed scope directly. Safety boundaries name the permitted operation and destination.
 - For each input consumed, a procedural skill specifies how it is obtained and what happens if the input is missing (such as querying the user). Some skills—such as those introducing design concepts—do not involve inputs or outputs.
 
 ## Path rules
@@ -118,12 +117,14 @@ Run [validator](scripts/validate.py).
 
 Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve the script path relative to the skill directory and pass project files as explicit arguments.
 
-## Creating a skill
+## Creating or revising a skill
 
-When asked to organize something as a skill:
+When creating or revising a skill:
 
-1. Choose a clear `<skill-name>` that satisfies the `name` rules.
-2. Create the skill directory at the requested location, or at the project location resolved above.
-3. Write the reusable workflow or knowledge in `SKILL.md`.
-4. Add `references/`, `scripts/`, or `assets/` only when useful.
-5. Link supporting files from `SKILL.md` using paths relative to the skill directory.
+1. Define the skill's essential value as one outcome or decision quality.
+2. Choose or retain a clear `<skill-name>` that satisfies the `name` rules.
+3. Create or update the skill directory at the requested location, or at the project location resolved above.
+4. Write or revise the reusable workflow or knowledge in `SKILL.md`.
+5. Add `references/`, `scripts/`, or `assets/` only when useful.
+6. Link supporting files from `SKILL.md` using paths relative to the skill directory.
+7. Review each instruction against the essential value, consolidate shared concepts at their owner, and preserve every consuming skill's local execution contract.
