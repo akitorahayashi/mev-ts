@@ -29,6 +29,9 @@ mev s                           # Alias for sync
 
 The non-optional `grove` target installs the `gv` release binary and materializes
 the embedded repository catalog as the regular file `~/Desktop/grove.toml`.
+During provisioning, stock `git@github.com:` repository URLs are rendered
+through the host alias stored by `mev config ssh-host`; an absent store keeps
+`github.com`.
 Provisioning does not clone or update its declared repositories. After GitHub
 SSH authentication, repository synchronization remains an explicit Grove
 operation from the catalog root:

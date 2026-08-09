@@ -35,3 +35,7 @@ url = "git@github.com:akitorahayashi/agent-device-plugin.git"
 [repos.mev-ts]
 path = "TypeScript/mev-ts"
 url = "git@github.com:akitorahayashi/mev-ts.git"
+
+[repos.note]
+path = "Workspace/note"
+url = "git@github.com:akitorahayashi/note.git"

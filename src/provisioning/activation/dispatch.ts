@@ -17,6 +17,7 @@ import type {
 import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
 import { describeExtensions, runExtensions } from './extensions';
+import { describeGroveConfig, runGroveConfig } from './grove-config';
 import {
   describeMaterializedFile,
   runMaterializedFile,
@@ -38,6 +39,8 @@ export function describeActivation(activation: Activation): Described {
       return describeFile(activation);
     case 'materializedFile':
       return describeMaterializedFile(activation);
+    case 'groveConfig':
+      return describeGroveConfig(activation);
     case 'tree':
       return describeTree(activation);
     case 'defaults':
@@ -90,6 +93,8 @@ export function runActivation(
       return runFile(activation, context);
     case 'materializedFile':
       return runMaterializedFile(activation, context);
+    case 'groveConfig':
+      return runGroveConfig(activation, context);
     case 'tree':
       return runTree(activation, context);
     case 'defaults':

@@ -6,6 +6,7 @@ import { parseAssociations } from '../duti/association';
 import { parseExtensions } from '../editor/extension';
 import { errorMessage, ProvisioningError } from '../errors';
 import { parseReleaseBinaries } from '../github/release';
+import { renderConfig } from '../grove/config';
 import { loadToml } from '../host/toml';
 import { parseManifest as parsePipxManifest } from '../pipx/manifest';
 import { parseManifest as parsePnpmManifest } from '../pnpm/manifest';
@@ -19,6 +20,7 @@ import {
   defaultsConfigAssets,
   dutiConfigAssets,
   extensionsConfigAssets,
+  groveConfigAssets,
   pipxConfigAssets,
   pnpmConfigAssets,
   releaseConfigAssets,
@@ -125,6 +127,13 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
         keys: codexConfigAssets(activation),
         validate: (raw, key) => {
           loadToml(raw, key);
+        },
+      };
+    case 'groveConfig':
+      return {
+        keys: groveConfigAssets(activation),
+        validate: (raw, key) => {
+          renderConfig(raw, 'github.com', key);
         },
       };
     case 'file':

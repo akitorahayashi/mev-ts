@@ -1,6 +1,6 @@
 # Config
 
-`mev config` (alias `cf`) manages three independently selectable surfaces — coder AGENTS.md sections, coder skills, and Zed settings overrides — plus the per-machine SSH host used for agent plugin installation. The selectable surfaces resolve a catalog against a stored selection manifest under `~/.mev/`. Command syntax is in docs/usage.md; activation behavior is in docs/architecture/activation.md.
+`mev config` (alias `cf`) manages three independently selectable surfaces — coder AGENTS.md sections, coder skills, and Zed settings overrides — plus the per-machine SSH host used for GitHub access. The selectable surfaces resolve a catalog against a stored selection manifest under `~/.mev/`. Command syntax is in docs/usage.md; activation behavior is in docs/architecture/activation.md.
 
 ## Selectable Surfaces
 
@@ -43,7 +43,7 @@ Every GitHub connection over SSH resolves its host alias from one per-machine st
 github-personal
 ```
 
-The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default.
+The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default. Grove provisioning renders stock `git@github.com:` repository URLs in its embedded catalog through this alias before placing `~/Desktop/grove.toml`; HTTPS and already-aliased URLs remain unchanged.
 
 ## Agent Plugin Catalog
 

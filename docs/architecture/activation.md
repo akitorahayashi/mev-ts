@@ -19,6 +19,7 @@ activation/
   codex-config.ts 'codexConfig' factory and runner
   zed.ts        'zedSettings' factory and runner
   materialized-file.ts 'materializedFile' factory and runner
+  grove-config.ts 'groveConfig' factory and runner
   command.ts    'command' factory and step execution engine
   release.ts    'release' factory and runner
   remote-installer.ts reviewed remote-script download and execution
@@ -27,12 +28,13 @@ activation/
 
 ## Kinds
 
-Sixteen activation kinds:
+Seventeen activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
 | `file` | `link(source, dest)` | Symlinks one deployed asset to a host path, replacing the declared destination |
 | `materializedFile` | `materializeFile(source, dest)` | Places one deployed asset as a regular host file; an identical regular file is unchanged, while other destination states are replaced atomically |
+| `groveConfig` | `groveConfig(source, dest)` | Renders stock GitHub SSH URLs through the per-machine host alias and materializes the Grove catalog as a regular file |
 | `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; replaces declared destinations and prunes managed stale links |
 | `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
 | `duti` | `applyDuti(configKey)` | Reads a YAML list of `{bundle_id, extension}` pairs; applies `duti -s` for each that differs |
@@ -92,5 +94,6 @@ Several activation kinds delegate external-tool protocol and state detection to 
 | `coder/` | Coder section/skill catalogs, manifests, and renderers |
 | `agent-plugin/` | Claude Code/Codex JSON inventories and SSH marketplace operations |
 | `github/` | Public GitHub release download via `curl`; per-machine SSH host alias store |
+| `grove/` | Grove catalog parsing and per-machine SSH host rendering |
 | `git/` | Git config mutation and locale-pinned git command helpers |
 | `zed/` | Zed override catalog, manifest, and settings renderer |
