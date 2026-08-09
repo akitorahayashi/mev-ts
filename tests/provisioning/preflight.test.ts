@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test';
 import { type AssetSource, embeddedAssets } from '../../src/assets/registry';
 import { ProvisioningError } from '../../src/errors';
+import { home } from '../../src/host/path';
 import {
   coderAgents,
+  groveConfig,
   releaseBinaries,
   runCommand,
 } from '../../src/provisioning/activation';
@@ -51,6 +53,23 @@ test('embedded asset preflight invokes command read validators', async () => {
 
   await expect(
     validateEmbeddedAssets(assets({ 'demo/manifest.json': '{' }), [demo]),
+  ).rejects.toBeInstanceOf(ProvisioningError);
+});
+
+test('embedded asset preflight rejects a Grove repository without a URL', async () => {
+  const demo = target('demo', {
+    description: 'demo',
+    role: 'demo',
+    activations: [
+      groveConfig({ key: 'demo/grove.toml' }, home('Desktop/grove.toml')),
+    ],
+  });
+
+  await expect(
+    validateEmbeddedAssets(
+      assets({ 'demo/grove.toml': '[repos.invalid]\npath = "invalid"\n' }),
+      [demo],
+    ),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });
 

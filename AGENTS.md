@@ -10,14 +10,14 @@
 src/
   main.ts        CLI entry point
   errors.ts      Typed error hierarchy
-  app/           Use-case orchestration (identity; config-toggle.ts, the interactive toggle flow layered over config-selection/)
+  app/           Use-case orchestration (identity and SSH host changes; config-toggle.ts, the interactive toggle flow layered over config-selection/)
   agent-plugin/  Claude Code/Codex marketplace catalogs, inventories, and installers
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
   coder/         Coder section/skill catalogs, manifests, renderers, and the codex config merge
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
-      config/    Config toggle commands built by defineConfigCommand plus plugin SSH host configuration (aliased `cf`)
+      config/    Config toggle commands built by defineConfigCommand plus GitHub SSH host configuration (aliased `cf`)
     tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), transient-line.ts (animated-progress line over an injected stream), and the interactive toggle prompt
   config-selection/ Shared config-selection manifest parser/resolver
   defaults/      macOS defaults manifest parser and protocol helpers
@@ -25,7 +25,8 @@ src/
   editor/        Editor extension list and install operations
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download and the per-machine SSH host alias store
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
+  grove/         Grove catalog parsing and per-machine SSH host rendering
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
@@ -69,7 +70,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
+`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`, `grove/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
 
 See docs/architecture/activation.md for the per-kind table and the reconcile/manifest mechanics.
 

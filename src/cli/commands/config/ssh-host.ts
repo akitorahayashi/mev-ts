@@ -1,5 +1,5 @@
 import { Command, Option } from 'clipanion';
-import { writeSshHost } from '../../../github/ssh-host';
+import { configureSshHost } from '../../../app/ssh-host';
 import { resolveHome } from '../../../host/context';
 import { withAliasHint } from '../alias-hint';
 import { runReportingDomainErrors } from '../domain-error';
@@ -25,7 +25,7 @@ export class ConfigSshHostCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const path = await writeSshHost(resolveHome(), this.sshHost);
+      const path = await configureSshHost(resolveHome(), this.sshHost);
       this.context.stdout.write(`GitHub SSH host saved to ${path}\n`);
     });
   }

@@ -25,6 +25,7 @@ function referencedAssets(activation: Activation): AssetReference[] {
   switch (activation.kind) {
     case 'file':
     case 'materializedFile':
+    case 'groveConfig':
       return [{ key: activation.source.key }];
     case 'tree':
       return [{ prefix: activation.prefix }];

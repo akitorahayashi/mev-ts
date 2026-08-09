@@ -1,6 +1,6 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { materializeFile, releaseBinaries } from '../activation';
+import { groveConfig, releaseBinaries } from '../activation';
 import { target } from '../target';
 
 export const groveTarget = target('grove', {
@@ -9,6 +9,6 @@ export const groveTarget = target('grove', {
   role: 'grove',
   activations: [
     releaseBinaries('grove/binaries.yml'),
-    materializeFile(asset('grove/grove.toml'), home('Desktop/grove.toml')),
+    groveConfig(asset('grove/grove.toml'), home('Desktop/grove.toml')),
   ],
 });
