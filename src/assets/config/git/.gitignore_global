@@ -12,11 +12,7 @@ Desktop.ini
 *~
 *.swp
 *.swo
-*.tmp
-.tmp/
-
-# Logs
-*.log
+.tmp
 
 # Python cache / generated files
 __pycache__/
