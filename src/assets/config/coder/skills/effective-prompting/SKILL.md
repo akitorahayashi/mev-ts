@@ -1,75 +1,73 @@
 ---
 name: effective-prompting
-description: Use when writing, editing, or reviewing prompts, system instructions, or agent instructions for LLMs.
+description: Use this when creating, editing, or reviewing prompts, system instructions, or agent instructions for LLMs.
 ---
 
 # Effective Prompting
 
 ## Primary Objective
 
-Maximize goal-output alignment with minimal cognitive and maintenance load.
+Maximize alignment between goals and output while minimizing cognitive and maintenance overhead.
 
 ## Design Workflow
 
-1. Define the target output and acceptance checks first.
-2. Resolve deterministic decisions upstream of the model.
-3. Describe the right method, not micromanaged steps.
-4. Separate always-true rules from situation-specific logic.
-5. Apply the constraint discipline to each candidate constraint.
-6. Apply the information density rules.
-7. Validate the prompt against likely failure paths.
+1. Define the target output and acceptance criteria (checkpoints) first.
+2. Handle deterministically resolvable decisions upstream (before passing data to the model).
+3. Describe desired behaviors rather than listing granular prohibitions.
+4. Separate universally applicable rules from context-specific logic.
+5. Apply "Constraint Discipline" principles to each candidate constraint.
+6. Apply rules regarding information density.
+7. Validate the prompt against potential failure patterns.
 
-## Upstream Resolution Rule
+## Upstream Resolution Rules
 
-If a decision can be resolved deterministically by non-model layers, resolve it before prompt delivery.
+Resolve decisions that can be handled deterministically outside the model layer before sending the prompt.
 
 Examples of non-model layers:
 
-- schema and output contracts
-- runtime context injection
-- assembly/template selection
-- policy and routing logic
+- Schemas and output contracts
+- Runtime context injection
+- Assembly/template selection
+- Policy and routing logic
 
-The model should receive resolved context, not meta-instructions about how to branch.
+Pass resolved context to the model, rather than meta-instructions on how to branch logic.
 
-## Constraint Discipline
+## Constraint Discipline Principles
 
-A constraint is justified only when both are true:
+A constraint is justified only if both of the following conditions are met:
 
-1. The model would plausibly violate it without the constraint.
-2. The violation is not already prevented by output shape, context, or goal framing.
+1. Without the constraint, the model is likely to violate it.
+2. The violation is not already prevented by the output format, context, or goal definition.
 
-If either condition is false, remove the constraint.
+Remove the constraint if either condition is not met.
 
-## Guidance Discipline
+## Guidance Principles
 
-- Prefer positive guidance ("what good looks like") over prohibition lists.
-- Use hard language (`MUST`, `NEVER`, `ALWAYS`) only for high-impact boundaries.
-- Specify evaluation criteria.
+- Prioritize positive guidance (describing the "ideal state") over lists of prohibitions.
+- Reserve strong language (e.g., `MUST`, `NEVER`, `ALWAYS`) for critical boundary conditions. - Clearly state the evaluation criteria.
 
-## Vocabulary Discipline
+## Principles of Terminology
 
-- Use self-evident terms for first-time readers.
-- Avoid leaking internal implementation terms into prompt text.
-- If a term needs extra explanation, replace the term instead of adding glossary overhead.
+- Use terms that are self-explanatory even to first-time readers.
+- Avoid including internal implementation terminology in the prompt text.
+- If a term requires additional explanation, replace the term itself rather than creating a glossary.
 
 ## Information Density
 
-- State each rule once in its proper place.
-- Do not repeat the same rule across sections.
-- Match additions to the document's existing granularity.
-- Prefer replacing or tightening the nearest owning rule over adding a new section.
+- State each rule only once, in the appropriate location.
+- Do not repeat the same rule across multiple sections.
+- Align additional content with the document's existing level of granularity.
+- Prioritize replacing or refining existing rules over adding new sections.
 
 ## Flexibility in Application
 
-- When instructed to edit or modify, apply design rules to create or refine prompts accordingly.
-- Even when review is requested, use design principles to evaluate, suggest improvements, and adapt flexibly to the context.
+- When instructed to edit or revise, apply the design rules to create or refine the prompt accordingly.
+- Even when a review is requested, offer evaluations and improvement suggestions based on design principles, and respond flexibly to the situation.
 
 ## Design Checklist
 
-- Is the output unambiguous and verifiable?
-- Are deterministic branches resolved upstream?
-- Are invariant rules separated from situational logic?
-- Does every constraint map to a concrete failure mode?
-- Is any instruction duplicated?
-- Would removing a line keep quality unchanged? If yes, remove it.
+- Are deterministic branches resolved upstream (at an earlier stage)?
+- Are invariant rules separated from context-dependent logic?
+- Do all constraints address specific failure modes (patterns of failure)?
+- Are there any redundant instructions?
+- Does deleting a line affect quality? If not, delete that line.
