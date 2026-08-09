@@ -10,7 +10,7 @@
 src/
   main.ts        CLI entry point
   errors.ts      Typed error hierarchy
-  app/           Use-case orchestration (identity; config-toggle.ts, the interactive toggle flow layered over config-selection/)
+  app/           Use-case orchestration (identity and SSH host changes; config-toggle.ts, the interactive toggle flow layered over config-selection/)
   agent-plugin/  Claude Code/Codex marketplace catalogs, inventories, and installers
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile

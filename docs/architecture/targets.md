@@ -17,6 +17,8 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 
 The signature proving that each target is currently applied is stored atomically at `~/.mev/applied/{target}`. `runMake()` invalidates selected target signatures before deployment and records each signature again only after that target's deploy, package resolution, and activation complete successfully. A failed or interrupted run therefore remains selected even when deployment repaired its role drift before a later phase failed. This state is shared by `make`, `create`, and `sync` rather than owned by the sync command.
 
+Configuration commands invalidate an affected target's applied marker when they change per-machine input that is intentionally outside the declaration signature. `config ssh-host` invalidates Grove before writing the host store, so the next `sync` renders the catalog with the new alias; a failed host write remains safe because the absent marker over-selects rather than suppressing a needed application.
+
 `scan.ts` compares current and applied signatures and separately compares each embedded role tree with `~/.mev/roles/{role}/`, including paths, contents, and executable attributes. A signature mismatch or deployed drift selects the target. Scans run concurrently, while selected targets run through one normal provisioning plan so Homebrew and activation writes retain their established ordering. Optional targets are outside the scanned selection.
 
 Upgrade mode never widens this selection: `sync --upgrade` applies upgrade mode only within the targets the scan already selected, so a synchronized environment exits without provisioning or network access. A deliberate full refresh of latest-assumed tools is `create --upgrade` or `make <target> --upgrade`.

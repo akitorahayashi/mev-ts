@@ -69,7 +69,7 @@ mev config zed --clear           # Disable all Zed settings overrides
 mev config ssh-host github-work  # Set this machine's GitHub SSH host alias (alias: mev cf sh)
 ```
 
-`config` (alias `cf`) groups the three selection commands above; each opens an interactive multi-select over its catalog. `--clear` is available on all three (`config agents --clear`, `config skills --clear`, `config zed --clear`) and disables every entry without opening the prompt. `config ssh-host` takes one positional OpenSSH `Host` alias and stores it at `~/.mev/ssh-host`; it does not install or update plugins. Catalog sources, manifest mechanics, SSH host resolution, and the Zed settings-merge algorithm are in docs/config.md.
+`config` (alias `cf`) groups the three selection commands above; each opens an interactive multi-select over its catalog. `--clear` is available on all three (`config agents --clear`, `config skills --clear`, `config zed --clear`) and disables every entry without opening the prompt. `config ssh-host` takes one positional OpenSSH `Host` alias, invalidates the Grove applied marker, and stores the alias at `~/.mev/ssh-host`; the next `sync` renders the Grove catalog with that host. It does not install or update plugins. Catalog sources, manifest mechanics, SSH host resolution, and the Zed settings-merge algorithm are in docs/config.md.
 
 ## Git Identity
 

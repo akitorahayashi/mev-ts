@@ -43,7 +43,7 @@ Every GitHub connection over SSH resolves its host alias from one per-machine st
 github-personal
 ```
 
-The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default. Grove provisioning renders stock `git@github.com:` repository URLs in its embedded catalog through this alias before placing `~/Desktop/grove.toml`; HTTPS and already-aliased URLs remain unchanged.
+The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default. Grove provisioning renders stock `git@github.com:` repository URLs in its embedded catalog through this alias before placing `~/Desktop/grove.toml`; HTTPS and already-aliased URLs remain unchanged. Saving an SSH host invalidates Grove's applied marker, so the next `sync` selects the target and renders the new alias.
 
 ## Agent Plugin Catalog
 
