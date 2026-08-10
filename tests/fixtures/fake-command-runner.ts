@@ -9,6 +9,7 @@ export function fail(stderr = ''): CommandResult {
 }
 
 export interface RecordedCall {
+  readonly command: string;
   readonly args: string[];
   readonly stdout?: 'pipe' | 'inherit';
   readonly stderr?: 'pipe' | 'inherit';
@@ -20,13 +21,23 @@ export function sequenceRunner(
 ): CommandRunner {
   let index = 0;
   return {
-    async run(_command, args, options): Promise<CommandResult> {
+    async run(command, args, options): Promise<CommandResult> {
       calls.push({
+        command,
         args: [...args],
         stdout: options?.stdout,
         stderr: options?.stderr,
       });
-      return responses[index++] ?? { code: 0, stdout: '', stderr: '' };
+      const response = responses[index++];
+      // Running past the script is a test that under-specified its fixture, not
+      // a success: returning code 0 here would let it pass while exercising
+      // nothing.
+      if (!response) {
+        throw new Error(
+          `sequenceRunner exhausted its ${responses.length} scripted responses at call ${index}: ${command} ${args.join(' ')}`,
+        );
+      }
+      return response;
     },
   };
 }

@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { AppError, CommandLineError } from '../../src/errors';
-import { bunCommandRunner } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import {
   appliedPath,
@@ -51,66 +50,80 @@ sandboxTest('apply deploys and links the git target', async (sandbox) => {
   );
 });
 
+/**
+ * A git that answers only the `config` reads the identity overlay performs, from
+ * an in-memory store keyed by config file. Writes land in the store, so repeated
+ * provisioning observes what the previous run recorded — the property under test
+ * — without requiring a real git or XDG semantics inside an otherwise hermetic
+ * suite.
+ */
+function fakeGit(sandbox: string, globalValues: Record<string, string>) {
+  const files = new Map<string, Map<string, string>>();
+  const overlay = join(sandbox, '.gitconfig');
+  const run: Context['commands'] = {
+    async run(command, args) {
+      if (command !== 'git' || args[0] !== 'config') {
+        return { code: 0, stdout: '', stderr: '' };
+      }
+      if (args[1] === '--global' && args[2] === '--get') {
+        const value = globalValues[args[3] ?? ''];
+        return value === undefined
+          ? { code: 1, stdout: '', stderr: '' }
+          : { code: 0, stdout: `${value}\n`, stderr: '' };
+      }
+      if (args[1] === '--file' && args[3] === '--get') {
+        const value = files.get(args[2] ?? '')?.get(args[4] ?? '');
+        return value === undefined
+          ? { code: 1, stdout: '', stderr: '' }
+          : { code: 0, stdout: `${value}\n`, stderr: '' };
+      }
+      if (args[1] === '--file' && args[4] !== undefined) {
+        const path = args[2] ?? '';
+        const entries = files.get(path) ?? new Map<string, string>();
+        entries.set(args[3] ?? '', args[4]);
+        files.set(path, entries);
+        // The staging file is renamed onto the overlay, so the values written
+        // through it become the overlay's on the next read.
+        files.set(overlay, entries);
+        return { code: 0, stdout: '', stderr: '' };
+      }
+      return { code: 0, stdout: '', stderr: '' };
+    },
+  };
+  return { run, overlayValues: () => files.get(overlay) };
+}
+
 sandboxTest(
   'git identity survives repeated provisioning from the managed XDG layout',
   async (sandbox) => {
-    const context: Context = {
-      ...contextFor(sandbox),
-      commands: {
-        async run(command, args, options) {
-          if (command !== 'git') {
-            return { code: 0, stdout: '', stderr: '' };
-          }
-          return bunCommandRunner.run(command, args, {
-            ...options,
-            env: {
-              ...options?.env,
-              HOME: sandbox,
-              XDG_CONFIG_HOME: join(sandbox, '.config'),
-            },
-          });
-        },
-      },
-    };
+    const git = fakeGit(sandbox, {
+      'user.name': 'Legacy Name',
+      'user.email': 'legacy@example.com',
+    });
+    const context: Context = { ...contextFor(sandbox), commands: git.run };
     await deployRole('git', context);
 
-    const deployedConfig = deployedPath({ key: 'git/.gitconfig' }, sandbox);
-    await writeFile(
-      deployedConfig,
-      `${await readFile(deployedConfig, 'utf8')}\n[user]\n\tname = Legacy Name\n\temail = legacy@example.com\n`,
-    );
     const managedConfig = join(sandbox, '.config/git/config');
     await mkdir(join(managedConfig, '..'), { recursive: true });
-    await symlink(deployedConfig, managedConfig);
+    await symlink(
+      deployedPath({ key: 'git/.gitconfig' }, sandbox),
+      managedConfig,
+    );
 
     for (let run = 0; run < 2; run += 1) {
       const report = await runMake({ selectors: ['git'] }, context);
       expect(report.failed).toBe(false);
-
-      const name = await context.commands.run('git', [
-        'config',
-        '--global',
-        '--get',
-        'user.name',
-      ]);
-      const email = await context.commands.run('git', [
-        'config',
-        '--global',
-        '--get',
-        'user.email',
-      ]);
-      expect(name).toEqual({ code: 0, stdout: 'Legacy Name\n', stderr: '' });
-      expect(email).toEqual({
-        code: 0,
-        stdout: 'legacy@example.com\n',
-        stderr: '',
-      });
     }
 
+    // The identity moved into the mutable overlay, which is a regular file the
+    // deploy phase never replaces, and stayed there across the second run.
+    expect(Object.fromEntries(git.overlayValues() ?? [])).toEqual({
+      'user.name': 'Legacy Name',
+      'user.email': 'legacy@example.com',
+    });
     const overlayStats = await lstat(join(sandbox, '.gitconfig'));
     expect(overlayStats.isFile()).toBe(true);
     expect(overlayStats.isSymbolicLink()).toBe(false);
-    expect(await readFile(deployedConfig, 'utf8')).not.toContain('Legacy Name');
   },
 );
 

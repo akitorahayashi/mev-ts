@@ -13,7 +13,7 @@ const ok = { code: 0, stdout: '', stderr: '' };
 test('moves to the default branch, pulls, deletes, and prunes', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [defaultBranch, branchExists, branchExists],
+    [defaultBranch, branchExists, branchExists, ok, ok, ok, ok],
     calls,
   );
 
@@ -21,28 +21,38 @@ test('moves to the default branch, pulls, deletes, and prunes', async () => {
 
   expect(calls).toEqual([
     {
+      command: 'git',
       args: ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
       stdout: undefined,
       stderr: undefined,
     },
     {
+      command: 'git',
       args: ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
       stdout: undefined,
       stderr: undefined,
     },
     {
+      command: 'git',
       args: ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/b'],
       stdout: undefined,
       stderr: undefined,
     },
-    { args: ['checkout', 'main'], stdout: 'inherit', stderr: 'inherit' },
-    { args: ['pull'], stdout: 'inherit', stderr: 'inherit' },
     {
+      command: 'git',
+      args: ['checkout', 'main'],
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+    { command: 'git', args: ['pull'], stdout: 'inherit', stderr: 'inherit' },
+    {
+      command: 'git',
       args: ['branch', '-D', '--', 'feature/a', 'feature/b'],
       stdout: 'inherit',
       stderr: 'inherit',
     },
     {
+      command: 'git',
       args: ['remote', 'prune', 'origin'],
       stdout: 'inherit',
       stderr: 'inherit',
@@ -52,7 +62,10 @@ test('moves to the default branch, pulls, deletes, and prunes', async () => {
 
 test('moves to the --to destination instead of the default branch', async () => {
   const calls: RecordedCall[] = [];
-  const run = sequenceRunner([defaultBranch, branchExists], calls);
+  const run = sequenceRunner(
+    [defaultBranch, branchExists, ok, ok, ok, ok],
+    calls,
+  );
 
   await deleteBranches(run, ['feature/a', '--to', 'dev']);
 
@@ -68,7 +81,10 @@ test('moves to the --to destination instead of the default branch', async () => 
 
 test('accepts -t as the destination shorthand and deduplicates branches', async () => {
   const calls: RecordedCall[] = [];
-  const run = sequenceRunner([defaultBranch, branchExists], calls);
+  const run = sequenceRunner(
+    [defaultBranch, branchExists, ok, ok, ok, ok],
+    calls,
+  );
 
   await deleteBranches(run, ['feature/a', '-t', 'dev', 'feature/a']);
 

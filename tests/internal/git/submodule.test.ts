@@ -28,21 +28,25 @@ sandboxTest('runs deinit, rm, and config removal in order', async (sandbox) => {
 
   expect(calls).toEqual([
     {
+      command: 'git',
       args: ['submodule', 'deinit', '-f', 'vendor/dep'],
       stdout: 'inherit',
       stderr: 'inherit',
     },
     {
+      command: 'git',
       args: ['rm', '-f', '-r', 'vendor/dep'],
       stdout: 'inherit',
       stderr: 'inherit',
     },
     {
+      command: 'git',
       args: ['rev-parse', '--git-dir'],
       stdout: undefined,
       stderr: undefined,
     },
     {
+      command: 'git',
       args: ['config', '--remove-section', 'submodule.vendor/dep'],
       stdout: undefined,
       stderr: undefined,
