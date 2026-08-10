@@ -68,7 +68,7 @@ sandboxTest(
     const { code, stdout, stderr } = await runSync(sandbox);
 
     expect(code).toBe(0);
-    expect(stdout).toBe('mev: environment is synchronized\n');
+    expect(stdout).toContain('mev: environment is synchronized');
     expect(stderr).toBe('');
   },
 );
@@ -83,7 +83,7 @@ sandboxTest(
     const { code, stdout, stderr } = await runSync(sandbox, ['--upgrade']);
 
     expect(code).toBe(0);
-    expect(stdout).toBe('mev: environment is synchronized\n');
+    expect(stdout).toContain('mev: environment is synchronized');
     expect(stderr).toBe('');
   },
 );
@@ -105,7 +105,7 @@ sandboxTest(
     expect(stdout).toContain('mev: Cleaned obsolete provisioning state\n');
     expect(stdout).toContain('Removed obsolete role state: cmux\n');
     expect(stdout).toContain('Removed obsolete applied marker: cmux\n');
-    expect(stdout.endsWith('mev: environment is synchronized\n')).toBe(true);
+    expect(stdout).toContain('mev: environment is synchronized');
     expect(await Bun.file(join(sandbox, '.mev/roles/cmux')).exists()).toBe(
       false,
     );

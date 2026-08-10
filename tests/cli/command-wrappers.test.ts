@@ -107,13 +107,32 @@ sandboxTest(
   },
 );
 
-sandboxTest(
-  'the internal namespace routes a leaf through the dispatcher and validates its args',
-  async (sandbox) => {
-    // `clone` with no URLs is rejected by the leaf before any git is spawned, so
-    // this stays hermetic while proving `internal git clone` routes through
-    // runInternalCommand to the domain operation.
-    const result = await runCli(['internal', 'git', 'clone'], sandbox);
-    expect(result.code).not.toBe(0);
-  },
-);
+// Internal leaves invoked with arguments their own validation rejects. The
+// rejection naming the leaf's path is the evidence that it resolved through
+// runInternalCommand rather than stopping at the namespace.
+//
+// `internal gh labels deploy` and `reset` are deliberately absent: they take no
+// required arguments and act immediately, so invoking them here would reach the
+// real GitHub API. Their routing is covered by the namespace overview test, and
+// their behavior by tests/internal/gh/.
+const INTERNAL_LEAVES = [
+  ['internal', 'git', 'clone'],
+  ['internal', 'git', 'delete-branches'],
+  ['internal', 'git', 'delete-submodule'],
+  ['internal', 'document', 'markdown-to-pdf'],
+  ['internal', 'document', 'pdf-to-markdown'],
+];
+
+for (const path of INTERNAL_LEAVES) {
+  sandboxTest(
+    `${path.join(' ')} routes through the internal dispatcher`,
+    async (sandbox) => {
+      const result = await runCli(path, sandbox);
+
+      expect(result.code).not.toBe(0);
+      // The rejection names this leaf's own path. An unresolved path would
+      // instead list the namespace's candidates without settling on one.
+      expect(`${result.stdout}${result.stderr}`).toContain(path.join(' '));
+    },
+  );
+}

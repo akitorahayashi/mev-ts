@@ -1,36 +1,19 @@
 import { expect, test } from 'bun:test';
+import { allTargets } from '../../provisioning/registry';
 import { renderTargetList } from './targetlist';
 
-// A fixed, independent smoke subset of known targets. Hardcoding these (rather
-// than iterating the same registry the renderer consumes) keeps the oracle
-// independent of the implementation under test: a regression that drops a
-// well-known target from the listing now fails here.
-const KNOWN = [
-  { name: 'git', alias: undefined, description: 'Git configuration' },
-  { name: 'shell', alias: 'sh', description: 'Shell environment' },
-  { name: 'coder', alias: 'cdr', description: 'AI coding agents' },
-  { name: 'bun', alias: 'b', description: 'Bun JavaScript runtime' },
-  { name: 'python', alias: 'py', description: 'Python via uv' },
-];
-
-test('renderTargetList lists known target names', () => {
+// The registry is a separately owned authority the renderer consumes, so the
+// expectation is derived from it rather than restating production wording here,
+// where every catalog edit would break a renderer test.
+test('renderTargetList lists every registered target with its selectors', () => {
   const output = renderTargetList(false);
-  for (const target of KNOWN) {
+
+  for (const target of allTargets()) {
     expect(output).toContain(target.name);
-  }
-});
-
-test('renderTargetList lists known target aliases', () => {
-  const output = renderTargetList(false);
-  for (const target of KNOWN) {
-    if (target.alias) expect(output).toContain(target.alias);
-  }
-});
-
-test('renderTargetList lists known target descriptions', () => {
-  const output = renderTargetList(false);
-  for (const target of KNOWN) {
     expect(output).toContain(target.description);
+    for (const alias of target.aliases) {
+      expect(output).toContain(alias);
+    }
   }
 });
 

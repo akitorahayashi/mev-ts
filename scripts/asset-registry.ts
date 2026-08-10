@@ -13,10 +13,10 @@ export interface AssetEntry {
   readonly executable: boolean;
 }
 
-async function readTextAsset(key: string): Promise<string> {
+async function readTextAsset(path: string, key: string): Promise<string> {
   let bytes: Uint8Array;
   try {
-    bytes = await Bun.file(join(filesRoot, key)).bytes();
+    bytes = await Bun.file(path).bytes();
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to read asset '${key}': ${detail}`);
@@ -32,11 +32,19 @@ async function readTextAsset(key: string): Promise<string> {
   }
 }
 
-export async function collectAssets(): Promise<AssetEntry[]> {
+/**
+ * Walk `root` into the embedded asset entries. The root is a parameter so the
+ * walker's key naming, executable-bit detection, and non-UTF-8 rejection are
+ * testable against a fixture tree rather than only against the real asset
+ * directory.
+ */
+export async function collectAssets(
+  root: string = filesRoot,
+): Promise<AssetEntry[]> {
   const glob = new Glob('**/*');
   const keys: string[] = [];
   for await (const path of glob.scan({
-    cwd: filesRoot,
+    cwd: root,
     onlyFiles: true,
     dot: true,
   })) {
@@ -46,8 +54,8 @@ export async function collectAssets(): Promise<AssetEntry[]> {
   keys.sort();
   return Promise.all(
     keys.map(async (key) => {
-      const content = await readTextAsset(key);
-      const { mode } = await stat(join(filesRoot, key));
+      const content = await readTextAsset(join(root, key), key);
+      const { mode } = await stat(join(root, key));
       return { key, content, executable: (mode & 0o100) !== 0 };
     }),
   );

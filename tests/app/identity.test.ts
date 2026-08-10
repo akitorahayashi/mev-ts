@@ -16,23 +16,27 @@ import {
 } from '../../src/identity/store';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
-let sandbox = '';
-let counter = 0;
+/**
+ * Allocates fresh homes inside one per-test sandbox. The allocator is a
+ * per-test closure rather than module-level mutable state, so nothing carries
+ * between tests and their order never matters.
+ */
+type HomeAllocator = () => string;
 
-function tempHome(): string {
-  counter += 1;
-  const dir = join(sandbox, `identity-app-${counter}`);
-  mkdirSync(dir);
-  return dir;
-}
-
-function sandboxTest(name: string, body: () => Promise<void>): void {
+function sandboxTest(
+  name: string,
+  body: (tempHome: HomeAllocator) => Promise<void>,
+): void {
   test(name, async () => {
     await withTemporaryDirectory(
       async (dir) => {
-        sandbox = dir;
-        counter = 0;
-        await body();
+        let counter = 0;
+        await body(() => {
+          counter += 1;
+          const home = join(dir, `identity-app-${counter}`);
+          mkdirSync(home);
+          return home;
+        });
       },
       { prefix: 'identity-app-' },
     );
@@ -78,7 +82,7 @@ async function seed(home: string): Promise<void> {
 
 sandboxTest(
   'showIdentity marks the active scope when git matches a profile',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     await seed(home);
     const run = gitRunner({
@@ -99,7 +103,7 @@ sandboxTest(
 
 sandboxTest(
   'showIdentity reports unmanaged when git matches no profile',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     await seed(home);
     const run = gitRunner({
@@ -112,18 +116,21 @@ sandboxTest(
   },
 );
 
-sandboxTest('showIdentity reports unset when git has no identity', async () => {
-  const home = tempHome();
-  await seed(home);
-  const run = gitRunner({});
+sandboxTest(
+  'showIdentity reports unset when git has no identity',
+  async (tempHome) => {
+    const home = tempHome();
+    await seed(home);
+    const run = gitRunner({});
 
-  const view = await showIdentity({ run, home });
-  expect(view.current.kind).toBe('unset');
-});
+    const view = await showIdentity({ run, home });
+    expect(view.current.kind).toBe('unset');
+  },
+);
 
 sandboxTest(
   'showIdentity surfaces a half-configured identity as unmanaged',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     await seed(home);
     const run = gitRunner({ 'user.name': 'Solo Name' });
@@ -136,16 +143,19 @@ sandboxTest(
   },
 );
 
-sandboxTest('showIdentity throws when no configuration exists', async () => {
-  const run = gitRunner({});
-  await expect(showIdentity({ run, home: tempHome() })).rejects.toBeInstanceOf(
-    AppError,
-  );
-});
+sandboxTest(
+  'showIdentity throws when no configuration exists',
+  async (tempHome) => {
+    const run = gitRunner({});
+    await expect(
+      showIdentity({ run, home: tempHome() }),
+    ).rejects.toBeInstanceOf(AppError);
+  },
+);
 
 sandboxTest(
   'switchIdentity applies the stored identity to global git config',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     await seed(home);
     const writes: { path: string; key: string; value: string }[] = [];
@@ -166,16 +176,19 @@ sandboxTest(
   },
 );
 
-sandboxTest('switchIdentity throws when no configuration exists', async () => {
-  const run = gitRunner({});
-  await expect(
-    switchIdentity({ run, home: tempHome() }, 'work'),
-  ).rejects.toBeInstanceOf(AppError);
-});
+sandboxTest(
+  'switchIdentity throws when no configuration exists',
+  async (tempHome) => {
+    const run = gitRunner({});
+    await expect(
+      switchIdentity({ run, home: tempHome() }, 'work'),
+    ).rejects.toBeInstanceOf(AppError);
+  },
+);
 
 sandboxTest(
   'switchIdentity throws when the requested scope is unconfigured',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     await saveState(identityFilePath(home), {
       personal: makeIdentity('Personal Name', 'personal@example.com'),
@@ -190,7 +203,7 @@ sandboxTest(
 
 sandboxTest(
   'setIdentity persists collected inputs and drops blank profiles',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     const { path, state } = await setIdentity(
       { home },
@@ -210,7 +223,7 @@ sandboxTest(
 
 sandboxTest(
   'setIdentity rejects a scope with only one field filled',
-  async () => {
+  async (tempHome) => {
     const home = tempHome();
     await expect(
       setIdentity(
