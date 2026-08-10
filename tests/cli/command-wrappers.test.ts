@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test';
-import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { runCommandLine } from '../../src/main';
-import { captureStreams } from '../fixtures/streams';
+import { runCliInSandbox as runCli } from '../fixtures/sandboxed-cli';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 // These exercise the clipanion command-wrapper layer — the positional/flag ->
@@ -12,40 +10,6 @@ import { sandboxedTest } from '../fixtures/temporary-directory';
 // spawn failures (code 127) rather than touching the real machine.
 
 const sandboxTest = sandboxedTest('command-wrappers-');
-
-function restoreEnv(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-    return;
-  }
-  process.env[name] = value;
-}
-
-async function runCli(
-  args: readonly string[],
-  sandbox?: string,
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const streams = captureStreams();
-  const previousHome = process.env['HOME'];
-  const previousPath = process.env['PATH'];
-  if (sandbox !== undefined) {
-    const bin = join(sandbox, 'bin');
-    await mkdir(bin, { recursive: true });
-    process.env['HOME'] = sandbox;
-    process.env['PATH'] = bin;
-  }
-  try {
-    const code = await runCommandLine([...args], {
-      colorDepth: 1,
-      stdout: streams.stdout as NodeJS.WriteStream,
-      stderr: streams.stderr as NodeJS.WriteStream,
-    });
-    return { code, stdout: streams.stdoutText(), stderr: streams.stderrText() };
-  } finally {
-    restoreEnv('HOME', previousHome);
-    restoreEnv('PATH', previousPath);
-  }
-}
 
 test('list routes to the target listing under both its name and alias', async () => {
   const byName = await runCli(['list']);

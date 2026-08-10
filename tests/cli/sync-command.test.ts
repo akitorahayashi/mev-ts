@@ -2,25 +2,16 @@ import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { embeddedAssets } from '../../src/assets/registry';
-import { runCommandLine } from '../../src/main';
 import { appliedPath, writeApplied } from '../../src/provisioning/applied';
 import { deployRole } from '../../src/provisioning/deploy';
 import { fullSetupTargets } from '../../src/provisioning/registry';
 import { isScanError, scanTargets } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
 import { recordingContext } from '../fixtures/fake-context';
-import { captureStreams } from '../fixtures/streams';
+import { type CliResult, runCliInSandbox } from '../fixtures/sandboxed-cli';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('sync-command-');
-
-function restoreEnv(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-    return;
-  }
-  process.env[name] = value;
-}
 
 async function seedCurrentEnvironment(sandbox: string): Promise<void> {
   const context = recordingContext({
@@ -36,28 +27,11 @@ async function seedCurrentEnvironment(sandbox: string): Promise<void> {
   }
 }
 
-async function runSync(
+function runSync(
   sandbox: string,
   extraArgs: readonly string[] = [],
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const streams = captureStreams();
-  const previousHome = process.env['HOME'];
-  const previousPath = process.env['PATH'];
-  const bin = join(sandbox, 'bin');
-  await mkdir(bin, { recursive: true });
-  process.env['HOME'] = sandbox;
-  process.env['PATH'] = bin;
-  try {
-    const code = await runCommandLine(['sync', ...extraArgs], {
-      colorDepth: 1,
-      stdout: streams.stdout as NodeJS.WriteStream,
-      stderr: streams.stderr as NodeJS.WriteStream,
-    });
-    return { code, stdout: streams.stdoutText(), stderr: streams.stderrText() };
-  } finally {
-    restoreEnv('HOME', previousHome);
-    restoreEnv('PATH', previousPath);
-  }
+): Promise<CliResult> {
+  return runCliInSandbox(['sync', ...extraArgs], sandbox);
 }
 
 sandboxTest(

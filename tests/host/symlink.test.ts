@@ -1,24 +1,11 @@
 import { expect } from 'bun:test';
-import {
-  chmod,
-  mkdir,
-  readdir,
-  readlink,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { chmod, mkdir, readlink, symlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { isSymlinkTo, placeSymlink } from '../../src/host/symlink';
+import { stagingSiblings } from '../fixtures/path-probe';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandbox = sandboxedTest('mev-symlink-');
-
-async function ownedSiblings(path: string): Promise<string[]> {
-  const prefix = `.${basename(path)}.`;
-  return (await readdir(dirname(path))).filter((name) =>
-    name.startsWith(prefix),
-  );
-}
 
 sandbox('places a symlink at an unoccupied destination', async (dir) => {
   const link = join(dir, 'link');
@@ -29,7 +16,7 @@ sandbox('places a symlink at an unoccupied destination', async (dir) => {
 
   expect(await readlink(link)).toBe(target);
   expect(await isSymlinkTo(link, target)).toBe(true);
-  expect(await ownedSiblings(link)).toEqual([]);
+  expect(await stagingSiblings(link)).toEqual([]);
 });
 
 sandbox(
@@ -63,7 +50,7 @@ sandbox('replaces an existing symlink that points elsewhere', async (dir) => {
   await placeSymlink(link, target);
 
   expect(await isSymlinkTo(link, target)).toBe(true);
-  expect(await ownedSiblings(link)).toEqual([]);
+  expect(await stagingSiblings(link)).toEqual([]);
 });
 
 sandbox('replaces an existing regular file with the symlink', async (dir) => {
@@ -75,7 +62,7 @@ sandbox('replaces an existing regular file with the symlink', async (dir) => {
   await placeSymlink(link, target);
 
   expect(await isSymlinkTo(link, target)).toBe(true);
-  expect(await ownedSiblings(link)).toEqual([]);
+  expect(await stagingSiblings(link)).toEqual([]);
 });
 
 sandbox(
@@ -90,7 +77,7 @@ sandbox(
     await placeSymlink(link, target);
 
     expect(await isSymlinkTo(link, target)).toBe(true);
-    expect(await ownedSiblings(link)).toEqual([]);
+    expect(await stagingSiblings(link)).toEqual([]);
   },
 );
 
@@ -111,6 +98,6 @@ sandbox(
       await chmod(dir, 0o700);
     }
 
-    expect(await ownedSiblings(link)).toEqual([]);
+    expect(await stagingSiblings(link)).toEqual([]);
   },
 );
