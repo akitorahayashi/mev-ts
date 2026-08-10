@@ -18,12 +18,6 @@ export function groveConfig(source: AssetRef, dest: HostPath): Activation {
   return { kind: 'groveConfig', source, dest };
 }
 
-export function groveConfigAssets(
-  activation: GroveConfigActivation,
-): readonly string[] {
-  return [activation.source.key];
-}
-
 export function describeGroveConfig(
   activation: GroveConfigActivation,
 ): Described {

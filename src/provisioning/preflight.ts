@@ -1,155 +1,20 @@
-import { parsePluginCatalog } from '../agent-plugin/catalog';
 import type { AssetSource } from '../assets/registry';
-import { parseSectionCatalog, reconcileSections } from '../coder/catalog';
-import { parseDefaults } from '../defaults/manifest';
-import { parseAssociations } from '../duti/association';
-import { parseExtensions } from '../editor/extension';
 import { errorMessage, ProvisioningError } from '../errors';
-import { parseReleaseBinaries } from '../github/release';
-import { renderConfig } from '../grove/config';
-import { loadToml } from '../host/toml';
-import { parseManifest as parsePipxManifest } from '../pipx/manifest';
-import { parseManifest as parsePnpmManifest } from '../pnpm/manifest';
-import { parseJsonObject } from '../zed/settings';
-import {
-  agentPluginsConfigAssets,
-  coderAgentsConfigAssets,
-  codexConfigAssets,
-  defaultsConfigAssets,
-  dutiConfigAssets,
-  extensionsConfigAssets,
-  groveConfigAssets,
-  pipxConfigAssets,
-  pnpmConfigAssets,
-  releaseConfigAssets,
-  zedSettingsConfigAssets,
-} from './activation';
 import type { Activation } from './activation/contract';
+import { handlerFor } from './activation/kinds';
 import { allTargets } from './registry';
 import type { Target } from './target';
 
-type AssetValidator = (
-  raw: string,
+async function runCheck(
   key: string,
+  parse:
+    | ((raw: string, key: string, assets: AssetSource) => void | Promise<void>)
+    | undefined,
   assets: AssetSource,
-) => void | Promise<void>;
-
-interface AssetCheck {
-  readonly keys: readonly string[];
-  readonly validate: AssetValidator;
-}
-
-/**
- * The config assets a kind validates, with each kind naming
- * its own keys (via its `configAssets`) rather than preflight guessing them. The
- * switch has no `default`, so a new kind is a compile-time prompt to declare its
- * check here. Kinds without an embedded config asset to validate — including
- * `coderSkills`, whose skills tree is a filesystem-derived catalog with no
- * build-time schema — return null explicitly; the zed override fragments are
- * validated separately below.
- */
-function assetCheckFor(activation: Activation): AssetCheck | null {
-  switch (activation.kind) {
-    case 'defaults':
-      return {
-        keys: defaultsConfigAssets(activation),
-        validate: (raw, key) => {
-          parseDefaults(raw, key);
-        },
-      };
-    case 'duti':
-      return {
-        keys: dutiConfigAssets(activation),
-        validate: (raw, key) => {
-          parseAssociations(raw, key);
-        },
-      };
-    case 'pipx':
-      return {
-        keys: pipxConfigAssets(activation),
-        validate: (raw, key) => {
-          parsePipxManifest(raw, key);
-        },
-      };
-    case 'pnpm':
-      return {
-        keys: pnpmConfigAssets(activation),
-        validate: (raw, key) => {
-          parsePnpmManifest(raw, key);
-        },
-      };
-    case 'editorExtensions':
-      return {
-        keys: extensionsConfigAssets(activation),
-        validate: (raw, key) => {
-          parseExtensions(raw, key);
-        },
-      };
-    case 'release':
-      return {
-        keys: releaseConfigAssets(activation),
-        validate: (raw, key) => {
-          parseReleaseBinaries(raw, key);
-        },
-      };
-    case 'coderAgents':
-      return {
-        keys: coderAgentsConfigAssets(activation),
-        validate: (raw, key, assets) => {
-          const listed = parseSectionCatalog(raw, key);
-          const prefix = `${activation.sectionsPrefix}/`;
-          const presentStems = assets
-            .keysByPrefix(prefix)
-            .map((assetKey) => assetKey.slice(prefix.length))
-            .filter((name) => name.endsWith('.md') && !name.includes('/'))
-            .map((name) => name.slice(0, -'.md'.length));
-          reconcileSections(listed, presentStems);
-        },
-      };
-    case 'agentPlugins':
-      return {
-        keys: agentPluginsConfigAssets(activation),
-        validate: (raw, key) => {
-          parsePluginCatalog(raw, key);
-        },
-      };
-    case 'zedSettings':
-      return {
-        keys: zedSettingsConfigAssets(activation),
-        validate: (raw, key) => {
-          parseJsonObject(raw, key, 'Zed base settings');
-        },
-      };
-    case 'codexConfig':
-      return {
-        keys: codexConfigAssets(activation),
-        validate: (raw, key) => {
-          loadToml(raw, key);
-        },
-      };
-    case 'groveConfig':
-      return {
-        keys: groveConfigAssets(activation),
-        validate: (raw, key) => {
-          renderConfig(raw, 'github.com', key);
-        },
-      };
-    case 'file':
-    case 'tree':
-    case 'command':
-    case 'remoteInstaller':
-    case 'coderSkills':
-      return null;
-  }
-}
-
-async function validateAsset(
-  key: string,
-  assets: AssetSource,
-  validator: AssetValidator,
 ): Promise<void> {
   try {
-    await validator(await assets.read(key), key, assets);
+    const raw = await assets.read(key);
+    await parse?.(raw, key, assets);
   } catch (error) {
     throw new ProvisioningError(
       `Embedded asset preflight failed for ${key}: ${errorMessage(error)}`,
@@ -161,35 +26,21 @@ async function validateActivation(
   activation: Activation,
   assets: AssetSource,
 ): Promise<void> {
-  const check = assetCheckFor(activation);
-  if (check) {
-    for (const key of check.keys) {
-      await validateAsset(key, assets, check.validate);
-    }
-  }
-  if (activation.kind === 'command') {
-    // A read declares only an asset key, so the check is existence: an absent
-    // key fails the build instead of failing mid-provisioning.
-    for (const key of Object.values(activation.reads ?? {})) {
-      await validateAsset(key, assets, () => {});
-    }
-  }
-  if (activation.kind === 'zedSettings') {
-    for (const key of assets.keysByPrefix(`${activation.overridesPrefix}/`)) {
-      await validateAsset(key, assets, (raw, assetKey) => {
-        parseJsonObject(raw, assetKey, 'Zed override');
-      });
-    }
+  const checks = handlerFor(activation).assetChecks?.(activation, assets) ?? [];
+  for (const check of checks) {
+    await runCheck(check.key, check.parse, assets);
   }
 }
 
 /**
  * Parse every config asset each target declares, so a manifest that no parser
- * accepts fails the build rather than a provisioning run. The gate is
- * build-time only: `scripts/validate-assets.ts` invokes it from the
- * `precheck`/`pretypecheck` hooks and `build-bundle.ts` re-runs it before every
- * compile. `runMake` never calls it — a shipped binary's assets are already
- * validated.
+ * accepts fails the build rather than a provisioning run. Each kind names its
+ * own checks, and a manifest-backed kind derives them from the same parse
+ * function its runner uses, so build validation cannot diverge from runtime
+ * parsing. The gate is build-time only: `scripts/validate-assets.ts` invokes it
+ * from the `precheck`/`pretypecheck` hooks and `build-bundle.ts` re-runs it
+ * before every compile. `runMake` never calls it — a shipped binary's assets are
+ * already validated.
  */
 export async function validateEmbeddedAssets(
   assets: AssetSource,

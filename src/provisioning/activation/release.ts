@@ -90,7 +90,7 @@ function releaseStep(
   };
 }
 
-const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
+export const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
   parse: parseReleaseBinaries,
   manifestLabel: 'Release binaries manifest',
   describe: (activation) => ({
@@ -111,7 +111,3 @@ const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
     );
   },
 });
-
-export const describeRelease = releaseKind.describe;
-export const releaseConfigAssets = releaseKind.configAssets;
-export const runRelease = releaseKind.run;

@@ -35,7 +35,7 @@ src/
   pipx/          pipx install, inject, and post-install operations
   pnpm/          pnpm global package install and remove through the fnm runtime
   provisioning/
-    activation/  Activation DSL vocabulary, per-kind runners, reconcile envelope, manifest loader
+    activation/  Activation DSL vocabulary, the per-kind registry (kinds.ts), per-kind runners, reconcile envelope, manifest loader
     targets/     One file per provisioning target
     signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
     applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
@@ -71,7 +71,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`, `grove/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
+`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `kinds.ts` maps each `Activation` kind to its handler, and dispatch, build-time asset validation, and the registry test are all lookups into it. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`, `grove/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
 
 See docs/architecture/activation.md for the per-kind table and the reconcile/manifest mechanics.
 

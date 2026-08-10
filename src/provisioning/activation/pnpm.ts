@@ -99,7 +99,7 @@ function uninstallStep(
   };
 }
 
-const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
+export const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
   parse: parseManifest,
   manifestLabel: 'pnpm global packages manifest',
   describe: (activation) => ({
@@ -146,7 +146,3 @@ const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
     );
   },
 });
-
-export const describePnpm = pnpmKind.describe;
-export const pnpmConfigAssets = pnpmKind.configAssets;
-export const runPnpm = pnpmKind.run;

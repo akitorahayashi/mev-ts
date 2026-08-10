@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { embeddedAssets } from '../assets/registry';
-import type { Activation } from './activation/contract';
+import type { Activation, AssetReference } from './activation/contract';
+import { handlerFor } from './activation/kinds';
 import {
   allTargets,
   availableSelectors,
@@ -12,51 +13,14 @@ import {
 // embedded assets and own a distinct set of selectors. Adding a target is
 // covered automatically.
 
-type AssetReference = { readonly key: string } | { readonly prefix: string };
-
 /**
- * The assets an activation references. A `switch` over the discriminated union
- * with an exhaustiveness check, so adding a new `Activation` kind without
- * teaching this test its references is a compile error rather than a silent
- * gap.
+ * The assets an activation references come from the same per-kind registry the
+ * engine dispatches through, so this invariant cannot fall out of step with a
+ * newly added kind: the registry's mapped type already refuses to compile
+ * without one.
  */
-function referencedAssets(activation: Activation): AssetReference[] {
-  switch (activation.kind) {
-    case 'file':
-    case 'groveConfig':
-      return [{ key: activation.source.key }];
-    case 'tree':
-      return [{ prefix: activation.prefix }];
-    case 'defaults':
-    case 'duti':
-    case 'pipx':
-    case 'pnpm':
-    case 'editorExtensions':
-    case 'release':
-    case 'agentPlugins':
-      return [{ key: activation.configKey }];
-    case 'coderAgents':
-      return [{ prefix: activation.sectionsPrefix }];
-    case 'coderSkills':
-      return [{ prefix: activation.skillsPrefix }];
-    case 'zedSettings':
-      return [
-        { key: activation.base.key },
-        { prefix: activation.overridesPrefix },
-      ];
-    case 'codexConfig':
-      return [{ key: activation.source.key }];
-    case 'command':
-      return Object.values(activation.reads ?? {}).map((key) => ({ key }));
-    case 'remoteInstaller':
-      return [];
-    default:
-      return assertNever(activation);
-  }
-}
-
-function assertNever(value: never): never {
-  throw new Error(`unhandled activation kind: ${JSON.stringify(value)}`);
+function referencedAssets(activation: Activation): readonly AssetReference[] {
+  return handlerFor(activation).references(activation);
 }
 
 test('every activation references an existing asset under its own role', async () => {

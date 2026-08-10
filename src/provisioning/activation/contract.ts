@@ -1,4 +1,5 @@
 import type { AssetRef } from '../../assets/ref';
+import type { AssetSource } from '../../assets/registry';
 import type { HostPath } from '../../host/path';
 
 export type Verb = 'link' | 'apply' | 'run';
@@ -240,4 +241,24 @@ export interface Described {
   readonly verb: Verb;
   readonly source: string;
   readonly dest: string;
+}
+
+/** An embedded asset an activation references: one key, or every key under a prefix. */
+export type AssetReference =
+  | { readonly key: string }
+  | { readonly prefix: string };
+
+/**
+ * One embedded asset to check before the binary is built. `parse` is the same
+ * function the runner uses at apply time, so a parser swap cannot leave build
+ * validation and runtime disagreeing about what a valid manifest is; a check
+ * without one asserts only that the asset exists.
+ */
+export interface AssetCheck {
+  readonly key: string;
+  readonly parse?: (
+    raw: string,
+    key: string,
+    assets: AssetSource,
+  ) => void | Promise<void>;
 }

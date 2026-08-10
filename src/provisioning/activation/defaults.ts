@@ -88,7 +88,7 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
   };
 }
 
-const defaultsKind = manifestKind<DefaultsActivation, DefaultsEntry>({
+export const defaultsKind = manifestKind<DefaultsActivation, DefaultsEntry>({
   parse: parseDefaults,
   manifestLabel: 'Defaults config file',
   describe: (activation) => ({
@@ -99,7 +99,3 @@ const defaultsKind = manifestKind<DefaultsActivation, DefaultsEntry>({
   steps: async (entries, _activation, context) =>
     entries.map((entry) => defaultsStep(entry, context)),
 });
-
-export const describeDefaults = defaultsKind.describe;
-export const defaultsConfigAssets = defaultsKind.configAssets;
-export const runDefaults = defaultsKind.run;

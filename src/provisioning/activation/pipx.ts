@@ -142,7 +142,7 @@ function pipxUninstallStep(
   };
 }
 
-const pipxKind = manifestKind<PipxActivation, PipxEntry>({
+export const pipxKind = manifestKind<PipxActivation, PipxEntry>({
   parse: parseManifest,
   manifestLabel: 'Pipx config file',
   describe: (activation) => ({
@@ -180,7 +180,3 @@ const pipxKind = manifestKind<PipxActivation, PipxEntry>({
     );
   },
 });
-
-export const describePipx = pipxKind.describe;
-export const pipxConfigAssets = pipxKind.configAssets;
-export const runPipx = pipxKind.run;

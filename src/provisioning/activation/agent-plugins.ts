@@ -52,12 +52,6 @@ export function installAgentPlugins(configKey: string): Activation {
   return { kind: 'agentPlugins', configKey };
 }
 
-export function agentPluginsConfigAssets(
-  activation: AgentPluginsActivation,
-): readonly string[] {
-  return [activation.configKey];
-}
-
 export function describeAgentPlugins(
   activation: AgentPluginsActivation,
 ): Described {

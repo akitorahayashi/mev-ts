@@ -33,12 +33,6 @@ export function zedSettings(
   return { kind: 'zedSettings', base, overridesPrefix, dest };
 }
 
-export function zedSettingsConfigAssets(
-  activation: ZedSettingsActivation,
-): readonly string[] {
-  return [activation.base.key];
-}
-
 export function describeZedSettings(
   activation: ZedSettingsActivation,
 ): Described {

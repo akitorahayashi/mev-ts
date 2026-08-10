@@ -28,12 +28,6 @@ export function describeCodexConfig(
   };
 }
 
-export function codexConfigAssets(
-  activation: CodexConfigActivation,
-): readonly string[] {
-  return [activation.source.key];
-}
-
 /**
  * Enforce the declared TOML values into the codex-owned config file. The
  * destination is a regular file, never a symlink into the deploy store: codex
