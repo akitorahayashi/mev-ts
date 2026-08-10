@@ -25,9 +25,14 @@ export async function downloadOverHttps(
       '=https',
       '--tlsv1.2',
       // No blanket --max-time: a release binary on a slow link is a legitimate
-      // long transfer. The connect timeout and bounded retries cover the failure
-      // this guards against, a server that accepts and then stalls forever.
+      // long transfer. The connect timeout bounds the connection phase only, so
+      // the low-speed pair is what aborts a server that accepts and then stalls
+      // mid-transfer: under 1 byte/s for 30s counts as dead.
       '--connect-timeout',
+      '30',
+      '--speed-limit',
+      '1',
+      '--speed-time',
       '30',
       '--retry',
       '2',

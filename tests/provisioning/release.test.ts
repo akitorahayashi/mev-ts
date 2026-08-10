@@ -115,9 +115,11 @@ sandboxTest('a pinned binary that is absent is fetched', async (home) => {
   });
   expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
   // Transport is pinned to HTTPS on request and redirect, with a TLS floor,
-  // and a stalled server cannot hang provisioning indefinitely.
+  // and a stalled server cannot hang provisioning indefinitely: the low-speed
+  // pair aborts a transfer that dropped below 1 byte/s for 30s, which
+  // --connect-timeout alone does not cover after the connection is up.
   const curl = calls.find((call) => call.command === 'curl');
-  expect(curl?.args.slice(0, 11)).toEqual([
+  expect(curl?.args.slice(0, 15)).toEqual([
     '-fsSL',
     '--proto',
     '=https',
@@ -125,6 +127,10 @@ sandboxTest('a pinned binary that is absent is fetched', async (home) => {
     '=https',
     '--tlsv1.2',
     '--connect-timeout',
+    '30',
+    '--speed-limit',
+    '1',
+    '--speed-time',
     '30',
     '--retry',
     '2',

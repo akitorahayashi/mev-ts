@@ -1,4 +1,12 @@
-import { chmod, mkdir, mkdtemp, readdir, rename, rm } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  rename,
+  rm,
+} from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage } from '../src/errors';
@@ -19,6 +27,13 @@ interface InstallOptions {
 
 const STAGING_PREFIX = '.mev-up-';
 
+/**
+ * Only entries older than this are swept. A prefix match alone would also
+ * delete the live workspace of a concurrent install that has already run its
+ * mkdtemp; no build approaches this age, so anything past it is a crash orphan.
+ */
+const STAGING_ORPHAN_AGE_MS = 60 * 60 * 1000;
+
 function defaultInstallDir(): string {
   return process.env['MEV_INSTALL_DIR'] ?? join(homedir(), '.local', 'bin');
 }
@@ -31,9 +46,11 @@ function defaultInstallDir(): string {
 async function pruneStaleStaging(installDir: string): Promise<void> {
   const entries = await readdir(installDir).catch(() => []);
   for (const name of entries) {
-    if (name.startsWith(STAGING_PREFIX)) {
-      await rm(join(installDir, name), { force: true, recursive: true });
-    }
+    if (!name.startsWith(STAGING_PREFIX)) continue;
+    const path = join(installDir, name);
+    const stats = await lstat(path).catch(() => null);
+    if (stats && Date.now() - stats.mtimeMs < STAGING_ORPHAN_AGE_MS) continue;
+    await rm(path, { force: true, recursive: true });
   }
 }
 

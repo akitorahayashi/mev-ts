@@ -20,8 +20,11 @@ export const bunTarget = target('bun', {
       interpreter: 'bash',
       // bun.sh/install selects the release from its positional `bun-v<version>`
       // argument, read from the role asset like every sibling toolchain version.
+      // No `-s`: the script runs from a file, not stdin, so bash passes every
+      // argument through positionally and the installer would read `-s` as the
+      // release tag.
       reads: { version: 'bun/.bun-version' },
-      args: ['-s', { concat: ['bun-v', { ref: 'version' }] }],
+      args: [{ concat: ['bun-v', { ref: 'version' }] }],
       creates: home('.bun/bin/bun'),
       // The binary exists at every version, so presence alone would pin the
       // machine to whatever was installed first.

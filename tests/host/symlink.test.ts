@@ -1,7 +1,19 @@
 import { expect } from 'bun:test';
-import { chmod, mkdir, readlink, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readlink,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
-import { isSymlinkTo, placeSymlink } from '../../src/host/symlink';
+import {
+  isSymlinkTo,
+  materializeSymlink,
+  placeSymlink,
+} from '../../src/host/symlink';
 import { stagingSiblings } from '../fixtures/path-probe';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -101,3 +113,31 @@ sandbox(
     expect(await stagingSiblings(link)).toEqual([]);
   },
 );
+
+sandbox('materializes a symlink into a regular file', async (dir) => {
+  const link = join(dir, 'config.toml');
+  const target = join(dir, 'store.toml');
+  await writeFile(target, 'runtime = true\n');
+  await symlink(target, link);
+
+  expect(await materializeSymlink(link)).toBe(true);
+
+  expect((await lstat(link)).isSymbolicLink()).toBe(false);
+  expect(await readFile(link, 'utf8')).toBe('runtime = true\n');
+  // Later writes through the former link no longer reach the target.
+  await writeFile(link, 'detached = true\n');
+  expect(await readFile(target, 'utf8')).toBe('runtime = true\n');
+});
+
+sandbox('leaves a regular file and a dangling link untouched', async (dir) => {
+  const regular = join(dir, 'regular');
+  await writeFile(regular, 'kept');
+  const dangling = join(dir, 'dangling');
+  await symlink(join(dir, 'missing'), dangling);
+
+  expect(await materializeSymlink(regular)).toBe(false);
+  expect(await materializeSymlink(dangling)).toBe(false);
+
+  expect(await readFile(regular, 'utf8')).toBe('kept');
+  expect((await lstat(dangling)).isSymbolicLink()).toBe(true);
+});

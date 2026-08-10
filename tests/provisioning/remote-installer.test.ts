@@ -231,7 +231,7 @@ sandboxTest(
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
       reads: { version: 'bun/.bun-version' },
-      args: ['-s', { concat: ['demo-v', { ref: 'version' }] }],
+      args: [{ concat: ['demo-v', { ref: 'version' }] }],
       creates: home('.demo/bin/demo'),
       skipIf: {
         commandOutputMatches: {
@@ -261,7 +261,7 @@ sandboxTest(
     const bash = stale.calls.find((call) => call.command === 'bash');
     // The version reaches the installer as a resolved argument, not as text
     // concatenated into a shell string.
-    expect(bash?.args.slice(1)).toEqual(['-s', 'demo-v1.2.3']);
+    expect(bash?.args.slice(1)).toEqual(['demo-v1.2.3']);
 
     const current = recordingContext({
       home: dir,
