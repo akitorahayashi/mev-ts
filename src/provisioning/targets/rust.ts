@@ -47,20 +47,17 @@ export const rustTarget = target('rust', {
             'default',
             { ref: 'version' },
           ],
+          // `rustup default` prints the toolchain with its host triple
+          // appended, so the declared version is a substring rather than the
+          // whole line.
           skipIf: {
-            commandSucceeds: [
-              'sh',
-              '-c',
-              {
-                concat: [
-                  '"',
-                  { ref: 'home' },
-                  '/.cargo/bin/rustup" default | grep -q "',
-                  { ref: 'version' },
-                  '"',
-                ],
-              },
-            ],
+            commandOutputMatches: {
+              argv: [
+                { concat: [{ ref: 'home' }, '/.cargo/bin/rustup'] },
+                'default',
+              ],
+              contains: { ref: 'version' },
+            },
           },
         },
         {

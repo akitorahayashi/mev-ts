@@ -1,6 +1,6 @@
 import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
-import type { CommandOptions } from '../../host/command';
+import type { CommandOptions, CommandResult } from '../../host/command';
 import type { Context } from '../../host/context';
 import type {
   Activation,
@@ -51,7 +51,7 @@ function resolveArg(arg: CommandArg, scope: CommandScope): string[] {
   return [arg.concat.map((part) => resolveArg(part, scope).join('')).join('')];
 }
 
-function resolveArgs(
+export function resolveArgs(
   args: readonly CommandArg[],
   scope: CommandScope,
 ): string[] {
@@ -83,13 +83,37 @@ function resolveEnv(
   return resolved;
 }
 
-type ResolvedGuard =
+export type ResolvedGuard =
   | { readonly pathExists: string }
-  | { readonly commandSucceeds: readonly string[] };
+  | { readonly commandSucceeds: readonly string[] }
+  | {
+      readonly commandOutputMatches: {
+        readonly argv: readonly string[];
+        readonly exact?: string;
+        readonly contains?: string;
+      };
+    };
 
-function resolveGuard(guard: StepGuard, scope: CommandScope): ResolvedGuard {
+export function resolveGuard(
+  guard: StepGuard,
+  scope: CommandScope,
+): ResolvedGuard {
   if ('pathExists' in guard) {
     return { pathExists: resolveArg(guard.pathExists, scope).join('') };
+  }
+  if ('commandOutputMatches' in guard) {
+    const { argv, exact, contains } = guard.commandOutputMatches;
+    return {
+      commandOutputMatches: {
+        argv: argv.flatMap((arg) => resolveArg(arg, scope)),
+        ...(exact === undefined
+          ? {}
+          : { exact: resolveArg(exact, scope).join('') }),
+        ...(contains === undefined
+          ? {}
+          : { contains: resolveArg(contains, scope).join('') }),
+      },
+    };
   }
   return {
     commandSucceeds: guard.commandSucceeds.flatMap((arg) =>
@@ -98,11 +122,24 @@ function resolveGuard(guard: StepGuard, scope: CommandScope): ResolvedGuard {
   };
 }
 
+async function runsSuccessfully(
+  argv: readonly string[],
+  label: string,
+  context: Context,
+  options?: CommandOptions,
+): Promise<CommandResult> {
+  const [command, ...args] = argv;
+  if (!command) {
+    throw new ProvisioningError(`${label} guard requires a command.`);
+  }
+  return context.commands.run(command, args, options);
+}
+
 async function pathExists(path: string): Promise<boolean> {
   return (await lstatIfPresent(path)) !== null;
 }
 
-async function guardMatches(
+export async function guardMatches(
   guard: ResolvedGuard,
   context: Context,
   options?: CommandOptions,
@@ -110,11 +147,30 @@ async function guardMatches(
   if ('pathExists' in guard) {
     return pathExists(guard.pathExists);
   }
-  const [command, ...args] = guard.commandSucceeds;
-  if (!command) {
-    throw new ProvisioningError('commandSucceeds guard requires a command.');
+  if ('commandOutputMatches' in guard) {
+    const { argv, exact, contains } = guard.commandOutputMatches;
+    if (exact === undefined && contains === undefined) {
+      throw new ProvisioningError(
+        'commandOutputMatches guard requires exact or contains.',
+      );
+    }
+    const result = await runsSuccessfully(
+      argv,
+      'commandOutputMatches',
+      context,
+      options,
+    );
+    if (result.code !== 0) return false;
+    const stdout = result.stdout.trim();
+    if (exact !== undefined && stdout !== exact) return false;
+    return contains === undefined || stdout.includes(contains);
   }
-  const result = await context.commands.run(command, args, options);
+  const result = await runsSuccessfully(
+    guard.commandSucceeds,
+    'commandSucceeds',
+    context,
+    options,
+  );
   return result.code === 0;
 }
 
@@ -130,7 +186,7 @@ function classifyChange(
   return !(stdout + stderr).includes(rule.outputNotContains);
 }
 
-function scopeFor(bindings: ReadonlyMap<string, string>): CommandScope {
+export function scopeFor(bindings: ReadonlyMap<string, string>): CommandScope {
   return {
     ref(name) {
       const value = bindings.get(name);
@@ -148,7 +204,7 @@ function scopeFor(bindings: ReadonlyMap<string, string>): CommandScope {
  * Seed the scope with the reserved host facts (`home`, `basePath`) and the assets
  * declared in `reads`, so every step's tokens resolve against one map.
  */
-async function readBindings(
+export async function readBindings(
   reads: Readonly<Record<string, CommandRead>>,
   context: Context,
 ): Promise<Map<string, string>> {

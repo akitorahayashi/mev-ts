@@ -7,7 +7,7 @@
 - `steps` — ordered declarative data, resolved against the scope at apply time. Each step can declare:
   - `argv` — argument tokens, each a literal string, a `ref` (one scope value), a `splitRef` (a scope value split on whitespace), or a `concat` of tokens
   - `env` — environment overrides layered over the inherited environment; each value is a literal, a `ref`, a `concat`, or a `pathList` joined with `:`
-  - `skipIf` — idempotency guard built from the same tokens: `{ pathExists }` or `{ commandSucceeds }`. `commandSucceeds` guards run with the step's `env` so toolchain shims are on PATH.
+  - `skipIf` — idempotency guard built from the same tokens: `{ pathExists }`, `{ commandSucceeds }`, or `{ commandOutputMatches: { argv, exact } }` / `{ commandOutputMatches: { argv, contains } }`, which compares the guard command's trimmed stdout against a resolved value. Guards run with the step's `env` so toolchain shims are on PATH. The output comparison is declarative data so it hashes into the target signature; a `sh -c '… | grep …'` pipeline would hide it inside an opaque shell argument.
   - `capture` — register `stdout.trim()` into scope for later steps
   - `changedWhen` — `'always' | 'never' | { outputContains } | { outputNotContains }` — classify a successful run. `outputContains` and `outputNotContains` both match against combined stdout+stderr.
 

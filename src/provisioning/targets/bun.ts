@@ -1,52 +1,36 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
-import { link, runCommand } from '../activation';
+import { link, remoteInstaller } from '../activation';
 import { target } from '../target';
 
-// bun.sh/install selects the release from its positional `bun-v<version>` arg.
-// bun.sh publishes no checksum for the install script, so the pipe carries the
-// same acknowledged-unverified posture as the previous remoteInstaller, with
-// the curl flags mirroring the transport pinning of downloadOverHttps.
+const BUN_BINARY = { concat: [{ ref: 'home' }, '/.bun/bin/bun'] } as const;
+
 export const bunTarget = target('bun', {
   description: 'Bun JavaScript runtime',
   aliases: ['b'],
   role: 'bun',
   activations: [
     link(asset('bun/.bunfig.toml'), home('.bunfig.toml')),
-    runCommand({
-      label: 'bun toolchain',
+    remoteInstaller({
+      label: 'install bun',
+      url: 'https://bun.sh/install',
+      // bun.sh publishes no checksum for its install script, so the unverified
+      // posture is declared in the type rather than left implicit.
+      integrity: { acknowledgedUnverified: true },
+      interpreter: 'bash',
+      // bun.sh/install selects the release from its positional `bun-v<version>`
+      // argument, read from the role asset like every sibling toolchain version.
       reads: { version: 'bun/.bun-version' },
-      steps: [
-        {
-          label: 'install bun',
-          argv: [
-            'bash',
-            '-c',
-            {
-              concat: [
-                `curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://bun.sh/install | bash -s "bun-v`,
-                { ref: 'version' },
-                '"',
-              ],
-            },
-          ],
-          skipIf: {
-            commandSucceeds: [
-              'sh',
-              '-c',
-              {
-                concat: [
-                  '"',
-                  { ref: 'home' },
-                  '/.bun/bin/bun" --version | grep -qx "',
-                  { ref: 'version' },
-                  '"',
-                ],
-              },
-            ],
-          },
+      args: ['-s', { concat: ['bun-v', { ref: 'version' }] }],
+      creates: home('.bun/bin/bun'),
+      // The binary exists at every version, so presence alone would pin the
+      // machine to whatever was installed first.
+      skipIf: {
+        commandOutputMatches: {
+          argv: [BUN_BINARY, '--version'],
+          exact: { ref: 'version' },
         },
-      ],
+      },
     }),
   ],
 });

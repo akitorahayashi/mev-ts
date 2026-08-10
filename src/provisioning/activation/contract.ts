@@ -93,8 +93,22 @@ export type Activation =
       readonly url: string;
       readonly integrity: RemoteInstallerIntegrity;
       readonly interpreter: 'bash' | 'sh' | 'direct';
-      readonly args: readonly string[];
+      /**
+       * Asset reads bound into the scope `args` resolve against, the same
+       * vocabulary the `command` kind uses. A versioned installer therefore
+       * stays a declaration whose version is a role asset, rather than a shell
+       * string with the version concatenated into it.
+       */
+      readonly reads?: Readonly<Record<string, CommandRead>>;
+      readonly args: readonly CommandArg[];
+      /**
+       * The path whose presence means the installer has already run. Sufficient
+       * for an unversioned installer; a versioned one declares `skipIf` instead,
+       * because the path exists at every version.
+       */
       readonly creates: HostPath;
+      /** Overrides `creates` when presence alone does not mean up to date. */
+      readonly skipIf?: StepGuard;
       readonly env?: Readonly<Record<string, string>>;
       readonly pathPrefix?: readonly HostPath[];
     }
@@ -151,7 +165,22 @@ export type CommandRead = string;
 
 export type StepGuard =
   | { readonly pathExists: CommandArg }
-  | { readonly commandSucceeds: readonly CommandArg[] };
+  | { readonly commandSucceeds: readonly CommandArg[] }
+  /**
+   * Satisfied when `argv` exits zero and its trimmed stdout equals `exact`, or
+   * contains `contains`. Declarative data so it hashes into the target
+   * signature, which a `sh -c '... | grep ...'` pipeline could not do — the
+   * comparison would be buried in a shell string the signature sees only as an
+   * opaque argument. `contains` is for tools that decorate the value with
+   * unrelated detail, as `rustup default` appends the host triple.
+   */
+  | {
+      readonly commandOutputMatches: {
+        readonly argv: readonly CommandArg[];
+        readonly exact?: CommandArg;
+        readonly contains?: CommandArg;
+      };
+    };
 
 export type ChangedWhen =
   | 'always'

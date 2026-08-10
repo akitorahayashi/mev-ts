@@ -8,7 +8,19 @@ import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
 import { downloadOverHttps } from '../../host/https-download';
 import { resolveHostPath, symbolic } from '../../host/path';
-import type { Activation, ActivationReport, Described } from './contract';
+import {
+  guardMatches,
+  readBindings,
+  resolveArgs,
+  resolveGuard,
+  scopeFor,
+} from './command';
+import type {
+  Activation,
+  ActivationReport,
+  CommandScope,
+  Described,
+} from './contract';
 import { guarded } from './reconcile';
 
 type RemoteInstallerActivation = Extract<
@@ -84,13 +96,15 @@ async function runInstaller(
   activation: RemoteInstallerActivation,
   context: Context,
   script: string,
+  scope: CommandScope,
 ): Promise<void> {
+  const args = resolveArgs(activation.args, scope);
   if (activation.interpreter === 'direct') {
     await chmod(script, 0o755);
     await runProcessStep(
       context.commands,
       script,
-      activation.args,
+      args,
       `installer failed for ${activation.label}`,
       { env: installerEnv(activation, context) },
     );
@@ -99,7 +113,7 @@ async function runInstaller(
   await runProcessStep(
     context.commands,
     activation.interpreter,
-    [script, ...activation.args],
+    [script, ...args],
     `${activation.interpreter} installer failed for ${activation.label}`,
     { env: installerEnv(activation, context) },
   );
@@ -125,9 +139,15 @@ export async function runRemoteInstaller(
 ): Promise<ActivationReport> {
   const base = describeRemoteInstaller(activation);
   return guarded(base, async () => {
-    if (
-      await lstatIfPresent(resolveHostPath(activation.creates, context.home))
-    ) {
+    const scope = scopeFor(await readBindings(activation.reads ?? {}, context));
+    const satisfied = activation.skipIf
+      ? await guardMatches(resolveGuard(activation.skipIf, scope), context, {
+          env: installerEnv(activation, context),
+        })
+      : (await lstatIfPresent(
+          resolveHostPath(activation.creates, context.home),
+        )) !== null;
+    if (satisfied) {
       return { ...base, status: 'unchanged' };
     }
     const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));
@@ -146,7 +166,7 @@ export async function runRemoteInstaller(
           script,
           join(workspace, 'install.sha256'),
         );
-        await runInstaller(activation, context, script);
+        await runInstaller(activation, context, script, scope);
       },
       () => rm(workspace, { force: true, recursive: true }),
       `Failed to clean up remote installer workspace ${workspace}.`,

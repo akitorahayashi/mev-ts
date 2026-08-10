@@ -98,6 +98,104 @@ test('splitRef expands a whitespace-separated reference into arguments', async (
   expect(calls[0]?.args).toEqual(['clippy', 'rustfmt']);
 });
 
+test('a commandOutputMatches guard skips only on the exact declared output', async () => {
+  const activation = runCommand({
+    label: 'demo',
+    reads: { version: 'ruby/.ruby-version' },
+    steps: [
+      {
+        label: 'install',
+        argv: ['install', { ref: 'version' }],
+        skipIf: {
+          commandOutputMatches: {
+            argv: ['tool', '--version'],
+            exact: { ref: 'version' },
+          },
+        },
+      },
+    ],
+  });
+
+  const matching = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: (command) => (command === 'tool' ? ok('  3.3.3\n') : ok()),
+  });
+  expect((await runActivation(activation, matching.context)).status).toBe(
+    'unchanged',
+  );
+  expect(matching.calls.map((call) => call.command)).toEqual(['tool']);
+
+  const differing = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: (command) => (command === 'tool' ? ok('3.2.0\n') : ok()),
+  });
+  expect((await runActivation(activation, differing.context)).status).toBe(
+    'changed',
+  );
+  expect(differing.calls.map((call) => call.command)).toEqual([
+    'tool',
+    'install',
+  ]);
+});
+
+test('a commandOutputMatches guard with contains accepts decorated output', async () => {
+  const activation = runCommand({
+    label: 'demo',
+    reads: { version: 'ruby/.ruby-version' },
+    steps: [
+      {
+        label: 'install',
+        argv: ['install'],
+        skipIf: {
+          commandOutputMatches: {
+            argv: ['tool', 'default'],
+            contains: { ref: 'version' },
+          },
+        },
+      },
+    ],
+  });
+  const { context, calls } = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: (command) =>
+      command === 'tool' ? ok('3.3.3-aarch64-apple-darwin (default)\n') : ok(),
+  });
+
+  expect((await runActivation(activation, context)).status).toBe('unchanged');
+  expect(calls.map((call) => call.command)).toEqual(['tool']);
+});
+
+test('a failing guard command never satisfies the guard', async () => {
+  const activation = runCommand({
+    label: 'demo',
+    reads: { version: 'ruby/.ruby-version' },
+    steps: [
+      {
+        label: 'install',
+        argv: ['install'],
+        skipIf: {
+          commandOutputMatches: {
+            argv: ['tool', '--version'],
+            exact: { ref: 'version' },
+          },
+        },
+      },
+    ],
+  });
+  const { context } = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    // Right output, non-zero exit: an uninstalled tool must not read as current.
+    respond: (command) =>
+      command === 'tool' ? { code: 1, stdout: '3.3.3\n', stderr: '' } : ok(),
+  });
+
+  expect((await runActivation(activation, context)).status).toBe('changed');
+});
+
 test('a pathList env value drops empty segments and joins with colon', async () => {
   const { calls, context } = recordingContext({
     home: '/home/u',
