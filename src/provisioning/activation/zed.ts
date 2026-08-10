@@ -4,12 +4,11 @@ import {
   deployedPath,
   deployedSymbolic,
 } from '../../assets/ref';
-import { resolveSelection } from '../../config-selection/selection';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import { readOverrides } from '../../zed/catalog';
-import { readEnabled } from '../../zed/manifest';
+import { overrideSelection } from '../../zed/manifest';
 import { overridesManifest, settingsFile } from '../../zed/paths';
 import { buildSettings } from '../../zed/settings';
 import type {
@@ -34,12 +33,6 @@ export function zedSettings(
   return { kind: 'zedSettings', base, overridesPrefix, dest };
 }
 
-export function zedSettingsConfigAssets(
-  activation: ZedSettingsActivation,
-): readonly string[] {
-  return [activation.base.key];
-}
-
 export function describeZedSettings(
   activation: ZedSettingsActivation,
 ): Described {
@@ -59,11 +52,9 @@ export async function runZedSettings(
     const basePath = deployedPath(activation.base, context.home);
     const sourceDir = deployedDir(activation.overridesPrefix, context.home);
     const catalog = await readOverrides(sourceDir);
-    const enabled = await readEnabled(overridesManifest(context.home));
-    const { enabled: applied, unknown } = resolveSelection(
+    const { enabled: applied, unknown } = await overrideSelection.resolve(
       catalog,
-      enabled,
-      'opt-in',
+      overridesManifest(context.home),
     );
 
     // Under opt-in, an enabled override the catalog no longer contains cannot

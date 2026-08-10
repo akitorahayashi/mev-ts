@@ -45,7 +45,7 @@ export class CreateCommand extends Command {
         intro: 'mev: Creating environment',
         footer: (report) => (report.failed ? undefined : optionalFooter()),
         run: (request) => runMake(request, context),
-        out: (text) => this.context.stdout.write(text),
+        stream: this.context.stdout,
       });
     });
   }

@@ -45,7 +45,7 @@ test('collapses a target selected by both its name and an alias into one attribu
   expect(plan.targetNames).toEqual([name]);
   expect(plan.groups).toHaveLength(1);
   const [group] = plan.groups;
-  expect(group?.targetName).toBe(name);
+  expect(group?.name).toBe(name);
 });
 
 test('deduplicates regardless of whether the alias or the name is seen first', () => {
@@ -68,15 +68,12 @@ test('keeps one group per distinct target, attributed and ordered by selection',
 
   const plan = planMake([first.name, second.name]);
 
-  expect(plan.groups.map((group) => group.targetName)).toEqual([
+  expect(plan.groups.map((group) => group.name)).toEqual([
     first.name,
     second.name,
   ]);
   for (const group of plan.groups) {
-    const source = resolveTarget(group.targetName);
-    expect(group.role).toBe(source.role);
-    expect(group.packages).toBe(source.packages);
-    expect(group.activations).toBe(source.activations);
+    expect(group).toBe(resolveTarget(group.name));
   }
 });
 

@@ -1,4 +1,5 @@
 import type { AssetRef } from '../../assets/ref';
+import type { AssetSource } from '../../assets/registry';
 import type { HostPath } from '../../host/path';
 
 export type Verb = 'link' | 'apply' | 'run';
@@ -22,11 +23,6 @@ export type RemoteInstallerIntegrity =
 export type Activation =
   | {
       readonly kind: 'file';
-      readonly source: AssetRef;
-      readonly dest: HostPath;
-    }
-  | {
-      readonly kind: 'materializedFile';
       readonly source: AssetRef;
       readonly dest: HostPath;
     }
@@ -98,8 +94,22 @@ export type Activation =
       readonly url: string;
       readonly integrity: RemoteInstallerIntegrity;
       readonly interpreter: 'bash' | 'sh' | 'direct';
-      readonly args: readonly string[];
+      /**
+       * Asset reads bound into the scope `args` resolve against, the same
+       * vocabulary the `command` kind uses. A versioned installer therefore
+       * stays a declaration whose version is a role asset, rather than a shell
+       * string with the version concatenated into it.
+       */
+      readonly reads?: Readonly<Record<string, CommandRead>>;
+      readonly args: readonly CommandArg[];
+      /**
+       * The path whose presence means the installer has already run. Sufficient
+       * for an unversioned installer; a versioned one declares `skipIf` instead,
+       * because the path exists at every version.
+       */
       readonly creates: HostPath;
+      /** Overrides `creates` when presence alone does not mean up to date. */
+      readonly skipIf?: StepGuard;
       readonly env?: Readonly<Record<string, string>>;
       readonly pathPrefix?: readonly HostPath[];
     }
@@ -145,23 +155,33 @@ export type CommandEnvValue =
   | { readonly pathList: readonly CommandArg[] };
 
 /**
- * A named asset read for a command activation. A bare string is the asset key.
- * The object form adds one of: `validate`, a throwing-only guard over the
- * trimmed value exactly as it will be bound (its `void` return cannot transform
- * the binding); or `derive`, which maps the raw asset content to the bound value
- * (throwing to reject), for a read whose bound form is a transform of the file.
+ * The asset key of a named read for a command activation; its trimmed content
+ * becomes the bound value. Deliberately data, not a function: `signature.ts`
+ * drops function values from the hash, so a callable read form would let an
+ * edit to its body change the bound value without flipping the target
+ * signature, and `sync` would skip a target that is genuinely stale. Express
+ * any future validation as data (`{ key, pattern }`) so it hashes.
  */
-export type CommandRead =
-  | string
-  | {
-      readonly key: string;
-      readonly validate: (value: string, path: string) => void;
-    }
-  | { readonly key: string; readonly derive: (raw: string) => string };
+export type CommandRead = string;
 
 export type StepGuard =
   | { readonly pathExists: CommandArg }
-  | { readonly commandSucceeds: readonly CommandArg[] };
+  | { readonly commandSucceeds: readonly CommandArg[] }
+  /**
+   * Satisfied when `argv` exits zero and its trimmed stdout equals `exact`, or
+   * contains `contains`. Declarative data so it hashes into the target
+   * signature, which a `sh -c '... | grep ...'` pipeline could not do — the
+   * comparison would be buried in a shell string the signature sees only as an
+   * opaque argument. `contains` is for tools that decorate the value with
+   * unrelated detail, as `rustup default` appends the host triple.
+   */
+  | {
+      readonly commandOutputMatches: {
+        readonly argv: readonly CommandArg[];
+        readonly exact?: CommandArg;
+        readonly contains?: CommandArg;
+      };
+    };
 
 export type ChangedWhen =
   | 'always'
@@ -221,4 +241,24 @@ export interface Described {
   readonly verb: Verb;
   readonly source: string;
   readonly dest: string;
+}
+
+/** An embedded asset an activation references: one key, or every key under a prefix. */
+export type AssetReference =
+  | { readonly key: string }
+  | { readonly prefix: string };
+
+/**
+ * One embedded asset to check before the binary is built. `parse` is the same
+ * function the runner uses at apply time, so a parser swap cannot leave build
+ * validation and runtime disagreeing about what a valid manifest is; a check
+ * without one asserts only that the asset exists.
+ */
+export interface AssetCheck {
+  readonly key: string;
+  readonly parse?: (
+    raw: string,
+    key: string,
+    assets: AssetSource,
+  ) => void | Promise<void>;
 }

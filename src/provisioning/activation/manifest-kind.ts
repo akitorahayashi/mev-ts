@@ -3,6 +3,8 @@ import type { Context } from '../../host/context';
 import type {
   ActivationReport,
   ActivationRunOptions,
+  AssetCheck,
+  AssetReference,
   Described,
 } from './contract';
 import { readDeployedManifest } from './manifest';
@@ -29,7 +31,8 @@ interface ManifestKindSpec<A extends ManifestActivation, D> {
 
 export interface ManifestKind<A extends ManifestActivation> {
   describe(activation: A): Described;
-  configAssets(activation: A): readonly string[];
+  references(activation: A): readonly AssetReference[];
+  assetChecks(activation: A): readonly AssetCheck[];
   run(
     activation: A,
     context: Context,
@@ -38,18 +41,27 @@ export interface ManifestKind<A extends ManifestActivation> {
 }
 
 /**
- * Build the describe/configAssets/run trio shared by every manifest-backed
- * activation kind (defaults, duti, pipx, editorExtensions, release). Each kind
- * supplies only its parse, label, description, and step builder; the reconcile
- * envelope, the single-asset `configAssets` ceremony, and the deployed-manifest
- * read live here once instead of being copied per kind.
+ * Build the complete kind handler shared by every manifest-backed activation.
+ * Each kind supplies only its parse, label, description, and step builder; the
+ * reconcile envelope, the single-asset reference, the deployed-manifest read,
+ * and the build-time asset check live here once instead of being copied per
+ * kind. The check reuses `spec.parse`, so validation and runtime parsing cannot
+ * drift apart.
  */
 export function manifestKind<A extends ManifestActivation, D>(
   spec: ManifestKindSpec<A, D>,
 ): ManifestKind<A> {
   return {
     describe: spec.describe,
-    configAssets: (activation) => [activation.configKey],
+    references: (activation) => [{ key: activation.configKey }],
+    assetChecks: (activation) => [
+      {
+        key: activation.configKey,
+        parse: async (raw, key) => {
+          await spec.parse(raw, key);
+        },
+      },
+    ],
     run: (activation, context, options = { upgrade: false }) =>
       reconcile<D>(spec.describe(activation), {
         declare: () =>

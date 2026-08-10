@@ -1,9 +1,7 @@
-import { readlink, rename, rm, symlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readlink, symlink } from 'node:fs/promises';
 import { lstatIfPresent, readTextIfPresent } from './absence';
 import { writeFileAtomically } from './atomic-file';
-import { runWithCleanup } from './cleanup-error';
-import { swapWithBackup, transactionDirectory } from './transaction';
+import { withSwapTransaction } from './transaction';
 
 export async function isSymlinkTo(
   link: string,
@@ -43,27 +41,8 @@ export async function placeSymlink(
   link: string,
   target: string,
 ): Promise<void> {
-  const stats = await lstatIfPresent(link);
-  const transaction = await transactionDirectory(link);
-  const staged = join(transaction, 'staged');
-  const backup = join(transaction, 'backup');
-  let retainTransaction = false;
-  await runWithCleanup(
-    async () => {
-      await symlink(target, staged);
-      if (!stats?.isDirectory()) {
-        await rename(staged, link);
-        return;
-      }
-      await swapWithBackup({ dest: link, staged, backup }, () => {
-        retainTransaction = true;
-      });
-    },
-    async () => {
-      if (!retainTransaction) {
-        await rm(transaction, { force: true, recursive: true });
-      }
-    },
-    `Failed to clean up symlink transaction for ${link}.`,
-  );
+  await withSwapTransaction(link, 'symlink', async ({ staged, install }) => {
+    await symlink(target, staged);
+    await install();
+  });
 }

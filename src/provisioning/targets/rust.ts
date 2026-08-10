@@ -1,3 +1,4 @@
+import { ProvisioningError } from '../../errors';
 import { home } from '../../host/path';
 import { remoteInstaller, runCommand } from '../activation';
 import { target } from '../target';
@@ -5,7 +6,9 @@ import { target } from '../target';
 function rustupHostTriple(): string {
   if (process.arch === 'arm64') return 'aarch64-apple-darwin';
   if (process.arch === 'x64') return 'x86_64-apple-darwin';
-  throw new Error(`Unsupported macOS Rust host architecture: ${process.arch}`);
+  throw new ProvisioningError(
+    `Unsupported macOS Rust host architecture: ${process.arch}`,
+  );
 }
 
 function rustupInitUrl(triple = rustupHostTriple()): string {
@@ -44,20 +47,17 @@ export const rustTarget = target('rust', {
             'default',
             { ref: 'version' },
           ],
+          // `rustup default` prints the toolchain with its host triple
+          // appended, so the declared version is a substring rather than the
+          // whole line.
           skipIf: {
-            commandSucceeds: [
-              'sh',
-              '-c',
-              {
-                concat: [
-                  '"',
-                  { ref: 'home' },
-                  '/.cargo/bin/rustup" default | grep -q "',
-                  { ref: 'version' },
-                  '"',
-                ],
-              },
-            ],
+            commandOutputMatches: {
+              argv: [
+                { concat: [{ ref: 'home' }, '/.cargo/bin/rustup'] },
+                'default',
+              ],
+              contains: { ref: 'version' },
+            },
           },
         },
         {

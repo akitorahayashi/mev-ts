@@ -28,7 +28,8 @@ jobs:
       - validate-release
     permissions:
       contents: write
-    runs-on: macos-15 # Pinned deliberately; bump intentionally
+    # Pure GitHub Release API calls with no macOS dependency, so it runs on Linux.
+    runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.prepare.outputs.release_id }}
 
@@ -65,7 +66,8 @@ jobs:
         artifact:
           - mev-darwin-x64
           - mev-darwin-arm64
-    runs-on: macos-15 # Pinned deliberately; bump intentionally
+    # Pure GitHub Release API calls with no macOS dependency, so it runs on Linux.
+    runs-on: ubuntu-latest
 
     steps:
       - name: Download Build Artifact
@@ -90,7 +92,8 @@ jobs:
       - upload-release-assets
     permissions:
       contents: write
-    runs-on: macos-15 # Pinned deliberately; bump intentionally
+    # Pure GitHub Release API calls with no macOS dependency, so it runs on Linux.
+    runs-on: ubuntu-latest
 
     steps:
       - uses: akitorahayashi/gh-release@v1

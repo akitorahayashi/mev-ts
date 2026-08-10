@@ -1,8 +1,8 @@
-import { errorMessage, ProvisioningError } from '../errors';
+import { ProvisioningError } from '../errors';
 import type { CommandOptions } from '../host/command';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
-import { isRecord } from '../host/parse';
+import { isRecord, parseJsonLabeled } from '../host/parse';
 import { normalizedPackageName } from './manifest';
 
 export interface Installed {
@@ -46,14 +46,10 @@ export async function listInstalled(
     'pipx list --json failed',
     options,
   );
-  let data: PipxListJson;
-  try {
-    data = JSON.parse(result.stdout) as PipxListJson;
-  } catch (error) {
-    throw new ProvisioningError(
-      `Failed to parse pipx list --json output as JSON: ${errorMessage(error)}`,
-    );
-  }
+  const data = parseJsonLabeled(
+    result.stdout,
+    'pipx list --json output',
+  ) as PipxListJson;
   if (!isRecord(data)) {
     throw new ProvisioningError(
       'Invalid pipx list --json output: expected an object.',

@@ -16,6 +16,8 @@ Skills and Zed overrides are purely filesystem-derived: a skill is any subdirect
 
 `resolveSelection(catalog, listed, mode)` (`config-selection/selection.ts`) splits a catalog into enabled and disabled names against the stored list. Under `opt-out`, the stored list names what's disabled, so catalog entries added by a later mev update stay enabled by default. Under `opt-in`, the stored list names what's enabled, so a newly added Zed override never starts applying itself to an existing `settings.json`. `app/config-toggle.ts` drives the shared toggle flow (`configSelectManifest`/`configClearManifest`) over this resolver for all three surfaces.
 
+A surface's polarity reaches its call sites as a `SelectionPolicy` (`selectionPolicy(mode, label)`), not as a mode argument passed alongside a name list: `coder/manifest.ts` exports `catalogSelection` and `zed/manifest.ts` exports `overrideSelection`, each binding the mode to the manifest key it stores under and to the read, write, and resolve operations. The key is derived from the mode, so a manifest listing `disabled` names can never be resolved as `enabled` — an inversion that would silently reverse every entry's meaning.
+
 A manifest is one YAML mapping with exactly one key holding a name list:
 
 ```yaml
@@ -29,7 +31,7 @@ An absent manifest means an empty stored list, interpreted per polarity (all ena
 
 ## Zed Settings Merge
 
-`renderSettings` (`zed/settings.ts`) builds the deployed `settings.json` from the base settings asset plus the enabled overrides, in catalog order:
+`zed/settings.ts` builds the deployed `settings.json` from the base settings asset plus the enabled overrides, in catalog order:
 
 - `combineOverrides` (`zed/merge.ts`) deep-merges the enabled overrides into one fragment first, tracking which override name owns each JSON path. Two overrides setting the same leaf key throw a `ProvisioningError` naming both, rather than letting catalog order silently decide a winner — including the asymmetric case where one override sets an entire subtree as a primitive while another nests keys under that same path, in either declaration order.
 - `deepMerge` then applies the combined overrides onto the base settings, with the overlay winning on every leaf it defines.

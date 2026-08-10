@@ -5,6 +5,7 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { isNotFound, readDirentsIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { mevRoot } from '../host/path';
+import { isTransactionArtifact } from '../host/transaction';
 import { allTargets } from './registry';
 
 export interface DeployStorePruneRequest {
@@ -19,10 +20,6 @@ export interface DeployStorePruneReport {
 
 function isRolePathCovered(path: string, roles: readonly string[]): boolean {
   return roles.some((role) => role === path || role.startsWith(`${path}/`));
-}
-
-function isTransactionDirectory(name: string, directory: boolean): boolean {
-  return directory && /^\.[^.].+\.[A-Za-z0-9]{6}$/.test(name);
 }
 
 async function removePath(path: string): Promise<void> {
@@ -52,7 +49,7 @@ async function pruneRoles(
 
   const roleSet = new Set(roles);
   for (const child of children) {
-    if (isTransactionDirectory(child.name, child.isDirectory())) continue;
+    if (child.isDirectory() && isTransactionArtifact(child.name)) continue;
 
     const path = relative === '' ? child.name : `${relative}/${child.name}`;
     const absolute = join(root, path);
@@ -86,7 +83,7 @@ async function pruneAppliedTargets(
   const targetSet = new Set(targets);
   const removed: string[] = [];
   for (const child of children) {
-    if (isTransactionDirectory(child.name, child.isDirectory())) continue;
+    if (child.isDirectory() && isTransactionArtifact(child.name)) continue;
     if (targetSet.has(child.name)) continue;
     await removePath(join(root, child.name));
     removed.push(child.name);

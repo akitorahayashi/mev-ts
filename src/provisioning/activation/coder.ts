@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
 import { buildAgents } from '../../coder/agents';
 import { readSections, readSkills } from '../../coder/catalog';
-import { readDisabled } from '../../coder/manifest';
+import { catalogSelection } from '../../coder/manifest';
 import {
   agentsFile,
   agentsManifest,
@@ -10,7 +10,6 @@ import {
   skillsManifest,
 } from '../../coder/paths';
 import { buildSkills } from '../../coder/skills';
-import { resolveSelection } from '../../config-selection/selection';
 import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import { reconcileManagedLinks } from '../../host/managed-links';
@@ -49,12 +48,6 @@ export function coderAgents(
   dests: readonly HostPath[],
 ): Activation {
   return { kind: 'coderAgents', sectionsPrefix, dests };
-}
-
-export function coderAgentsConfigAssets(
-  activation: CoderAgentsActivation,
-): readonly string[] {
-  return [join(activation.sectionsPrefix, 'catalog.yml')];
 }
 
 /**
@@ -176,8 +169,10 @@ async function runCoder(
   return guarded(spec.base, async () => {
     const sourceDir = deployedDir(spec.prefix, context.home);
     const catalog = await spec.read(sourceDir);
-    const disabled = await readDisabled(spec.manifestPath);
-    const { enabled, unknown } = resolveSelection(catalog, disabled, 'opt-out');
+    const { enabled, unknown } = await catalogSelection.resolve(
+      catalog,
+      spec.manifestPath,
+    );
     const { changed, failed } = await spec.apply(sourceDir, enabled);
     const entries = [...staleManifestEntries(unknown), ...failed];
     const status =

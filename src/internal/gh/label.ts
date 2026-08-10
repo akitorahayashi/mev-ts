@@ -1,6 +1,6 @@
-import { errorMessage, ProvisioningError } from '../../errors';
+import { ProvisioningError } from '../../errors';
 import type { CommandRunner } from '../../host/command';
-import { isRecord } from '../../host/parse';
+import { isRecord, parseJsonLabeled } from '../../host/parse';
 import { runStep } from './run';
 
 export interface Label {
@@ -26,14 +26,7 @@ export async function listLabelNames(
     ['label', 'list', '--json', 'name', '--limit', '1000', ...repoArgs(repo)],
     'gh label list failed',
   );
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(result.stdout);
-  } catch (error) {
-    throw new ProvisioningError(
-      `Failed to parse gh label list output: ${errorMessage(error)}`,
-    );
-  }
+  const parsed = parseJsonLabeled(result.stdout, 'gh label list output');
   if (!Array.isArray(parsed)) {
     throw new ProvisioningError(
       'Failed to parse gh label list output: expected an array',

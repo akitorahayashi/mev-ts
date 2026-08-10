@@ -1,6 +1,6 @@
 import { Command, Option } from 'clipanion';
 import { deleteSubmodule } from '../../../internal/git/submodule';
-import { runInternalCommand } from './command';
+import { runInternalCommand } from './run';
 
 export class InternalGitDeleteSubmoduleCommand extends Command {
   static override paths = [['internal', 'git', 'delete-submodule']];

@@ -1,8 +1,9 @@
-import { errorMessage, ProvisioningError } from '../errors';
+import { ProvisioningError } from '../errors';
 import type { Context } from '../host/context';
-import { isRecord } from '../host/parse';
+import { isRecord, parseJsonLabeled } from '../host/parse';
 import { runPnpm } from './command';
 import type { PnpmRuntime } from './environment';
+import { packageKey } from './manifest';
 
 export interface InstalledPackage {
   readonly version: string;
@@ -23,14 +24,7 @@ export async function listGlobal(
     ['ls', '-g', '--depth=0', '--json'],
     'pnpm ls -g failed',
   );
-  let data: unknown;
-  try {
-    data = JSON.parse(stdout);
-  } catch (error) {
-    throw new ProvisioningError(
-      `Failed to parse pnpm ls -g --json output as JSON: ${errorMessage(error)}`,
-    );
-  }
+  const data = parseJsonLabeled(stdout, 'pnpm ls -g --json output');
   if (!Array.isArray(data)) {
     throw new ProvisioningError(
       'Invalid pnpm ls -g --json output: expected an array of projects.',
@@ -56,7 +50,7 @@ export async function listGlobal(
           `Invalid pnpm ls -g --json output: dependency '${name}' must contain a string version.`,
         );
       }
-      map.set(name, { version: dependency['version'] });
+      map.set(packageKey(name), { version: dependency['version'] });
     }
   }
   return map;

@@ -2,6 +2,7 @@ import { ProvisioningError } from '../errors';
 import type { CommandRunner } from '../host/command';
 import { formatCommandFailure } from '../host/command';
 import { runProcessCapture } from '../host/command-run';
+import { parseJsonLabeled } from '../host/parse';
 
 export async function capturePluginJson(
   run: CommandRunner,
@@ -15,10 +16,5 @@ export async function capturePluginJson(
       formatCommandFailure(`${label} failed`, result),
     );
   }
-  try {
-    return JSON.parse(result.stdout);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new ProvisioningError(`${label} returned invalid JSON: ${detail}`);
-  }
+  return parseJsonLabeled(result.stdout, `${label} output`);
 }

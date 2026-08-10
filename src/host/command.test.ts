@@ -1,9 +1,5 @@
 import { expect, test } from 'bun:test';
-import {
-  type CommandResult,
-  commandFailureDetail,
-  formatCommandFailure,
-} from './command';
+import { type CommandResult, formatCommandFailure } from './command';
 
 function result(input: Partial<CommandResult>): CommandResult {
   return {
@@ -13,21 +9,26 @@ function result(input: Partial<CommandResult>): CommandResult {
   };
 }
 
-test('commandFailureDetail prefers stderr and trims command output', () => {
+test('formatCommandFailure prefers stderr and trims command output', () => {
   expect(
-    commandFailureDetail(
+    formatCommandFailure(
+      'git pull failed',
       result({ stdout: ' stdout detail ', stderr: ' stderr detail\n' }),
     ),
-  ).toBe('stderr detail');
+  ).toBe('git pull failed with code 1: stderr detail');
 });
 
-test('commandFailureDetail falls back to stdout before the caller fallback', () => {
-  expect(commandFailureDetail(result({ stdout: ' stdout detail\n' }))).toBe(
-    'stdout detail',
-  );
-  expect(commandFailureDetail(result({}), 'see command output above')).toBe(
-    'see command output above',
-  );
+test('formatCommandFailure falls back to stdout before the caller fallback', () => {
+  expect(
+    formatCommandFailure('git pull failed', result({ stdout: ' out\n' })),
+  ).toBe('git pull failed with code 1: out');
+  expect(
+    formatCommandFailure(
+      'git pull failed',
+      result({}),
+      'see command output above',
+    ),
+  ).toBe('git pull failed with code 1: see command output above');
 });
 
 test('formatCommandFailure includes the exit code and best available detail', () => {

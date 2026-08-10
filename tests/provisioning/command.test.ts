@@ -98,35 +98,102 @@ test('splitRef expands a whitespace-separated reference into arguments', async (
   expect(calls[0]?.args).toEqual(['clippy', 'rustfmt']);
 });
 
-test('a derive read binds a transform of the raw asset content', async () => {
-  const { context, calls } = recordingContext({
-    home: '/home/u',
-    assets: {
-      ...emptyAssets,
-      async read(key) {
-        if (key === 'demo/pkgs.json') return '{"a":"1","b":"2"}';
-        throw new Error(`unexpected asset ${key}`);
-      },
-    },
-    respond: () => ok(),
-  });
+test('a commandOutputMatches guard skips only on the exact declared output', async () => {
   const activation = runCommand({
     label: 'demo',
-    reads: {
-      pkgs: {
-        key: 'demo/pkgs.json',
-        derive: (raw) =>
-          Object.entries(JSON.parse(raw) as Record<string, string>)
-            .map(([name, version]) => `${name}@${version}`)
-            .join(' '),
+    reads: { version: 'ruby/.ruby-version' },
+    steps: [
+      {
+        label: 'install',
+        argv: ['install', { ref: 'version' }],
+        skipIf: {
+          commandOutputMatches: {
+            argv: ['tool', '--version'],
+            exact: { ref: 'version' },
+          },
+        },
       },
-    },
-    steps: [{ label: 'add', argv: ['add', { splitRef: 'pkgs' }] }],
+    ],
   });
 
-  await runActivation(activation, context);
+  const matching = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: (command) => (command === 'tool' ? ok('  3.3.3\n') : ok()),
+  });
+  expect((await runActivation(activation, matching.context)).status).toBe(
+    'unchanged',
+  );
+  expect(matching.calls.map((call) => call.command)).toEqual(['tool']);
 
-  expect(calls[0]?.args).toEqual(['a@1', 'b@2']);
+  const differing = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: (command) => (command === 'tool' ? ok('3.2.0\n') : ok()),
+  });
+  expect((await runActivation(activation, differing.context)).status).toBe(
+    'changed',
+  );
+  expect(differing.calls.map((call) => call.command)).toEqual([
+    'tool',
+    'install',
+  ]);
+});
+
+test('a commandOutputMatches guard with contains accepts decorated output', async () => {
+  const activation = runCommand({
+    label: 'demo',
+    reads: { version: 'ruby/.ruby-version' },
+    steps: [
+      {
+        label: 'install',
+        argv: ['install'],
+        skipIf: {
+          commandOutputMatches: {
+            argv: ['tool', 'default'],
+            contains: { ref: 'version' },
+          },
+        },
+      },
+    ],
+  });
+  const { context, calls } = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    respond: (command) =>
+      command === 'tool' ? ok('3.3.3-aarch64-apple-darwin (default)\n') : ok(),
+  });
+
+  expect((await runActivation(activation, context)).status).toBe('unchanged');
+  expect(calls.map((call) => call.command)).toEqual(['tool']);
+});
+
+test('a failing guard command never satisfies the guard', async () => {
+  const activation = runCommand({
+    label: 'demo',
+    reads: { version: 'ruby/.ruby-version' },
+    steps: [
+      {
+        label: 'install',
+        argv: ['install'],
+        skipIf: {
+          commandOutputMatches: {
+            argv: ['tool', '--version'],
+            exact: { ref: 'version' },
+          },
+        },
+      },
+    ],
+  });
+  const { context } = recordingContext({
+    home: '/home/u',
+    assets: rubyAssets,
+    // Right output, non-zero exit: an uninstalled tool must not read as current.
+    respond: (command) =>
+      command === 'tool' ? { code: 1, stdout: '3.3.3\n', stderr: '' } : ok(),
+  });
+
+  expect((await runActivation(activation, context)).status).toBe('changed');
 });
 
 test('a pathList env value drops empty segments and joins with colon', async () => {
@@ -159,8 +226,7 @@ test('a pathList env value drops empty segments and joins with colon', async () 
   expect(calls[0]?.options?.env).toEqual({ PATH: '/home/u/.local/bin' });
 });
 
-test('read validate receives the trimmed value that gets bound', async () => {
-  const seen: string[] = [];
+test('a read binds the trimmed asset content', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
     assets: {
@@ -174,46 +240,35 @@ test('read validate receives the trimmed value that gets bound', async () => {
   });
   const activation = runCommand({
     label: 'demo',
-    reads: {
-      version: {
-        key: 'ruby/.ruby-version',
-        validate: (value) => {
-          seen.push(value);
-        },
-      },
-    },
+    reads: { version: 'ruby/.ruby-version' },
     steps: [{ label: 'x', argv: ['x', { ref: 'version' }] }],
   });
 
   await runActivation(activation, context);
 
-  expect(seen).toEqual(['3.3.3']);
   expect(calls[0]?.args).toEqual(['3.3.3']);
 });
 
-test('a throwing read validator fails the activation before any step runs', async () => {
+test('a missing read asset fails the activation before any step runs', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
-    assets: rubyAssets,
+    assets: {
+      ...emptyAssets,
+      async read(key) {
+        throw new Error(`unknown asset ${key}`);
+      },
+    },
     respond: () => ok(),
   });
   const activation = runCommand({
     label: 'demo',
-    reads: {
-      version: {
-        key: 'ruby/.ruby-version',
-        validate: (value) => {
-          if (value !== 'expected') throw new Error(`bad version ${value}`);
-        },
-      },
-    },
+    reads: { version: 'ruby/.ruby-version' },
     steps: [{ label: 'x', argv: ['x'] }],
   });
 
   const report = await runActivation(activation, context);
 
   expect(report.status).toBe('failed');
-  expect(report.error).toContain('bad version 3.3.3');
   expect(calls).toHaveLength(0);
 });
 

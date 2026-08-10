@@ -1,6 +1,6 @@
 import { deployedDir } from '../assets/ref';
 import { readSections, readSkills } from '../coder/catalog';
-import { readDisabled, writeDisabled } from '../coder/manifest';
+import { catalogSelection } from '../coder/manifest';
 import {
   AGENTS_SECTIONS_PREFIX,
   agentsManifest,
@@ -44,13 +44,11 @@ async function coderSelection(
   home: string,
 ): Promise<ConfigToggleSurface> {
   const descriptor = DESCRIPTORS[kind];
-  const manifest = descriptor.manifest(home);
   return {
     catalog: await descriptor.read(deployedDir(descriptor.prefix, home)),
-    read: () => readDisabled(manifest),
-    write: (names) => writeDisabled(manifest, names),
+    manifestPath: descriptor.manifest(home),
     message: descriptor.message,
-    mode: 'opt-out',
+    policy: catalogSelection,
   };
 }
 

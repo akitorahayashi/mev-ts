@@ -60,14 +60,6 @@ function treeEntries(
   }));
 }
 
-function legacyKey(key: string): string | null {
-  const slash = key.indexOf('/');
-  if (slash === -1 || slash === key.length - 1) {
-    return null;
-  }
-  return `${key.slice(0, slash)}/global/${key.slice(slash + 1)}`;
-}
-
 async function ensureTreeRoot(root: string): Promise<boolean> {
   const stats = await lstatIfPresent(root);
   if (!stats) {
@@ -106,13 +98,7 @@ export async function runTree(
       .keysByPrefix(activation.prefix)
       .map((key) => asset(key));
     const root = resolveHostPath(activation.dest, context.home);
-    const legacyPrefix = legacyKey(activation.prefix);
-    const managedRoots = [
-      deployedDir(activation.prefix, context.home),
-      ...(legacyPrefix === null
-        ? []
-        : [deployedDir(legacyPrefix, context.home)]),
-    ];
+    const managedRoots = [deployedDir(activation.prefix, context.home)];
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
     const rootChanged = await ensureTreeRoot(root);
@@ -127,52 +113,4 @@ export async function runTree(
       status: rootChanged || linksChanged ? 'changed' : 'unchanged',
     };
   });
-}
-
-export async function migrateLegacySymlinks(
-  activations: readonly Activation[],
-  context: Context,
-): Promise<void> {
-  for (const activation of activations) {
-    if (activation.kind === 'file') {
-      const legacy = legacyKey(activation.source.key);
-      if (legacy === null) {
-        continue;
-      }
-      const link = resolveHostPath(activation.dest, context.home);
-      const target = deployedPath(activation.source, context.home);
-      const legacyTarget = deployedPath({ key: legacy }, context.home);
-      if (await isSymlinkTo(link, legacyTarget)) {
-        await placeSymlink(link, target);
-      }
-      continue;
-    }
-
-    if (activation.kind !== 'tree') {
-      continue;
-    }
-    const legacyPrefix = legacyKey(activation.prefix);
-    if (legacyPrefix === null) {
-      continue;
-    }
-    const refs = context.assets
-      .keysByPrefix(activation.prefix)
-      .map((key) => asset(key));
-    const root = resolveHostPath(activation.dest, context.home);
-    for (const { link, target } of treeEntries(
-      refs,
-      activation.prefix,
-      root,
-      context.home,
-    )) {
-      const relative = link.slice(root.length + 1);
-      const legacyTarget = deployedPath(
-        { key: `${legacyPrefix}${relative}` },
-        context.home,
-      );
-      if (await isSymlinkTo(link, legacyTarget)) {
-        await placeSymlink(link, target);
-      }
-    }
-  }
 }

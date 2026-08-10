@@ -1,11 +1,15 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { installPackages } from '../../src/brew/install';
 import { type PackageToken, packages } from '../../src/brew/package';
 import type { Context } from '../../src/host/context';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
-import { withTemporaryDirectory } from '../fixtures/temporary-directory';
+import { sandboxedTest } from '../fixtures/temporary-directory';
+
+// Brewfile staging is real filesystem work, so every case runs against a
+// sandbox home rather than a nonexistent path plus the real system temp root.
+const test = sandboxedTest('brew-');
 
 interface Sink {
   brewfile?: string;
@@ -21,12 +25,13 @@ interface BrewState {
 }
 
 function brewContext(
+  home: string,
   state: BrewState,
   sink: Sink = {},
   tmpRoot?: string,
 ): Context {
   return recordingContext({
-    home: '/sandbox',
+    home,
     assets: emptyAssets,
     tmpRoot,
     async respond(_command, args) {
@@ -50,20 +55,23 @@ function brewContext(
 
 const oneFormula = packages({ formulae: ['git'] });
 
-test('reports present without invoking brew bundle when the formula is listed', async () => {
+test('reports present without invoking brew bundle when the formula is listed', async (sandbox) => {
   const sink: Sink = {};
   const reports = await installPackages(
     oneFormula,
-    brewContext({ formulae: ['git'] }, sink),
+    brewContext(sandbox, { formulae: ['git'] }, sink),
   );
 
   expect(reports[0]?.status).toBe('present');
   expect(sink.bundleArgs).toBeUndefined();
 });
 
-test('installs a missing formula through a temporary Brewfile', async () => {
+test('installs a missing formula through a temporary Brewfile', async (sandbox) => {
   const sink: Sink = {};
-  const reports = await installPackages(oneFormula, brewContext({}, sink));
+  const reports = await installPackages(
+    oneFormula,
+    brewContext(sandbox, {}, sink),
+  );
 
   expect(reports[0]?.status).toBe('installed');
   expect(sink.brewfile).toBe('brew "git"\n');
@@ -77,10 +85,10 @@ test('installs a missing formula through a temporary Brewfile', async () => {
   expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
-test('removes the Brewfile directory when the install runner throws', async () => {
+test('removes the Brewfile directory when the install runner throws', async (sandbox) => {
   const sink: Sink = {};
   const context = recordingContext({
-    home: '/sandbox',
+    home: sandbox,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -101,9 +109,9 @@ test('removes the Brewfile directory when the install runner throws', async () =
   expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
-test('reports failure when the enumeration rejects without a reason', async () => {
+test('reports failure when the enumeration rejects without a reason', async (sandbox) => {
   const context = recordingContext({
-    home: '/sandbox',
+    home: sandbox,
     assets: emptyAssets,
     respond: () => Promise.reject(),
   }).context;
@@ -114,10 +122,10 @@ test('reports failure when the enumeration rejects without a reason', async () =
   expect(reports[0]?.error).toBe('undefined');
 });
 
-test('a failed enumeration fails every token of that kind without installing', async () => {
+test('a failed enumeration fails every token of that kind without installing', async (sandbox) => {
   const sink: Sink = {};
   const context = recordingContext({
-    home: '/sandbox',
+    home: sandbox,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -140,29 +148,22 @@ test('a failed enumeration fails every token of that kind without installing', a
   expect(sink.bundleArgs).toBeUndefined();
 });
 
-test('allocates Brewfile scratch under the injected temporary root', async () => {
-  await withTemporaryDirectory(
-    async (dir) => {
-      const root = join(dir, 'tmp root');
-      await mkdir(root);
-      const sink: Sink = {};
+test('allocates Brewfile scratch under the injected temporary root', async (sandbox) => {
+  const root = join(sandbox, 'tmp root');
+  await mkdir(root);
+  const sink: Sink = {};
 
-      await installPackages(oneFormula, brewContext({}, sink, root));
+  await installPackages(oneFormula, brewContext(sandbox, {}, sink, root));
 
-      expect(sink.brewfilePath?.startsWith(join(root, 'mev-brewfile-'))).toBe(
-        true,
-      );
-      expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
-    },
-    { prefix: 'brew-tmp-root-' },
-  );
+  expect(sink.brewfilePath?.startsWith(join(root, 'mev-brewfile-'))).toBe(true);
+  expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
-test('installs a missing tap while present formulae skip the install step', async () => {
+test('installs a missing tap while present formulae skip the install step', async (sandbox) => {
   const sink: Sink = {};
   const reports = await installPackages(
     packages({ taps: ['a/b'], formulae: ['git'] }),
-    brewContext({ formulae: ['git'] }, sink),
+    brewContext(sandbox, { formulae: ['git'] }, sink),
   );
 
   expect(
@@ -171,13 +172,13 @@ test('installs a missing tap while present formulae skip the install step', asyn
   expect(sink.brewfile).toBe('tap "a/b"\n');
 });
 
-test('hooks report the total and tick per token', async () => {
+test('hooks report the total and tick per token', async (sandbox) => {
   const started: PackageToken[] = [];
   const ticked: PackageToken[] = [];
   let total = -1;
   const reports = await installPackages(
     packages({ taps: ['a/b'], formulae: ['git', 'gh'] }),
-    brewContext({ taps: ['a/b'], formulae: ['git', 'gh'] }),
+    brewContext(sandbox, { taps: ['a/b'], formulae: ['git', 'gh'] }),
     {
       onStart: (n) => {
         total = n;
@@ -194,12 +195,12 @@ test('hooks report the total and tick per token', async () => {
   expect(ticked.map((t) => t.name)).toEqual(['a/b', 'git', 'gh']);
 });
 
-test('hooks report the installing token for missing packages', async () => {
+test('hooks report the installing token for missing packages', async (sandbox) => {
   const started: string[] = [];
 
   const reports = await installPackages(
     oneFormula,
-    brewContext({ installCode: 1 }),
+    brewContext(sandbox, { installCode: 1 }),
     {
       onTokenStart: (token) => {
         started.push(`${token.kind} ${token.name}`);
@@ -213,10 +214,10 @@ test('hooks report the installing token for missing packages', async () => {
   ).toEqual(['failed git']);
 });
 
-test('rejects a token name that could break out of the Brewfile DSL', async () => {
+test('rejects a token name that could break out of the Brewfile DSL', async (sandbox) => {
   const reports = await installPackages(
     packages({ formulae: ['evil"\nbrew "malware'] }),
-    brewContext({}),
+    brewContext(sandbox, {}),
   );
 
   expect(reports[0]?.status).toBe('failed');

@@ -1,6 +1,5 @@
 import { join } from 'node:path';
-import { readTextIfPresent } from '../host/absence';
-import { writeFileAtomically } from '../host/atomic-file';
+import { writeFileIfChanged } from '../host/atomic-file';
 import { readDeployedText } from '../host/deployed-file';
 
 const TITLE = '# Rules';
@@ -28,11 +27,5 @@ export async function buildAgents(
   enabled: readonly string[],
   outputPath: string,
 ): Promise<boolean> {
-  const document = await renderAgents(sourceDir, enabled);
-  const existing = await readTextIfPresent(outputPath);
-  if (existing === document) {
-    return false;
-  }
-  await writeFileAtomically(outputPath, document);
-  return true;
+  return writeFileIfChanged(outputPath, await renderAgents(sourceDir, enabled));
 }

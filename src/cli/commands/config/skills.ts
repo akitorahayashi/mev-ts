@@ -1,13 +1,9 @@
 import { configSelect, configSelectClear } from '../../../app/coder';
-import { defineConfigCommand } from './command';
+import { defineConfigCommand } from './namespace';
 
 export const ConfigSkillsCommand = defineConfigCommand({
-  paths: [
-    ['config', 'skills'],
-    ['config', 'sk'],
-    ['cf', 'skills'],
-    ['cf', 'sk'],
-  ],
+  name: 'skills',
+  abbreviation: 'sk',
   description: 'Interactively select enabled skills.',
   clearDescription:
     'Disable all currently cataloged entries; entries added by later updates start enabled.',

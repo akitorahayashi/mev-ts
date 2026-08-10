@@ -12,9 +12,28 @@ import { runReportingDomainErrors } from '../domain-error';
  */
 export const CONFIG_CATEGORY = 'config';
 
+/** The namespace token and its abbreviation, in the order help output shows them. */
+export const CONFIG_NAMESPACE = ['config', 'cf'] as const;
+
+/**
+ * Every path a config subcommand answers on: the namespace token and its
+ * abbreviation crossed with the subcommand's own name and abbreviation. Built
+ * here so a subcommand cannot register three of the four quadrants — nothing
+ * fails when one is missing, it simply stops resolving.
+ */
+export function configSubcommandPaths(
+  name: string,
+  abbreviation: string,
+): string[][] {
+  return CONFIG_NAMESPACE.flatMap((namespace) =>
+    [name, abbreviation].map((leaf) => [namespace, leaf]),
+  );
+}
+
 /** One config toggle surface: its routing, help text, and the two operations. */
 export interface ConfigCommandSpec {
-  readonly paths: string[][];
+  readonly name: string;
+  readonly abbreviation: string;
   readonly description: string;
   readonly clearDescription: string;
   readonly runSelect: (
@@ -32,10 +51,11 @@ export interface ConfigCommandSpec {
  * uniformly here rather than per command.
  */
 export function defineConfigCommand(spec: ConfigCommandSpec) {
-  const description = withAliasHint(spec.description, spec.paths);
+  const paths = configSubcommandPaths(spec.name, spec.abbreviation);
+  const description = withAliasHint(spec.description, paths);
 
   return class extends Command {
-    static override paths = spec.paths;
+    static override paths = paths;
     static override usage = Command.Usage({
       category: CONFIG_CATEGORY,
       description,

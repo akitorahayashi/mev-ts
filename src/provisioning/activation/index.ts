@@ -1,11 +1,8 @@
-export {
-  agentPluginsConfigAssets,
-  installAgentPlugins,
-} from './agent-plugins';
+export { installAgentPlugins } from './agent-plugins';
 export { brewPath, brewPrefixCapture } from './brew-path';
-export { coderAgents, coderAgentsConfigAssets, coderSkills } from './coder';
-export { codexConfig, codexConfigAssets } from './codex-config';
-export { bindCommandRead, commandReadKey, runCommand } from './command';
+export { coderAgents, coderSkills } from './coder';
+export { codexConfig } from './codex-config';
+export { runCommand } from './command';
 export type {
   Activation,
   ActivationReport,
@@ -23,17 +20,15 @@ export type {
 export {
   applyDefaults,
   applyDefaultsTree,
-  defaultsConfigAssets,
 } from './defaults';
 export { blockedReport, describeActivation, runActivation } from './dispatch';
-export { applyDuti, dutiConfigAssets } from './duti';
-export { extensionsConfigAssets, installExtensions } from './extensions';
-export { groveConfig, groveConfigAssets } from './grove-config';
-export { materializeFile } from './materialized-file';
-export { applyPipx, pipxConfigAssets } from './pipx';
-export { applyPnpm, pnpmConfigAssets } from './pnpm';
-export { releaseBinaries, releaseConfigAssets } from './release';
+export { applyDuti } from './duti';
+export { installExtensions } from './extensions';
+export { groveConfig } from './grove-config';
+export { applyPipx } from './pipx';
+export { applyPnpm } from './pnpm';
+export { releaseBinaries } from './release';
 export { remoteInstaller } from './remote-installer';
-export { link, linkTree, migrateLegacySymlinks } from './symlink';
+export { link, linkTree } from './symlink';
 export { versionCheckStep } from './version-check';
-export { zedSettings, zedSettingsConfigAssets } from './zed';
+export { zedSettings } from './zed';

@@ -39,7 +39,7 @@ function dutiStep(
   };
 }
 
-const dutiKind = manifestKind<DutiActivation, Association>({
+export const dutiKind = manifestKind<DutiActivation, Association>({
   parse: parseAssociations,
   manifestLabel: 'Duti config file',
   describe: (activation) => ({
@@ -50,7 +50,3 @@ const dutiKind = manifestKind<DutiActivation, Association>({
   steps: async (entries, _activation, context) =>
     entries.map((entry) => dutiStep(entry, context)),
 });
-
-export const describeDuti = dutiKind.describe;
-export const dutiConfigAssets = dutiKind.configAssets;
-export const runDuti = dutiKind.run;

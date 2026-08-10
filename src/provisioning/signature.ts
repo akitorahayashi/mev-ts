@@ -3,7 +3,8 @@ import type { AssetSource } from '../assets/registry';
 import type { PackageRequirement } from '../brew/package';
 import type { Target } from './target';
 
-interface AssetIntent {
+/** One embedded role asset as the signature sees it. */
+export interface AssetIntent {
   readonly key: string;
   readonly content: string;
   readonly executable: boolean;
@@ -55,7 +56,12 @@ function canonicalize(value: unknown): unknown {
   return canonical;
 }
 
-async function assetIntents(
+/**
+ * Read every asset a role embeds. Exported so `scan.ts` can pass one read to
+ * both the signature and the deployed-role drift check instead of reading the
+ * same bytes twice per target.
+ */
+export async function readAssetIntents(
   role: string,
   assets: AssetSource,
 ): Promise<AssetIntent[]> {
@@ -69,19 +75,26 @@ async function assetIntents(
   );
 }
 
-export async function targetSignature(
+export function signatureOf(
   target: Target,
-  assets: AssetSource,
-): Promise<string> {
+  assets: readonly AssetIntent[],
+): string {
   const input: SignatureInput = {
     target: target.name,
     role: target.role,
     packages: packageIntent(target.packages),
-    assets: await assetIntents(target.role, assets),
+    assets,
     activations: target.activations.map(canonicalize),
   };
   const digest = createHash('sha256')
     .update(JSON.stringify(input))
     .digest('hex');
   return `sha256:${digest}`;
+}
+
+export async function targetSignature(
+  target: Target,
+  assets: AssetSource,
+): Promise<string> {
+  return signatureOf(target, await readAssetIntents(target.role, assets));
 }

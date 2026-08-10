@@ -1,6 +1,6 @@
 import { deployedDir } from '../assets/ref';
 import { readOverrides } from '../zed/catalog';
-import { readEnabled, writeEnabled } from '../zed/manifest';
+import { overrideSelection } from '../zed/manifest';
 import { OVERRIDES_PREFIX, overridesManifest } from '../zed/paths';
 import {
   type ConfigToggleSurface,
@@ -10,13 +10,11 @@ import {
 } from './config-toggle';
 
 async function zedSelection(home: string): Promise<ConfigToggleSurface> {
-  const manifest = overridesManifest(home);
   return {
     catalog: await readOverrides(deployedDir(OVERRIDES_PREFIX, home)),
-    read: () => readEnabled(manifest),
-    write: (names) => writeEnabled(manifest, names),
+    manifestPath: overridesManifest(home),
     message: 'Select enabled Zed setting overrides',
-    mode: 'opt-in',
+    policy: overrideSelection,
   };
 }
 

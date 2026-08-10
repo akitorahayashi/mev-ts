@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test';
-import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  readdir,
+  readFile,
+  stat,
+  utimes,
+  writeFile,
+} from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { installLocalMev } from '../../scripts/install-mev';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -91,5 +98,44 @@ test('installLocalMev preserves the installed command when bundle build fails', 
       expect(await readdir(installDir)).toEqual(['mev']);
     },
     { prefix: 'install-mev-build-failure-' },
+  );
+});
+
+test('installLocalMev sweeps only aged staging, sparing a live sibling', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const installDir = join(dir, 'bin');
+      const stranded = join(installDir, '.mev-up-abc123');
+      await mkdir(stranded, { recursive: true });
+      await writeFile(join(stranded, 'mev'), 'partial');
+      // Backdate past the orphan threshold; a fresh-looking directory could be
+      // a concurrent install's live workspace and must survive the sweep.
+      const stale = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      await utimes(stranded, stale, stale);
+      const live = join(installDir, '.mev-up-def456');
+      await mkdir(live, { recursive: true });
+      await writeFile(join(live, 'mev'), 'in-flight');
+
+      await installLocalMev({
+        projectRoot: process.cwd(),
+        installDir,
+        stdio: 'ignore',
+        async runBuildCommand(invocation) {
+          const outfileIndex = invocation.args.indexOf('--outfile');
+          const outfile = invocation.args[outfileIndex + 1];
+          if (outfileIndex >= 0 && outfile !== undefined) {
+            await writeFile(outfile, 'bundle');
+          }
+          return 0;
+        },
+      });
+
+      expect(
+        (await readdir(installDir)).filter((name) =>
+          name.startsWith('.mev-up-'),
+        ),
+      ).toEqual(['.mev-up-def456']);
+    },
+    { prefix: 'install-mev-staging-' },
   );
 });

@@ -43,7 +43,7 @@ function extensionStep(
   };
 }
 
-const extensionsKind = manifestKind<ExtensionsActivation, string>({
+export const extensionsKind = manifestKind<ExtensionsActivation, string>({
   parse: parseExtensions,
   manifestLabel: 'Extensions manifest',
   // Source is the editor CLI, not the manifest basename, so two editors that
@@ -60,7 +60,3 @@ const extensionsKind = manifestKind<ExtensionsActivation, string>({
     );
   },
 });
-
-export const describeExtensions = extensionsKind.describe;
-export const extensionsConfigAssets = extensionsKind.configAssets;
-export const runExtensions = extensionsKind.run;

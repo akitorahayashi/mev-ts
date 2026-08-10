@@ -1,3 +1,5 @@
+import type { Writable } from 'node:stream';
+
 // Semantic color conventions across the renderers: cyan for the filled progress
 // bar and spinner; bold for tag headers; green for the success message; red for
 // failed entries; yellow for blocked entries; dim for the unfilled bar, deploy
@@ -20,10 +22,15 @@ export function makeStyle(isTTY: boolean) {
 export type Style = ReturnType<typeof makeStyle>;
 
 /**
- * Whether stdout is a TTY. Resolved once at the command boundary and threaded
- * into renderers, which take `isTTY` as a required argument rather than each
- * reaching for ambient process state.
+ * Whether the stream a command writes to is a TTY. Takes the stream rather than
+ * reading `process.stdout`, so styling follows the sink the command actually
+ * uses: with an injected context (tests, embedders) the two are different
+ * objects, and reading ambient state colors output nobody is looking at.
+ * Resolved once at the command boundary and threaded into renderers, which take
+ * `isTTY` as a required argument.
  */
-export function resolveIsTTY(): boolean {
-  return process.stdout.isTTY === true;
+export function resolveIsTTY(
+  stream: Writable & { readonly isTTY?: boolean },
+): boolean {
+  return stream.isTTY === true;
 }

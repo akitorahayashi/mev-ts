@@ -26,7 +26,7 @@ src/
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download and the per-machine SSH host alias store
   grove/         Grove catalog parsing and per-machine SSH host rendering
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions and labeled JSON framing, each taking the error class to raise), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging and the swap-transaction envelope), atomic-file.ts (atomic write, write-if-changed), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
@@ -35,11 +35,12 @@ src/
   pipx/          pipx install, inject, and post-install operations
   pnpm/          pnpm global package install and remove through the fnm runtime
   provisioning/
-    activation/  Activation DSL vocabulary, per-kind runners, reconcile envelope, manifest loader
+    activation/  Activation DSL vocabulary, the per-kind registry (kinds.ts), per-kind runners, reconcile envelope, manifest loader
     targets/     One file per provisioning target
     signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
     applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
     scan.ts      Concurrent signature and deployed-role drift classification
+  version-pin.ts The `latest`-versus-pin policy shared by pipx, pnpm, and release binaries
   zed/           Zed override catalog, selection manifest, and settings renderer
 scripts/
   generate-assets.ts  Asset codegen: walks src/assets/config/, emits registry.generated.ts
@@ -70,7 +71,7 @@ Unit tests are colocated as `*.test.ts` files next to source under `src/`; they 
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `dispatch.ts` routes each `Activation` kind to its runner. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`, `grove/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
+`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `kinds.ts` maps each `Activation` kind to its handler, and dispatch, build-time asset validation, and the registry test are all lookups into it. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`, `grove/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
 
 See docs/architecture/activation.md for the per-kind table and the reconcile/manifest mechanics.
 

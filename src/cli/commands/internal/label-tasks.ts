@@ -2,7 +2,7 @@ import type { Command } from 'clipanion';
 import type { CommandRunner } from '../../../host/command';
 import type { LabelTask } from '../../../internal/gh/labels';
 import { renderLiveList } from '../../tty/livelist';
-import { runInternalCommand } from './command';
+import { runInternalCommand } from './run';
 
 const LABEL_TASK_CONCURRENCY = 4;
 

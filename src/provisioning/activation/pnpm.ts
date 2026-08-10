@@ -6,6 +6,7 @@ import { type InstalledPackage, listGlobal } from '../../pnpm/inventory';
 import {
   type PnpmEntry,
   type PnpmPackage,
+  packageKey,
   parseManifest,
 } from '../../pnpm/manifest';
 import {
@@ -32,7 +33,7 @@ function installStep(
 ): ReconcileStep {
   return {
     async run() {
-      const installed = (await inventory()).get(pkg.name);
+      const installed = (await inventory()).get(packageKey(pkg.name));
       if (needsInstall(pkg, installed)) {
         await add(context, runtime, installSpec(pkg));
         return { key: pkg.name, value: 'installed', status: 'changed' };
@@ -41,7 +42,9 @@ function installStep(
         await add(context, runtime, installSpec(pkg));
         // Classification diffs the pre/post inventory versions: `pnpm add -g`
         // reports success identically whether it changed anything or not.
-        const refreshed = (await listGlobal(context, runtime)).get(pkg.name);
+        const refreshed = (await listGlobal(context, runtime)).get(
+          packageKey(pkg.name),
+        );
         if (!refreshed) {
           throw new ProvisioningError(
             `pnpm add -g for ${pkg.name} left the package absent from the global inventory.`,
@@ -96,7 +99,7 @@ function uninstallStep(
   };
 }
 
-const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
+export const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
   parse: parseManifest,
   manifestLabel: 'pnpm global packages manifest',
   describe: (activation) => ({
@@ -127,7 +130,12 @@ const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
     // order preserves the uninstall-before-install convention.
     return entries.map((entry) =>
       entry.action === 'uninstall'
-        ? uninstallStep(entry.name, installed.get(entry.name), context, runtime)
+        ? uninstallStep(
+            entry.name,
+            installed.get(packageKey(entry.name)),
+            context,
+            runtime,
+          )
         : installStep(
             entry.package,
             inventory,
@@ -138,7 +146,3 @@ const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
     );
   },
 });
-
-export const describePnpm = pnpmKind.describe;
-export const pnpmConfigAssets = pnpmKind.configAssets;
-export const runPnpm = pnpmKind.run;

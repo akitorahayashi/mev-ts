@@ -18,6 +18,52 @@ interface NameSplit {
 
 export type SelectionMode = 'opt-in' | 'opt-out';
 
+/**
+ * The manifest key each polarity stores under. Derived from the mode rather than
+ * declared alongside it: a manifest listing `disabled` names resolved under
+ * `opt-in` would invert every entry's meaning silently, and nothing downstream
+ * could detect it.
+ */
+const KEY_BY_MODE: Readonly<Record<SelectionMode, string>> = {
+  'opt-out': 'disabled',
+  'opt-in': 'enabled',
+};
+
+/**
+ * One selection surface's polarity, bound to the manifest key that expresses it
+ * and to the read/write/resolve operations that must agree on both. Consumers
+ * hold the policy instead of passing a mode literal alongside a list, so the
+ * `app/` toggle flow and the activation that applies the result cannot disagree
+ * about what a stored name means.
+ */
+export interface SelectionPolicy {
+  readonly mode: SelectionMode;
+  readonly key: string;
+  read(manifestPath: string): Promise<string[]>;
+  write(manifestPath: string, names: readonly string[]): Promise<void>;
+  resolve(catalog: readonly string[], manifestPath: string): Promise<Selection>;
+}
+
+export function selectionPolicy(
+  mode: SelectionMode,
+  label: string,
+): SelectionPolicy {
+  const key = KEY_BY_MODE[mode];
+  return {
+    mode,
+    key,
+    read: (manifestPath) => readNameList(manifestPath, key, label),
+    write: (manifestPath, names) => writeNameList(manifestPath, key, names),
+    async resolve(catalog, manifestPath) {
+      return resolveSelection(
+        catalog,
+        await readNameList(manifestPath, key, label),
+        mode,
+      );
+    },
+  };
+}
+
 /** A catalog resolved against a stored list under one polarity. */
 export interface Selection {
   /** Catalog entries that are on, in catalog order. */

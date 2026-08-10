@@ -8,6 +8,7 @@ import {
   requireUniqueBy,
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
+import { LATEST } from '../version-pin';
 
 // A package name flows into `join(venvs, package, 'bin', ...)` which is then
 // spawned, so it is charset-guarded like brew tokens (SAFE_TOKEN_NAME) and
@@ -17,7 +18,7 @@ import { loadYaml } from '../host/yaml';
 const SAFE_PACKAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 
 /** mev's reserved literal: pipx has no `latest` the way npm has the dist-tag. */
-export const latestVersion = 'latest';
+export const latestVersion = LATEST;
 
 // PEP 440's normalized public version. A pin is compared literally against the
 // version pipx reports, so a spelling pip resolves (`>=1.2`, `1.*`) or

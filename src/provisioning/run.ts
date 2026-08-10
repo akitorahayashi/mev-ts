@@ -1,19 +1,18 @@
 import { type InstallReport, installPackages } from '../brew/install';
 import { type PackageToken, tokens } from '../brew/package';
-import { errorMessage, ProvisioningError } from '../errors';
+import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
 import {
   type ActivationReport,
   blockedReport,
   type Described,
   describeActivation,
-  migrateLegacySymlinks,
   runActivation,
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
+import { groupSucceeded } from './group-outcome';
 import { type MakePlan, planMake } from './plan';
-import { allTargets } from './registry';
 import { targetSignature } from './signature';
 import type { Target } from './target';
 
@@ -92,25 +91,6 @@ function blockerReason(blockers: readonly ActivationBlocker[]): string {
   return blockers.map(formatBlocker).join('; ');
 }
 
-function targetNamed(name: string): Target {
-  const match = allTargets().find((target) => target.name === name);
-  if (!match) {
-    throw new ProvisioningError(
-      `Provisioning plan referenced unknown target '${name}'.`,
-    );
-  }
-  return match;
-}
-
-function groupSucceeded(group: ActivationGroupReport): boolean {
-  return (
-    group.blockers.length === 0 &&
-    group.reports.every(
-      (report) => report.status !== 'failed' && report.status !== 'blocked',
-    )
-  );
-}
-
 async function invalidateSelectedTargets(
   targets: readonly string[],
   context: Context,
@@ -125,22 +105,13 @@ async function invalidateSelectedTargets(
   );
 }
 
-type MakeGroup = MakePlan['groups'][number];
-
 interface DeployPhaseResult {
   readonly deploys: readonly DeployResult[];
   /** Role -> failure message; every group with that role cannot activate. */
   readonly failedRoles: ReadonlyMap<string, string>;
-  /** Target name -> migration failure message; blocks only that one group. */
-  readonly failedMigrations: ReadonlyMap<string, string>;
 }
 
-/**
- * Phase 1: deploy each role's config, then migrate any legacy symlinks for the
- * groups whose role deployed cleanly. Deploy failures are keyed by role (they
- * affect every group sharing it); migration runs per group, so its failures are
- * keyed by target name and block only that group.
- */
+/** Phase 1: deploy each role's config, keying failures by role so every group sharing that role is blocked. */
 async function runDeployPhase(
   selection: MakePlan,
   context: Context,
@@ -162,31 +133,16 @@ async function runDeployPhase(
     onDeploy?.(result);
   }
 
-  const failedMigrations = new Map<string, string>();
-  for (const group of selection.groups) {
-    if (failedRoles.has(group.role)) {
-      continue;
-    }
-    await migrateLegacySymlinks(group.activations, context).catch((error) => {
-      failedMigrations.set(
-        group.targetName,
-        `legacy link migration: ${errorMessage(error)}`,
-      );
-    });
-  }
-
-  return { deploys, failedRoles, failedMigrations };
+  return { deploys, failedRoles };
 }
 
 function computeBlockers(
-  group: MakeGroup,
+  group: Target,
   failedRoles: ReadonlyMap<string, string>,
-  failedMigrations: ReadonlyMap<string, string>,
   failedPackages: readonly InstallReport[],
 ): ActivationBlocker[] {
   const blockers: ActivationBlocker[] = [];
-  const deployError =
-    failedRoles.get(group.role) ?? failedMigrations.get(group.targetName);
+  const deployError = failedRoles.get(group.role);
   if (deployError) {
     blockers.push({ kind: 'deploy', role: group.role, error: deployError });
   }
@@ -206,11 +162,11 @@ function computeBlockers(
 }
 
 async function recordSuccessfulTarget(
+  target: Target,
   group: ActivationGroupReport,
   context: Context,
 ): Promise<void> {
   if (!groupSucceeded(group)) return;
-  const target = targetNamed(group.targetName);
   const signature = await targetSignature(target, context.assets);
   await writeApplied(appliedPath(context.home, target.name), signature);
 }
@@ -231,13 +187,13 @@ export async function runMake(
   // Preserve mutable host state before invalidating applied markers or
   // replacing deployed roles. A preservation failure leaves provisioning's
   // managed state untouched.
-  for (const targetName of selection.targetNames) {
-    await targetNamed(targetName).preserveBeforeDeploy?.(context);
+  for (const target of selection.groups) {
+    await target.preserveBeforeDeploy?.(context);
   }
 
   await invalidateSelectedTargets(selection.targetNames, context);
 
-  const { deploys, failedRoles, failedMigrations } = await runDeployPhase(
+  const { deploys, failedRoles } = await runDeployPhase(
     selection,
     context,
     request.onDeploy,
@@ -259,17 +215,12 @@ export async function runMake(
     });
   }
   for (const group of selection.groups) {
-    const blockers = computeBlockers(
-      group,
-      failedRoles,
-      failedMigrations,
-      failedPackages,
-    );
+    const blockers = computeBlockers(group, failedRoles, failedPackages);
 
     if (blockers.length > 0) {
       const reason = blockerReason(blockers);
       const groupReport = {
-        targetName: group.targetName,
+        targetName: group.name,
         blockers,
         reports: group.activations.map((activation) =>
           blockedReport(activation, reason),
@@ -282,7 +233,7 @@ export async function runMake(
     const reports: ActivationReport[] = [];
     for (const activation of group.activations) {
       request.onActivationStart?.({
-        targetName: group.targetName,
+        targetName: group.name,
         activation: describeActivation(activation),
       });
       reports.push(
@@ -292,7 +243,7 @@ export async function runMake(
       );
     }
     const baseReport: ActivationGroupReport = {
-      targetName: group.targetName,
+      targetName: group.name,
       blockers,
       reports,
     };
@@ -300,7 +251,7 @@ export async function runMake(
     // and the loop continues, so later targets still activate.
     let markerError: string | undefined;
     try {
-      await recordSuccessfulTarget(baseReport, context);
+      await recordSuccessfulTarget(group, baseReport, context);
     } catch (error) {
       markerError = errorMessage(error);
     }
@@ -312,14 +263,8 @@ export async function runMake(
 
   const failed =
     failedRoles.size > 0 ||
-    failedMigrations.size > 0 ||
     install.some((r) => r.status === 'failed') ||
-    groups.some(
-      (g) =>
-        g.blockers.length > 0 ||
-        g.reports.some((r) => r.status === 'failed') ||
-        g.markerError !== undefined,
-    );
+    groups.some((group) => !groupSucceeded(group));
 
   return { selection, deploys, install, groups, failed };
 }

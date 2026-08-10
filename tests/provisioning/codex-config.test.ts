@@ -129,7 +129,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'a legacy symlink destination is materialized as a regular file',
+  'a symlink destination is materialized as a regular file',
   async (dir) => {
     await deployDeclared(dir);
     await mkdir(join(dir, '.codex'), { recursive: true });

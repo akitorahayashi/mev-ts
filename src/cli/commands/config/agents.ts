@@ -1,13 +1,9 @@
 import { configSelect, configSelectClear } from '../../../app/coder';
-import { defineConfigCommand } from './command';
+import { defineConfigCommand } from './namespace';
 
 export const ConfigAgentsCommand = defineConfigCommand({
-  paths: [
-    ['config', 'agents'],
-    ['config', 'ag'],
-    ['cf', 'agents'],
-    ['cf', 'ag'],
-  ],
+  name: 'agents',
+  abbreviation: 'ag',
   description: 'Interactively select enabled AGENTS.md sections.',
   clearDescription:
     'Disable all currently cataloged entries; entries added by later updates start enabled.',

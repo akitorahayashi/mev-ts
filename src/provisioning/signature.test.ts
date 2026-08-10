@@ -1,8 +1,7 @@
 import { expect, test } from 'bun:test';
-import { type AssetSource, embeddedAssets } from '../assets/registry';
+import type { AssetSource } from '../assets/registry';
 import { home } from '../host/path';
 import { link, runCommand } from './activation';
-import { resolveTarget } from './registry';
 import { targetSignature } from './signature';
 import { target } from './target';
 
@@ -30,24 +29,49 @@ function assetSource(
 
 const config = { key: 'demo/config' };
 
-// Characterization anchor for D1: these digests are intentionally derived from
-// the current implementation and the embedded assets, pinning signature
-// serialization as an explicit stability contract. A relational assertion cannot
-// catch a canonicalizer rewrite that changes the bytes while preserving ordering
-// behavior. An intentional signature-schema change (or a legitimate change to
-// these targets' assets/definition) must update these constants knowingly.
-const GOLDEN_SIGNATURES: Readonly<Record<string, string>> = {
-  git: 'sha256:dd742b7461e83d7211319fe769315b3a3d4e9c209be220d7503756af234be6f5',
-  pnpm: 'sha256:3d2b4a44157b1c0f3ca9cec04fb2ffdac08624cea7bfa2cc1ca64e3a237e993e',
-};
+/**
+ * A change-detector over the serialization, not an independent authority: the
+ * digest is produced by the implementation it guards, and the relational tests
+ * below carry the behavioral contract. Its job is to fail when the canonicalizer
+ * is rewritten in a way that changes the bytes while preserving ordering
+ * behavior, which no relational assertion can catch.
+ *
+ * The inputs are synthetic and fixed here rather than a production target and
+ * the embedded registry, so editing an asset two directories away no longer
+ * breaks a unit test — which is what trained routine re-pinning of this digest.
+ */
+const GOLDEN_TARGET = target('golden', {
+  description: 'golden',
+  role: 'demo',
+  packages: { taps: ['a/b'], formulae: ['git', 'gh'], casks: ['zed'] },
+  activations: [
+    link(config, home('.demo/config')),
+    runCommand({
+      label: 'demo command',
+      reads: { version: 'demo/version' },
+      steps: [
+        {
+          label: 'install',
+          argv: ['install', { ref: 'version' }, { splitRef: 'version' }],
+          env: { PATH: { pathList: [{ ref: 'home' }, { ref: 'basePath' }] } },
+          skipIf: { pathExists: { concat: [{ ref: 'home' }, '/.demo'] } },
+          changedWhen: { outputContains: 'installed' },
+        },
+      ],
+    }),
+  ],
+});
 
-for (const [selector, expected] of Object.entries(GOLDEN_SIGNATURES)) {
-  test(`the ${selector} target signature matches its pinned digest`, async () => {
-    expect(await targetSignature(resolveTarget(selector), embeddedAssets)).toBe(
-      expected,
-    );
-  });
-}
+const GOLDEN_ASSETS = assetSource(
+  { 'demo/config': 'config contents\n', 'demo/version': '1.2.3\n' },
+  ['demo/version'],
+);
+
+test('the signature serialization matches its pinned digest', async () => {
+  expect(await targetSignature(GOLDEN_TARGET, GOLDEN_ASSETS)).toBe(
+    'sha256:8c82e5745084129edc755c125c326498effdd4e20c4e5b19880cb6d888496493',
+  );
+});
 
 test('declared assets, packages, and activation destinations affect the signature', async () => {
   const original = target('demo', {

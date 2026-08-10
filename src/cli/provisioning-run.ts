@@ -1,3 +1,4 @@
+import type { Writable } from 'node:stream';
 import { createProgressBar } from 'tty-prog';
 import { createContext } from '../host/context';
 import {
@@ -25,18 +26,23 @@ interface ProvisioningRunOptions {
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
   readonly run?: ProvisioningRun;
-  readonly out: (text: string) => void;
-  readonly isTTY?: boolean;
-  /** Animated-progress sink; defaults to the process stdout stream. */
-  readonly stream?: NodeJS.WriteStream;
+  /**
+   * The command's output sink, and the sole authority on TTY-ness: plain lines,
+   * the animated progress, and the decision to style them all resolve from this
+   * one object, so an injected context never gets output styled for a terminal
+   * it is not writing to.
+   */
+  readonly stream: Writable & { readonly isTTY?: boolean };
 }
 
 export async function executeProvisioningRun(
   options: ProvisioningRunOptions,
 ): Promise<number> {
-  const isTTY = options.isTTY ?? resolveIsTTY();
-  const out = options.out;
-  const stream = options.stream ?? process.stdout;
+  const { stream } = options;
+  const isTTY = resolveIsTTY(stream);
+  const out = (text: string) => {
+    stream.write(text);
+  };
   const startedAt = Date.now();
   const run =
     options.run ??
@@ -73,13 +79,13 @@ export async function executeProvisioningRun(
       onInstallStart(total) {
         if (total > 0 && isTTY) {
           out('\n');
-          // The progress bar needs a real WriteStream (isTTY/columns/cursor).
-          // The stream is injected (defaulting to process.stdout) so the TTY
-          // path is testable with a fake terminal stream.
           bar = createProgressBar({
             total,
             isTty: isTTY,
-            stream,
+            // The bar reads terminal facts (columns, cursor) that `Writable`
+            // does not declare. Reaching this branch already required
+            // `isTTY`, so the sink is a terminal stream.
+            stream: stream as NodeJS.WriteStream,
           });
         }
       },

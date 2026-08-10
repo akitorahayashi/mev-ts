@@ -1,10 +1,12 @@
 import { expect } from 'bun:test';
 import { readdir, writeFile } from 'node:fs/promises';
+import type { AssetSource } from '../../src/assets/registry';
 import { home } from '../../src/host/path';
 import {
   remoteInstaller,
   runActivation,
 } from '../../src/provisioning/activation';
+import { ok } from '../fixtures/fake-command-runner';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -163,16 +165,15 @@ sandboxTest(
     );
 
     expect(report.status).toBe('changed');
-    // Order matters: fetch installer, fetch checksum, verify, mark executable,
-    // then run.
-    expect(calls.slice(0, 4).map((call) => call.command)).toEqual([
+    // Order matters: fetch installer, fetch checksum, verify, then run. The
+    // execute bit is set through the filesystem, so it is not a subprocess.
+    expect(calls.slice(0, 3).map((call) => call.command)).toEqual([
       'curl',
       'curl',
       'shasum',
-      'chmod',
     ]);
-    expect(calls[4]?.command).toContain('mev-installer-');
-    expect(calls[4]?.args).toEqual(['-y']);
+    expect(calls[3]?.command).toContain('mev-installer-');
+    expect(calls[3]?.args).toEqual(['-y']);
   },
 );
 
@@ -213,3 +214,67 @@ sandboxTest('fails when checksum does not match', async (dir) => {
   expect(report.status).toBe('failed');
   expect(report.error).toContain('SHA256 mismatch');
 });
+
+sandboxTest(
+  'a versioned installer resolves its args from reads and re-runs on a version change',
+  async (dir) => {
+    const assets: AssetSource = {
+      ...emptyAssets,
+      async read(key) {
+        if (key === 'bun/.bun-version') return '1.2.3\n';
+        throw new Error(`unexpected asset ${key}`);
+      },
+    };
+    const activation = remoteInstaller({
+      label: 'install demo',
+      url: 'https://example.test/install',
+      integrity: { acknowledgedUnverified: true },
+      interpreter: 'bash',
+      reads: { version: 'bun/.bun-version' },
+      args: [{ concat: ['demo-v', { ref: 'version' }] }],
+      creates: home('.demo/bin/demo'),
+      skipIf: {
+        commandOutputMatches: {
+          argv: [{ concat: [{ ref: 'home' }, '/.demo/bin/demo'] }, '--version'],
+          exact: { ref: 'version' },
+        },
+      },
+    });
+
+    const stale = recordingContext({
+      home: dir,
+      tmpRoot: dir,
+      assets,
+      async respond(command, args) {
+        if (command === 'curl') {
+          await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
+          return ok();
+        }
+        // The installed binary reports an older version than the asset declares.
+        return command.endsWith('/demo') ? ok('1.0.0\n') : ok();
+      },
+    });
+
+    const report = await runActivation(activation, stale.context);
+
+    expect(report.status).toBe('changed');
+    const bash = stale.calls.find((call) => call.command === 'bash');
+    // The version reaches the installer as a resolved argument, not as text
+    // concatenated into a shell string.
+    expect(bash?.args.slice(1)).toEqual(['demo-v1.2.3']);
+
+    const current = recordingContext({
+      home: dir,
+      tmpRoot: dir,
+      assets,
+      respond: (command) => (command.endsWith('/demo') ? ok('1.2.3\n') : ok()),
+    });
+
+    expect((await runActivation(activation, current.context)).status).toBe(
+      'unchanged',
+    );
+    expect(current.calls.map((call) => call.command)).toEqual([
+      `${dir}/.demo/bin/demo`,
+    ]);
+  },
+);

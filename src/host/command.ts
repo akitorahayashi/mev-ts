@@ -28,7 +28,7 @@ export interface CommandRunner {
   ): Promise<CommandResult>;
 }
 
-export function commandFailureDetail(
+function commandFailureDetail(
   result: CommandResult,
   fallback = 'unknown error',
 ): string {

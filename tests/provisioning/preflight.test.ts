@@ -31,28 +31,21 @@ test('embedded asset preflight accepts the shipped registry', async () => {
   await expect(validateEmbeddedAssets(embeddedAssets)).resolves.toBeUndefined();
 });
 
-test('embedded asset preflight invokes command read validators', async () => {
+test('embedded asset preflight rejects a command read with no such asset', async () => {
   const demo = target('demo', {
     description: 'demo',
     role: 'demo',
     activations: [
       runCommand({
         label: 'demo command',
-        reads: {
-          manifest: {
-            key: 'demo/manifest.json',
-            validate: (raw) => {
-              JSON.parse(raw);
-            },
-          },
-        },
+        reads: { manifest: 'demo/manifest.json' },
         steps: [{ label: 'noop', argv: ['true'] }],
       }),
     ],
   });
 
   await expect(
-    validateEmbeddedAssets(assets({ 'demo/manifest.json': '{' }), [demo]),
+    validateEmbeddedAssets(assets({ 'demo/other.json': '{}' }), [demo]),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });
 

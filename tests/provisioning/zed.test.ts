@@ -204,9 +204,8 @@ sandboxTest(
     );
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain(
-      'Failed to parse JSON for Zed base settings',
-    );
+    expect(report.error).toContain('Zed base settings at');
+    expect(report.error).toContain('is not valid JSON');
   },
 );
 
@@ -230,8 +229,7 @@ sandboxTest(
     );
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain(
-      "Failed to parse JSON for Zed override 'broken'",
-    );
+    expect(report.error).toContain("Zed override 'broken' at");
+    expect(report.error).toContain('is not valid JSON');
   },
 );

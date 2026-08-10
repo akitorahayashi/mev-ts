@@ -1,4 +1,4 @@
-import { errorMessage, ProvisioningError } from '../errors';
+import { ProvisioningError } from '../errors';
 import { isRecord, requireExactKeys, requireUniqueBy } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
@@ -29,15 +29,11 @@ function validateDefaultsEntry(
   if (!isRecord(entry)) {
     throw invalidDefaultsEntry(path, index, 'entry must be a mapping.');
   }
-  try {
-    requireExactKeys(
-      entry,
-      ['domain', 'key', 'type', 'value'],
-      `Invalid defaults config ${path} entry ${index + 1}`,
-    );
-  } catch (error) {
-    throw invalidDefaultsEntry(path, index, errorMessage(error));
-  }
+  requireExactKeys(
+    entry,
+    ['domain', 'key', 'type', 'value'],
+    `Invalid defaults config ${path} entry ${index + 1}`,
+  );
   const { domain, key, type, value } = entry;
   if (typeof domain !== 'string' || domain.trim() === '') {
     throw invalidDefaultsEntry(

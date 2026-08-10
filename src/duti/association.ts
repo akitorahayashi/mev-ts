@@ -2,8 +2,17 @@ import { ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
-import { isRecord, requireExactKeys, requireUniqueBy } from '../host/parse';
+import {
+  isRecord,
+  requireExactKeys,
+  requireNonEmptyString,
+  requireUniqueBy,
+} from '../host/parse';
 import { loadYaml } from '../host/yaml';
+
+// A reverse-DNS bundle identifier, the form both the manifest declares and
+// `duti -x` reports back.
+const BUNDLE_ID = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$/;
 
 export interface Association {
   readonly bundleId: string;
@@ -42,13 +51,11 @@ export function parseAssociations(raw: string, path: string): Association[] {
       ['bundle_id', 'extensions'],
       'Invalid entry in duti config',
     );
-    const bundleId = app['bundle_id'];
-    if (typeof bundleId !== 'string' || bundleId.length === 0) {
-      throw new ProvisioningError(
-        'Invalid entry in duti config: each app must have a string bundle_id.',
-      );
-    }
-    if (!/^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$/.test(bundleId)) {
+    const bundleId = requireNonEmptyString(
+      app['bundle_id'],
+      "Invalid entry in duti config: 'bundle_id'",
+    );
+    if (!BUNDLE_ID.test(bundleId)) {
       throw new ProvisioningError(
         `Invalid entry in duti config for '${bundleId}': bundle_id must be a reverse-DNS identifier.`,
       );
@@ -112,7 +119,7 @@ export async function currentApp(
   const bundleId = result.stdout
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$/.test(line))
+    .filter((line) => BUNDLE_ID.test(line))
     .at(-1);
   return bundleId ?? null;
 }

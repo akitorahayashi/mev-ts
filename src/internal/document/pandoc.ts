@@ -1,7 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
-import { type CommandRunner, formatCommandFailure } from '../../host/command';
-import { DocumentConversionError } from './conversion-error';
+import type { CommandRunner } from '../../host/command';
+import { runProcessStep } from '../../host/command-run';
+import { documentConversionError } from './conversion-error';
 import printStyles from './print.css' with { type: 'text' };
 import { htmlTemplate } from './template';
 
@@ -137,12 +138,13 @@ export async function renderMarkdownHtml(
     ...assets.stylesheets.map((path) => `--css=${path}`),
     input,
   ];
-  const result = await run.run('pandoc', args, { cwd: dirname(input) });
-  if (result.code !== 0) {
-    throw new DocumentConversionError(
-      formatCommandFailure(`Failed to render '${input}'`, result),
-    );
-  }
+  const result = await runProcessStep(
+    run,
+    'pandoc',
+    args,
+    `Failed to render '${input}'`,
+    { cwd: dirname(input), raise: documentConversionError },
+  );
   return {
     html: result.stdout,
     warning: result.stderr.trim() || undefined,

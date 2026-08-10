@@ -1,4 +1,3 @@
-import { tmpdir } from 'node:os';
 import type { AssetSource } from '../../src/assets/registry';
 import type { CommandOptions, CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
@@ -60,7 +59,10 @@ export function recordingContext(options: RecordingContextOptions): {
     home: options.home,
     assets: options.assets ?? emptyAssets,
     basePath: options.basePath ?? '',
-    tmpRoot: options.tmpRoot ?? tmpdir(),
+    // Defaults to the sandbox home, not the real system temp root: a fixture
+    // that invited scratch files into $TMPDIR is how tests started leaking
+    // outside their sandbox.
+    tmpRoot: options.tmpRoot ?? options.home,
     commands: {
       async run(command, args, opts) {
         calls.push({ command, args: [...args], options: opts });

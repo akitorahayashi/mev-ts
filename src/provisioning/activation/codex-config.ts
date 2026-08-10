@@ -28,12 +28,6 @@ export function describeCodexConfig(
   };
 }
 
-export function codexConfigAssets(
-  activation: CodexConfigActivation,
-): readonly string[] {
-  return [activation.source.key];
-}
-
 /**
  * Enforce the declared TOML values into the codex-owned config file. The
  * destination is a regular file, never a symlink into the deploy store: codex
@@ -68,8 +62,8 @@ export async function runCodexConfig(
       return { ...base, status: 'unchanged' };
     }
     await mkdir(dirname(dest), { recursive: true });
-    // The atomic rename replaces the destination path itself, so a legacy
-    // symlink becomes a regular file instead of being written through.
+    // The atomic rename replaces the destination path itself, so a symlink
+    // found there becomes a regular file instead of being written through.
     await writeFileAtomically(dest, serializeToml(merged));
     return { ...base, status: 'changed' };
   });

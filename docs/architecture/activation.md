@@ -1,11 +1,12 @@
 # Activation DSL (provisioning/activation/)
 
-The `activation/` module is the internal DSL for all provisioning operations. Targets declare what they want using factories exported from `activation/index.ts`; the runtime dispatches by `kind`.
+The `activation/` module is the internal DSL for all provisioning operations. Targets declare what they want using factories exported from `activation/index.ts`; the runtime dispatches by `kind` through one per-kind registry.
 
 ```
 activation/
-  contract.ts   Activation union, ActivationReport, StepReport, CommandScope, Verb — pure types
-  dispatch.ts   runActivation() switch, describeActivation(), blockedReport()
+  contract.ts   Activation union, ActivationReport, StepReport, CommandScope, Verb, AssetReference, AssetCheck — pure types
+  kinds.ts      The per-kind registry: describe, run, asset references, build-time checks
+  dispatch.ts   runActivation(), describeActivation(), blockedReport() — lookups into kinds.ts
   reconcile.ts  ReconcileSpec/ReconcileStep envelope; reconcile() drives declare→steps→report
   manifest.ts   readDeployedManifest() with ENOENT-only not-found translation
   symlink.ts    'file' + 'tree' factories and runners
@@ -18,7 +19,6 @@ activation/
   coder.ts      'coderAgents' + 'coderSkills' factories and runners
   codex-config.ts 'codexConfig' factory and runner
   zed.ts        'zedSettings' factory and runner
-  materialized-file.ts 'materializedFile' factory and runner
   grove-config.ts 'groveConfig' factory and runner
   command.ts    'command' factory and step execution engine
   release.ts    'release' factory and runner
@@ -28,12 +28,11 @@ activation/
 
 ## Kinds
 
-Seventeen activation kinds:
+Sixteen activation kinds:
 
 | Kind | Factory | What it does |
 |---|---|---|
 | `file` | `link(source, dest)` | Symlinks one deployed asset to a host path, replacing the declared destination |
-| `materializedFile` | `materializeFile(source, dest)` | Places one deployed asset as a regular host file; an identical regular file is unchanged, while other destination states are replaced atomically |
 | `groveConfig` | `groveConfig(source, dest)` | Renders stock GitHub SSH URLs through the per-machine host alias and materializes the Grove catalog as a regular file |
 | `tree` | `linkTree(prefix, dest)` | Mirrors every asset under a prefix; replaces declared destinations and prunes managed stale links |
 | `defaults` | `applyDefaults(configKey)` | Reads a YAML list and runs `defaults write` per entry |
@@ -49,6 +48,14 @@ Seventeen activation kinds:
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches GitHub release binaries at a pinned tag or the repository's latest release; skips when the installed binary already reports that tag's version, and re-resolves `latest` only in upgrade mode |
 | `remoteInstaller` | `remoteInstaller({ label, url, interpreter, args, creates, integrity })` | Downloads a reviewed HTTPS installer script or binary to a temporary file, satisfies its required `integrity` discriminant, runs it with declared arguments, and cleans the temporary file |
+
+## Kind Registry
+
+`kinds.ts` maps each `Activation['kind']` to one `KindHandler`: how to describe it, how to run it, which embedded assets it references, and which of those are parsed before the binary is built. Everything that dispatches on kind — `describeActivation`, `runActivation`, `validateEmbeddedAssets`, and the registry test's asset-existence invariant — is a lookup into this one table.
+
+The registry's type is a mapped type over the union, so a new kind is a compile error in `kinds.ts` and nowhere else. Previously the same knowledge lived in four parallel tables (two dispatch switches, preflight's parser pairing, and the test's reference switch), each of which had to be taught about a new kind separately.
+
+A manifest-backed kind contributes its whole handler from `manifestKind`, including its build-time check, which reuses the same `parse` function its runner uses at apply time. That is what keeps CI validation and runtime parsing from diverging: a parser swap moves both at once, because there is only one.
 
 ## Reconcile Envelope
 

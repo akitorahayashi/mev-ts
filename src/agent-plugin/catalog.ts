@@ -1,5 +1,5 @@
 import { ProvisioningError } from '../errors';
-import type { Repository } from '../github/repository';
+import { parseRepository, type Repository } from '../github/repository';
 import {
   requireExactKeys,
   requireRecord,
@@ -8,7 +8,16 @@ import {
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
-export const pluginClients = ['claude', 'codex'] as const;
+/**
+ * The branch every first-party marketplace is tracked from. Missing plugins
+ * install from it, but installed ones are upgraded only by an explicit
+ * `--upgrade` run — see docs/architecture/agent-plugins.md. One owner, because
+ * the two clients spell the same ref differently (a URL fragment versus a flag)
+ * and a probe compares against it.
+ */
+export const MARKETPLACE_REF = 'main';
+
+const pluginClients = ['claude', 'codex'] as const;
 export type PluginClient = (typeof pluginClients)[number];
 
 export interface PluginMarketplace {
@@ -40,20 +49,6 @@ function requireSafeName(value: unknown, label: string): string {
     );
   }
   return value;
-}
-
-function requireRepo(value: unknown, label: string): Repository {
-  const segments = typeof value === 'string' ? value.split('/') : [];
-  if (segments.length !== 2) {
-    throw new ProvisioningError(
-      `${label} must be a GitHub repository in owner/name form.`,
-    );
-  }
-  const [owner = '', name = ''] = segments;
-  return {
-    owner: requireSafeName(owner, `${label} owner`),
-    name: requireSafeName(name, `${label} name`),
-  };
 }
 
 function requireClient(value: unknown, label: string): PluginClient {
@@ -91,7 +86,7 @@ function parseMarketplace(value: unknown, index: number): PluginMarketplace {
     ['client', 'repo', 'name', 'plugins', 'uninstall'],
     label,
   );
-  const repo = requireRepo(record['repo'], `${label} repo`);
+  const repo = parseRepository(record['repo'], `${label} repo`);
   const plugins = requireStringArray(record['plugins'], `${label} plugins`);
   if (plugins.length === 0) {
     throw new ProvisioningError(`${label} plugins must not be empty.`);
@@ -128,7 +123,7 @@ function parseRemovedMarketplace(
   const label = `Agent plugin catalog removed marketplace ${index + 1}`;
   const record = requireRecord(value, label);
   requireExactKeys(record, ['client', 'repo', 'name'], label);
-  const repo = requireRepo(record['repo'], `${label} repo`);
+  const repo = parseRepository(record['repo'], `${label} repo`);
   return {
     client: requireClient(record['client'], `${label} client`),
     repo,

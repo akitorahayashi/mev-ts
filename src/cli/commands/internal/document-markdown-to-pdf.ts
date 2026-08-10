@@ -1,7 +1,7 @@
 import { tmpdir } from 'node:os';
 import { Command, Option } from 'clipanion';
 import { convertMarkdownToPdf } from '../../../internal/document/markdown-to-pdf';
-import { runInternalCommand } from './command';
+import { runInternalCommand } from './run';
 
 export class InternalDocumentMarkdownToPdfCommand extends Command {
   static override paths = [['internal', 'document', 'markdown-to-pdf']];

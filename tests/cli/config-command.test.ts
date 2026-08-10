@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { type BaseContext, Cli } from 'clipanion';
-import { defineConfigCommand } from '../../src/cli/commands/config/command';
+import { defineConfigCommand } from '../../src/cli/commands/config/namespace';
 import { captureStreams } from '../fixtures/streams';
 
 // The config toggle's diagnostics (skew warnings) belong on stderr, matching
@@ -9,7 +9,8 @@ import { captureStreams } from '../fixtures/streams';
 // interactive prompt.
 test('the config toggle routes its warn writer to stderr, not stdout', async () => {
   const ConfigCommand = defineConfigCommand({
-    paths: [['config-warn-probe']],
+    name: 'warn-probe',
+    abbreviation: 'wp',
     description: 'probe',
     clearDescription: 'clear probe',
     runSelect: async (_home, warn) => {
@@ -22,7 +23,7 @@ test('the config toggle routes its warn writer to stderr, not stdout', async () 
   const streams = captureStreams();
 
   const code = await cli.run(
-    ['config-warn-probe'],
+    ['config', 'warn-probe'],
     streams as unknown as Partial<BaseContext>,
   );
 
