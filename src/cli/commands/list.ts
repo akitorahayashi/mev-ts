@@ -10,6 +10,8 @@ export class ListCommand extends Command {
   });
 
   async execute(): Promise<void> {
-    this.context.stdout.write(renderTargetList(resolveIsTTY()));
+    this.context.stdout.write(
+      renderTargetList(resolveIsTTY(this.context.stdout)),
+    );
   }
 }

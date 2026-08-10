@@ -23,7 +23,7 @@ export class MakeCommand extends Command {
       executeProvisioningRun({
         selectors: this.selectors,
         upgrade: this.upgrade,
-        out: (text) => this.context.stdout.write(text),
+        stream: this.context.stdout,
       }),
     );
   }

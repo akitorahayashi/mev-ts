@@ -30,6 +30,16 @@ export function requireStringArray(value: unknown, label: string): string[] {
   return value;
 }
 
+export function parseJsonLabeled(raw: string, label: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new ProvisioningError(
+      `${label} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 export function requireExactKeys(
   record: Record<string, unknown>,
   keys: readonly string[],

@@ -12,6 +12,26 @@ export async function transactionDirectory(path: string): Promise<string> {
   return mkdtemp(join(parent, `.${basename(path)}.`));
 }
 
+/** The six random characters `mkdtemp` substitutes for the template's `XXXXXX`. */
+const MKDTEMP_SUFFIX = /\.[A-Za-z0-9]{6}$/;
+
+/** Shortest name `transactionDirectory` can produce: dot, one-character basename, dot, six characters. */
+const SHORTEST_ARTIFACT = 1 + 1 + 1 + 6;
+
+/**
+ * Whether a directory entry is a staging directory left behind by
+ * `transactionDirectory`. Lives beside the generator so a change to the naming
+ * reaches every consumer: a pruner working from its own copy of the pattern
+ * would stop recognizing retained transactions and delete them as strays.
+ */
+export function isTransactionArtifact(name: string): boolean {
+  return (
+    name.startsWith('.') &&
+    MKDTEMP_SUFFIX.test(name) &&
+    name.length >= SHORTEST_ARTIFACT
+  );
+}
+
 export interface SwapPaths {
   readonly dest: string;
   readonly staged: string;

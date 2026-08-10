@@ -1,4 +1,5 @@
 import { UsageError } from 'clipanion';
+import { hasCleanupError } from './host/cleanup-error';
 
 /**
  * Error taxonomy for the CLI:
@@ -43,9 +44,8 @@ function formatError(error: unknown, seen: Set<Error>): string {
         .join('; ')}`,
     );
   }
-  if (Object.hasOwn(error, 'cleanupError')) {
-    const cleanup = (error as Error & { cleanupError: unknown }).cleanupError;
-    details.push(`cleanup failed: ${formatError(cleanup, seen)}`);
+  if (hasCleanupError(error)) {
+    details.push(`cleanup failed: ${formatError(error.cleanupError, seen)}`);
   }
 
   return details.length === 0 ? message : `${message}; ${details.join('; ')}`;

@@ -6,7 +6,14 @@ import type { ActivationGroupReport } from './run';
  * target, independent of how it is rendered. The TTY layer consumes a status
  * and a one-line summary and only decides how they look.
  */
-export type GroupStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
+export const GROUP_STATUSES = [
+  'changed',
+  'unchanged',
+  'failed',
+  'blocked',
+] as const;
+
+export type GroupStatus = (typeof GROUP_STATUSES)[number];
 
 /** The canonical one-line description of a single activation. */
 export function activationLine(report: Described): string {

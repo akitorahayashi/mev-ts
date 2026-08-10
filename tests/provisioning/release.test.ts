@@ -114,15 +114,21 @@ sandboxTest('a pinned binary that is absent is fetched', async (home) => {
     status: 'changed',
   });
   expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
-  // Transport is pinned to HTTPS on request and redirect, with a TLS floor.
+  // Transport is pinned to HTTPS on request and redirect, with a TLS floor,
+  // and a stalled server cannot hang provisioning indefinitely.
   const curl = calls.find((call) => call.command === 'curl');
-  expect(curl?.args.slice(0, 6)).toEqual([
+  expect(curl?.args.slice(0, 11)).toEqual([
     '-fsSL',
     '--proto',
     '=https',
     '--proto-redir',
     '=https',
     '--tlsv1.2',
+    '--connect-timeout',
+    '30',
+    '--retry',
+    '2',
+    '--retry-connrefused',
   ]);
 });
 
@@ -333,6 +339,32 @@ sandboxTest(
     expect(report.status).toBe('failed');
     expect(report.error).toContain('Release binaries manifest');
     expect(calls).toHaveLength(0);
+  },
+);
+
+sandboxTest(
+  'a latest-release response that is not JSON fails as a typed error',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    const { context } = recordingContext({
+      home,
+      tmpRoot: home,
+      assets: emptyAssets,
+      async respond(command, args) {
+        if (command === 'uname') return ok('arm64');
+        if (command === 'curl') {
+          await writeFile(args[args.indexOf('-o') + 1] as string, '<html>502');
+          return ok();
+        }
+        return fail('not installed');
+      },
+    });
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    // A raw SyntaxError here would escape the taxonomy the CLI reports through.
+    expect(report.entries?.[0]?.error).toContain('is not valid JSON');
   },
 );
 

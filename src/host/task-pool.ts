@@ -10,12 +10,21 @@ export async function mapWithConcurrency<T, R>(
   }
   const results = new Array<R>(items.length);
   let next = 0;
+  // Once one mapper rejects, `Promise.all` has already settled on that error, so
+  // continuing to dispatch would run work whose result nobody reads — and, for a
+  // mapper with host effects, would keep mutating past the failure.
+  let failed = false;
 
   async function worker(): Promise<void> {
-    while (next < items.length) {
+    while (!failed && next < items.length) {
       const index = next;
       next += 1;
-      results[index] = await mapper(items[index] as T, index);
+      try {
+        results[index] = await mapper(items[index] as T, index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   }
 

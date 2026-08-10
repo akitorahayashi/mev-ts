@@ -52,6 +52,9 @@ test('list routes to the target listing under both its name and alias', async ()
   expect(byName.code).toBe(0);
   expect(byName.stdout).toContain('git');
   expect(byName.stdout).toContain('TARGET');
+  // Styling follows the injected sink, not the terminal the suite runs in, so
+  // this holds whether or not the run is interactive.
+  expect(byName.stdout).not.toContain('\x1b[');
 
   const byAlias = await runCli(['ls']);
   expect(byAlias.code).toBe(0);

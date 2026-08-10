@@ -2,7 +2,7 @@ import type { ActivationReport } from '../../provisioning/activation';
 import type { DeployResult } from '../../provisioning/deploy';
 import {
   activationLine,
-  type GroupStatus,
+  GROUP_STATUSES,
   groupStatus,
   summarizeGroup,
 } from '../../provisioning/group-outcome';
@@ -27,12 +27,9 @@ interface ReportOptions {
 }
 
 // The widest status word, so the summary column aligns after the status regardless
-// of which status a target ended in.
-const STATUS_WIDTH = Math.max(
-  ...(
-    ['changed', 'unchanged', 'failed', 'blocked'] satisfies GroupStatus[]
-  ).map((status) => status.length),
-);
+// of which status a target ended in. Derived from the status list rather than a
+// local copy, so a new status widens the column instead of misaligning it.
+const STATUS_WIDTH = Math.max(...GROUP_STATUSES.map((status) => status.length));
 
 export function renderDeployLine(
   result: DeployResult,

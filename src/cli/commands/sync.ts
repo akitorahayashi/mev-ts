@@ -55,7 +55,7 @@ export class SyncCommand extends Command {
         upgrade: this.upgrade,
         intro: 'mev: Syncing environment',
         run: (request) => runMake(request, context),
-        out: (text) => this.context.stdout.write(text),
+        stream: this.context.stdout,
       });
       return code === 0 && scanFailed ? 1 : code;
     });

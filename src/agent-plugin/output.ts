@@ -1,4 +1,4 @@
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import type { CommandRunner } from '../host/command';
 import { formatCommandFailure } from '../host/command';
 import { runProcessCapture } from '../host/command-run';
@@ -18,7 +18,8 @@ export async function capturePluginJson(
   try {
     return JSON.parse(result.stdout);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new ProvisioningError(`${label} returned invalid JSON: ${detail}`);
+    throw new ProvisioningError(
+      `${label} returned invalid JSON: ${errorMessage(error)}`,
+    );
   }
 }

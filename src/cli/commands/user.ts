@@ -61,7 +61,9 @@ export class UserShowCommand extends Command {
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
       const view = await showIdentity(liveCommandDeps());
-      this.context.stdout.write(`${renderIdentities(view, resolveIsTTY())}\n`);
+      this.context.stdout.write(
+        `${renderIdentities(view, resolveIsTTY(this.context.stdout))}\n`,
+      );
     });
   }
 }

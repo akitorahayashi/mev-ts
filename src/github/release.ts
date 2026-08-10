@@ -3,11 +3,13 @@ import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
 import { isNotFound } from '../host/absence';
 import { replaceFileAtomically } from '../host/atomic-file';
+import { runWithCleanup } from '../host/cleanup-error';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { downloadOverHttps } from '../host/https-download';
 import {
   isRecord,
+  parseJsonLabeled,
   requireExactKeys,
   requireRecord,
   requireUniqueBy,
@@ -218,28 +220,31 @@ export async function resolveLatestTag(
   context: Context,
 ): Promise<string> {
   const workspace = await mkdtemp(join(context.tmpRoot, 'mev-release-'));
-  try {
-    const path = join(workspace, 'release.json');
-    await downloadOverHttps(
-      context.commands,
-      `https://api.github.com/repos/${binary.repo}/releases/latest`,
-      path,
-      `${binary.name} latest release`,
-    );
-    const release = requireRecord(
-      JSON.parse(await readFile(path, 'utf8')),
-      `Latest release of ${binary.repo}`,
-    );
-    const tag = release['tag_name'];
-    if (typeof tag !== 'string' || !SAFE_TAG.test(tag) || tag === latestTag) {
-      throw new ProvisioningError(
-        `Latest release of ${binary.repo} reported an unusable tag_name '${String(tag)}'.`,
+  return runWithCleanup(
+    async () => {
+      const path = join(workspace, 'release.json');
+      const label = `Latest release of ${binary.repo}`;
+      await downloadOverHttps(
+        context.commands,
+        `https://api.github.com/repos/${binary.repo}/releases/latest`,
+        path,
+        `${binary.name} latest release`,
       );
-    }
-    return tag;
-  } finally {
-    await rm(workspace, { force: true, recursive: true });
-  }
+      const release = requireRecord(
+        parseJsonLabeled(await readFile(path, 'utf8'), label),
+        label,
+      );
+      const tag = release['tag_name'];
+      if (typeof tag !== 'string' || !SAFE_TAG.test(tag) || tag === latestTag) {
+        throw new ProvisioningError(
+          `${label} reported an unusable tag_name '${String(tag)}'.`,
+        );
+      }
+      return tag;
+    },
+    () => rm(workspace, { force: true, recursive: true }),
+    `Failed to clean up release workspace ${workspace}.`,
+  );
 }
 
 /**

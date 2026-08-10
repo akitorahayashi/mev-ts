@@ -1,3 +1,14 @@
+/**
+ * Whether `error` carries a cleanup failure attached by this module. The
+ * property is the contract between here and the error formatter, so the name
+ * lives behind this guard rather than being sniffed by string at the far end.
+ */
+export function hasCleanupError(
+  error: Error,
+): error is Error & { readonly cleanupError: unknown } {
+  return Object.hasOwn(error, 'cleanupError');
+}
+
 function attachCleanupError(primary: Error, cleanup: unknown): Error {
   Object.defineProperty(primary, 'cleanupError', {
     configurable: true,
