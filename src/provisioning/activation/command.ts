@@ -144,25 +144,6 @@ function scopeFor(bindings: ReadonlyMap<string, string>): CommandScope {
   };
 }
 
-export function commandReadKey(read: CommandRead): string {
-  return typeof read === 'string' ? read : read.key;
-}
-
-/**
- * The bound value of a command read, given the raw asset content. A `derive` read
- * binds a transform of the untrimmed content; otherwise the trimmed value is
- * bound after an optional `validate` over that same trimmed value. The single
- * owner of read semantics, shared by runtime binding and preflight so both accept
- * and reject identical content.
- */
-export function bindCommandRead(read: CommandRead, raw: string): string {
-  if (typeof read === 'string') return raw.trim();
-  if ('derive' in read) return read.derive(raw);
-  const value = raw.trim();
-  read.validate(value, read.key);
-  return value;
-}
-
 /**
  * Seed the scope with the reserved host facts (`home`, `basePath`) and the assets
  * declared in `reads`, so every step's tokens resolve against one map.
@@ -175,9 +156,8 @@ async function readBindings(
     ['home', context.home],
     ['basePath', context.basePath],
   ]);
-  for (const [name, read] of Object.entries(reads)) {
-    const raw = (await context.assets.read(commandReadKey(read))).toString();
-    bindings.set(name, bindCommandRead(read, raw));
+  for (const [name, key] of Object.entries(reads)) {
+    bindings.set(name, (await context.assets.read(key)).toString().trim());
   }
   return bindings;
 }

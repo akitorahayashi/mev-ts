@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { type BaseContext, Cli } from 'clipanion';
-import { defineConfigCommand } from '../../src/cli/commands/config/command';
+import { defineConfigCommand } from '../../src/cli/commands/config/namespace';
 import { captureStreams } from '../fixtures/streams';
 
 // The config toggle's diagnostics (skew warnings) belong on stderr, matching

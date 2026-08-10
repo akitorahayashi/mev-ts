@@ -38,7 +38,7 @@ async function readJson(path: string, label: string): Promise<JsonObject> {
   return parseJsonObject(raw, path, label);
 }
 
-export async function renderSettings(
+async function renderSettings(
   basePath: string,
   sourceDir: string,
   enabled: readonly string[],

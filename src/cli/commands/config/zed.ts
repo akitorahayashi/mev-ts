@@ -2,7 +2,7 @@ import {
   configSelectZedOverrides,
   configSelectZedOverridesClear,
 } from '../../../app/zed';
-import { defineConfigCommand } from './command';
+import { defineConfigCommand } from './namespace';
 
 export const ConfigZedCommand = defineConfigCommand({
   paths: [

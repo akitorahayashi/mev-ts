@@ -1,6 +1,6 @@
 import { Command, Option } from 'clipanion';
 import { convertPdfToMarkdown } from '../../../internal/document/pdf-to-markdown';
-import { runInternalCommand } from './command';
+import { runInternalCommand } from './run';
 
 export class InternalDocumentPdfToMarkdownCommand extends Command {
   static override paths = [['internal', 'document', 'pdf-to-markdown']];

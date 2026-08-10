@@ -39,7 +39,7 @@ export interface ManifestKind<A extends ManifestActivation> {
 
 /**
  * Build the describe/configAssets/run trio shared by every manifest-backed
- * activation kind (defaults, duti, pipx, editorExtensions, release). Each kind
+ * activation kind. Each kind
  * supplies only its parse, label, description, and step builder; the reconcile
  * envelope, the single-asset `configAssets` ceremony, and the deployed-manifest
  * read live here once instead of being copied per kind.

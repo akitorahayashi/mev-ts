@@ -1,7 +1,7 @@
 import { Command } from 'clipanion';
 import { renderNamespaceOverview } from '../../tty/namespace-overview';
 import { withAliasHint } from '../alias-hint';
-import { CONFIG_CATEGORY } from './command';
+import { CONFIG_CATEGORY } from './namespace';
 
 export class ConfigHelpCommand extends Command {
   static override paths = [['config'], ['cf']];

@@ -1,7 +1,6 @@
 import { asset } from '../../assets/ref';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../coder/paths';
-import { home, mevPath, resolveHostPath } from '../../host/path';
-import { materializeSymlink } from '../../host/symlink';
+import { home, mevPath } from '../../host/path';
 import {
   brewPath,
   brewPrefixCapture,
@@ -34,14 +33,6 @@ export const coderTarget = target('coder', {
   aliases: ['cdr'],
   role: 'coder',
   packages: { formulae: ['rtk'] },
-  // Machines provisioned before codexConfig still have this path symlinked into
-  // the deploy store, where codex has been writing its plugin, marketplace, and
-  // MCP registrations. The deploy phase replaces that store file, so the state
-  // is detached into a regular file first and codexConfig then merges the
-  // declared keys into it; without this the first upgraded run loses it.
-  preserveBeforeDeploy: async (context) => {
-    await materializeSymlink(resolveHostPath(CODEX_CONFIG, context.home));
-  },
   activations: [
     remoteInstaller({
       label: 'install claude',

@@ -29,7 +29,7 @@ An absent manifest means an empty stored list, interpreted per polarity (all ena
 
 ## Zed Settings Merge
 
-`renderSettings` (`zed/settings.ts`) builds the deployed `settings.json` from the base settings asset plus the enabled overrides, in catalog order:
+`zed/settings.ts` builds the deployed `settings.json` from the base settings asset plus the enabled overrides, in catalog order:
 
 - `combineOverrides` (`zed/merge.ts`) deep-merges the enabled overrides into one fragment first, tracking which override name owns each JSON path. Two overrides setting the same leaf key throw a `ProvisioningError` naming both, rather than letting catalog order silently decide a winner — including the asymmetric case where one override sets an entire subtree as a primitive while another nests keys under that same path, in either declaration order.
 - `deepMerge` then applies the combined overrides onto the base settings, with the overlay winning on every leaf it defines.

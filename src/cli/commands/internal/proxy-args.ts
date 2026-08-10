@@ -1,6 +1,6 @@
 import type { Command } from 'clipanion';
 import type { CommandRunner } from '../../../host/command';
-import { runInternalCommand } from './command';
+import { runInternalCommand } from './run';
 
 /**
  * Shared execute body for the internal git commands that forward proxied argv to

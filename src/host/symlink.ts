@@ -1,7 +1,6 @@
 import { readlink, rename, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { lstatIfPresent, readTextIfPresent } from './absence';
-import { writeFileAtomically } from './atomic-file';
+import { lstatIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
 import { swapWithBackup, transactionDirectory } from './transaction';
 
@@ -14,21 +13,6 @@ export async function isSymlinkTo(
     return false;
   }
   return (await readlink(link)) === target;
-}
-
-/**
- * Replace a symlink at `path` with a regular file holding the contents it
- * currently resolves to, detaching later writes from the link target. Returns
- * whether the path was materialized. A regular file is already detached and a
- * dangling link holds no contents to keep, so both are left untouched.
- */
-export async function materializeSymlink(path: string): Promise<boolean> {
-  const stats = await lstatIfPresent(path);
-  if (!stats?.isSymbolicLink()) return false;
-  const contents = await readTextIfPresent(path);
-  if (contents === null) return false;
-  await writeFileAtomically(path, contents);
-  return true;
 }
 
 /**

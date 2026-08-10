@@ -44,10 +44,7 @@ const SAFE_ASSET_NAME = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_TAG = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 
-export function releaseAssetName(
-  binary: ReleaseBinary,
-  arch: ReleaseArch,
-): string {
+function releaseAssetName(binary: ReleaseBinary, arch: ReleaseArch): string {
   return `${binary.name}-${OS}-${arch}`;
 }
 

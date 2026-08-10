@@ -22,7 +22,7 @@ export type PnpmEntry =
   | { readonly action: 'uninstall'; readonly name: string };
 
 // npm registry names are case-insensitively unique, so identity dedup lowers.
-export function packageKey(name: string): string {
+function packageKey(name: string): string {
   return name.toLowerCase();
 }
 

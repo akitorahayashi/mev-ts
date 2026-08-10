@@ -10,7 +10,7 @@ async function matchesRegularFile(
   expectedMode: number,
 ): Promise<boolean> {
   const current = await lstatIfPresent(path);
-  if (!current?.isFile() || current.isSymbolicLink()) return false;
+  if (!current?.isFile()) return false;
   if ((current.mode & 0o111) !== (expectedMode & 0o111)) return false;
   if (current.size !== expected.byteLength) return false;
   return (await readFile(path)).equals(expected);

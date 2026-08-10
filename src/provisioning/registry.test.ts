@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 import { embeddedAssets } from '../assets/registry';
-import { commandReadKey } from './activation/command';
 import type { Activation } from './activation/contract';
 import {
   allTargets,
@@ -24,7 +23,6 @@ type AssetReference = { readonly key: string } | { readonly prefix: string };
 function referencedAssets(activation: Activation): AssetReference[] {
   switch (activation.kind) {
     case 'file':
-    case 'materializedFile':
     case 'groveConfig':
       return [{ key: activation.source.key }];
     case 'tree':
@@ -49,9 +47,7 @@ function referencedAssets(activation: Activation): AssetReference[] {
     case 'codexConfig':
       return [{ key: activation.source.key }];
     case 'command':
-      return Object.values(activation.reads ?? {}).map((read) => ({
-        key: commandReadKey(read),
-      }));
+      return Object.values(activation.reads ?? {}).map((key) => ({ key }));
     case 'remoteInstaller':
       return [];
     default:

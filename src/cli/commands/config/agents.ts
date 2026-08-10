@@ -1,5 +1,5 @@
 import { configSelect, configSelectClear } from '../../../app/coder';
-import { defineConfigCommand } from './command';
+import { defineConfigCommand } from './namespace';
 
 export const ConfigAgentsCommand = defineConfigCommand({
   paths: [

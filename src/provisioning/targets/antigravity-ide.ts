@@ -1,4 +1,4 @@
-import { editorTarget } from './editor-target';
+import { editorTarget } from './editor';
 
 export const antigravityIdeTarget = editorTarget({
   name: 'antigravity_ide',

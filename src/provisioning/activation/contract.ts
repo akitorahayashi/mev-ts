@@ -26,11 +26,6 @@ export type Activation =
       readonly dest: HostPath;
     }
   | {
-      readonly kind: 'materializedFile';
-      readonly source: AssetRef;
-      readonly dest: HostPath;
-    }
-  | {
       readonly kind: 'groveConfig';
       readonly source: AssetRef;
       readonly dest: HostPath;
@@ -145,19 +140,14 @@ export type CommandEnvValue =
   | { readonly pathList: readonly CommandArg[] };
 
 /**
- * A named asset read for a command activation. A bare string is the asset key.
- * The object form adds one of: `validate`, a throwing-only guard over the
- * trimmed value exactly as it will be bound (its `void` return cannot transform
- * the binding); or `derive`, which maps the raw asset content to the bound value
- * (throwing to reject), for a read whose bound form is a transform of the file.
+ * The asset key of a named read for a command activation; its trimmed content
+ * becomes the bound value. Deliberately data, not a function: `signature.ts`
+ * drops function values from the hash, so a callable read form would let an
+ * edit to its body change the bound value without flipping the target
+ * signature, and `sync` would skip a target that is genuinely stale. Express
+ * any future validation as data (`{ key, pattern }`) so it hashes.
  */
-export type CommandRead =
-  | string
-  | {
-      readonly key: string;
-      readonly validate: (value: string, path: string) => void;
-    }
-  | { readonly key: string; readonly derive: (raw: string) => string };
+export type CommandRead = string;
 
 export type StepGuard =
   | { readonly pathExists: CommandArg }

@@ -18,10 +18,6 @@ import { describeDefaults, runDefaults } from './defaults';
 import { describeDuti, runDuti } from './duti';
 import { describeExtensions, runExtensions } from './extensions';
 import { describeGroveConfig, runGroveConfig } from './grove-config';
-import {
-  describeMaterializedFile,
-  runMaterializedFile,
-} from './materialized-file';
 import { describePipx, runPipx } from './pipx';
 import { describePnpm, runPnpm } from './pnpm';
 import { describeRelease, runRelease } from './release';
@@ -37,8 +33,6 @@ export function describeActivation(activation: Activation): Described {
   switch (activation.kind) {
     case 'file':
       return describeFile(activation);
-    case 'materializedFile':
-      return describeMaterializedFile(activation);
     case 'groveConfig':
       return describeGroveConfig(activation);
     case 'tree':
@@ -91,8 +85,6 @@ export function runActivation(
   switch (activation.kind) {
     case 'file':
       return runFile(activation, context);
-    case 'materializedFile':
-      return runMaterializedFile(activation, context);
     case 'groveConfig':
       return runGroveConfig(activation, context);
     case 'tree':

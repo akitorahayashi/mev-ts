@@ -8,7 +8,7 @@ import {
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
-export const pluginClients = ['claude', 'codex'] as const;
+const pluginClients = ['claude', 'codex'] as const;
 export type PluginClient = (typeof pluginClients)[number];
 
 export interface PluginMarketplace {

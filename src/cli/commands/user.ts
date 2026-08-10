@@ -19,7 +19,7 @@ import { runReportingDomainErrors } from './domain-error';
  * overview, so the overview's category filter cannot drift from the value the
  * subcommands register under.
  */
-export const USER_CATEGORY = 'user';
+const USER_CATEGORY = 'user';
 
 export class UserHelpCommand extends Command {
   static override paths = [['user'], ['us']];

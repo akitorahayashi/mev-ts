@@ -13,10 +13,8 @@ import { parseManifest as parsePnpmManifest } from '../pnpm/manifest';
 import { parseJsonObject } from '../zed/settings';
 import {
   agentPluginsConfigAssets,
-  bindCommandRead,
   coderAgentsConfigAssets,
   codexConfigAssets,
-  commandReadKey,
   defaultsConfigAssets,
   dutiConfigAssets,
   extensionsConfigAssets,
@@ -42,7 +40,7 @@ interface AssetCheck {
 }
 
 /**
- * The config assets a kind validates before provisioning, with each kind naming
+ * The config assets a kind validates, with each kind naming
  * its own keys (via its `configAssets`) rather than preflight guessing them. The
  * switch has no `default`, so a new kind is a compile-time prompt to declare its
  * check here. Kinds without an embedded config asset to validate — including
@@ -137,7 +135,6 @@ function assetCheckFor(activation: Activation): AssetCheck | null {
         },
       };
     case 'file':
-    case 'materializedFile':
     case 'tree':
     case 'command':
     case 'remoteInstaller':
@@ -171,13 +168,10 @@ async function validateActivation(
     }
   }
   if (activation.kind === 'command') {
-    // Read and bind every declared key exactly as runtime will, so a missing
-    // asset (including a bare-string read) and any `validate`/`derive` rejection
-    // surface here rather than only during provisioning.
-    for (const read of Object.values(activation.reads ?? {})) {
-      await validateAsset(commandReadKey(read), assets, (raw) => {
-        bindCommandRead(read, raw);
-      });
+    // A read declares only an asset key, so the check is existence: an absent
+    // key fails the build instead of failing mid-provisioning.
+    for (const key of Object.values(activation.reads ?? {})) {
+      await validateAsset(key, assets, () => {});
     }
   }
   if (activation.kind === 'zedSettings') {
@@ -189,6 +183,14 @@ async function validateActivation(
   }
 }
 
+/**
+ * Parse every config asset each target declares, so a manifest that no parser
+ * accepts fails the build rather than a provisioning run. The gate is
+ * build-time only: `scripts/validate-assets.ts` invokes it from the
+ * `precheck`/`pretypecheck` hooks and `build-bundle.ts` re-runs it before every
+ * compile. `runMake` never calls it — a shipped binary's assets are already
+ * validated.
+ */
 export async function validateEmbeddedAssets(
   assets: AssetSource,
   targets: readonly Target[] = allTargets(),

@@ -7,7 +7,6 @@ import {
   blockedReport,
   type Described,
   describeActivation,
-  migrateLegacySymlinks,
   runActivation,
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
@@ -131,16 +130,9 @@ interface DeployPhaseResult {
   readonly deploys: readonly DeployResult[];
   /** Role -> failure message; every group with that role cannot activate. */
   readonly failedRoles: ReadonlyMap<string, string>;
-  /** Target name -> migration failure message; blocks only that one group. */
-  readonly failedMigrations: ReadonlyMap<string, string>;
 }
 
-/**
- * Phase 1: deploy each role's config, then migrate any legacy symlinks for the
- * groups whose role deployed cleanly. Deploy failures are keyed by role (they
- * affect every group sharing it); migration runs per group, so its failures are
- * keyed by target name and block only that group.
- */
+/** Phase 1: deploy each role's config, keying failures by role so every group sharing that role is blocked. */
 async function runDeployPhase(
   selection: MakePlan,
   context: Context,
@@ -162,31 +154,16 @@ async function runDeployPhase(
     onDeploy?.(result);
   }
 
-  const failedMigrations = new Map<string, string>();
-  for (const group of selection.groups) {
-    if (failedRoles.has(group.role)) {
-      continue;
-    }
-    await migrateLegacySymlinks(group.activations, context).catch((error) => {
-      failedMigrations.set(
-        group.targetName,
-        `legacy link migration: ${errorMessage(error)}`,
-      );
-    });
-  }
-
-  return { deploys, failedRoles, failedMigrations };
+  return { deploys, failedRoles };
 }
 
 function computeBlockers(
   group: MakeGroup,
   failedRoles: ReadonlyMap<string, string>,
-  failedMigrations: ReadonlyMap<string, string>,
   failedPackages: readonly InstallReport[],
 ): ActivationBlocker[] {
   const blockers: ActivationBlocker[] = [];
-  const deployError =
-    failedRoles.get(group.role) ?? failedMigrations.get(group.targetName);
+  const deployError = failedRoles.get(group.role);
   if (deployError) {
     blockers.push({ kind: 'deploy', role: group.role, error: deployError });
   }
@@ -237,7 +214,7 @@ export async function runMake(
 
   await invalidateSelectedTargets(selection.targetNames, context);
 
-  const { deploys, failedRoles, failedMigrations } = await runDeployPhase(
+  const { deploys, failedRoles } = await runDeployPhase(
     selection,
     context,
     request.onDeploy,
@@ -259,12 +236,7 @@ export async function runMake(
     });
   }
   for (const group of selection.groups) {
-    const blockers = computeBlockers(
-      group,
-      failedRoles,
-      failedMigrations,
-      failedPackages,
-    );
+    const blockers = computeBlockers(group, failedRoles, failedPackages);
 
     if (blockers.length > 0) {
       const reason = blockerReason(blockers);
@@ -312,7 +284,6 @@ export async function runMake(
 
   const failed =
     failedRoles.size > 0 ||
-    failedMigrations.size > 0 ||
     install.some((r) => r.status === 'failed') ||
     groups.some(
       (g) =>
