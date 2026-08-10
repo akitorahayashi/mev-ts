@@ -1,5 +1,4 @@
 import {
-  MARKETPLACE_REF,
   type PluginClient,
   type PluginMarketplace,
   parsePluginCatalog,
@@ -7,25 +6,12 @@ import {
   type RemovedMarketplace,
 } from '../../agent-plugin/catalog';
 import {
-  addClaudeMarketplace,
-  installClaudePlugin,
-  listClaudeMarketplaces,
-  listClaudePlugins,
-  removeClaudeMarketplace,
-  uninstallClaudePlugin,
-  updateClaudeMarketplace,
-  updateClaudePlugin,
-} from '../../agent-plugin/claude';
-import {
-  ensureCodexMarketplace,
-  installCodexPlugin,
-  listCodexMarketplaces,
-  listCodexPlugins,
-  removeCodexMarketplace,
-  removeCodexPlugin,
-  upgradeCodexMarketplace,
-} from '../../agent-plugin/codex';
-import { errorMessage, ProvisioningError } from '../../errors';
+  type MarketplaceRemotes,
+  type PluginInventory,
+  pluginClientOps,
+  type RegistrationCache,
+} from '../../agent-plugin/client';
+import { errorMessage } from '../../errors';
 import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
 import { readSshHost } from '../../github/ssh-host';
 import type { Context } from '../../host/context';
@@ -43,7 +29,6 @@ import { aggregateStatus, guarded } from './reconcile';
 type AgentPluginsActivation = Extract<Activation, { kind: 'agentPlugins' }>;
 
 /** Installed plugin ids with the version the client reported, if any. */
-type PluginInventory = Map<string, string | undefined>;
 
 interface ClientInventory {
   readonly installed?: PluginInventory;
@@ -83,73 +68,43 @@ export function describeAgentPlugins(
   };
 }
 
-async function listInstalled(
+function listInstalled(
   client: PluginClient,
   context: Context,
 ): Promise<PluginInventory> {
-  switch (client) {
-    case 'claude':
-      return listClaudePlugins(context);
-    case 'codex':
-      return listCodexPlugins(context);
-  }
+  return pluginClientOps[client].listPlugins(context);
 }
 
-async function installPlugin(
+function installPlugin(
   client: PluginClient,
   id: string,
   context: Context,
 ): Promise<void> {
-  switch (client) {
-    case 'claude':
-      return installClaudePlugin(id, context);
-    case 'codex':
-      return installCodexPlugin(id, context);
-  }
+  return pluginClientOps[client].installPlugin(id, context);
 }
 
-async function upgradePlugin(
+function upgradePlugin(
   client: PluginClient,
   id: string,
   context: Context,
 ): Promise<void> {
-  switch (client) {
-    case 'claude':
-      return updateClaudePlugin(id, context);
-    case 'codex':
-      // codex has no plugin-level update verb. Re-adding an installed plugin is
-      // idempotent and re-resolves its version from the marketplace snapshot
-      // that ensureMarketplace just refreshed (verified against the codex CLI:
-      // `plugin add` on an installed plugin succeeds and reports the resolved
-      // version).
-      return installCodexPlugin(id, context);
-  }
+  return pluginClientOps[client].upgradePlugin(id, context);
 }
 
-async function uninstallPlugin(
+function uninstallPlugin(
   client: PluginClient,
   id: string,
   context: Context,
 ): Promise<void> {
-  switch (client) {
-    case 'claude':
-      return uninstallClaudePlugin(id, context);
-    case 'codex':
-      return removeCodexPlugin(id, context);
-  }
+  return pluginClientOps[client].uninstallPlugin(id, context);
 }
 
-async function removeMarketplace(
+function removeMarketplace(
   client: PluginClient,
   name: string,
   context: Context,
 ): Promise<void> {
-  switch (client) {
-    case 'claude':
-      return removeClaudeMarketplace(name, context);
-    case 'codex':
-      return removeCodexMarketplace(name, context);
-  }
+  return pluginClientOps[client].removeMarketplace(name, context);
 }
 
 function inventoryFailureEntries(
@@ -217,77 +172,67 @@ interface EnsuredMarketplace {
   readonly report: StepReport;
 }
 
-async function ensureClaudeMarketplace(
+/**
+ * Register or refresh a marketplace, rendering the one report shape both clients
+ * produce. Which of the two happened is the capability's answer; the wording is
+ * this layer's.
+ */
+async function ensureMarketplace(
   marketplace: PluginMarketplace,
   url: string,
   context: Context,
-  cache: { inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>> },
+  registrations: MarketplaceRegistrations,
 ): Promise<EnsuredMarketplace> {
-  cache.inventory ??= await listClaudeMarketplaces(context);
-  const current = cache.inventory.get(marketplace.name);
-  if (!current) {
-    await addClaudeMarketplace(url, context);
-    cache.inventory.set(marketplace.name, {
-      source: 'git',
-      url,
-      ref: MARKETPLACE_REF,
-    });
-    return {
-      added: true,
-      report: {
-        key: `claude:${marketplace.name}`,
-        value: 'marketplace added from main',
-        status: 'changed',
-      },
-    };
-  }
-  if (
-    current.source !== 'git' ||
-    !remoteMatchesRepository(current.url, marketplace.repo) ||
-    current.ref !== MARKETPLACE_REF
-  ) {
-    throw new ProvisioningError(
-      `Claude marketplace '${marketplace.name}' is configured from a different source; expected ${url}#${MARKETPLACE_REF}.`,
-    );
-  }
-  await updateClaudeMarketplace(marketplace.name, context);
+  const { added } = await pluginClientOps[marketplace.client].ensureMarketplace(
+    marketplace.name,
+    marketplace.repo,
+    url,
+    context,
+    registrations.cacheFor(marketplace.client, context),
+  );
   return {
-    added: false,
+    added,
     report: {
-      key: `claude:${marketplace.name}`,
-      value: 'marketplace refreshed from main',
+      key: `${marketplace.client}:${marketplace.name}`,
+      value: added
+        ? 'marketplace added from main'
+        : 'marketplace refreshed from main',
       status: 'changed',
     },
   };
 }
 
-async function ensureMarketplace(
-  marketplace: PluginMarketplace,
-  url: string,
-  context: Context,
-  claudeCache: {
-    inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
-  },
-): Promise<EnsuredMarketplace> {
-  switch (marketplace.client) {
-    case 'claude':
-      return ensureClaudeMarketplace(marketplace, url, context, claudeCache);
-    case 'codex': {
-      const alreadyAdded = await ensureCodexMarketplace(url, context);
-      if (alreadyAdded) {
-        await upgradeCodexMarketplace(marketplace.name, context);
-      }
-      return {
-        added: !alreadyAdded,
-        report: {
-          key: `codex:${marketplace.name}`,
-          value: alreadyAdded
-            ? 'marketplace refreshed from main'
-            : 'marketplace added from main',
-          status: 'changed',
-        },
-      };
+/**
+ * The registered marketplaces of each client, listed at most once per run and
+ * kept current as registrations are added and removed, so the ensure pass and
+ * the later ownership probe share one view of the host.
+ */
+class MarketplaceRegistrations {
+  private readonly byClient = new Map<PluginClient, MarketplaceRemotes>();
+
+  async of(
+    client: PluginClient,
+    context: Context,
+  ): Promise<MarketplaceRemotes> {
+    let remotes = this.byClient.get(client);
+    if (!remotes) {
+      remotes = await pluginClientOps[client].listMarketplaces(context);
+      this.byClient.set(client, remotes);
     }
+    return remotes;
+  }
+
+  cacheFor(client: PluginClient, context: Context): RegistrationCache {
+    return {
+      current: () => this.of(client, context),
+      record: (name, registration) => {
+        this.byClient.get(client)?.set(name, registration);
+      },
+    };
+  }
+
+  forget(client: PluginClient, name: string): void {
+    this.byClient.get(client)?.delete(name);
   }
 }
 
@@ -338,32 +283,14 @@ type MarketplaceRegistration = 'absent' | 'owned' | 'foreign';
 async function probeRemovedRegistration(
   removed: RemovedMarketplace,
   context: Context,
-  claudeCache: {
-    inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
-  },
-  codexCache: { sources?: Awaited<ReturnType<typeof listCodexMarketplaces>> },
+  registrations: MarketplaceRegistrations,
 ): Promise<MarketplaceRegistration> {
-  switch (removed.client) {
-    case 'claude': {
-      claudeCache.inventory ??= await listClaudeMarketplaces(context);
-      const current = claudeCache.inventory.get(removed.name);
-      if (!current) return 'absent';
-      return current.source === 'git' &&
-        remoteMatchesRepository(current.url, removed.repo)
-        ? 'owned'
-        : 'foreign';
-    }
-    case 'codex': {
-      codexCache.sources ??= await listCodexMarketplaces(context);
-      if (!codexCache.sources.has(removed.name)) return 'absent';
-      return remoteMatchesRepository(
-        codexCache.sources.get(removed.name),
-        removed.repo,
-      )
-        ? 'owned'
-        : 'foreign';
-    }
-  }
+  const remotes = await registrations.of(removed.client, context);
+  const current = remotes.get(removed.name);
+  if (!current) return 'absent';
+  return remoteMatchesRepository(current.url, removed.repo)
+    ? 'owned'
+    : 'foreign';
 }
 
 /**
@@ -421,10 +348,7 @@ async function removeDeclaredMarketplace(
   removed: RemovedMarketplace,
   installed: PluginInventory,
   context: Context,
-  claudeCache: {
-    inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
-  },
-  codexCache: { sources?: Awaited<ReturnType<typeof listCodexMarketplaces>> },
+  registrations: MarketplaceRegistrations,
   entries: StepReport[],
 ): Promise<void> {
   const key = `${removed.client}:${removed.name}`;
@@ -433,8 +357,7 @@ async function removeDeclaredMarketplace(
     registration = await probeRemovedRegistration(
       removed,
       context,
-      claudeCache,
-      codexCache,
+      registrations,
     );
   } catch (error) {
     entries.push({
@@ -503,11 +426,7 @@ async function removeDeclaredMarketplace(
   }
   try {
     await removeMarketplace(removed.client, removed.name, context);
-    if (removed.client === 'claude') {
-      claudeCache.inventory?.delete(removed.name);
-    } else {
-      codexCache.sources?.delete(removed.name);
-    }
+    registrations.forget(removed.client, removed.name);
     entries.push({ key, value: 'marketplace removed', status: 'changed' });
   } catch (error) {
     entries.push({
@@ -525,9 +444,7 @@ async function reconcileMarketplace(
   installed: PluginInventory,
   upgrade: boolean,
   context: Context,
-  claudeCache: {
-    inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
-  },
+  registrations: MarketplaceRegistrations,
   entries: StepReport[],
   verification: VerificationTarget[],
   upgrades: UpgradeTarget[],
@@ -580,7 +497,7 @@ async function reconcileMarketplace(
       marketplace,
       url,
       context,
-      claudeCache,
+      registrations,
     );
     // In upgrade mode a refresh of an existing marketplace is a probe: the
     // fetch itself would otherwise report every run as changed, so change is
@@ -784,12 +701,7 @@ export function runAgentPlugins(
     const verification: VerificationTarget[] = [];
     const upgrades: UpgradeTarget[] = [];
     const removals: VerificationTarget[] = [];
-    const claudeCache: {
-      inventory?: Awaited<ReturnType<typeof listClaudeMarketplaces>>;
-    } = {};
-    const codexCache: {
-      sources?: Awaited<ReturnType<typeof listCodexMarketplaces>>;
-    } = {};
+    const registrations = new MarketplaceRegistrations();
     for (const marketplace of catalog.marketplaces) {
       const inventory = inventories.get(marketplace.client);
       if (!inventory?.installed) {
@@ -807,7 +719,7 @@ export function runAgentPlugins(
         inventory.installed,
         options.upgrade,
         context,
-        claudeCache,
+        registrations,
         entries,
         verification,
         upgrades,
@@ -829,8 +741,7 @@ export function runAgentPlugins(
         removed,
         inventory.installed,
         context,
-        claudeCache,
-        codexCache,
+        registrations,
         entries,
       );
     }

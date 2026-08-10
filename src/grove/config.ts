@@ -1,16 +1,22 @@
 import { ProvisioningError } from '../errors';
-import { requireSshHost } from '../github/ssh-host';
+import {
+  parseSshRemote,
+  STOCK_SSH_HOST,
+  sshRemoteUrl,
+} from '../github/repository';
 import { requireRecord } from '../host/parse';
 import { loadToml, serializeToml } from '../host/toml';
 
-const GITHUB_SSH_PREFIX = 'git@github.com:';
-
+/**
+ * Rewrite every stock-host GitHub remote in the catalog to reach the
+ * per-machine SSH alias. `sshHost` is validated by the store it comes from
+ * (`github/ssh-host.ts`), the sole authority for the alias's shape.
+ */
 export function renderConfig(
   raw: string,
-  sshHost: string,
+  host: string,
   source: string,
 ): string {
-  const host = requireSshHost(sshHost);
   const config = loadToml(raw, source);
   const repos = requireRecord(config['repos'], `${source} repos`);
 
@@ -22,8 +28,12 @@ export function renderConfig(
         `${source} repository '${name}' url must be a string.`,
       );
     }
-    if (url.startsWith(GITHUB_SSH_PREFIX)) {
-      repo['url'] = `git@${host}:${url.slice(GITHUB_SSH_PREFIX.length)}`;
+    // Only stock-host remotes are rewritten: an entry already pointing at a
+    // custom host was written that way deliberately. A remote without the `.git`
+    // suffix is rewritten with one, which is the form mev emits everywhere.
+    const remote = parseSshRemote(url);
+    if (remote?.host === STOCK_SSH_HOST) {
+      repo['url'] = sshRemoteUrl(host, remote.repository);
     }
   }
 

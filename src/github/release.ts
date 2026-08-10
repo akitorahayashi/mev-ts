@@ -17,6 +17,7 @@ import {
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 import { LATEST } from '../version-pin';
+import { parseRepository, type Repository, repositoryPath } from './repository';
 
 /**
  * A prebuilt CLI binary distributed through a public GitHub Release. `repo` is
@@ -25,7 +26,7 @@ import { LATEST } from '../version-pin';
  */
 export interface ReleaseBinary {
   readonly name: string;
-  readonly repo: string;
+  readonly repo: Repository;
   readonly tag: string;
 }
 
@@ -46,7 +47,19 @@ export const latestTag = LATEST;
 // and asset names remain unambiguous.
 const SAFE_ASSET_NAME = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_TAG = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
-const SAFE_REPO = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+
+/** The two URLs a release entry reaches, rendered in one place. */
+function latestReleaseUrl(repo: Repository): string {
+  return `https://api.github.com/repos/${repositoryPath(repo)}/releases/latest`;
+}
+
+function assetDownloadUrl(
+  repo: Repository,
+  tag: string,
+  asset: string,
+): string {
+  return `https://github.com/${repositoryPath(repo)}/releases/download/${tag}/${asset}`;
+}
 
 function releaseAssetName(binary: ReleaseBinary, arch: ReleaseArch): string {
   return `${binary.name}-${OS}-${arch}`;
@@ -80,7 +93,7 @@ export function parseReleaseBinaries(
     const entryLabel = `Invalid release binaries manifest entry ${index + 1}`;
     const name = requireNonEmptyString(entry['name'], `${entryLabel}: 'name'`);
     const named = `${entryLabel} ('${name}')`;
-    const repo = requireNonEmptyString(entry['repo'], `${named}: 'repo'`);
+    const repo = parseRepository(entry['repo'], `${named}: 'repo'`);
     const tag = requireNonEmptyString(entry['tag'], `${named}: 'tag'`);
     if (!SAFE_ASSET_NAME.test(name)) {
       throw new ProvisioningError(
@@ -90,11 +103,6 @@ export function parseReleaseBinaries(
     if (!SAFE_TAG.test(tag)) {
       throw new ProvisioningError(
         `${named}: 'tag' may contain only letters, digits, and ._+- and must not start with '-'.`,
-      );
-    }
-    if (!SAFE_REPO.test(repo)) {
-      throw new ProvisioningError(
-        `${named}: 'repo' must be in 'owner/name' form.`,
       );
     }
     return { name, repo, tag };
@@ -211,10 +219,10 @@ export async function resolveLatestTag(
   return runWithCleanup(
     async () => {
       const path = join(workspace, 'release.json');
-      const label = `Latest release of ${binary.repo}`;
+      const label = `Latest release of ${repositoryPath(binary.repo)}`;
       await downloadOverHttps(
         context.commands,
-        `https://api.github.com/repos/${binary.repo}/releases/latest`,
+        latestReleaseUrl(binary.repo),
         path,
         `${binary.name} latest release`,
       );
@@ -255,13 +263,13 @@ export async function fetchReleaseBinary(
   const asset = releaseAssetName(binary, arch);
   const label = `${binary.name} ${tag}`;
   await replaceFileAtomically(dest, async (tmp) => {
-    const url = `https://github.com/${binary.repo}/releases/download/${tag}/${asset}`;
+    const url = assetDownloadUrl(binary.repo, tag, asset);
     await downloadOverHttps(context.commands, url, tmp, binary.name);
     await chmod(tmp, 0o755);
     const reported = await reportedVersion(tmp, label, context);
     if (reported === null) {
       throw new ProvisioningError(
-        `${label} downloaded from ${binary.repo} does not run.`,
+        `${label} downloaded from ${repositoryPath(binary.repo)} does not run.`,
       );
     }
     const expected = tagVersion(tag);

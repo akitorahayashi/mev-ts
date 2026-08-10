@@ -16,7 +16,7 @@ test('parseReleaseBinaries accepts a well-formed entry', () => {
   expect(binaries).toEqual([
     {
       name: 'kpv',
-      repo: 'akitorahayashi/kpv',
+      repo: { owner: 'akitorahayashi', name: 'kpv' },
       tag: 'v0.6.0',
     },
   ]);
