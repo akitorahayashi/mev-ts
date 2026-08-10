@@ -93,3 +93,35 @@ test('installLocalMev preserves the installed command when bundle build fails', 
     { prefix: 'install-mev-build-failure-' },
   );
 });
+
+test('installLocalMev sweeps staging left by an interrupted run', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const installDir = join(dir, 'bin');
+      const stranded = join(installDir, '.mev-up-abc123');
+      await mkdir(stranded, { recursive: true });
+      await writeFile(join(stranded, 'mev'), 'partial');
+
+      await installLocalMev({
+        projectRoot: process.cwd(),
+        installDir,
+        stdio: 'ignore',
+        async runBuildCommand(invocation) {
+          const outfileIndex = invocation.args.indexOf('--outfile');
+          const outfile = invocation.args[outfileIndex + 1];
+          if (outfileIndex >= 0 && outfile !== undefined) {
+            await writeFile(outfile, 'bundle');
+          }
+          return 0;
+        },
+      });
+
+      expect(
+        (await readdir(installDir)).filter((name) =>
+          name.startsWith('.mev-up-'),
+        ),
+      ).toEqual([]);
+    },
+    { prefix: 'install-mev-staging-' },
+  );
+});

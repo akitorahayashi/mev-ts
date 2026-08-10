@@ -43,6 +43,16 @@ jobs:
           ./${{ matrix.artifact }} --version
           ./${{ matrix.artifact }} list
 
+      # The published x64 binary is otherwise never executed before release, so
+      # a broken cross-compile would ship. Rosetta 2 runs it on the arm64 image.
+      - name: Smoke-test the x64 binary under Rosetta
+        if: matrix.target == 'bun-darwin-x64'
+        run: |
+          if ! /usr/bin/pgrep -q oahd; then
+            softwareupdate --install-rosetta --agree-to-license
+          fi
+          arch -x86_64 ./${{ matrix.artifact }} --version
+
       - name: Checksum mev
         run: shasum -a 256 ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256
 

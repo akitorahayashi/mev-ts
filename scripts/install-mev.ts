@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage } from '../src/errors';
@@ -17,8 +17,24 @@ interface InstallOptions {
   readonly runBuildCommand?: (invocation: BuildInvocation) => Promise<number>;
 }
 
+const STAGING_PREFIX = '.mev-up-';
+
 function defaultInstallDir(): string {
   return process.env['MEV_INSTALL_DIR'] ?? join(homedir(), '.local', 'bin');
+}
+
+/**
+ * Remove staging directories left by an earlier run. A crash between the
+ * mkdtemp and its cleanup strands one in the install directory permanently,
+ * where nothing else would ever notice it.
+ */
+async function pruneStaleStaging(installDir: string): Promise<void> {
+  const entries = await readdir(installDir).catch(() => []);
+  for (const name of entries) {
+    if (name.startsWith(STAGING_PREFIX)) {
+      await rm(join(installDir, name), { force: true, recursive: true });
+    }
+  }
 }
 
 export async function installLocalMev(
@@ -26,8 +42,9 @@ export async function installLocalMev(
 ): Promise<string> {
   const installDir = options.installDir ?? defaultInstallDir();
   await mkdir(installDir, { recursive: true });
+  await pruneStaleStaging(installDir);
   const dest = join(installDir, 'mev');
-  const stageDir = await mkdtemp(join(installDir, '.mev-up-'));
+  const stageDir = await mkdtemp(join(installDir, STAGING_PREFIX));
   const stageDest = join(stageDir, 'mev');
 
   await runWithCleanup(
