@@ -1,6 +1,6 @@
 import { chmod, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isNotFound } from './absence';
+import { isNotFound, readTextIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
 import { transactionDirectory } from './transaction';
 
@@ -19,6 +19,20 @@ export async function writeFileAtomically(
       await chmod(tmp, existing.mode & 0o7777);
     }
   });
+}
+
+/**
+ * Write `contents` only when the file does not already hold it, returning
+ * whether anything was written. Leaving a matching file untouched is what lets a
+ * generated-file activation report `unchanged` accurately.
+ */
+export async function writeFileIfChanged(
+  path: string,
+  contents: string,
+): Promise<boolean> {
+  if ((await readTextIfPresent(path)) === contents) return false;
+  await writeFileAtomically(path, contents);
+  return true;
 }
 
 export async function replaceFileAtomically(

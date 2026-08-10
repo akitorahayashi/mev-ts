@@ -104,6 +104,25 @@ sandboxTest('all packages current: no add or remove runs', async (dir) => {
   expect(packageOps(calls)).toEqual([]);
 });
 
+sandboxTest(
+  'an installed package matches its declaration regardless of case',
+  async (dir) => {
+    // npm registry names are case-insensitively unique, so a manifest that
+    // differs only in case from what pnpm reports is the same package: a
+    // case-sensitive lookup would re-add it on every run.
+    await deployConfig(dir, 'packages:\n  TypeScript: 5.6.2\n');
+    const { context, calls } = recordingContext({
+      home: dir,
+      respond: baseResponder([lsJson({ typescript: '5.6.2' })]),
+    });
+
+    const report = await runActivation(applyPnpm(CONFIG_KEY), context);
+
+    expect(report.status).toBe('unchanged');
+    expect(packageOps(calls)).toEqual([]);
+  },
+);
+
 sandboxTest('a pin mismatch re-adds the pinned version', async (dir) => {
   await deployConfig(dir, 'packages:\n  typescript: 5.6.2\n');
   const { context, calls } = recordingContext({

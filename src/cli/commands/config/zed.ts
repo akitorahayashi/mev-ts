@@ -5,12 +5,8 @@ import {
 import { defineConfigCommand } from './namespace';
 
 export const ConfigZedCommand = defineConfigCommand({
-  paths: [
-    ['config', 'zed'],
-    ['config', 'zd'],
-    ['cf', 'zed'],
-    ['cf', 'zd'],
-  ],
+  name: 'zed',
+  abbreviation: 'zd',
   description: 'Interactively select enabled Zed setting overrides.',
   clearDescription: 'Disable all entries.',
   runSelect: (home, warn, select) =>

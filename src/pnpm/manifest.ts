@@ -2,13 +2,15 @@ import { ProvisioningError } from '../errors';
 import {
   isRecord,
   requireExactKeys,
+  requireNonEmptyString,
   requireStringArray,
   requireUniqueBy,
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
+import { LATEST } from '../version-pin';
 
 /** npm's own dist-tag, reused here as the latest-assumed version vocabulary. */
-export const latestVersion = 'latest';
+export const latestVersion = LATEST;
 
 export interface PnpmPackage {
   readonly name: string;
@@ -21,8 +23,13 @@ export type PnpmEntry =
   | { readonly action: 'install'; readonly package: PnpmPackage }
   | { readonly action: 'uninstall'; readonly name: string };
 
-// npm registry names are case-insensitively unique, so identity dedup lowers.
-function packageKey(name: string): string {
+/**
+ * The identity of a package name. npm registry names are case-insensitively
+ * unique, so every comparison — manifest dedup and installed-inventory lookup
+ * alike — goes through this, rather than one half lowering and the other
+ * matching raw.
+ */
+export function packageKey(name: string): string {
   return name.toLowerCase();
 }
 
@@ -32,12 +39,14 @@ function packageKey(name: string): string {
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 
 function requirePackageName(name: unknown, label: string): string {
-  if (typeof name !== 'string' || name.length === 0 || name.startsWith('-')) {
+  const value = requireNonEmptyString(name, `${label} package name`);
+  // A leading dash would be read as a flag by `pnpm add`.
+  if (value.startsWith('-')) {
     throw new ProvisioningError(
-      `${label} contains an invalid package name '${String(name)}'.`,
+      `${label} contains an invalid package name '${value}'.`,
     );
   }
-  return name;
+  return value;
 }
 
 export function parseManifest(raw: string, path: string): PnpmEntry[] {

@@ -1,10 +1,10 @@
 import { Command } from 'clipanion';
 import { renderNamespaceOverview } from '../../tty/namespace-overview';
 import { withAliasHint } from '../alias-hint';
-import { CONFIG_CATEGORY } from './namespace';
+import { CONFIG_CATEGORY, CONFIG_NAMESPACE } from './namespace';
 
 export class ConfigHelpCommand extends Command {
-  static override paths = [['config'], ['cf']];
+  static override paths = CONFIG_NAMESPACE.map((namespace) => [namespace]);
   static override usage = Command.Usage({
     category: CONFIG_CATEGORY,
     description: withAliasHint(

@@ -11,10 +11,12 @@ import {
   isRecord,
   parseJsonLabeled,
   requireExactKeys,
+  requireNonEmptyString,
   requireRecord,
   requireUniqueBy,
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
+import { LATEST } from '../version-pin';
 
 /**
  * A prebuilt CLI binary distributed through a public GitHub Release. `repo` is
@@ -36,7 +38,7 @@ export type ReleaseArch = (typeof releaseArchitectures)[number];
  * the binary is missing or unverifiable, or when upgrade mode asks for
  * re-resolution; every other tag is an exact pin that is never re-resolved.
  */
-export const latestTag = 'latest';
+export const latestTag = LATEST;
 
 // Release fields flow into the public download URL, and `name` also determines
 // the release asset filename. Validate the repo-owned manifest against explicit
@@ -75,41 +77,27 @@ export function parseReleaseBinaries(
       ['name', 'repo', 'tag'],
       `Invalid release binaries manifest entry ${index + 1}`,
     );
-    if (typeof entry['name'] !== 'string' || entry['name'].length === 0) {
+    const entryLabel = `Invalid release binaries manifest entry ${index + 1}`;
+    const name = requireNonEmptyString(entry['name'], `${entryLabel}: 'name'`);
+    const named = `${entryLabel} ('${name}')`;
+    const repo = requireNonEmptyString(entry['repo'], `${named}: 'repo'`);
+    const tag = requireNonEmptyString(entry['tag'], `${named}: 'tag'`);
+    if (!SAFE_ASSET_NAME.test(name)) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1}: 'name' must be a non-empty string.`,
+        `${named}: 'name' may contain only letters, digits, and ._+- and must not start with '-'.`,
       );
     }
-    if (typeof entry['repo'] !== 'string' || entry['repo'].length === 0) {
+    if (!SAFE_TAG.test(tag)) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'repo' must be a non-empty string.`,
+        `${named}: 'tag' may contain only letters, digits, and ._+- and must not start with '-'.`,
       );
     }
-    if (typeof entry['tag'] !== 'string' || entry['tag'].length === 0) {
+    if (!SAFE_REPO.test(repo)) {
       throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'tag' must be a non-empty string.`,
+        `${named}: 'repo' must be in 'owner/name' form.`,
       );
     }
-    if (!SAFE_ASSET_NAME.test(entry['name'])) {
-      throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'name' may contain only letters, digits, and ._+- and must not start with '-'.`,
-      );
-    }
-    if (!SAFE_TAG.test(entry['tag'])) {
-      throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'tag' may contain only letters, digits, and ._+- and must not start with '-'.`,
-      );
-    }
-    if (!SAFE_REPO.test(entry['repo'])) {
-      throw new ProvisioningError(
-        `Invalid release binaries manifest entry ${index + 1} ('${entry['name']}'): 'repo' must be in 'owner/name' form.`,
-      );
-    }
-    return {
-      name: entry['name'],
-      repo: entry['repo'],
-      tag: entry['tag'],
-    };
+    return { name, repo, tag };
   });
   requireUniqueBy(
     binaries,

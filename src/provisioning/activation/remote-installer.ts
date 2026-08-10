@@ -1,9 +1,10 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
 import { formatCommandFailure } from '../../host/command';
+import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
 import { downloadOverHttps } from '../../host/https-download';
 import { resolveHostPath, symbolic } from '../../host/path';
@@ -85,41 +86,23 @@ async function runInstaller(
   script: string,
 ): Promise<void> {
   if (activation.interpreter === 'direct') {
-    const chmod = await context.commands.run('chmod', ['+x', script]);
-    if (chmod.code !== 0) {
-      throw new ProvisioningError(
-        formatCommandFailure(
-          `chmod failed for ${activation.label} installer`,
-          chmod,
-        ),
-      );
-    }
-    const direct = await context.commands.run(script, activation.args, {
-      env: installerEnv(activation, context),
-    });
-    if (direct.code !== 0) {
-      throw new ProvisioningError(
-        formatCommandFailure(
-          `installer failed for ${activation.label}`,
-          direct,
-        ),
-      );
-    }
+    await chmod(script, 0o755);
+    await runProcessStep(
+      context.commands,
+      script,
+      activation.args,
+      `installer failed for ${activation.label}`,
+      { env: installerEnv(activation, context) },
+    );
     return;
   }
-  const interpreted = await context.commands.run(
+  await runProcessStep(
+    context.commands,
     activation.interpreter,
     [script, ...activation.args],
+    `${activation.interpreter} installer failed for ${activation.label}`,
     { env: installerEnv(activation, context) },
   );
-  if (interpreted.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(
-        `${activation.interpreter} installer failed for ${activation.label}`,
-        interpreted,
-      ),
-    );
-  }
 }
 
 function installerEnv(

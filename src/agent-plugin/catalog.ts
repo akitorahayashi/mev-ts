@@ -8,6 +8,15 @@ import {
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
+/**
+ * The branch every first-party marketplace is tracked from. Missing plugins
+ * install from it, but installed ones are upgraded only by an explicit
+ * `--upgrade` run — see docs/architecture/agent-plugins.md. One owner, because
+ * the two clients spell the same ref differently (a URL fragment versus a flag)
+ * and a probe compares against it.
+ */
+export const MARKETPLACE_REF = 'main';
+
 const pluginClients = ['claude', 'codex'] as const;
 export type PluginClient = (typeof pluginClients)[number];
 

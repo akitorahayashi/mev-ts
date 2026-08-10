@@ -1,3 +1,4 @@
+import { needsInstall, shouldUpgrade as upgradesPin } from '../version-pin';
 import type { Installed } from './inventory';
 import { latestVersion, type PipxTool } from './manifest';
 
@@ -5,8 +6,7 @@ export function needsReinstall(
   tool: PipxTool,
   installed: Installed | undefined,
 ): boolean {
-  if (!installed) return true;
-  return tool.version !== latestVersion && tool.version !== installed.version;
+  return needsInstall(tool.version, installed?.version);
 }
 
 export function installSpec(tool: PipxTool): string {
@@ -15,18 +15,12 @@ export function installSpec(tool: PipxTool): string {
     : `${tool.package}==${tool.version}`;
 }
 
-/**
- * Whether upgrade mode re-resolves this tool against the latest release.
- * `latest` is the only latest-assumed vocabulary, so a pinned tool is never
- * upgraded; a pin that diverges from the installed version is a reinstall
- * rather than an upgrade.
- */
 export function shouldUpgrade(
   tool: PipxTool,
   installed: Installed | undefined,
   upgrade: boolean,
 ): boolean {
-  return upgrade && installed !== undefined && tool.version === latestVersion;
+  return upgradesPin(tool.version, installed !== undefined, upgrade);
 }
 
 export function shouldInject(

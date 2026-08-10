@@ -163,16 +163,15 @@ sandboxTest(
     );
 
     expect(report.status).toBe('changed');
-    // Order matters: fetch installer, fetch checksum, verify, mark executable,
-    // then run.
-    expect(calls.slice(0, 4).map((call) => call.command)).toEqual([
+    // Order matters: fetch installer, fetch checksum, verify, then run. The
+    // execute bit is set through the filesystem, so it is not a subprocess.
+    expect(calls.slice(0, 3).map((call) => call.command)).toEqual([
       'curl',
       'curl',
       'shasum',
-      'chmod',
     ]);
-    expect(calls[4]?.command).toContain('mev-installer-');
-    expect(calls[4]?.args).toEqual(['-y']);
+    expect(calls[3]?.command).toContain('mev-installer-');
+    expect(calls[3]?.args).toEqual(['-y']);
   },
 );
 

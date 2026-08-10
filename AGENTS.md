@@ -26,7 +26,7 @@ src/
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download and the per-machine SSH host alias store
   grove/         Grove catalog parsing and per-machine SSH host rendering
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions and labeled JSON framing, each taking the error class to raise), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging and the swap-transaction envelope), atomic-file.ts (atomic write, write-if-changed), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
@@ -40,6 +40,7 @@ src/
     signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
     applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
     scan.ts      Concurrent signature and deployed-role drift classification
+  version-pin.ts The `latest`-versus-pin policy shared by pipx, pnpm, and release binaries
   zed/           Zed override catalog, selection manifest, and settings renderer
 scripts/
   generate-assets.ts  Asset codegen: walks src/assets/config/, emits registry.generated.ts

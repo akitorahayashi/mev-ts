@@ -2,6 +2,7 @@ import { ProvisioningError } from '../errors';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
+import { MARKETPLACE_REF } from './catalog';
 import { capturePluginJson } from './output';
 
 export interface ClaudeMarketplace {
@@ -93,7 +94,7 @@ export async function addClaudeMarketplace(
   await runProcessStep(
     context.commands,
     'claude',
-    ['plugin', 'marketplace', 'add', `${url}#main`],
+    ['plugin', 'marketplace', 'add', `${url}#${MARKETPLACE_REF}`],
     `Claude marketplace add ${url}`,
   );
 }

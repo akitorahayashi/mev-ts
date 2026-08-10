@@ -1,9 +1,8 @@
 import { join } from 'node:path';
-import { errorMessage, ProvisioningError } from '../errors';
-import { readTextIfPresent } from '../host/absence';
-import { writeFileAtomically } from '../host/atomic-file';
+import { ProvisioningError } from '../errors';
+import { writeFileIfChanged } from '../host/atomic-file';
 import { readDeployedText } from '../host/deployed-file';
-import { isRecord } from '../host/parse';
+import { isRecord, parseJsonLabeled } from '../host/parse';
 import { combineOverrides, deepMerge, type JsonObject } from './merge';
 
 // JSON.parse only yields JsonValues, so a top-level object is deeply a
@@ -17,14 +16,7 @@ export function parseJsonObject(
   path: string,
   label: string,
 ): JsonObject {
-  let value: unknown;
-  try {
-    value = JSON.parse(raw);
-  } catch (error) {
-    throw new ProvisioningError(
-      `Failed to parse JSON for ${label} at ${path}: ${errorMessage(error)}`,
-    );
-  }
+  const value = parseJsonLabeled(raw, `${label} at ${path}`);
   if (!isJsonObject(value)) {
     throw new ProvisioningError(
       `${label} at ${path} must be a JSON object, not an array or primitive.`,
@@ -68,11 +60,8 @@ export async function buildSettings(
   enabled: readonly string[],
   outputPath: string,
 ): Promise<boolean> {
-  const document = await renderSettings(basePath, sourceDir, enabled);
-  const existing = await readTextIfPresent(outputPath);
-  if (existing === document) {
-    return false;
-  }
-  await writeFileAtomically(outputPath, document);
-  return true;
+  return writeFileIfChanged(
+    outputPath,
+    await renderSettings(basePath, sourceDir, enabled),
+  );
 }

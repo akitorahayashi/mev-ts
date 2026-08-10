@@ -11,6 +11,7 @@ import {
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
+import { groupSucceeded } from './group-outcome';
 import { type MakePlan, planMake } from './plan';
 import { allTargets } from './registry';
 import { targetSignature } from './signature';
@@ -99,15 +100,6 @@ function targetNamed(name: string): Target {
     );
   }
   return match;
-}
-
-function groupSucceeded(group: ActivationGroupReport): boolean {
-  return (
-    group.blockers.length === 0 &&
-    group.reports.every(
-      (report) => report.status !== 'failed' && report.status !== 'blocked',
-    )
-  );
 }
 
 async function invalidateSelectedTargets(
@@ -285,12 +277,7 @@ export async function runMake(
   const failed =
     failedRoles.size > 0 ||
     install.some((r) => r.status === 'failed') ||
-    groups.some(
-      (g) =>
-        g.blockers.length > 0 ||
-        g.reports.some((r) => r.status === 'failed') ||
-        g.markerError !== undefined,
-    );
+    groups.some((group) => !groupSucceeded(group));
 
   return { selection, deploys, install, groups, failed };
 }

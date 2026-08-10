@@ -13,6 +13,7 @@ import {
   tagVersion,
 } from '../../github/release';
 import type { Context } from '../../host/context';
+import { needsInstall, shouldUpgrade } from '../../version-pin';
 import type { Activation, StepReport } from './contract';
 import { manifestKind, manifestSource } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
@@ -46,12 +47,21 @@ function releaseStep(
   upgrade: boolean,
 ): ReconcileStep {
   const dest = join(binDir, binary.name);
+  const upToDate = (): StepReport => ({
+    key: binary.name,
+    value: 'up to date',
+    status: 'unchanged',
+  });
   return {
     async run() {
+      // Tags are published as `v<version>` while binaries report the bare
+      // version, so the declared side is normalized before the shared
+      // pinned-versus-latest policy compares it with what is installed.
       const reported = await installedVersion(dest, context);
+      const isInstalled = reported !== null;
       if (binary.tag !== latestTag) {
-        if (reported === tagVersion(binary.tag)) {
-          return { key: binary.name, value: 'up to date', status: 'unchanged' };
+        if (!needsInstall(tagVersion(binary.tag), reported ?? undefined)) {
+          return upToDate();
         }
         await fetchReleaseBinary(binary, binary.tag, arch, dest, context);
         return installed(binary, binary.tag, reported);
@@ -59,12 +69,12 @@ function releaseStep(
       // A latest-assumed binary that is already installed holds still until
       // upgrade mode asks for re-resolution, so a routine run neither reaches
       // the network nor moves a working binary.
-      if (reported !== null && !upgrade) {
-        return { key: binary.name, value: 'up to date', status: 'unchanged' };
+      if (isInstalled && !shouldUpgrade(binary.tag, isInstalled, upgrade)) {
+        return upToDate();
       }
       const tag = await resolveLatestTag(binary, context);
-      if (reported === tagVersion(tag)) {
-        return { key: binary.name, value: 'up to date', status: 'unchanged' };
+      if (!needsInstall(tagVersion(tag), reported ?? undefined)) {
+        return upToDate();
       }
       await fetchReleaseBinary(binary, tag, arch, dest, context);
       return installed(binary, tag, reported);

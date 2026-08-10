@@ -3,15 +3,10 @@ import { configureSshHost } from '../../../app/ssh-host';
 import { resolveHome } from '../../../host/context';
 import { withAliasHint } from '../alias-hint';
 import { runReportingDomainErrors } from '../domain-error';
-import { CONFIG_CATEGORY } from './namespace';
+import { CONFIG_CATEGORY, configSubcommandPaths } from './namespace';
 
 export class ConfigSshHostCommand extends Command {
-  static override paths = [
-    ['config', 'ssh-host'],
-    ['config', 'sh'],
-    ['cf', 'ssh-host'],
-    ['cf', 'sh'],
-  ];
+  static override paths = configSubcommandPaths('ssh-host', 'sh');
 
   static override usage = Command.Usage({
     category: CONFIG_CATEGORY,

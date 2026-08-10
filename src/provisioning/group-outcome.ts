@@ -21,7 +21,12 @@ export function activationLine(report: Described): string {
 }
 
 export function groupStatus(group: ActivationGroupReport): GroupStatus {
-  if (group.blockers.length > 0) return 'blocked';
+  if (
+    group.blockers.length > 0 ||
+    group.reports.some((report) => report.status === 'blocked')
+  ) {
+    return 'blocked';
+  }
   if (
     group.reports.some((report) => report.status === 'failed') ||
     group.markerError !== undefined
@@ -32,6 +37,16 @@ export function groupStatus(group: ActivationGroupReport): GroupStatus {
     return 'changed';
   }
   return 'unchanged';
+}
+
+/**
+ * Whether a target came through provisioning intact. Defined on `groupStatus`
+ * rather than re-reducing the same fields, so the exit code, the applied-marker
+ * decision, and the rendered status can never disagree about one target.
+ */
+export function groupSucceeded(group: ActivationGroupReport): boolean {
+  const status = groupStatus(group);
+  return status === 'changed' || status === 'unchanged';
 }
 
 function pastTense(verb: Verb): string {

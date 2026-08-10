@@ -4,6 +4,7 @@ import {
   activationLine,
   GROUP_STATUSES,
   groupStatus,
+  groupSucceeded,
   summarizeGroup,
 } from '../../provisioning/group-outcome';
 import type { MakePlan } from '../../provisioning/plan';
@@ -159,12 +160,7 @@ function actionRequiredLines(
 
 function retryTargets(groups: readonly ActivationGroupReport[]): string[] {
   return groups
-    .filter(
-      (group) =>
-        group.blockers.length > 0 ||
-        group.reports.some((activation) => activation.status === 'failed') ||
-        group.markerError !== undefined,
-    )
+    .filter((group) => !groupSucceeded(group))
     .map((group) => group.targetName);
 }
 

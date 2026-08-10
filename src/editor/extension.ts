@@ -1,8 +1,9 @@
-import { errorMessage, ProvisioningError } from '../errors';
+import { ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import {
+  parseJsonLabeled,
   requireExactKeys,
   requireRecord,
   requireStringArray,
@@ -10,14 +11,7 @@ import {
 } from '../host/parse';
 
 export function parseExtensions(raw: string, path: string): string[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    throw new ProvisioningError(
-      `Failed to parse extensions manifest as JSON: ${path}. ${errorMessage(error)}`,
-    );
-  }
+  const parsed = parseJsonLabeled(raw, `Extensions manifest ${path}`);
   const record = requireRecord(parsed, `Extensions manifest ${path}`);
   requireExactKeys(record, ['extensions'], `Extensions manifest ${path}`);
   const extensions = requireStringArray(

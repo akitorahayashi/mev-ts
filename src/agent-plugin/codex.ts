@@ -2,6 +2,7 @@ import { ProvisioningError } from '../errors';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
+import { MARKETPLACE_REF } from './catalog';
 import { capturePluginJson } from './output';
 
 /**
@@ -45,7 +46,7 @@ export async function ensureCodexMarketplace(
   const raw = await capturePluginJson(
     context.commands,
     'codex',
-    ['plugin', 'marketplace', 'add', url, '--ref', 'main', '--json'],
+    ['plugin', 'marketplace', 'add', url, '--ref', MARKETPLACE_REF, '--json'],
     `Codex marketplace add ${url}`,
   );
   if (!isRecord(raw) || typeof raw['alreadyAdded'] !== 'boolean') {

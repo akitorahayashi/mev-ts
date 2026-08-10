@@ -1,4 +1,5 @@
 import {
+  MARKETPLACE_REF,
   type PluginClient,
   type PluginMarketplace,
   parsePluginCatalog,
@@ -229,7 +230,7 @@ async function ensureClaudeMarketplace(
     cache.inventory.set(marketplace.name, {
       source: 'git',
       url,
-      ref: 'main',
+      ref: MARKETPLACE_REF,
     });
     return {
       added: true,
@@ -243,10 +244,10 @@ async function ensureClaudeMarketplace(
   if (
     current.source !== 'git' ||
     !remoteMatchesRepository(current.url, marketplace.repo) ||
-    current.ref !== 'main'
+    current.ref !== MARKETPLACE_REF
   ) {
     throw new ProvisioningError(
-      `Claude marketplace '${marketplace.name}' is configured from a different source; expected ${url}#main.`,
+      `Claude marketplace '${marketplace.name}' is configured from a different source; expected ${url}#${MARKETPLACE_REF}.`,
     );
   }
   await updateClaudeMarketplace(marketplace.name, context);

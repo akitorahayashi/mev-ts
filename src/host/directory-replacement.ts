@@ -1,8 +1,7 @@
-import { lstat, mkdir, readdir, readFile, rename, rm } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
-import { runWithCleanup } from './cleanup-error';
-import { swapWithBackup, transactionDirectory } from './transaction';
+import { withSwapTransaction } from './transaction';
 
 const executableBits = 0o111;
 
@@ -64,36 +63,19 @@ export async function replaceDirectoryAfterBuild(
   path: string,
   buildDirectory: (tmp: string) => Promise<void>,
 ): Promise<boolean> {
-  const transaction = await transactionDirectory(path);
-  const staging = join(transaction, 'staging');
-  const backup = join(transaction, 'backup');
-
-  let retainTransaction = false;
-  return runWithCleanup(
-    async () => {
-      await mkdir(staging);
-      await buildDirectory(staging);
+  return withSwapTransaction(
+    path,
+    'directory replacement',
+    async ({ staged, install }) => {
+      await mkdir(staged);
+      await buildDirectory(staged);
 
       const current = await lstatIfPresent(path);
-      if (current?.isDirectory() && (await directoriesMatch(staging, path))) {
+      if (current?.isDirectory() && (await directoriesMatch(staged, path))) {
         return false;
       }
-      if (!current) {
-        await rename(staging, path);
-        return true;
-      }
-      // The restore-on-failure keeps the transaction so the previous contents
-      // remain recoverable at `backup`.
-      await swapWithBackup({ dest: path, staged: staging, backup }, () => {
-        retainTransaction = true;
-      });
+      await install();
       return true;
     },
-    async () => {
-      if (!retainTransaction) {
-        await rm(transaction, { recursive: true, force: true });
-      }
-    },
-    `Failed to clean up directory replacement transaction for ${path}.`,
   );
 }

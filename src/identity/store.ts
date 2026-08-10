@@ -2,9 +2,19 @@ import { join } from 'node:path';
 import { AppError, errorMessage } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
-import { isRecord, requireExactKeys } from '../host/parse';
+import {
+  type ErrorFactory,
+  isRecord,
+  parseJsonLabeled,
+  requireExactKeys,
+  requireRecord,
+} from '../host/parse';
 import { mevRoot } from '../host/path';
 import { allScopes, type IdentityScope } from './scope';
+
+// The identity domain is reached from `mev user`/`mev switch`, not provisioning,
+// so its rejections report as AppError.
+const appError: ErrorFactory = (message) => new AppError(message);
 
 /** A name/email pair applied to global Git configuration. */
 export interface Identity {
@@ -47,23 +57,12 @@ export async function readState(path: string): Promise<IdentityState | null> {
   }
   if (content === null) return null;
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch (error) {
-    throw new AppError(
-      `failed to parse identity config: ${errorMessage(error)}`,
-    );
-  }
-
-  if (!isRecord(raw)) {
-    throw new AppError(`identity config at ${path} is not a JSON object.`);
-  }
-  try {
-    requireExactKeys(raw, allScopes(), `identity config at ${path}`);
-  } catch (error) {
-    throw new AppError(errorMessage(error));
-  }
+  const raw = requireRecord(
+    parseJsonLabeled(content, `identity config at ${path}`, appError),
+    `identity config at ${path}`,
+    appError,
+  );
+  requireExactKeys(raw, allScopes(), `identity config at ${path}`, appError);
 
   return Object.fromEntries(
     allScopes().map((scope) => [scope, readIdentity(raw, scope, path)]),
@@ -104,15 +103,12 @@ function readIdentity(
       `identity config at ${path} has a malformed '${scope}' entry: expected an object.`,
     );
   }
-  try {
-    requireExactKeys(
-      entry,
-      ['name', 'email'],
-      `identity config at ${path} '${scope}' entry`,
-    );
-  } catch (error) {
-    throw new AppError(errorMessage(error));
-  }
+  requireExactKeys(
+    entry,
+    ['name', 'email'],
+    `identity config at ${path} '${scope}' entry`,
+    appError,
+  );
   const { name, email } = entry;
   if (typeof name !== 'string' || typeof email !== 'string') {
     throw new AppError(

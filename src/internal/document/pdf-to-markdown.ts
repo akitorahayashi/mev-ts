@@ -1,6 +1,7 @@
 import { replaceFileAtomically } from '../../host/atomic-file';
-import { type CommandRunner, formatCommandFailure } from '../../host/command';
-import { DocumentConversionError } from './conversion-error';
+import type { CommandRunner } from '../../host/command';
+import { runProcessStep } from '../../host/command-run';
+import { documentConversionError } from './conversion-error';
 import { planConversions } from './input-files';
 import { runConversions } from './run-conversions';
 
@@ -30,18 +31,13 @@ export async function convertPdfToMarkdown(
 
   await runConversions(pairs, write, warn, async (pair) => {
     await replaceFileAtomically(pair.output, async (temporary) => {
-      const result = await run.run('pdftotext', [
-        '-enc',
-        'UTF-8',
-        '-nopgbrk',
-        pair.input,
-        temporary,
-      ]);
-      if (result.code !== 0) {
-        throw new DocumentConversionError(
-          formatCommandFailure(`Failed to convert '${pair.input}'`, result),
-        );
-      }
+      const result = await runProcessStep(
+        run,
+        'pdftotext',
+        ['-enc', 'UTF-8', '-nopgbrk', pair.input, temporary],
+        `Failed to convert '${pair.input}'`,
+        { raise: documentConversionError },
+      );
       if (result.stderr.trim()) warn(`${result.stderr.trim()}\n`);
     });
   });
