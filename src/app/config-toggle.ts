@@ -1,7 +1,4 @@
-import {
-  resolveSelection,
-  type SelectionMode,
-} from '../config-selection/selection';
+import type { SelectionPolicy } from '../config-selection/selection';
 
 /**
  * Present a catalog for interactive multi-select and return the names to keep
@@ -16,10 +13,9 @@ export type SelectEntries = (
 
 export interface ConfigToggleSurface {
   readonly catalog: readonly string[];
-  readonly read: () => Promise<string[]>;
-  readonly write: (names: readonly string[]) => Promise<void>;
+  readonly manifestPath: string;
   readonly message: string;
-  readonly mode: SelectionMode;
+  readonly policy: SelectionPolicy;
 }
 
 /**
@@ -32,11 +28,9 @@ export async function configSelectManifest(
   warn: (message: string) => void,
   select: SelectEntries,
 ): Promise<void> {
-  const listed = await selection.read();
-  const { enabled, unknown } = resolveSelection(
+  const { enabled, unknown } = await selection.policy.resolve(
     selection.catalog,
-    listed,
-    selection.mode,
+    selection.manifestPath,
   );
   if (unknown.length > 0) {
     warn(`warning: manifest names not in catalog: ${unknown.join(', ')}\n`);
@@ -45,8 +39,9 @@ export async function configSelectManifest(
   const chosen = await select(selection.message, selection.catalog, enabled);
   if (chosen === null) return;
 
-  await selection.write(
-    persistedList(selection.catalog, chosen, selection.mode),
+  await selection.policy.write(
+    selection.manifestPath,
+    persistedList(selection.catalog, chosen, selection.policy.mode),
   );
 }
 
@@ -58,15 +53,16 @@ export async function configSelectManifest(
 export async function configClearManifest(
   selection: ConfigToggleSurface,
 ): Promise<void> {
-  await selection.write(
-    selection.mode === 'opt-out' ? [...selection.catalog] : [],
+  await selection.policy.write(
+    selection.manifestPath,
+    selection.policy.mode === 'opt-out' ? [...selection.catalog] : [],
   );
 }
 
 function persistedList(
   catalog: readonly string[],
   chosen: readonly string[],
-  mode: SelectionMode,
+  mode: SelectionPolicy['mode'],
 ): readonly string[] {
   return mode === 'opt-out'
     ? catalog.filter((name) => !chosen.includes(name))

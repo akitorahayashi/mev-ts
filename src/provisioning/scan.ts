@@ -1,13 +1,12 @@
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir } from '../assets/ref';
-import type { AssetSource } from '../assets/registry';
 import { errorMessage } from '../errors';
 import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { mapWithConcurrency } from '../host/task-pool';
 import { appliedPath, readApplied } from './applied';
-import { targetSignature } from './signature';
+import { type AssetIntent, readAssetIntents, signatureOf } from './signature';
 import type { Target } from './target';
 
 export type SyncReason = 'unapplied' | 'signature' | 'drift';
@@ -52,33 +51,57 @@ function entryOrder(left: RoleEntry, right: RoleEntry): number {
   );
 }
 
-async function embeddedEntries(
+/**
+ * The role as the embedded assets declare it. Built from the intents the
+ * signature already read, so a scan reads each asset once rather than once per
+ * consumer.
+ */
+function embeddedEntries(
   role: string,
-  assets: AssetSource,
-): Promise<RoleEntry[]> {
+  intents: readonly AssetIntent[],
+): RoleEntry[] {
   const prefix = `${role}/`;
   const directories = new Set<string>();
-  const keys = [...assets.keysByPrefix(prefix)].sort();
-  const files = await Promise.all(
-    keys.map(async (key): Promise<RoleEntry> => {
-      const path = key.slice(prefix.length);
-      const parts = path.split('/');
-      for (let index = 1; index < parts.length; index += 1) {
-        directories.add(parts.slice(0, index).join('/'));
-      }
-      return {
-        kind: 'file',
-        path,
-        content: Buffer.from(await assets.read(key)).toString('base64'),
-        executable: assets.isExecutable(key),
-      };
-    }),
-  );
+  const files = intents.map((intent): RoleEntry => {
+    const path = intent.key.slice(prefix.length);
+    const parts = path.split('/');
+    for (let index = 1; index < parts.length; index += 1) {
+      directories.add(parts.slice(0, index).join('/'));
+    }
+    return {
+      kind: 'file',
+      path,
+      content: Buffer.from(intent.content).toString('base64'),
+      executable: intent.executable,
+    };
+  });
 
   return [
     ...[...directories].map((path): RoleEntry => ({ kind: 'directory', path })),
     ...files,
   ].sort(entryOrder);
+}
+
+/**
+ * Compare entry by entry rather than by serialized form: JSON-string equality
+ * would rest on two construction sites happening to insert properties in the
+ * same order, which nothing enforces.
+ */
+function entriesDiffer(
+  expected: readonly RoleEntry[],
+  actual: readonly RoleEntry[],
+): boolean {
+  if (expected.length !== actual.length) return true;
+  return expected.some((left, index) => {
+    const right = actual[index];
+    if (!right || right.kind !== left.kind || right.path !== left.path) {
+      return true;
+    }
+    if (left.kind !== 'file' || right.kind !== 'file') return false;
+    return (
+      left.content !== right.content || left.executable !== right.executable
+    );
+  });
 }
 
 async function walkDeployed(
@@ -131,13 +154,13 @@ async function deployedEntries(
 
 async function roleHasDrift(
   role: string,
-  context: Pick<Context, 'home' | 'assets'>,
+  intents: readonly AssetIntent[],
+  home: string,
 ): Promise<boolean> {
-  const [expected, actual] = await Promise.all([
-    embeddedEntries(role, context.assets),
-    deployedEntries(role, context.home),
-  ]);
-  return JSON.stringify(expected) !== JSON.stringify(actual);
+  return entriesDiffer(
+    embeddedEntries(role, intents),
+    await deployedEntries(role, home),
+  );
 }
 
 async function scanTarget(
@@ -145,10 +168,11 @@ async function scanTarget(
   context: Context,
 ): Promise<TargetScan> {
   try {
-    const signature = await targetSignature(target, context.assets);
+    const intents = await readAssetIntents(target.role, context.assets);
+    const signature = signatureOf(target, intents);
     const [applied, drifted] = await Promise.all([
       readApplied(appliedPath(context.home, target.name)),
-      roleHasDrift(target.role, context),
+      roleHasDrift(target.role, intents, context.home),
     ]);
     const reasons: SyncReason[] = [];
     if (applied === null) reasons.push('unapplied');

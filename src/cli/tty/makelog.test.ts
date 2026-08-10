@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { summarizeGroup } from '../../provisioning/group-outcome';
 import type { MakeReport } from '../../provisioning/run';
+import { target } from '../../provisioning/target';
 import { renderMakeReport, renderTargetCompletionLine } from './makelog';
 
 const emptyPackages = { taps: [], formulae: [], casks: [] };
@@ -11,18 +12,18 @@ const failedReport: MakeReport = {
     roles: ['git', 'python'],
     packages: { taps: [], formulae: ['git', 'uv'], casks: [] },
     groups: [
-      {
-        targetName: 'git',
+      target('git', {
+        description: 'git',
         role: 'git',
-        packages: { taps: [], formulae: ['git'], casks: [] },
+        packages: { formulae: ['git'] },
         activations: [],
-      },
-      {
-        targetName: 'python',
+      }),
+      target('python', {
+        description: 'python',
         role: 'python',
-        packages: { taps: [], formulae: ['uv'], casks: [] },
+        packages: { formulae: ['uv'] },
         activations: [],
-      },
+      }),
     ],
   },
   deploys: [
@@ -202,12 +203,11 @@ test('renderMakeReport renders concise successful summaries', () => {
       roles: ['shell'],
       packages: emptyPackages,
       groups: [
-        {
-          targetName: 'shell',
+        target('shell', {
+          description: 'shell',
           role: 'shell',
-          packages: emptyPackages,
           activations: [],
-        },
+        }),
       ],
     },
     deploys: [{ role: 'shell', deployed: false, files: [] }],

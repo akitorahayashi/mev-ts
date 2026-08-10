@@ -16,6 +16,8 @@ Skills and Zed overrides are purely filesystem-derived: a skill is any subdirect
 
 `resolveSelection(catalog, listed, mode)` (`config-selection/selection.ts`) splits a catalog into enabled and disabled names against the stored list. Under `opt-out`, the stored list names what's disabled, so catalog entries added by a later mev update stay enabled by default. Under `opt-in`, the stored list names what's enabled, so a newly added Zed override never starts applying itself to an existing `settings.json`. `app/config-toggle.ts` drives the shared toggle flow (`configSelectManifest`/`configClearManifest`) over this resolver for all three surfaces.
 
+A surface's polarity reaches its call sites as a `SelectionPolicy` (`selectionPolicy(mode, label)`), not as a mode argument passed alongside a name list: `coder/manifest.ts` exports `catalogSelection` and `zed/manifest.ts` exports `overrideSelection`, each binding the mode to the manifest key it stores under and to the read, write, and resolve operations. The key is derived from the mode, so a manifest listing `disabled` names can never be resolved as `enabled` — an inversion that would silently reverse every entry's meaning.
+
 A manifest is one YAML mapping with exactly one key holding a name list:
 
 ```yaml

@@ -1,21 +1,18 @@
 import { mergePackages, type PackageRequirement } from '../brew/package';
-import type { Activation } from './activation';
 import { resolveTarget } from './registry';
 import type { Target } from './target';
 
-export interface ActivationGroup {
-  readonly targetName: string;
-  readonly role: string;
-  readonly packages: PackageRequirement;
-  readonly activations: readonly Activation[];
-}
-
-/** A selection resolved into ordered work for each phase. */
+/**
+ * A selection resolved into ordered work for each phase. `groups` carries the
+ * selected targets themselves rather than their names: everything the activation
+ * phase needs — role, packages, activations — already lives on a `Target`, and
+ * flattening to a name only forces the run to look it up again.
+ */
 export interface MakePlan {
   readonly targetNames: readonly string[];
   readonly roles: readonly string[];
   readonly packages: PackageRequirement;
-  readonly groups: readonly ActivationGroup[];
+  readonly groups: readonly Target[];
 }
 
 /**
@@ -46,11 +43,6 @@ export function planMake(selectors: readonly string[]): MakePlan {
     targetNames: chosen.map((t) => t.name),
     roles,
     packages: mergePackages(chosen.map((t) => t.packages)),
-    groups: chosen.map((t) => ({
-      targetName: t.name,
-      role: t.role,
-      packages: t.packages,
-      activations: t.activations,
-    })),
+    groups: chosen,
   };
 }

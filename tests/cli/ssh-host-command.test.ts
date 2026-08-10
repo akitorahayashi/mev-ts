@@ -1,10 +1,11 @@
-import { expect } from 'bun:test';
+import { expect, test } from 'bun:test';
 import { readFile } from 'node:fs/promises';
 import { embeddedAssets } from '../../src/assets/registry';
 import { sshHostPath } from '../../src/github/ssh-host';
 import { runCommandLine } from '../../src/main';
 import { appliedPath, writeApplied } from '../../src/provisioning/applied';
 import { deployRole } from '../../src/provisioning/deploy';
+import { allTargets } from '../../src/provisioning/registry';
 import { isScanError, scanTargets } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
 import { groveTarget } from '../../src/provisioning/targets/grove';
@@ -93,3 +94,17 @@ sandboxTest(
     ]);
   },
 );
+
+test('the targets invalidated by an SSH host change are the ones declaring it', () => {
+  // Derived from the registry, not restated: a target that starts baking the
+  // host in declares it and joins the invalidation set without touching
+  // `configureSshHost`.
+  const declaring = allTargets().filter((target) =>
+    target.perMachineInputs.includes('githubSshHost'),
+  );
+
+  expect(declaring.map((target) => target.name)).toContain(groveTarget.name);
+  // Agent plugins read the host live through `sshRemoteUrl` on every run and
+  // deliberately keep it out of the signature, so they are never stale for it.
+  expect(declaring.map((target) => target.name)).not.toContain('coder');
+});

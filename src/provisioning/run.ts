@@ -1,6 +1,6 @@
 import { type InstallReport, installPackages } from '../brew/install';
 import { type PackageToken, tokens } from '../brew/package';
-import { errorMessage, ProvisioningError } from '../errors';
+import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
 import {
   type ActivationReport,
@@ -13,7 +13,6 @@ import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
 import { groupSucceeded } from './group-outcome';
 import { type MakePlan, planMake } from './plan';
-import { allTargets } from './registry';
 import { targetSignature } from './signature';
 import type { Target } from './target';
 
@@ -92,16 +91,6 @@ function blockerReason(blockers: readonly ActivationBlocker[]): string {
   return blockers.map(formatBlocker).join('; ');
 }
 
-function targetNamed(name: string): Target {
-  const match = allTargets().find((target) => target.name === name);
-  if (!match) {
-    throw new ProvisioningError(
-      `Provisioning plan referenced unknown target '${name}'.`,
-    );
-  }
-  return match;
-}
-
 async function invalidateSelectedTargets(
   targets: readonly string[],
   context: Context,
@@ -115,8 +104,6 @@ async function invalidateSelectedTargets(
     ),
   );
 }
-
-type MakeGroup = MakePlan['groups'][number];
 
 interface DeployPhaseResult {
   readonly deploys: readonly DeployResult[];
@@ -150,7 +137,7 @@ async function runDeployPhase(
 }
 
 function computeBlockers(
-  group: MakeGroup,
+  group: Target,
   failedRoles: ReadonlyMap<string, string>,
   failedPackages: readonly InstallReport[],
 ): ActivationBlocker[] {
@@ -175,11 +162,11 @@ function computeBlockers(
 }
 
 async function recordSuccessfulTarget(
+  target: Target,
   group: ActivationGroupReport,
   context: Context,
 ): Promise<void> {
   if (!groupSucceeded(group)) return;
-  const target = targetNamed(group.targetName);
   const signature = await targetSignature(target, context.assets);
   await writeApplied(appliedPath(context.home, target.name), signature);
 }
@@ -200,8 +187,8 @@ export async function runMake(
   // Preserve mutable host state before invalidating applied markers or
   // replacing deployed roles. A preservation failure leaves provisioning's
   // managed state untouched.
-  for (const targetName of selection.targetNames) {
-    await targetNamed(targetName).preserveBeforeDeploy?.(context);
+  for (const target of selection.groups) {
+    await target.preserveBeforeDeploy?.(context);
   }
 
   await invalidateSelectedTargets(selection.targetNames, context);
@@ -233,7 +220,7 @@ export async function runMake(
     if (blockers.length > 0) {
       const reason = blockerReason(blockers);
       const groupReport = {
-        targetName: group.targetName,
+        targetName: group.name,
         blockers,
         reports: group.activations.map((activation) =>
           blockedReport(activation, reason),
@@ -246,7 +233,7 @@ export async function runMake(
     const reports: ActivationReport[] = [];
     for (const activation of group.activations) {
       request.onActivationStart?.({
-        targetName: group.targetName,
+        targetName: group.name,
         activation: describeActivation(activation),
       });
       reports.push(
@@ -256,7 +243,7 @@ export async function runMake(
       );
     }
     const baseReport: ActivationGroupReport = {
-      targetName: group.targetName,
+      targetName: group.name,
       blockers,
       reports,
     };
@@ -264,7 +251,7 @@ export async function runMake(
     // and the loop continues, so later targets still activate.
     let markerError: string | undefined;
     try {
-      await recordSuccessfulTarget(baseReport, context);
+      await recordSuccessfulTarget(group, baseReport, context);
     } catch (error) {
       markerError = errorMessage(error);
     }

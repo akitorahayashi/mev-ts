@@ -12,7 +12,10 @@ export const rubyTarget = target('ruby', {
   activations: [
     runCommand({
       label: 'ruby toolchain',
-      reads: { version: 'ruby/.ruby-version' },
+      reads: {
+        version: 'ruby/.ruby-version',
+        bundler: 'ruby/.bundler-version',
+      },
       steps: [
         brewPrefixCapture(),
         {
@@ -52,9 +55,23 @@ export const rubyTarget = target('ruby', {
         },
         {
           label: 'gem install bundler',
-          argv: ['gem', 'install', 'bundler', '-v', '2.5.22', '--no-document'],
+          argv: [
+            'gem',
+            'install',
+            'bundler',
+            '-v',
+            { ref: 'bundler' },
+            '--no-document',
+          ],
           skipIf: {
-            commandSucceeds: ['gem', 'list', '-i', 'bundler', '-v', '2.5.22'],
+            commandSucceeds: [
+              'gem',
+              'list',
+              '-i',
+              'bundler',
+              '-v',
+              { ref: 'bundler' },
+            ],
           },
           // rbenv shims must precede brew's bin so the freshly installed ruby's
           // gem is used, so this prepends shims to the shared brew PATH.

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import type { MakeReport, MakeRequest } from '../provisioning/run';
+import { target } from '../provisioning/target';
 import {
   executeProvisioningRun,
   type ProvisioningRun,
@@ -24,12 +25,11 @@ function reportWithStatus(
       roles: ['shell'],
       packages: emptyPackages,
       groups: [
-        {
-          targetName: 'shell',
+        target('shell', {
+          description: 'shell',
           role: 'shell',
-          packages: emptyPackages,
           activations: [],
-        },
+        }),
       ],
     },
     deploys: [{ role: 'shell', deployed: true, files: ['.zshenv'] }],
