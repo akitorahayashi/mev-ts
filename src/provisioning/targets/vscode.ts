@@ -7,4 +7,5 @@ export const vscodeTarget = editorTarget({
   cask: 'visual-studio-code',
   extensionCli: 'code',
   userDir: 'Library/Application Support/Code/User',
+  optional: true,
 });

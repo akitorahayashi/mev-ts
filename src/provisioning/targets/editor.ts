@@ -15,6 +15,7 @@ export interface EditorTargetSpec {
   readonly cask: string;
   readonly extensionCli: string;
   readonly userDir: string;
+  readonly optional?: boolean;
 }
 
 export function editorTarget(spec: EditorTargetSpec): Target {
@@ -22,6 +23,7 @@ export function editorTarget(spec: EditorTargetSpec): Target {
     description: spec.description,
     aliases: [...spec.aliases],
     role: spec.name,
+    optional: spec.optional,
     packages: { casks: [spec.cask] },
     activations: [
       link(
