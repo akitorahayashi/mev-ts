@@ -185,3 +185,8 @@ export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
 export function pluginId(plugin: string, marketplace: string): string {
   return `${plugin}@${marketplace}`;
 }
+
+/** Whether an installed plugin id belongs to the marketplace's namespace. */
+export function idInMarketplace(id: string, marketplace: string): boolean {
+  return id.endsWith(`@${marketplace}`);
+}

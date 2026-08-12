@@ -7,13 +7,25 @@ import {
 } from '../../fixtures/fake-command-runner';
 
 const defaultBranch = { code: 0, stdout: 'origin/main\n', stderr: '' };
-const branchExists = { code: 0, stdout: 'abc123\n', stderr: '' };
 const ok = { code: 0, stdout: '', stderr: '' };
+
+const listHeads = ['for-each-ref', '--format=%(refname:short)', 'refs/heads/'];
+
+function localBranches(names: readonly string[]) {
+  return { code: 0, stdout: `${names.join('\n')}\n`, stderr: '' };
+}
 
 test('moves to the default branch, pulls, deletes, and prunes', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [defaultBranch, branchExists, branchExists, ok, ok, ok, ok],
+    [
+      defaultBranch,
+      localBranches(['main', 'feature/a', 'feature/b']),
+      ok,
+      ok,
+      ok,
+      ok,
+    ],
     calls,
   );
 
@@ -28,13 +40,7 @@ test('moves to the default branch, pulls, deletes, and prunes', async () => {
     },
     {
       command: 'git',
-      args: ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
-      stdout: undefined,
-      stderr: undefined,
-    },
-    {
-      command: 'git',
-      args: ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/b'],
+      args: listHeads,
       stdout: undefined,
       stderr: undefined,
     },
@@ -63,7 +69,14 @@ test('moves to the default branch, pulls, deletes, and prunes', async () => {
 test('moves to the --to destination instead of the default branch', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [defaultBranch, branchExists, ok, ok, ok, ok],
+    [
+      defaultBranch,
+      localBranches(['main', 'dev', 'feature/a']),
+      ok,
+      ok,
+      ok,
+      ok,
+    ],
     calls,
   );
 
@@ -71,7 +84,7 @@ test('moves to the --to destination instead of the default branch', async () => 
 
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
-    ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
+    listHeads,
     ['checkout', 'dev'],
     ['pull'],
     ['branch', '-D', '--', 'feature/a'],
@@ -82,7 +95,14 @@ test('moves to the --to destination instead of the default branch', async () => 
 test('accepts -t as the destination shorthand and deduplicates branches', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [defaultBranch, branchExists, ok, ok, ok, ok],
+    [
+      defaultBranch,
+      localBranches(['main', 'dev', 'feature/a']),
+      ok,
+      ok,
+      ok,
+      ok,
+    ],
     calls,
   );
 
@@ -90,7 +110,7 @@ test('accepts -t as the destination shorthand and deduplicates branches', async 
 
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
-    ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
+    listHeads,
     ['checkout', 'dev'],
     ['pull'],
     ['branch', '-D', '--', 'feature/a'],
@@ -125,11 +145,7 @@ test('rejects deleting the destination branch', async () => {
 test('rejects unknown local branches before any state changes', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [
-      defaultBranch,
-      branchExists,
-      { code: 1, stdout: '', stderr: '' }, // typo — not a local branch
-    ],
+    [defaultBranch, localBranches(['main', 'feature/a'])],
     calls,
   );
 
@@ -138,8 +154,7 @@ test('rejects unknown local branches before any state changes', async () => {
   );
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
-    ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
-    ['rev-parse', '--verify', '--quiet', 'refs/heads/typo'],
+    listHeads,
   ]);
 });
 
@@ -160,7 +175,7 @@ test('stops before delete when pull fails', async () => {
   const run = sequenceRunner(
     [
       defaultBranch,
-      branchExists,
+      localBranches(['main', 'feature/a']),
       ok,
       { code: 1, stdout: '', stderr: 'pull failed' },
     ],
@@ -172,7 +187,7 @@ test('stops before delete when pull fails', async () => {
   );
   expect(calls.map((c) => c.args)).toEqual([
     ['rev-parse', '--abbrev-ref', 'origin/HEAD'],
-    ['rev-parse', '--verify', '--quiet', 'refs/heads/feature/a'],
+    listHeads,
     ['checkout', 'main'],
     ['pull'],
   ]);
@@ -180,7 +195,10 @@ test('stops before delete when pull fails', async () => {
 
 test('rejects a dash-leading destination before running any command', async () => {
   const calls: RecordedCall[] = [];
-  const run = sequenceRunner([defaultBranch, branchExists], calls);
+  const run = sequenceRunner(
+    [defaultBranch, localBranches(['main', 'feature/a'])],
+    calls,
+  );
 
   await expect(
     deleteBranches(run, ['feature/a', '--to', '-weird']),
@@ -191,7 +209,12 @@ test('rejects a dash-leading destination before running any command', async () =
 test('reports inherited command failures without pretending output was captured', async () => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [defaultBranch, branchExists, ok, { code: 1, stdout: '', stderr: '' }],
+    [
+      defaultBranch,
+      localBranches(['main', 'feature/a']),
+      ok,
+      { code: 1, stdout: '', stderr: '' },
+    ],
     calls,
   );
 

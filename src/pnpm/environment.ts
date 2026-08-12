@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { brewPrefix } from '../brew/prefix';
 import { ProvisioningError } from '../errors';
 import type { CommandOptions } from '../host/command';
 import { runProcessStep } from '../host/command-run';
@@ -21,13 +22,7 @@ export interface PnpmRuntime {
  * confusing error from the first package command.
  */
 export async function pnpmRuntime(context: Context): Promise<PnpmRuntime> {
-  const result = await runProcessStep(
-    context.commands,
-    'brew',
-    ['--prefix'],
-    'brew --prefix failed',
-  );
-  const prefix = result.stdout.trim();
+  const prefix = await brewPrefix(context);
   if (!prefix) {
     throw new ProvisioningError(
       'brew --prefix reported an empty prefix; cannot locate the pnpm binary.',

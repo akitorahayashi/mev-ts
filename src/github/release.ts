@@ -1,10 +1,10 @@
-import { chmod, stat } from 'node:fs/promises';
+import { chmod } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
-import { isNotFound } from '../host/absence';
+import { statIfPresent } from '../host/absence';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
-import { downloadOverHttps } from '../host/https-download';
+import { downloadOverHttps, hardenedCurlArgs } from '../host/https-download';
 import {
   isRecord,
   requireExactKeys,
@@ -189,15 +189,10 @@ async function reportedVersion(
 // Repairing the mode mev itself sets is cheaper than the re-download that the
 // resulting spawn failure would otherwise trigger.
 async function repairExecuteBit(dest: string): Promise<void> {
-  let mode: number;
-  try {
-    mode = (await stat(dest)).mode;
-  } catch (error) {
-    if (isNotFound(error)) return;
-    throw error;
-  }
-  if ((mode & 0o111) === 0) {
-    await chmod(dest, mode | 0o755);
+  const stats = await statIfPresent(dest);
+  if (stats === null) return;
+  if ((stats.mode & 0o111) === 0) {
+    await chmod(dest, stats.mode | 0o755);
   }
 }
 
@@ -225,14 +220,7 @@ export async function resolveLatestTag(
     'curl',
     [
       '-sS',
-      '--proto',
-      '=https',
-      '--tlsv1.2',
-      '--connect-timeout',
-      '30',
-      '--retry',
-      '2',
-      '--retry-connrefused',
+      ...hardenedCurlArgs,
       '-I',
       '-o',
       '/dev/null',

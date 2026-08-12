@@ -1,5 +1,5 @@
 import type { Dirent, Stats } from 'node:fs';
-import { lstat, readdir, readFile, readlink } from 'node:fs/promises';
+import { lstat, readdir, readFile, readlink, stat } from 'node:fs/promises';
 
 export function isNotFound(error: unknown): boolean {
   return (error as NodeJS.ErrnoException)?.code === 'ENOENT';
@@ -8,6 +8,15 @@ export function isNotFound(error: unknown): boolean {
 export async function lstatIfPresent(path: string): Promise<Stats | null> {
   try {
     return await lstat(path);
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
+
+export async function statIfPresent(path: string): Promise<Stats | null> {
+  try {
+    return await stat(path);
   } catch (error) {
     if (isNotFound(error)) return null;
     throw error;

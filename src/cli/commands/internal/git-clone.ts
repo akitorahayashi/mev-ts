@@ -1,6 +1,6 @@
 import { Command, Option } from 'clipanion';
 import { cloneRepositories } from '../../../internal/git/clone';
-import { runProxiedArgs } from './proxy-args';
+import { runInternalCommand } from './run';
 
 export class InternalGitCloneCommand extends Command {
   static override paths = [['internal', 'git', 'clone']];
@@ -8,6 +8,8 @@ export class InternalGitCloneCommand extends Command {
   args = Option.Proxy();
 
   async execute() {
-    return runProxiedArgs(this, this.args, cloneRepositories);
+    return runInternalCommand(this, (run, write) =>
+      cloneRepositories(run, this.args, write),
+    );
   }
 }

@@ -62,13 +62,12 @@ export function parseManifest(raw: string, path: string): PnpmEntry[] {
       `${label} packages must be a mapping of package names to versions.`,
     );
   }
-  const packages = Object.entries(packagesValue).map(([name, version]) => {
+  const packages = Object.entries(packagesValue).map(([name, rawVersion]) => {
     requirePackageName(name, `${label} packages`);
-    if (typeof version !== 'string' || version.length === 0) {
-      throw new ProvisioningError(
-        `${label} packages.${name} must be a non-empty string version.`,
-      );
-    }
+    const version = requireNonEmptyString(
+      rawVersion,
+      `${label} packages.${name} version`,
+    );
     if (version !== latestVersion && !EXACT_VERSION.test(version)) {
       throw new ProvisioningError(
         `${label} packages.${name} must be '${latestVersion}' or an exact version pin, not the range '${version}'.`,

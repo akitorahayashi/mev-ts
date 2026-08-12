@@ -1,5 +1,10 @@
 import { ProvisioningError } from '../errors';
-import { isRecord, requireExactKeys, requireUniqueBy } from '../host/parse';
+import {
+  isRecord,
+  requireExactKeys,
+  requireNonEmptyString,
+  requireUniqueBy,
+} from '../host/parse';
 import { loadYaml } from '../host/yaml';
 
 export interface DefaultsEntry {
@@ -34,21 +39,13 @@ function validateDefaultsEntry(
     ['domain', 'key', 'type', 'value'],
     `Invalid defaults config ${path} entry ${index + 1}`,
   );
-  const { domain, key, type, value } = entry;
-  if (typeof domain !== 'string' || domain.trim() === '') {
-    throw invalidDefaultsEntry(
-      path,
-      index,
-      "'domain' must be a non-empty string.",
-    );
-  }
-  if (typeof key !== 'string' || key.trim() === '') {
-    throw invalidDefaultsEntry(
-      path,
-      index,
-      "'key' must be a non-empty string.",
-    );
-  }
+  const { type, value } = entry;
+  const entryLabel = `Invalid defaults config ${path} entry ${index + 1}`;
+  const domain = requireNonEmptyString(
+    entry['domain'],
+    `${entryLabel}: 'domain'`,
+  );
+  const key = requireNonEmptyString(entry['key'], `${entryLabel}: 'key'`);
   if (typeof type !== 'string' || !DEFAULTS_TYPES.has(type)) {
     throw invalidDefaultsEntry(
       path,

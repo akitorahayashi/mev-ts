@@ -136,7 +136,9 @@ sandboxTest(
     const report = await runActivation(applyDuti(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain('extensions array of strings');
+    expect(report.error).toContain(
+      "'extensions' must be a sequence of strings",
+    );
     expect(calls).toHaveLength(0);
   },
 );

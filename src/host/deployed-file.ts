@@ -1,5 +1,6 @@
+import type { Dirent } from 'node:fs';
 import { ProvisioningError } from '../errors';
-import { readTextIfPresent } from './absence';
+import { readDirentsIfPresent, readTextIfPresent } from './absence';
 
 /** The canonical guidance surfaced when a file mev expects to be deployed is absent. */
 function deployFirstMessage(label: string, path: string): string {
@@ -20,4 +21,19 @@ export async function readDeployedText(
     throw new ProvisioningError(deployFirstMessage(label, path));
   }
   return raw;
+}
+
+/**
+ * Read a deployed directory's entries, throwing the canonical deploy-first
+ * guidance (named by `label`) when the directory is absent.
+ */
+export async function readDeployedDirents(
+  path: string,
+  label: string,
+): Promise<Dirent[]> {
+  const entries = await readDirentsIfPresent(path);
+  if (entries === null) {
+    throw new ProvisioningError(deployFirstMessage(label, path));
+  }
+  return entries;
 }

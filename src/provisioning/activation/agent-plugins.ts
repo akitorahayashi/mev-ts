@@ -1,4 +1,5 @@
 import {
+  idInMarketplace,
   type PluginClient,
   type PluginMarketplace,
   parsePluginCatalog,
@@ -62,45 +63,6 @@ export function describeAgentPlugins(
     source: manifestSource(activation.configKey),
     dest: 'agent plugins',
   };
-}
-
-function listInstalled(
-  client: PluginClient,
-  context: Context,
-): Promise<PluginInventory> {
-  return pluginClientOps[client].listPlugins(context);
-}
-
-function installPlugin(
-  client: PluginClient,
-  id: string,
-  context: Context,
-): Promise<void> {
-  return pluginClientOps[client].installPlugin(id, context);
-}
-
-function upgradePlugin(
-  client: PluginClient,
-  id: string,
-  context: Context,
-): Promise<void> {
-  return pluginClientOps[client].upgradePlugin(id, context);
-}
-
-function uninstallPlugin(
-  client: PluginClient,
-  id: string,
-  context: Context,
-): Promise<void> {
-  return pluginClientOps[client].uninstallPlugin(id, context);
-}
-
-function removeMarketplace(
-  client: PluginClient,
-  name: string,
-  context: Context,
-): Promise<void> {
-  return pluginClientOps[client].removeMarketplace(name, context);
 }
 
 function inventoryFailureEntries(
@@ -259,7 +221,7 @@ async function uninstallInstalled(
 ): Promise<number | null> {
   const entryIndex = entries.length;
   try {
-    await uninstallPlugin(client, id, context);
+    await pluginClientOps[client].uninstallPlugin(id, context);
     installed.delete(id);
     entries.push({
       key: `${client}:${id}`,
@@ -313,7 +275,7 @@ async function confirmUninstalled(
   if (issued.length === 0) return true;
   let confirmed = true;
   try {
-    const remaining = await listInstalled(client, context);
+    const remaining = await pluginClientOps[client].listPlugins(context);
     for (const target of issued) {
       if (!remaining.has(target.id)) continue;
       installed.set(target.id, remaining.get(target.id));
@@ -386,8 +348,9 @@ async function removeDeclaredMarketplace(
   // An already-deregistered marketplace can still leave installed plugins
   // behind; the tombstone names their namespace, so they are uninstalled
   // either way.
-  const suffix = `@${removed.name}`;
-  const ids = [...installed.keys()].filter((id) => id.endsWith(suffix));
+  const ids = [...installed.keys()].filter((id) =>
+    idInMarketplace(id, removed.name),
+  );
   const issued: VerificationTarget[] = [];
   let blocked = false;
   for (const id of ids) {
@@ -430,7 +393,10 @@ async function removeDeclaredMarketplace(
     return;
   }
   try {
-    await removeMarketplace(removed.client, removed.name, context);
+    await pluginClientOps[removed.client].removeMarketplace(
+      removed.name,
+      context,
+    );
     registrations.forget(removed.client, removed.name);
     entries.push({ key, value: 'marketplace removed', status: 'changed' });
   } catch (error) {
@@ -449,7 +415,7 @@ function invalidateNamespacePlugins(
   marketplace: string,
 ): void {
   for (const id of [...installed.keys()]) {
-    if (id.endsWith(`@${marketplace}`)) installed.delete(id);
+    if (idInMarketplace(id, marketplace)) installed.delete(id);
   }
 }
 
@@ -579,7 +545,7 @@ async function reconcileMarketplace(
       }
       const entryIndex = entries.length;
       try {
-        await upgradePlugin(marketplace.client, id, context);
+        await pluginClientOps[marketplace.client].upgradePlugin(id, context);
         // Provisional: the post-run inventory refines this entry to changed or
         // unchanged by version diff.
         entries.push({
@@ -605,7 +571,7 @@ async function reconcileMarketplace(
     }
     const entryIndex = entries.length;
     try {
-      await installPlugin(marketplace.client, id, context);
+      await pluginClientOps[marketplace.client].installPlugin(id, context);
       installed.set(id, undefined);
       entries.push({
         key: `${marketplace.client}:${id}`,
@@ -638,87 +604,91 @@ async function verifyOutcomes(
   upgrades: readonly UpgradeTarget[],
   removals: readonly VerificationTarget[],
 ): Promise<void> {
-  for (const client of clients) {
-    const clientInstalls = installs.filter(
-      (target) => target.client === client,
-    );
-    const clientUpgrades = upgrades.filter(
-      (target) => target.client === client,
-    );
-    const clientRemovals = removals.filter(
-      (target) => target.client === client,
-    );
-    if (
-      clientInstalls.length === 0 &&
-      clientUpgrades.length === 0 &&
-      clientRemovals.length === 0
-    ) {
-      continue;
-    }
-    try {
-      const installed = await listInstalled(client, context);
-      for (const target of clientInstalls) {
-        if (installed.has(target.id)) continue;
-        entries[target.entryIndex] = {
-          key: `${client}:${target.id}`,
-          value: 'verification failed',
-          status: 'failed',
-          error: 'Plugin was not present in the post-install inventory.',
-        };
+  // Per-client verifications are independent (each writes only its own
+  // targets' entry indices), so the inventory spawns run concurrently.
+  await Promise.all(
+    clients.map(async (client) => {
+      const clientInstalls = installs.filter(
+        (target) => target.client === client,
+      );
+      const clientUpgrades = upgrades.filter(
+        (target) => target.client === client,
+      );
+      const clientRemovals = removals.filter(
+        (target) => target.client === client,
+      );
+      if (
+        clientInstalls.length === 0 &&
+        clientUpgrades.length === 0 &&
+        clientRemovals.length === 0
+      ) {
+        return;
       }
-      for (const target of clientRemovals) {
-        if (!installed.has(target.id)) continue;
-        entries[target.entryIndex] = {
-          key: `${client}:${target.id}`,
-          value: 'verification failed',
-          status: 'failed',
-          error: SURVIVED_UNINSTALL,
-        };
-      }
-      for (const target of clientUpgrades) {
-        if (!installed.has(target.id)) {
+      try {
+        const installed = await pluginClientOps[client].listPlugins(context);
+        for (const target of clientInstalls) {
+          if (installed.has(target.id)) continue;
           entries[target.entryIndex] = {
             key: `${client}:${target.id}`,
             value: 'verification failed',
             status: 'failed',
-            error: 'Plugin was not present in the post-upgrade inventory.',
+            error: 'Plugin was not present in the post-install inventory.',
           };
-          continue;
         }
-        const version = installed.get(target.id);
-        if (target.previousVersion === undefined || version === undefined) {
-          // Without versions on both sides a no-op cannot be proven, so the
-          // provisional 'upgraded' (changed) entry stands.
-          continue;
+        for (const target of clientRemovals) {
+          if (!installed.has(target.id)) continue;
+          entries[target.entryIndex] = {
+            key: `${client}:${target.id}`,
+            value: 'verification failed',
+            status: 'failed',
+            error: SURVIVED_UNINSTALL,
+          };
         }
-        entries[target.entryIndex] =
-          version === target.previousVersion
-            ? {
-                key: `${client}:${target.id}`,
-                value: `already latest (${version})`,
-                status: 'unchanged',
-              }
-            : {
-                key: `${client}:${target.id}`,
-                value: `upgraded to ${version}`,
-                status: 'changed',
-              };
+        for (const target of clientUpgrades) {
+          if (!installed.has(target.id)) {
+            entries[target.entryIndex] = {
+              key: `${client}:${target.id}`,
+              value: 'verification failed',
+              status: 'failed',
+              error: 'Plugin was not present in the post-upgrade inventory.',
+            };
+            continue;
+          }
+          const version = installed.get(target.id);
+          if (target.previousVersion === undefined || version === undefined) {
+            // Without versions on both sides a no-op cannot be proven, so the
+            // provisional 'upgraded' (changed) entry stands.
+            continue;
+          }
+          entries[target.entryIndex] =
+            version === target.previousVersion
+              ? {
+                  key: `${client}:${target.id}`,
+                  value: `already latest (${version})`,
+                  status: 'unchanged',
+                }
+              : {
+                  key: `${client}:${target.id}`,
+                  value: `upgraded to ${version}`,
+                  status: 'changed',
+                };
+        }
+      } catch (error) {
+        for (const target of [
+          ...clientInstalls,
+          ...clientUpgrades,
+          ...clientRemovals,
+        ]) {
+          entries[target.entryIndex] = {
+            key: `${client}:${target.id}`,
+            value: 'verification failed',
+            status: 'failed',
+            error: errorMessage(error),
+          };
+        }
       }
-    } catch (error) {
-      for (const target of [
-        ...clientInstalls,
-        ...clientUpgrades,
-        ...clientRemovals,
-      ]) {
-        entries[target.entryIndex] = {
-          key: `${client}:${target.id}`,
-          value: 'verification failed',
-          status: 'failed',
-          error: errorMessage(error),
-        };
-      }
-    }
-  }
+    }),
+  );
 }
 
 export function runAgentPlugins(
@@ -742,15 +712,19 @@ export function runAgentPlugins(
       ]),
     ];
     const inventories = new Map<PluginClient, ClientInventory>();
-    for (const client of clients) {
-      try {
-        inventories.set(client, {
-          installed: await listInstalled(client, context),
-        });
-      } catch (error) {
-        inventories.set(client, { error: errorMessage(error) });
-      }
-    }
+    // Each inventory boots the client's full CLI, so the independent per-client
+    // listings run concurrently rather than paying each boot in sequence.
+    await Promise.all(
+      clients.map(async (client) => {
+        try {
+          inventories.set(client, {
+            installed: await pluginClientOps[client].listPlugins(context),
+          });
+        } catch (error) {
+          inventories.set(client, { error: errorMessage(error) });
+        }
+      }),
+    );
 
     const entries: StepReport[] = [];
     const verification: VerificationTarget[] = [];

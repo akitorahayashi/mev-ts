@@ -90,19 +90,17 @@ async function findMissingLocalBranches(
   run: CommandRunner,
   branches: readonly string[],
 ): Promise<string[]> {
-  const missing: string[] = [];
-  for (const branch of branches) {
-    const result = await runCapture(run, [
-      'rev-parse',
-      '--verify',
-      '--quiet',
-      `refs/heads/${branch}`,
-    ]);
-    if (result.code !== 0) {
-      missing.push(branch);
-    }
+  // One listing of all local heads replaces a rev-parse spawn per branch.
+  const result = await runCapture(run, [
+    'for-each-ref',
+    '--format=%(refname:short)',
+    'refs/heads/',
+  ]);
+  if (result.code !== 0) {
+    throw new ProvisioningError('Unable to list local branches.');
   }
-  return missing;
+  const local = new Set(result.stdout.split('\n').filter((s) => s !== ''));
+  return branches.filter((branch) => !local.has(branch));
 }
 
 async function resolveDefaultBranch(run: CommandRunner): Promise<string> {

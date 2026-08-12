@@ -7,8 +7,13 @@ import { mevRoot } from '../host/path';
 
 const signaturePattern = /^sha256:[0-9a-f]{64}$/;
 
+/** The directory holding every target's proof of successful application. */
+export function appliedRoot(home: string): string {
+  return join(home, mevRoot, 'applied');
+}
+
 export function appliedPath(home: string, target: string): string {
-  return join(home, mevRoot, 'applied', target);
+  return join(appliedRoot(home), target);
 }
 
 function validateSignature(signature: string, path: string): string {

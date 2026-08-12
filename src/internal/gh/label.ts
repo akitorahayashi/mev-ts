@@ -40,8 +40,9 @@ export async function listLabelNames(
   return parsed.map((label) => label.name);
 }
 
-export async function createLabel(
+async function writeLabel(
   run: CommandRunner,
+  verb: 'create' | 'edit',
   label: Label,
   repo?: string,
 ): Promise<void> {
@@ -49,7 +50,7 @@ export async function createLabel(
     run,
     [
       'label',
-      'create',
+      verb,
       label.name,
       '--color',
       label.color,
@@ -57,29 +58,24 @@ export async function createLabel(
       label.description,
       ...repoArgs(repo),
     ],
-    `gh label create ${label.name} failed`,
+    `gh label ${verb} ${label.name} failed`,
   );
 }
 
-export async function editLabel(
+export function createLabel(
   run: CommandRunner,
   label: Label,
   repo?: string,
 ): Promise<void> {
-  await runStep(
-    run,
-    [
-      'label',
-      'edit',
-      label.name,
-      '--color',
-      label.color,
-      '--description',
-      label.description,
-      ...repoArgs(repo),
-    ],
-    `gh label edit ${label.name} failed`,
-  );
+  return writeLabel(run, 'create', label, repo);
+}
+
+export function editLabel(
+  run: CommandRunner,
+  label: Label,
+  repo?: string,
+): Promise<void> {
+  return writeLabel(run, 'edit', label, repo);
 }
 
 export async function deleteLabel(

@@ -2,11 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { errorMessage } from '../../errors';
 import { DocumentConversionError } from './conversion-error';
-
-interface ConversionPair {
-  readonly input: string;
-  readonly output: string;
-}
+import type { ConversionPair } from './input-files';
 
 /**
  * Drive per-file conversion for `pairs`: announce each, create its output

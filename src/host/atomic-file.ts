@@ -1,6 +1,6 @@
-import { chmod, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isNotFound, readTextIfPresent } from './absence';
+import { readTextIfPresent, statIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
 import { transactionDirectory } from './transaction';
 
@@ -49,13 +49,4 @@ export async function replaceFileAtomically(
     () => rm(transaction, { force: true, recursive: true }),
     `Failed to clean up temporary file transaction for ${path}.`,
   );
-}
-
-async function statIfPresent(path: string) {
-  try {
-    return await stat(path);
-  } catch (error) {
-    if (isNotFound(error)) return null;
-    throw error;
-  }
 }
