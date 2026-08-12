@@ -26,7 +26,7 @@ interface FakeRelease {
   readonly missingAsset?: readonly string[];
 }
 
-const LATEST_URL = /api\.github\.com\/repos\/([^/]+\/[^/]+)\/releases\/latest$/;
+const LATEST_URL = /github\.com\/([^/]+\/[^/]+)\/releases\/latest$/;
 const ASSET_URL = /github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
 
 function tagVersion(tag: string): string {
@@ -46,10 +46,11 @@ function releaseContext(home: string, release: FakeRelease = {}) {
       const url = args[args.length - 1] as string;
       const latest = LATEST_URL.exec(url);
       if (latest?.[1]) {
+        // The resolve request reads `%{http_code}\t%{redirect_url}` off curl's
+        // stdout; a repository with no releases responds 404 with no redirect.
         const tag = release.latest?.[latest[1]];
-        if (!tag) return fail('404 not found');
-        await writeFile(output, JSON.stringify({ tag_name: tag }));
-        return ok();
+        if (!tag) return ok('404\t');
+        return ok(`302\thttps://github.com/${latest[1]}/releases/tag/${tag}`);
       }
       const asset = ASSET_URL.exec(url);
       if (!asset?.[1] || !asset[2]) return fail(`unexpected url ${url}`);
@@ -118,9 +119,12 @@ sandboxTest('a pinned binary that is absent is fetched', async (home) => {
   // and a stalled server cannot hang provisioning indefinitely: the low-speed
   // pair aborts a transfer that dropped below 1 byte/s for 30s, which
   // --connect-timeout alone does not cover after the connection is up.
+  // --fail-with-body (not -f) keeps an HTTP error's response on disk so the
+  // failure reports the server's own explanation.
   const curl = calls.find((call) => call.command === 'curl');
-  expect(curl?.args.slice(0, 15)).toEqual([
-    '-fsSL',
+  expect(curl?.args.slice(0, 16)).toEqual([
+    '-sSL',
+    '--fail-with-body',
     '--proto',
     '=https',
     '--proto-redir',
@@ -349,18 +353,30 @@ sandboxTest(
 );
 
 sandboxTest(
-  'a latest-release response that is not JSON fails as a typed error',
+  'a repository with no latest release fails with its HTTP status',
+  async (home) => {
+    await deployBinaries(home, LATEST);
+    const { context } = releaseContext(home);
+
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.entries?.[0]?.error).toContain('HTTP 404');
+  },
+);
+
+sandboxTest(
+  'a latest-release redirect outside the repository fails as a typed error',
   async (home) => {
     await deployBinaries(home, LATEST);
     const { context } = recordingContext({
       home,
       tmpRoot: home,
       assets: emptyAssets,
-      async respond(command, args) {
+      async respond(command) {
         if (command === 'uname') return ok('arm64');
         if (command === 'curl') {
-          await writeFile(args[args.indexOf('-o') + 1] as string, '<html>502');
-          return ok();
+          return ok('302\thttps://github.com/login?return_to=%2Fkpv');
         }
         return fail('not installed');
       },
@@ -369,8 +385,7 @@ sandboxTest(
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
 
     expect(report.status).toBe('failed');
-    // A raw SyntaxError here would escape the taxonomy the CLI reports through.
-    expect(report.entries?.[0]?.error).toContain('is not valid JSON');
+    expect(report.entries?.[0]?.error).toContain('redirected to unusable');
   },
 );
 

@@ -60,7 +60,8 @@ sandboxTest(
     const args = curl?.args ?? [];
     // Load-bearing transport contract: HTTPS-only on request and redirect, a TLS
     // floor, and the `--` guard immediately before the URL.
-    expect(args).toContain('-fsSL');
+    expect(args).toContain('-sSL');
+    expect(args).toContain('--fail-with-body');
     expect(args).toContain('--proto');
     expect(args).toContain('--proto-redir');
     expect(args).toContain('--tlsv1.2');

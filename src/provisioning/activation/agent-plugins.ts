@@ -6,6 +6,8 @@ import {
   type RemovedMarketplace,
 } from '../../agent-plugin/catalog';
 import {
+  DroppedPluginsError,
+  type EnsureOutcome,
   type MarketplaceRemotes,
   type PluginInventory,
   pluginClientOps,
@@ -157,19 +159,26 @@ function marketplaceFailureEntries(
 }
 
 /**
- * The marketplace ensure outcome. `added` distinguishes registering a new
- * marketplace (an observable config change) from refreshing an existing one —
- * a probe whose observable effects surface through per-plugin version diffs.
+ * The marketplace ensure outcome. `added` and `reregistered` are observable
+ * config changes; `refreshed` is a probe whose observable effects surface
+ * through per-plugin version diffs.
  */
 interface EnsuredMarketplace {
-  readonly added: boolean;
+  readonly outcome: EnsureOutcome;
+  readonly droppedPlugins: boolean;
   readonly report: StepReport;
 }
 
+const ENSURE_WORDING: Readonly<Record<EnsureOutcome, string>> = {
+  added: 'marketplace added from main',
+  reregistered: 'marketplace re-registered from main',
+  refreshed: 'marketplace refreshed from main',
+};
+
 /**
- * Register or refresh a marketplace, rendering the one report shape both clients
- * produce. Which of the two happened is the capability's answer; the wording is
- * this layer's.
+ * Converge a marketplace registration, rendering the one report shape both
+ * clients produce. Which outcome happened is the capability's answer; the
+ * wording is this layer's.
  */
 async function ensureMarketplace(
   marketplace: PluginMarketplace,
@@ -177,7 +186,9 @@ async function ensureMarketplace(
   context: Context,
   registrations: MarketplaceRegistrations,
 ): Promise<EnsuredMarketplace> {
-  const { added } = await pluginClientOps[marketplace.client].ensureMarketplace(
+  const { outcome, droppedPlugins } = await pluginClientOps[
+    marketplace.client
+  ].ensureMarketplace(
     marketplace.name,
     marketplace.repo,
     url,
@@ -185,12 +196,11 @@ async function ensureMarketplace(
     registrations.cacheFor(marketplace.client, context),
   );
   return {
-    added,
+    outcome,
+    droppedPlugins,
     report: {
       key: `${marketplace.client}:${marketplace.name}`,
-      value: added
-        ? 'marketplace added from main'
-        : 'marketplace refreshed from main',
+      value: ENSURE_WORDING[outcome],
       status: 'changed',
     },
   };
@@ -222,6 +232,7 @@ class MarketplaceRegistrations {
       record: (name, registration) => {
         this.byClient.get(client)?.set(name, registration);
       },
+      forget: (name) => this.forget(client, name),
     };
   }
 
@@ -432,6 +443,37 @@ async function removeDeclaredMarketplace(
   }
 }
 
+/** Drop a marketplace's id namespace from the in-memory inventory. */
+function invalidateNamespacePlugins(
+  installed: PluginInventory,
+  marketplace: string,
+): void {
+  for (const id of [...installed.keys()]) {
+    if (id.endsWith(`@${marketplace}`)) installed.delete(id);
+  }
+}
+
+/**
+ * Whether the client's registration for this marketplace already matches the
+ * declared source, read from the per-run listing. Anything else — absent,
+ * drifted, or foreign — must flow into the ensure pass, which converges or
+ * refuses it.
+ */
+async function registrationConverged(
+  marketplace: PluginMarketplace,
+  url: string,
+  context: Context,
+  registrations: MarketplaceRegistrations,
+): Promise<boolean> {
+  const current = (await registrations.of(marketplace.client, context)).get(
+    marketplace.name,
+  );
+  return (
+    current !== undefined &&
+    pluginClientOps[marketplace.client].registrationMatches(current, url)
+  );
+}
+
 async function reconcileMarketplace(
   marketplace: PluginMarketplace,
   sshHost: string,
@@ -472,34 +514,53 @@ async function reconcileMarketplace(
     pluginId(plugin, marketplace.name),
   );
   const missing = desired.filter((id) => !installed.has(id));
-  if (!upgrade && missing.length === 0) {
-    entries.push(
-      ...desired.map(
-        (id): StepReport => ({
-          key: `${marketplace.client}:${id}`,
-          value: 'already installed',
-          status: 'unchanged',
-        }),
-      ),
-    );
-    return;
-  }
-
   const url = sshRemoteUrl(sshHost, marketplace.repo);
   try {
+    // A fully-installed marketplace holds still only while its registration
+    // still matches the declared source; the listing is a local read, so this
+    // probe keeps routine runs off the network while letting a drifted
+    // registration (a stale SSH alias, an unpinned ref) flow into the ensure
+    // pass and converge instead of persisting silently.
+    if (
+      !upgrade &&
+      missing.length === 0 &&
+      (await registrationConverged(marketplace, url, context, registrations))
+    ) {
+      entries.push(
+        ...desired.map(
+          (id): StepReport => ({
+            key: `${marketplace.client}:${id}`,
+            value: 'already installed',
+            status: 'unchanged',
+          }),
+        ),
+      );
+      return;
+    }
     const ensured = await ensureMarketplace(
       marketplace,
       url,
       context,
       registrations,
     );
+    // A convergence that uninstalled the marketplace's plugins invalidates the
+    // pre-run inventory for its id namespace: the desired plugins below then
+    // reinstall and verify instead of standing on a stale 'already installed'.
+    if (ensured.droppedPlugins) {
+      invalidateNamespacePlugins(installed, marketplace.name);
+    }
     // In upgrade mode a refresh of an existing marketplace is a probe: the
     // fetch itself would otherwise report every run as changed, so change is
     // reported solely through the per-plugin version diffs it enables.
-    if (ensured.added || !upgrade) {
+    if (ensured.outcome !== 'refreshed' || !upgrade) {
       entries.push(ensured.report);
     }
   } catch (error) {
+    // A typed drop means the failure already destroyed the namespace on the
+    // host, so its plugins must report as blocked rather than as installed.
+    if (error instanceof DroppedPluginsError) {
+      invalidateNamespacePlugins(installed, marketplace.name);
+    }
     entries.push(
       ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
     );

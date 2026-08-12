@@ -9,11 +9,11 @@ marketplaces:
     repo: akitorahayashi/agent-device-plugin
     plugins:
       - agent-device
-      - device-verification
+      - diff-verify
     # To uninstall a plugin, move its name out of plugins into an uninstall
     # list on the same entry:
     #   plugins: [agent-device]
-    #   uninstall: [device-verification]
+    #   uninstall: [diff-verify]
   - client: claude
     repo: akitorahayashi/comment-review
     plugins:
