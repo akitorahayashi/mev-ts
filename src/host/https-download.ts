@@ -14,6 +14,24 @@ const BODY_EXCERPT_LIMIT = 200;
 const BODY_READ_BYTES = 2048;
 
 /**
+ * The transport-hardening baseline shared by every curl invocation mev issues:
+ * HTTPS-only on the initial request, a TLS floor, a bounded connection phase,
+ * and light retry. Operations compose their transfer-specific flags (redirect
+ * policy, output, failure mode) on top, so the security posture is declared
+ * once and cannot drift between call sites.
+ */
+export const hardenedCurlArgs = [
+  '--proto',
+  '=https',
+  '--tlsv1.2',
+  '--connect-timeout',
+  '30',
+  '--retry',
+  '2',
+  '--retry-connrefused',
+] as const;
+
+/**
  * Fetch `url` into `output` over curl with HTTPS pinned on the initial request
  * and across redirects plus a TLS floor, so a redirect to http:// is refused
  * rather than silently followed. The `--` guard terminates option parsing before
@@ -34,24 +52,18 @@ export async function downloadOverHttps(
   const result = await run.run('curl', [
     '-sSL',
     '--fail-with-body',
-    '--proto',
-    '=https',
+    ...hardenedCurlArgs,
+    // -L follows redirects, so the HTTPS pin must extend across them too.
     '--proto-redir',
     '=https',
-    '--tlsv1.2',
     // No blanket --max-time: a release binary on a slow link is a legitimate
     // long transfer. The connect timeout bounds the connection phase only, so
     // the low-speed pair is what aborts a server that accepts and then stalls
     // mid-transfer: under 1 byte/s for 30s counts as dead.
-    '--connect-timeout',
-    '30',
     '--speed-limit',
     '1',
     '--speed-time',
     '30',
-    '--retry',
-    '2',
-    '--retry-connrefused',
     '-w',
     '%{http_code}',
     '-o',

@@ -1,3 +1,4 @@
+import { brewPrefix } from '../brew/prefix';
 import type { CommandOptions } from '../host/command';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
@@ -8,13 +9,7 @@ import type { Context } from '../host/context';
  * report its prefix.
  */
 export async function brewEnv(context: Context): Promise<CommandOptions> {
-  const result = await runProcessStep(
-    context.commands,
-    'brew',
-    ['--prefix'],
-    'brew --prefix failed',
-  );
-  const prefix = result.stdout.trim();
+  const prefix = await brewPrefix(context);
   const base = context.basePath;
   return { env: { PATH: [`${prefix}/bin`, base].filter(Boolean).join(':') } };
 }

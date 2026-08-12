@@ -6,6 +6,7 @@ import { isNotFound, readDirentsIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { mevRoot } from '../host/path';
 import { isTransactionArtifact } from '../host/transaction';
+import { appliedRoot } from './applied';
 import { allTargets } from './registry';
 
 export interface DeployStorePruneRequest {
@@ -104,13 +105,12 @@ export async function pruneDeployStore(
   context: Pick<Context, 'home'>,
 ): Promise<DeployStorePruneReport> {
   const roleRoot = join(context.home, deployRoot);
-  const appliedRoot = join(context.home, mevRoot, 'applied');
 
   try {
     const roles: string[] = [];
     await pruneRoles(roleRoot, request.roles, '', roles);
     const appliedTargets = await pruneAppliedTargets(
-      appliedRoot,
+      appliedRoot(context.home),
       request.targets,
     );
     return { roles, appliedTargets };

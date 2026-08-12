@@ -2,14 +2,14 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
 import { mevPath, resolveHostPath } from '../host/path';
+import { STOCK_SSH_HOST } from './repository';
 
-/**
+/*
  * Every GitHub connection over SSH resolves its host alias here, so one
  * per-machine setting covers all consumers. An absent store means the stock
- * `github.com` host; only `mev config ssh-host` writes an override, and SSH
- * configuration owns the alias's real hostname, port, and key.
+ * host; only `mev config ssh-host` writes an override, and SSH configuration
+ * owns the alias's real hostname, port, and key.
  */
-const DEFAULT_SSH_HOST = 'github.com';
 
 const SAFE_HOST = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
@@ -36,7 +36,7 @@ export async function readSshHost(home: string): Promise<string> {
       `Failed to read GitHub SSH host at ${path}: ${errorMessage(error)}`,
     );
   }
-  if (raw === null) return DEFAULT_SSH_HOST;
+  if (raw === null) return STOCK_SSH_HOST;
   return requireSshHost(raw.trim(), `GitHub SSH host ${path}`);
 }
 

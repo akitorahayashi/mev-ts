@@ -3,10 +3,7 @@ import { join, resolve } from 'node:path';
 import { errorMessage } from '../../errors';
 import { runWithCleanup } from '../../host/cleanup-error';
 import type { CommandRunner } from '../../host/command';
-import {
-  createBrowserPdfPrinter,
-  type PdfPrinterFactory,
-} from './browser-print';
+import type { PdfPrinterFactory } from './browser-print';
 import { DocumentConversionError } from './conversion-error';
 import { planConversions } from './input-files';
 import {
@@ -65,7 +62,16 @@ export async function convertMarkdownToPdf(
 ): Promise<void> {
   const write = options.write ?? (() => {});
   const warn = options.warn ?? (() => {});
-  const createPrinter = options.createPrinter ?? createBrowserPdfPrinter;
+  // browser-print statically pulls in playwright-core and the multi-megabyte
+  // embedded mermaid bundle; loading it lazily keeps that cost off the startup
+  // path of every other command, since this module reaches main.ts through the
+  // command registry.
+  const createPrinter: PdfPrinterFactory =
+    options.createPrinter ??
+    (async () => {
+      const { createBrowserPdfPrinter } = await import('./browser-print');
+      return createBrowserPdfPrinter();
+    });
   validateMargins(request.margins);
   await validateStylesheet(request.stylesheet);
   const pairs = await planConversions(

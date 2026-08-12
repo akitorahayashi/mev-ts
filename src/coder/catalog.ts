@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
-import { readDirentsIfPresent, readTextIfPresent } from '../host/absence';
+import { readDirentsIfPresent } from '../host/absence';
+import { readDeployedDirents, readDeployedText } from '../host/deployed-file';
 import {
   requireExactKeys,
   requireRecord,
@@ -73,12 +74,7 @@ export function parseSectionCatalog(raw: string, path: string): string[] {
 
 export async function readSections(sourceDir: string): Promise<string[]> {
   const catalogPath = join(sourceDir, 'catalog.yml');
-  const raw = await readTextIfPresent(catalogPath);
-  if (raw === null) {
-    throw new ProvisioningError(
-      `AGENTS.md section catalog not found: ${catalogPath}. Run provisioning to deploy it first.`,
-    );
-  }
+  const raw = await readDeployedText(catalogPath, 'AGENTS.md section catalog');
   const listed = parseSectionCatalog(raw, catalogPath);
   const entries = await readDirentsIfPresent(sourceDir);
   if (entries === null) {
@@ -95,12 +91,10 @@ export async function readSections(sourceDir: string): Promise<string[]> {
 }
 
 export async function readSkills(sourceDir: string): Promise<string[]> {
-  const entries = await readDirentsIfPresent(sourceDir);
-  if (entries === null) {
-    throw new ProvisioningError(
-      `Skills source directory is missing: ${sourceDir}. Run provisioning to deploy it first.`,
-    );
-  }
+  const entries = await readDeployedDirents(
+    sourceDir,
+    'Skills source directory',
+  );
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)

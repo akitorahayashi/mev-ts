@@ -186,7 +186,7 @@ sandboxTest(
     );
 
     expect(report.status).toBe('failed');
-    expect(report.error).toContain('Zed overrides source directory is missing');
+    expect(report.error).toContain('Zed overrides source directory not found');
   },
 );
 

@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import {
   type AssetRef,
   deployedPath,
@@ -7,6 +7,7 @@ import {
 import { readSshHost } from '../../github/ssh-host';
 import { renderConfig } from '../../grove/config';
 import type { Context } from '../../host/context';
+import { readDeployedText } from '../../host/deployed-file';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { reconcileRegularFile } from '../../host/regular-file';
 import type { Activation, ActivationReport, Described } from './contract';
@@ -35,8 +36,10 @@ export async function runGroveConfig(
   const base = describeGroveConfig(activation);
   return guarded(base, async () => {
     const source = deployedPath(activation.source, context.home);
-    const [raw, sourceStats, sshHost] = await Promise.all([
-      readFile(source, 'utf8'),
+    // The absence check runs first so a missing deploy surfaces the canonical
+    // deploy-first guidance instead of whichever ENOENT wins the race below.
+    const raw = await readDeployedText(source, 'Grove config');
+    const [sourceStats, sshHost] = await Promise.all([
       stat(source),
       readSshHost(context.home),
     ]);

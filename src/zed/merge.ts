@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import { isRecord } from '../host/parse';
 
 export type JsonValue =
   | string
@@ -10,8 +11,10 @@ export type JsonValue =
 
 export type JsonObject = { readonly [key: string]: JsonValue };
 
+// A JsonValue that is a record is deeply a JsonObject, so the shallow record
+// check is a sound narrowing.
 function isPlainObject(value: JsonValue): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return isRecord(value);
 }
 
 /**

@@ -47,6 +47,9 @@ export const dutiKind = manifestKind<DutiActivation, Association>({
     source: manifestSource(activation.configKey),
     dest: 'file associations',
   }),
+  // Extensions are unique (enforced at parse time), so the per-extension duti
+  // probes are independent subprocess spawns and run concurrently.
+  concurrency: 4,
   steps: async (entries, _activation, context) =>
     entries.map((entry) => dutiStep(entry, context)),
 });

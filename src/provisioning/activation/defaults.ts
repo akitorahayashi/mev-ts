@@ -96,6 +96,10 @@ export const defaultsKind = manifestKind<DefaultsActivation, DefaultsEntry>({
     source: manifestSource(activation.configKey),
     dest: 'macOS defaults',
   }),
+  // Entries are unique per (domain, key) and each step is a handful of
+  // independent `defaults` spawns serialized by cfprefsd, so the probe-heavy
+  // reconciliation runs concurrently instead of paying every spawn in sequence.
+  concurrency: 4,
   steps: async (entries, _activation, context) =>
     entries.map((entry) => defaultsStep(entry, context)),
 });

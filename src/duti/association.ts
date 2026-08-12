@@ -6,6 +6,7 @@ import {
   isRecord,
   requireExactKeys,
   requireNonEmptyString,
+  requireStringArray,
   requireUniqueBy,
 } from '../host/parse';
 import { loadYaml } from '../host/yaml';
@@ -60,17 +61,10 @@ export function parseAssociations(raw: string, path: string): Association[] {
         `Invalid entry in duti config for '${bundleId}': bundle_id must be a reverse-DNS identifier.`,
       );
     }
-    const extensions = app['extensions'];
-    if (!Array.isArray(extensions)) {
-      throw new ProvisioningError(
-        'Invalid entry in duti config: each app must have an extensions array.',
-      );
-    }
-    if (!extensions.every((e): e is string => typeof e === 'string')) {
-      throw new ProvisioningError(
-        'Invalid entry in duti config: each app must have an extensions array of strings.',
-      );
-    }
+    const extensions = requireStringArray(
+      app['extensions'],
+      "Invalid entry in duti config: 'extensions'",
+    );
     for (const extension of extensions) {
       if (
         extension.length === 0 ||

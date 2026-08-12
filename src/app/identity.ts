@@ -124,8 +124,12 @@ async function readCurrent(
   run: CommandRunner,
   state: IdentityState,
 ): Promise<CurrentIdentity> {
-  const name = (await configGet(run, 'user.name')) ?? '';
-  const email = (await configGet(run, 'user.email')) ?? '';
+  const [rawName, rawEmail] = await Promise.all([
+    configGet(run, 'user.name'),
+    configGet(run, 'user.email'),
+  ]);
+  const name = rawName ?? '';
+  const email = rawEmail ?? '';
   // Only a fully blank config is "unset". A half-configured identity is a real
   // state worth surfacing, so it falls through as unmanaged rather than hiding.
   if (name === '' && email === '') return { kind: 'unset' };

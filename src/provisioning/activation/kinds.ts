@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { parsePluginCatalog } from '../../agent-plugin/catalog';
 import { parseSectionCatalog, reconcileSections } from '../../coder/catalog';
+import { STOCK_SSH_HOST } from '../../github/repository';
 import { renderConfig } from '../../grove/config';
 import type { Context } from '../../host/context';
 import { loadToml } from '../../host/toml';
@@ -94,7 +95,7 @@ export const activationKinds: ActivationKinds = {
         // The stock host stands in for the per-machine alias, which is a host
         // fact no build can know.
         parse: (raw, key) => {
-          renderConfig(raw, 'github.com', key);
+          renderConfig(raw, STOCK_SSH_HOST, key);
         },
       },
     ],
