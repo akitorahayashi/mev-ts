@@ -1,15 +1,12 @@
-import { chmod, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { chmod, stat } from 'node:fs/promises';
 import { ProvisioningError } from '../errors';
 import { isNotFound } from '../host/absence';
 import { replaceFileAtomically } from '../host/atomic-file';
-import { runWithCleanup } from '../host/cleanup-error';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { downloadOverHttps } from '../host/https-download';
 import {
   isRecord,
-  parseJsonLabeled,
   requireExactKeys,
   requireNonEmptyString,
   requireRecord,
@@ -49,8 +46,8 @@ const SAFE_ASSET_NAME = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 const SAFE_TAG = /^[A-Za-z0-9._+][A-Za-z0-9._+-]*$/;
 
 /** The two URLs a release entry reaches, rendered in one place. */
-function latestReleaseUrl(repo: Repository): string {
-  return `https://api.github.com/repos/${repositoryPath(repo)}/releases/latest`;
+function latestReleasePageUrl(repo: Repository): string {
+  return `https://github.com/${repositoryPath(repo)}/releases/latest`;
 }
 
 function assetDownloadUrl(
@@ -215,32 +212,68 @@ export async function resolveLatestTag(
   binary: ReleaseBinary,
   context: Context,
 ): Promise<string> {
-  const workspace = await mkdtemp(join(context.tmpRoot, 'mev-release-'));
-  return runWithCleanup(
-    async () => {
-      const path = join(workspace, 'release.json');
-      const label = `Latest release of ${repositoryPath(binary.repo)}`;
-      await downloadOverHttps(
-        context.commands,
-        latestReleaseUrl(binary.repo),
-        path,
-        `${binary.name} latest release`,
-      );
-      const release = requireRecord(
-        parseJsonLabeled(await readFile(path, 'utf8'), label),
-        label,
-      );
-      const tag = release['tag_name'];
-      if (typeof tag !== 'string' || !SAFE_TAG.test(tag) || tag === latestTag) {
-        throw new ProvisioningError(
-          `${label} reported an unusable tag_name '${String(tag)}'.`,
-        );
-      }
-      return tag;
-    },
-    () => rm(workspace, { force: true, recursive: true }),
-    `Failed to clean up release workspace ${workspace}.`,
+  const label = `Latest release of ${repositoryPath(binary.repo)}`;
+  // Resolution reads the release page redirect on github.com rather than the
+  // REST API: unauthenticated api.github.com is capped at 60 requests per hour
+  // per IP, which one upgrade run over a few `latest` entries (plus whatever
+  // else shares the IP) can exhaust. The web endpoint carries no such cap, and
+  // its redirect Location names the tag directly, so no JSON parsing or
+  // temporary file is involved. No `-f`: a non-redirect status must reach the
+  // check below to be reported as an HTTP failure, not as a bare curl exit.
+  const result = await runProcessStep(
+    context.commands,
+    'curl',
+    [
+      '-sS',
+      '--proto',
+      '=https',
+      '--tlsv1.2',
+      '--connect-timeout',
+      '30',
+      '--retry',
+      '2',
+      '--retry-connrefused',
+      '-I',
+      '-o',
+      '/dev/null',
+      '-w',
+      '%{http_code}\t%{redirect_url}',
+      '--',
+      latestReleasePageUrl(binary.repo),
+    ],
+    `${label} request failed`,
   );
+  const [status = '', redirect = ''] = result.stdout.trim().split('\t');
+  if (!redirect) {
+    throw new ProvisioningError(
+      `${label} responded HTTP ${status} instead of redirecting to a release tag; a repository with no releases responds 404.`,
+    );
+  }
+  return releaseTagFromRedirect(redirect, binary.repo, label);
+}
+
+/**
+ * The tag named by the `releases/latest` redirect Location. The URL must sit
+ * exactly under this repository's `releases/tag/` and satisfy the same tag
+ * character set the manifest enforces (which also rejects percent-encoded
+ * segments), so a login wall, a renamed repository, or any other unexpected
+ * redirect fails loudly instead of yielding a bogus tag.
+ */
+export function releaseTagFromRedirect(
+  redirectUrl: string,
+  repo: Repository,
+  label: string,
+): string {
+  const prefix = `https://github.com/${repositoryPath(repo)}/releases/tag/`;
+  const tag = redirectUrl.startsWith(prefix)
+    ? redirectUrl.slice(prefix.length)
+    : null;
+  if (tag === null || !SAFE_TAG.test(tag) || tag === latestTag) {
+    throw new ProvisioningError(
+      `${label} redirected to unusable '${redirectUrl}'.`,
+    );
+  }
+  return tag;
 }
 
 /**

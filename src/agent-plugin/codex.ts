@@ -39,10 +39,16 @@ export async function listCodexPlugins(
   return installed;
 }
 
-export async function ensureCodexMarketplace(
+/**
+ * Register the marketplace at the pinned ref. Codex refuses a name already
+ * held from a different source, so callers classify the registration from the
+ * listing first; the reported `alreadyAdded` therefore only ever restates a
+ * same-source re-add and is not read.
+ */
+export async function addCodexMarketplace(
   url: string,
   context: Context,
-): Promise<boolean> {
+): Promise<void> {
   const raw = await capturePluginJson(
     context.commands,
     'codex',
@@ -54,7 +60,6 @@ export async function ensureCodexMarketplace(
       'Codex marketplace add result requires an alreadyAdded boolean.',
     );
   }
-  return raw['alreadyAdded'];
 }
 
 export async function upgradeCodexMarketplace(

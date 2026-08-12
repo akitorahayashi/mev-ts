@@ -45,7 +45,7 @@ Every GitHub connection over SSH resolves its host alias from one per-machine st
 github-personal
 ```
 
-The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default. Grove provisioning renders stock `git@github.com:` repository URLs in its embedded catalog through this alias before placing `~/Desktop/grove.toml`; HTTPS and already-aliased URLs remain unchanged. Saving an SSH host invalidates Grove's applied marker, so the next `sync` selects the target and renders the new alias.
+The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and `-`; SSH configuration owns its real hostname, port, key, and authentication. An absent store means the stock `github.com` host. A malformed present file fails rather than reverting to the default. Grove provisioning renders stock `git@github.com:` repository URLs in its embedded catalog through this alias before placing `~/Desktop/grove.toml`; HTTPS and already-aliased URLs remain unchanged. Agent plugin marketplaces register through the same alias, and their registrations persist it inside each client's config. Saving an SSH host invalidates the applied markers of Grove and the coder target, so the next `sync` selects them: Grove renders the new alias and drifted marketplace registrations are re-registered under it.
 
 ## Agent Plugin Catalog
 
@@ -55,7 +55,7 @@ The embedded catalog lists the marketplaces and plugin names for Claude Code and
 marketplaces:
   - client: claude
     repo: akitorahayashi/agent-device-plugin
-    plugins: [agent-device, device-verification]
+    plugins: [agent-device, diff-verify]
 ```
 
 The catalog also declares removals explicitly, through two optional lists that are absent while there is nothing to remove. Moving a plugin name out of a marketplace's `plugins` into an `uninstall` list on the same entry uninstalls it:
@@ -65,7 +65,7 @@ marketplaces:
   - client: claude
     repo: akitorahayashi/agent-device-plugin
     plugins: [agent-device]
-    uninstall: [device-verification]
+    uninstall: [diff-verify]
 ```
 
 Deleting a whole marketplace entry and moving its `client` and `repo` lines under a root `removed_marketplaces` list uninstalls the plugins it still has installed, then deregisters the marketplace:

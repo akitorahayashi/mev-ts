@@ -95,8 +95,20 @@ const CLAUDE_XLSX_MARKETPLACES = JSON.stringify([
   },
 ]);
 
+const CODEX_XLSX_MARKETPLACES = JSON.stringify({
+  marketplaces: [
+    {
+      name: 'xlsx',
+      marketplaceSource: {
+        sourceType: 'git',
+        source: 'git@github.com:akitorahayashi/xlsx.git',
+      },
+    },
+  ],
+});
+
 sandboxTest(
-  'skips every marketplace operation when all plugins are installed',
+  'holds marketplaces still when plugins are installed and registrations match',
   async (home) => {
     await deployCatalog(home);
     const { context, calls } = recordingContext({
@@ -112,8 +124,41 @@ sandboxTest(
             ]),
           );
         }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify(
+              ['agent-device-plugin', 'comment-review', 'xlsx'].map((name) => ({
+                name,
+                source: 'git',
+                url: `git@github.com:akitorahayashi/${name}.git`,
+                ref: 'main',
+              })),
+            ),
+          );
+        }
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
           return ok(codexInventory(['xlsx@xlsx']));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify({
+              marketplaces: [
+                {
+                  name: 'xlsx',
+                  marketplaceSource: {
+                    sourceType: 'git',
+                    source: 'git@github.com:akitorahayashi/xlsx.git',
+                  },
+                },
+              ],
+            }),
+          );
         }
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
@@ -124,10 +169,17 @@ sandboxTest(
       context,
     );
 
+    // Local reads only — the inventory and one registration listing per
+    // client — and no mutation or network fetch of any kind.
     expect(report.status).toBe('unchanged');
     expect(
       calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
-    ).toEqual(['claude plugin list --json', 'codex plugin list --json']);
+    ).toEqual([
+      'claude plugin list --json',
+      'codex plugin list --json',
+      'claude plugin marketplace list --json',
+      'codex plugin marketplace list --json',
+    ]);
     expect(
       report.entries?.every(({ value }) => value === 'already installed'),
     ).toBe(true);
@@ -159,6 +211,12 @@ sandboxTest(
         if (command === 'claude' && args[1] === 'marketplace') return ok();
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
           return ok(codexInventory([...codexInstalled]));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(JSON.stringify({ marketplaces: [] }));
         }
         if (
           command === 'codex' &&
@@ -251,6 +309,12 @@ marketplaces:
         if (command === 'claude' && args[1] === 'marketplace') return ok();
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
           return ok(codexInventory([...codexInstalled]));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(CODEX_XLSX_MARKETPLACES);
         }
         if (
           command === 'codex' &&
@@ -377,6 +441,12 @@ sandboxTest(
         }
         if (
           command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(CODEX_XLSX_MARKETPLACES);
+        }
+        if (
+          command === 'codex' &&
           args[1] === 'marketplace' &&
           args[2] === 'add'
         ) {
@@ -451,6 +521,12 @@ sandboxTest(
         if (command === 'claude' && args[1] === 'update') return ok();
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
           return ok(codexVersionedInventory({ 'xlsx@xlsx': '0.1.0' }));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(CODEX_XLSX_MARKETPLACES);
         }
         if (
           command === 'codex' &&
@@ -613,7 +689,9 @@ marketplaces:
 
     expect(report.status).toBe('failed');
     expect(
-      report.entries?.some(({ error }) => error?.includes('different source')),
+      report.entries?.some(({ error }) =>
+        error?.includes('different repository'),
+      ),
     ).toBe(true);
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(false);
   },
@@ -647,12 +725,24 @@ sandboxTest(
         if (command === 'claude' && args.join(' ') === 'plugin list --json') {
           return ok(claudeInventory([...claudeInstalled]));
         }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(CLAUDE_XLSX_MARKETPLACES);
+        }
         if (command === 'claude' && args[1] === 'uninstall') {
           claudeInstalled.delete(args[2] as string);
           return ok();
         }
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
           return ok(codexInventory([...codexInstalled]));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(CODEX_XLSX_MARKETPLACES);
         }
         if (command === 'codex' && args[1] === 'remove') {
           codexInstalled.delete(args[2] as string);
@@ -715,7 +805,7 @@ removed_marketplaces:
       'tool-b@retired',
     ]);
     const codexInstalled = new Set(['tool-c@retired']);
-    let claudeRegistered = ['retired'];
+    let claudeRegistered = ['retired', 'xlsx'];
     let codexRegistered = ['retired'];
     const { context, calls } = recordingContext({
       home,
@@ -894,7 +984,7 @@ removed_marketplaces:
 );
 
 sandboxTest(
-  'refreshes a marketplace registered under a previous SSH host alias',
+  're-registers a marketplace registered under a previous SSH host alias',
   async (home) => {
     const catalog = `
 marketplaces:
@@ -939,13 +1029,287 @@ marketplaces:
       context,
     );
 
-    // The alias is transport, not identity: the registration is still mev's,
-    // so the missing plugin installs instead of failing on a source conflict.
+    // The alias is transport, not identity: the same repository under a stale
+    // alias is still mev's registration, so it converges to the declared
+    // source by re-registration rather than failing as a conflict or fetching
+    // through the stale alias forever.
+    expect(report.status).toBe('changed');
+    const invocations = calls.map(
+      ({ command, args }) => `${command} ${args.join(' ')}`,
+    );
+    // `marketplace add` rewrites an existing registration's source in place,
+    // so convergence involves no removal and no refresh.
+    expect(invocations).toContain(
+      'claude plugin marketplace add git@github.com:akitorahayashi/xlsx.git#main',
+    );
+    expect(
+      invocations.some(
+        (call) =>
+          call.includes('marketplace remove') ||
+          call.includes('marketplace update'),
+      ),
+    ).toBe(false);
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:xlsx')?.value,
+    ).toBe('marketplace re-registered from main');
+    expect(installed).toEqual(new Set(['xlsx@xlsx']));
+  },
+);
+
+sandboxTest(
+  're-registers a marketplace recorded without the ref pin and keeps its plugins',
+  async (home) => {
+    const catalog = `
+marketplaces:
+  - client: claude
+    repo: akitorahayashi/comment-review
+    plugins: [comment-review]
+`;
+    await deployCatalog(home, catalog);
+    // Registered before mev pinned #main: the URL matches but no ref was
+    // recorded. `marketplace add` rewrites the registration in place and the
+    // installed plugin survives it.
+    let ref: string | undefined;
+    const installed = new Set(['comment-review@comment-review']);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args.join(' ') === 'plugin list --json') {
+          return ok(claudeInventory([...installed]));
+        }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify([
+              {
+                name: 'comment-review',
+                source: 'git',
+                url: 'git@github.com:akitorahayashi/comment-review.git',
+                ...(ref === undefined ? {} : { ref }),
+              },
+            ]),
+          );
+        }
+        if (
+          command === 'claude' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'add'
+        ) {
+          ref = 'main';
+          return ok();
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
     expect(report.status).toBe('changed');
     expect(
-      calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
-    ).toContain('claude plugin marketplace update xlsx');
+      report.entries?.find(({ key }) => key === 'claude:comment-review')?.value,
+    ).toBe('marketplace re-registered from main');
+    // The plugin survives the in-place rewrite, so nothing is reinstalled.
+    expect(
+      report.entries?.find(
+        ({ key }) => key === 'claude:comment-review@comment-review',
+      ),
+    ).toMatchObject({ value: 'already installed', status: 'unchanged' });
+    expect(calls.some(({ args }) => args[1] === 'install')).toBe(false);
+
+    // Converged: the pinned registration now matches and the run holds still.
+    const second = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+    expect(second.status).toBe('unchanged');
+  },
+);
+
+sandboxTest(
+  're-registers a codex marketplace whose recorded source drifted',
+  async (home) => {
+    const catalog = `
+marketplaces:
+  - client: codex
+    repo: akitorahayashi/xlsx
+    plugins: [xlsx]
+`;
+    await deployCatalog(home, catalog);
+    let registered = true;
+    let source = 'git@github-personal:akitorahayashi/xlsx.git';
+    const installed = new Set(['xlsx@xlsx']);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+          return ok(codexInventory([...installed]));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify({
+              marketplaces: registered
+                ? [
+                    {
+                      name: 'xlsx',
+                      marketplaceSource: { sourceType: 'git', source },
+                    },
+                  ]
+                : [],
+            }),
+          );
+        }
+        // Removal uninstalls the marketplace's plugins, as the codex CLI does.
+        if (
+          command === 'codex' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'remove'
+        ) {
+          registered = false;
+          installed.delete('xlsx@xlsx');
+          return ok('{}');
+        }
+        if (
+          command === 'codex' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'add'
+        ) {
+          // codex refuses a name already held from a different source.
+          if (registered && source !== args[3]) {
+            return fail('already added from a different source');
+          }
+          registered = true;
+          source = args[3] as string;
+          return ok(JSON.stringify({ alreadyAdded: false }));
+        }
+        if (command === 'codex' && args[1] === 'add') {
+          installed.add(args[2] as string);
+          return ok('{}');
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+
+    expect(report.status).toBe('changed');
+    const invocations = calls.map(
+      ({ command, args }) => `${command} ${args.join(' ')}`,
+    );
+    expect(invocations).toContain(
+      'codex plugin marketplace remove xlsx --json',
+    );
+    expect(report.entries?.find(({ key }) => key === 'codex:xlsx')?.value).toBe(
+      'marketplace re-registered from main',
+    );
+    expect(source).toBe('git@github.com:akitorahayashi/xlsx.git');
+    // The removal took the plugin with it, so it is reinstalled from the
+    // re-registered source rather than left missing.
+    expect(
+      report.entries?.find(({ key }) => key === 'codex:xlsx@xlsx'),
+    ).toMatchObject({ value: 'installed', status: 'changed' });
     expect(installed).toEqual(new Set(['xlsx@xlsx']));
+  },
+);
+
+sandboxTest(
+  'a codex re-registration whose add fails reports the dropped plugins as blocked',
+  async (home) => {
+    const catalog = `
+marketplaces:
+  - client: codex
+    repo: akitorahayashi/xlsx
+    plugins: [xlsx]
+`;
+    await deployCatalog(home, catalog);
+    let registered = true;
+    let source = 'git@github-personal:akitorahayashi/xlsx.git';
+    let addFails = true;
+    const installed = new Set(['xlsx@xlsx']);
+    const { context } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+          return ok(codexInventory([...installed]));
+        }
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(
+            JSON.stringify({
+              marketplaces: registered
+                ? [
+                    {
+                      name: 'xlsx',
+                      marketplaceSource: { sourceType: 'git', source },
+                    },
+                  ]
+                : [],
+            }),
+          );
+        }
+        if (
+          command === 'codex' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'remove'
+        ) {
+          registered = false;
+          installed.delete('xlsx@xlsx');
+          return ok('{}');
+        }
+        if (
+          command === 'codex' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'add'
+        ) {
+          if (addFails) return fail('ssh: connection refused');
+          registered = true;
+          source = args[3] as string;
+          return ok(JSON.stringify({ alreadyAdded: false }));
+        }
+        if (command === 'codex' && args[1] === 'add') {
+          installed.add(args[2] as string);
+          return ok('{}');
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const first = await runActivation(installAgentPlugins(CONFIG_KEY), context);
+
+    // The removal destroyed the namespace before the add failed, so the
+    // plugin must not surface as 'already installed' off the pre-run
+    // inventory: it is gone from the host and blocked by the failure.
+    expect(first.status).toBe('failed');
+    expect(
+      first.entries?.find(({ key }) => key === 'codex:xlsx@xlsx'),
+    ).toMatchObject({ value: 'install blocked', status: 'failed' });
+    expect(
+      first.entries?.find(({ key }) => key === 'codex:xlsx')?.error,
+    ).toContain('uninstalling its plugins');
+    expect(installed.size).toBe(0);
+
+    // A later run finds no registration, adds the declared source, and
+    // reinstalls: the destructive partial failure heals.
+    addFails = false;
+    const second = await runActivation(
+      installAgentPlugins(CONFIG_KEY),
+      context,
+    );
+    expect(second.status).toBe('changed');
+    expect(installed).toEqual(new Set(['xlsx@xlsx']));
+    expect(source).toBe('git@github.com:akitorahayashi/xlsx.git');
   },
 );
 
@@ -1039,6 +1403,12 @@ marketplaces:
       respond: (command, args) => {
         if (command === 'claude' && args.join(' ') === 'plugin list --json') {
           return ok(claudeInventory(['xlsx@xlsx', 'old-tool@xlsx']));
+        }
+        if (
+          command === 'claude' &&
+          args.join(' ') === 'plugin marketplace list --json'
+        ) {
+          return ok(CLAUDE_XLSX_MARKETPLACES);
         }
         // The uninstall reports success but the inventory never changes.
         if (command === 'claude' && args[1] === 'uninstall') return ok();

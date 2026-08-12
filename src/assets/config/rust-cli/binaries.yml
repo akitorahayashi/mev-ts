@@ -22,6 +22,6 @@ binaries:
   - name: ssv
     repo: akitorahayashi/ssv
     tag: latest
-  - name: tc
+  - name: tp
     repo: akitorahayashi/tmpc
     tag: latest

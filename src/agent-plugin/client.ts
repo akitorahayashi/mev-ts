@@ -1,4 +1,4 @@
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import type { Repository } from '../github/repository';
 import { remoteMatchesRepository } from '../github/repository';
 import type { Context } from '../host/context';
@@ -14,7 +14,7 @@ import {
   updateClaudePlugin,
 } from './claude';
 import {
-  ensureCodexMarketplace,
+  addCodexMarketplace,
   installCodexPlugin,
   listCodexMarketplaces,
   listCodexPlugins,
@@ -37,6 +37,12 @@ export interface MarketplaceRegistration {
 export type MarketplaceRemotes = Map<string, MarketplaceRegistration>;
 
 /**
+ * How an ensure converged: registered anew, re-registered over a drifted
+ * source (a stale SSH alias or an unpinned ref), or refreshed in place.
+ */
+export type EnsureOutcome = 'added' | 'reregistered' | 'refreshed';
+
+/**
  * One client's registered marketplaces, listed at most once per run. Handed to
  * `ensureMarketplace` rather than pre-fetched by the caller, because only a
  * client that must inspect existing registrations should pay for listing them.
@@ -44,7 +50,16 @@ export type MarketplaceRemotes = Map<string, MarketplaceRegistration>;
 export interface RegistrationCache {
   current(): Promise<MarketplaceRemotes>;
   record(name: string, registration: MarketplaceRegistration): void;
+  forget(name: string): void;
 }
+
+/**
+ * A convergence that destroyed state before failing: the marketplace and the
+ * plugins installed from it were removed, but registering the replacement
+ * failed. Its own type so the activation invalidates the namespace's
+ * inventory instead of reporting the dropped plugins as still installed.
+ */
+export class DroppedPluginsError extends ProvisioningError {}
 
 /**
  * The plugin operations every supported client provides, keyed by client. The
@@ -62,9 +77,19 @@ export interface PluginClientOps {
   listMarketplaces(context: Context): Promise<MarketplaceRemotes>;
   removeMarketplace(name: string, context: Context): Promise<void>;
   /**
-   * Register the marketplace if absent, otherwise refresh it, reporting which
-   * happened, and record any new registration in `cache` so a later ownership
-   * probe sees it.
+   * Whether a listed registration already matches the declared source, so a
+   * fully-installed marketplace can hold still. Claude records url and ref;
+   * codex reports only the source url, so its ref cannot be compared and the
+   * `--ref` pin every add carries is trusted instead.
+   */
+  registrationMatches(current: MarketplaceRegistration, url: string): boolean;
+  /**
+   * Converge the marketplace registration on the declared source: register it
+   * if absent, re-register it over a drifted url or ref, otherwise refresh it,
+   * reporting which happened. A same-named marketplace holding a different
+   * repository is a conflict and throws — identity is not mev's to overwrite.
+   * Any new registration is recorded in `cache` so a later ownership probe
+   * sees it.
    */
   ensureMarketplace(
     name: string,
@@ -72,7 +97,17 @@ export interface PluginClientOps {
     url: string,
     context: Context,
     cache: RegistrationCache,
-  ): Promise<{ readonly added: boolean }>;
+  ): Promise<EnsuredRegistration>;
+}
+
+export interface EnsuredRegistration {
+  readonly outcome: EnsureOutcome;
+  /**
+   * Whether converging the registration also uninstalled the plugins that
+   * were installed from it, so the caller reinstalls them rather than
+   * standing on a pre-run inventory the operation invalidated.
+   */
+  readonly droppedPlugins: boolean;
 }
 
 const claudeOps: PluginClientOps = {
@@ -90,26 +125,32 @@ const claudeOps: PluginClientOps = {
     );
   },
   removeMarketplace: (name, context) => removeClaudeMarketplace(name, context),
+  registrationMatches: (current, url) =>
+    current.url === url && current.ref === MARKETPLACE_REF,
   async ensureMarketplace(name, repo, url, context, cache) {
     const current = (await cache.current()).get(name);
     if (!current) {
       await addClaudeMarketplace(url, context);
       cache.record(name, { url, ref: MARKETPLACE_REF });
-      return { added: true };
+      return { outcome: 'added', droppedPlugins: false };
     }
-    // Claude records the ref alongside the source, so a marketplace pointing at
-    // another repository or another branch is a configuration conflict rather
-    // than something to silently overwrite.
-    if (
-      !remoteMatchesRepository(current.url, repo) ||
-      current.ref !== MARKETPLACE_REF
-    ) {
+    if (!remoteMatchesRepository(current.url, repo)) {
       throw new ProvisioningError(
-        `Claude marketplace '${name}' is configured from a different source; expected ${url}#${MARKETPLACE_REF}.`,
+        `Claude marketplace '${name}' is registered for a different repository; expected ${url}#${MARKETPLACE_REF}, found ${current.url ?? 'a non-git source'}.`,
       );
     }
+    // The same repository under a stale SSH alias or without the ref pin is
+    // drift within mev's ownership. `marketplace add` rewrites an existing
+    // registration's source and ref in place and keeps its installed plugins,
+    // so no removal is involved — which also avoids failing on a registration
+    // held outside the user scope removal pins.
+    if (current.url !== url || current.ref !== MARKETPLACE_REF) {
+      await addClaudeMarketplace(url, context);
+      cache.record(name, { url, ref: MARKETPLACE_REF });
+      return { outcome: 'reregistered', droppedPlugins: false };
+    }
     await updateClaudeMarketplace(name, context);
-    return { added: false };
+    return { outcome: 'refreshed', droppedPlugins: false };
   },
 };
 
@@ -129,17 +170,43 @@ const codexOps: PluginClientOps = {
     );
   },
   removeMarketplace: (name, context) => removeCodexMarketplace(name, context),
-  // `codex plugin marketplace add` is itself the presence probe, so this never
-  // lists registrations and the cache stays unread until an ownership check
-  // needs it.
-  async ensureMarketplace(name, _repo, url, context, cache) {
-    const alreadyAdded = await ensureCodexMarketplace(url, context);
-    if (alreadyAdded) {
-      await upgradeCodexMarketplace(name, context);
-    } else {
+  registrationMatches: (current, url) => current.url === url,
+  // Codex refuses `marketplace add` for a name already held from another
+  // source, so the registration listing — not the add — is what classifies
+  // drift here.
+  async ensureMarketplace(name, repo, url, context, cache) {
+    const current = (await cache.current()).get(name);
+    if (!current) {
+      await addCodexMarketplace(url, context);
       cache.record(name, { url, ref: undefined });
+      return { outcome: 'added', droppedPlugins: false };
     }
-    return { added: !alreadyAdded };
+    if (!remoteMatchesRepository(current.url, repo)) {
+      throw new ProvisioningError(
+        `Codex marketplace '${name}' is registered for a different repository; expected ${url}, found ${current.url ?? 'a non-git source'}.`,
+      );
+    }
+    // Removing a codex marketplace uninstalls the plugins installed from it
+    // (verified against the CLI), which is why the drop is reported: the
+    // declared plugins are reinstalled from the re-registered source.
+    if (current.url !== url) {
+      await removeCodexMarketplace(name, context);
+      // From here the host state is already destroyed, so a failing add must
+      // not leave the caller's view pre-removal: the cache drops the
+      // registration now, and the failure is typed as a plugin-dropping one.
+      cache.forget(name);
+      try {
+        await addCodexMarketplace(url, context);
+      } catch (error) {
+        throw new DroppedPluginsError(
+          `Codex marketplace '${name}' was removed for re-registration, uninstalling its plugins, but adding ${url} failed: ${errorMessage(error)}`,
+        );
+      }
+      cache.record(name, { url, ref: undefined });
+      return { outcome: 'reregistered', droppedPlugins: true };
+    }
+    await upgradeCodexMarketplace(name, context);
+    return { outcome: 'refreshed', droppedPlugins: false };
   },
 };
 

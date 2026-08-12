@@ -34,6 +34,11 @@ export const coderTarget = target('coder', {
   aliases: ['cdr'],
   role: 'coder',
   packages: { formulae: ['rtk'] },
+  // Marketplace registrations persist the SSH alias inside each client's
+  // config, so a host change leaves materialized state behind; invalidating
+  // here lets `sync` reselect the target, whose registration probe then
+  // re-registers the drifted marketplaces.
+  perMachineInputs: ['githubSshHost'],
   // Machines provisioned before codexConfig still have this path symlinked into
   // the deploy store, where codex has been writing its plugin, marketplace, and
   // MCP registrations. The deploy phase replaces that store file, so the state

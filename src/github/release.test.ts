@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../errors';
-import { parseReleaseBinaries, tagVersion } from './release';
+import {
+  parseReleaseBinaries,
+  releaseTagFromRedirect,
+  tagVersion,
+} from './release';
 
 const CONFIG = 'rust-cli/binaries.yml';
 
@@ -64,6 +68,48 @@ test('parseReleaseBinaries rejects a repo that is not owner/name', () => {
     parseReleaseBinaries(
       entry('name: kpv\n    repo: notaslug\n    tag: v1'),
       CONFIG,
+    ),
+  ).toThrow(ProvisioningError);
+});
+
+const REPO = { owner: 'akitorahayashi', name: 'kpv' } as const;
+
+test('releaseTagFromRedirect reads the tag off the release page redirect', () => {
+  expect(
+    releaseTagFromRedirect(
+      'https://github.com/akitorahayashi/kpv/releases/tag/v0.7.0',
+      REPO,
+      'Latest release of akitorahayashi/kpv',
+    ),
+  ).toBe('v0.7.0');
+});
+
+test('releaseTagFromRedirect rejects a redirect outside this repository', () => {
+  expect(() =>
+    releaseTagFromRedirect(
+      'https://github.com/someone-else/kpv/releases/tag/v0.7.0',
+      REPO,
+      'label',
+    ),
+  ).toThrow(ProvisioningError);
+});
+
+test('releaseTagFromRedirect rejects a redirect that is not a tag page', () => {
+  expect(() =>
+    releaseTagFromRedirect(
+      'https://github.com/login?return_to=%2Fakitorahayashi%2Fkpv',
+      REPO,
+      'label',
+    ),
+  ).toThrow(ProvisioningError);
+});
+
+test('releaseTagFromRedirect rejects a tag outside the safe character set', () => {
+  expect(() =>
+    releaseTagFromRedirect(
+      'https://github.com/akitorahayashi/kpv/releases/tag/v0.7.0%2Fx',
+      REPO,
+      'label',
     ),
   ).toThrow(ProvisioningError);
 });

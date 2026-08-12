@@ -75,8 +75,9 @@ test('the targets invalidated by an SSH host change are the ones declaring it', 
     target.perMachineInputs.includes('githubSshHost'),
   );
 
-  expect(declaring.map((target) => target.name)).toContain(groveTarget.name);
-  // Agent plugins read the host live through `sshRemoteUrl` on every run and
-  // deliberately keep it out of the signature, so they are never stale for it.
-  expect(declaring.map((target) => target.name)).not.toContain('coder');
+  const names = declaring.map((target) => target.name);
+  // Grove bakes the alias into its deployed catalog; coder's agent plugins
+  // persist it inside each client's marketplace registrations.
+  expect(names).toContain(groveTarget.name);
+  expect(names).toContain('coder');
 });
