@@ -1,10 +1,10 @@
 import { rm, rmdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { deployRoot } from '../assets/ref';
+import { deployedDir } from '../assets/ref';
 import { errorMessage, ProvisioningError } from '../errors';
 import { isNotFound, readDirentsIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
-import { mevRoot } from '../host/path';
+import { mevPath, symbolic } from '../host/path';
 import { isTransactionArtifact } from '../host/transaction';
 import { appliedRoot } from './applied';
 import { allTargets } from './registry';
@@ -104,7 +104,7 @@ export async function pruneDeployStore(
   request: DeployStorePruneRequest,
   context: Pick<Context, 'home'>,
 ): Promise<DeployStorePruneReport> {
-  const roleRoot = join(context.home, deployRoot);
+  const roleRoot = deployedDir('', context.home);
 
   try {
     const roles: string[] = [];
@@ -116,7 +116,7 @@ export async function pruneDeployStore(
     return { roles, appliedTargets };
   } catch (error) {
     throw new ProvisioningError(
-      `Failed to prune deploy store under ~/${mevRoot}: ${errorMessage(error)}`,
+      `Failed to prune deploy store under ${symbolic(mevPath())}: ${errorMessage(error)}`,
     );
   }
 }

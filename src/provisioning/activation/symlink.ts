@@ -66,7 +66,7 @@ async function ensureTreeRoot(root: string): Promise<boolean> {
     await mkdir(root, { recursive: true });
     return true;
   }
-  if (stats.isDirectory() && !stats.isSymbolicLink()) {
+  if (stats.isDirectory()) {
     return false;
   }
   return replaceDirectoryAfterBuild(root, async () => {});

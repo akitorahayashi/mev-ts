@@ -17,14 +17,7 @@ import type {
 import { aggregateStatus, guarded } from './reconcile';
 
 type CommandActivation = Extract<Activation, { kind: 'command' }>;
-
-interface CommandInput {
-  readonly label: string;
-  readonly reads?: Readonly<Record<string, CommandRead>>;
-  readonly steps: readonly CommandStep[];
-}
-
-type CommandStep = CommandActivation['steps'][number];
+type CommandInput = Omit<CommandActivation, 'kind'>;
 
 export function runCommand(input: CommandInput): Activation {
   for (const [index, step] of input.steps.entries()) {

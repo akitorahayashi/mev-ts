@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Glob } from 'bun';
+import { errorMessage } from '../src/errors';
 
 const assetsRoot = join(import.meta.dir, '..', 'src', 'assets');
 export const filesRoot = join(assetsRoot, 'config');
@@ -18,8 +19,7 @@ async function readTextAsset(path: string, key: string): Promise<string> {
   try {
     bytes = await Bun.file(path).bytes();
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to read asset '${key}': ${detail}`);
+    throw new Error(`Failed to read asset '${key}': ${errorMessage(error)}`);
   }
   try {
     // Reject non-UTF-8 rather than silently embedding replacement characters:

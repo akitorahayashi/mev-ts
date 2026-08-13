@@ -38,7 +38,6 @@ const KEY_BY_MODE: Readonly<Record<SelectionMode, string>> = {
  */
 export interface SelectionPolicy {
   readonly mode: SelectionMode;
-  readonly key: string;
   read(manifestPath: string): Promise<string[]>;
   write(manifestPath: string, names: readonly string[]): Promise<void>;
   resolve(catalog: readonly string[], manifestPath: string): Promise<Selection>;
@@ -51,7 +50,6 @@ export function selectionPolicy(
   const key = KEY_BY_MODE[mode];
   return {
     mode,
-    key,
     read: (manifestPath) => readNameList(manifestPath, key, label),
     write: (manifestPath, names) => writeNameList(manifestPath, key, names),
     async resolve(catalog, manifestPath) {

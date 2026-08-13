@@ -6,7 +6,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import { isNotFound } from '../host/absence';
 import { replaceFileAtomically } from '../host/atomic-file';
 import { type CommandRunner, formatCommandFailure } from '../host/command';
@@ -103,7 +103,7 @@ async function writableConfigTarget(path: string): Promise<string> {
   } catch (error) {
     if (isNotFound(error)) return path;
     throw new ProvisioningError(
-      `failed to inspect git config at ${path}: ${String(error)}`,
+      `failed to inspect git config at ${path}: ${errorMessage(error)}`,
     );
   }
 }

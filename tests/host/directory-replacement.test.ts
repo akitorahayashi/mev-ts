@@ -1,22 +1,9 @@
 import { expect, test } from 'bun:test';
-import {
-  chmod,
-  mkdir,
-  readdir,
-  readFile,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { chmod, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { replaceDirectoryAfterBuild } from '../../src/host/directory-replacement';
+import { stagingSiblings } from '../fixtures/path-probe';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
-
-async function runOwnedSiblings(path: string): Promise<string[]> {
-  const prefix = `.${basename(path)}.`;
-  return (await readdir(dirname(path))).filter((name) =>
-    name.startsWith(prefix),
-  );
-}
 
 test('installs a fully built directory without residual siblings', async () => {
   await withTemporaryDirectory(async (dir) => {
@@ -27,7 +14,7 @@ test('installs a fully built directory without residual siblings', async () => {
     });
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('new');
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -43,7 +30,7 @@ test('replaces an existing directory and removes stale contents', async () => {
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('new');
     expect(await Bun.file(join(dest, 'stale.txt')).exists()).toBe(false);
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -60,7 +47,7 @@ test('leaves an equivalent existing directory in place', async () => {
 
     expect(replaced).toBe(false);
     expect((await stat(dest)).ino).toBe(before.ino);
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -79,7 +66,7 @@ test('keeps the previous directory when staging fails', async () => {
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('old');
     expect(await Bun.file(join(dest, 'partial.txt')).exists()).toBe(false);
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -101,7 +88,7 @@ test('does not treat a build rejection without a reason as success', async () =>
     expect(rejected).toBe(true);
     expect(reason).toBeUndefined();
     expect(await Bun.file(dest).exists()).toBe(false);
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 

@@ -13,7 +13,6 @@ export type SyncReason = 'unapplied' | 'signature' | 'drift';
 
 export interface TargetScanResult {
   readonly target: Target;
-  readonly signature: string;
   readonly reasons: readonly SyncReason[];
 }
 
@@ -40,7 +39,7 @@ type RoleEntry =
   | {
       readonly kind: 'file';
       readonly path: string;
-      readonly content: string;
+      readonly content: Buffer;
       readonly executable: boolean;
     }
   | { readonly kind: 'other'; readonly path: string };
@@ -71,7 +70,7 @@ function embeddedEntries(
     return {
       kind: 'file',
       path,
-      content: Buffer.from(intent.content).toString('base64'),
+      content: Buffer.from(intent.content),
       executable: intent.executable,
     };
   });
@@ -99,7 +98,8 @@ function entriesDiffer(
     }
     if (left.kind !== 'file' || right.kind !== 'file') return false;
     return (
-      left.content !== right.content || left.executable !== right.executable
+      !left.content.equals(right.content) ||
+      left.executable !== right.executable
     );
   });
 }
@@ -129,7 +129,7 @@ async function walkDeployed(
       entries.push({
         kind: 'file',
         path,
-        content: content.toString('base64'),
+        content,
         executable: (stats.mode & 0o111) !== 0,
       });
       continue;
@@ -178,7 +178,7 @@ async function scanTarget(
     if (applied === null) reasons.push('unapplied');
     else if (applied !== signature) reasons.push('signature');
     if (drifted) reasons.push('drift');
-    return { target, signature, reasons };
+    return { target, reasons };
   } catch (error) {
     return { target, error: errorMessage(error) };
   }

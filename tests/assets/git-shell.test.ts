@@ -1,15 +1,9 @@
-import { expect, test } from 'bun:test';
-import {
-  chmod,
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { expect } from 'bun:test';
+import { chmod, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { sandboxedTest } from '../fixtures/temporary-directory';
+
+const sandboxTest = sandboxedTest('mev-git-shell-');
 
 const gitShellAsset = resolve(
   import.meta.dir,
@@ -25,19 +19,9 @@ async function executable(path: string, contents: string): Promise<void> {
   await chmod(path, 0o755);
 }
 
-async function withSandbox(
-  run: (sandbox: string) => Promise<void>,
-): Promise<void> {
-  const sandbox = await mkdtemp(join(tmpdir(), 'mev-git-shell-'));
-  try {
-    await run(sandbox);
-  } finally {
-    await rm(sandbox, { recursive: true, force: true });
-  }
-}
-
-test('interactive git clone routes through gv and retains an explicit native escape', () =>
-  withSandbox(async (sandbox) => {
+sandboxTest(
+  'interactive git clone routes through gv and retains an explicit native escape',
+  async (sandbox) => {
     const bin = join(sandbox, 'bin');
     const gitLog = join(sandbox, 'git.log');
     const gvLog = join(sandbox, 'gv.log');
@@ -76,10 +60,12 @@ test('interactive git clone routes through gv and retains an explicit native esc
     expect(await readFile(gitLog, 'utf8')).toBe(
       'status\nclone repo-c\n-C elsewhere clone repo-d\n',
     );
-  }));
+  },
+);
 
-test('interactive git clone fails with recovery guidance when gv is unavailable', () =>
-  withSandbox(async (sandbox) => {
+sandboxTest(
+  'interactive git clone fails with recovery guidance when gv is unavailable',
+  async (sandbox) => {
     const bin = join(sandbox, 'bin');
     await mkdir(bin);
     await executable(
@@ -103,10 +89,12 @@ test('interactive git clone fails with recovery guidance when gv is unavailable'
     const stderr = await new Response(process.stderr).text();
     expect(await process.exited).toBe(127);
     expect(stderr).toContain("run 'mev make grove --upgrade'");
-  }));
+  },
+);
 
-test('rf-cl runs gv clone from the references directory with unchanged arguments', () =>
-  withSandbox(async (sandbox) => {
+sandboxTest(
+  'rf-cl runs gv clone from the references directory with unchanged arguments',
+  async (sandbox) => {
     const bin = join(sandbox, 'bin');
     const repository = join(sandbox, 'repository');
     const gvLog = join(sandbox, 'gv.log');
@@ -150,4 +138,5 @@ test('rf-cl runs gv clone from the references directory with unchanged arguments
     expect(
       await readFile(join(repository, 'references/.gitignore'), 'utf8'),
     ).toBe('*\n');
-  }));
+  },
+);

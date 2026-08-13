@@ -46,6 +46,47 @@ test('enumerates each declared kind with its own command', async () => {
   ]);
 });
 
+test('starts declared kind enumerations concurrently in kind order', async () => {
+  const releases = {
+    tap: Promise.withResolvers<void>(),
+    formula: Promise.withResolvers<void>(),
+    cask: Promise.withResolvers<void>(),
+  };
+  const started: Array<keyof typeof releases> = [];
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    async respond(_command, args) {
+      const kind =
+        args[0] === 'tap'
+          ? 'tap'
+          : args.includes('--formula')
+            ? 'formula'
+            : 'cask';
+      started.push(kind);
+      await releases[kind].promise;
+      return listed(kind);
+    },
+  });
+
+  const inventoryPromise = loadInventory(
+    packages({ taps: ['a/b'], formulae: ['git'], casks: ['zed'] }),
+    context,
+  );
+
+  expect(started).toEqual(['tap', 'formula', 'cask']);
+  releases.tap.resolve();
+  releases.formula.resolve();
+  releases.cask.resolve();
+  const inventory = await inventoryPromise;
+  expect(inventory.tap).toEqual({ loaded: true, names: new Set(['tap']) });
+  expect(inventory.formula).toEqual({
+    loaded: true,
+    names: new Set(['formula']),
+  });
+  expect(inventory.cask).toEqual({ loaded: true, names: new Set(['cask']) });
+});
+
 test('parses names per line, ignoring blanks and surrounding whitespace', async () => {
   const { context } = recordingContext({
     home: '/sandbox',

@@ -1,19 +1,18 @@
 import { unlink } from 'node:fs/promises';
-import { join } from 'node:path';
 import { errorMessage, ProvisioningError } from '../errors';
 import { isNotFound, readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
-import { mevRoot } from '../host/path';
+import { mevPath, resolveHostPath } from '../host/path';
 
 const signaturePattern = /^sha256:[0-9a-f]{64}$/;
 
 /** The directory holding every target's proof of successful application. */
 export function appliedRoot(home: string): string {
-  return join(home, mevRoot, 'applied');
+  return resolveHostPath(mevPath('applied'), home);
 }
 
 export function appliedPath(home: string, target: string): string {
-  return join(appliedRoot(home), target);
+  return resolveHostPath(mevPath('applied', target), home);
 }
 
 function validateSignature(signature: string, path: string): string {

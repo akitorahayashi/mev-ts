@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import { mevRoot } from '../host/path';
+import { mevPath, resolveHostPath } from '../host/path';
 
 export const AGENTS_SECTIONS_PREFIX = 'coder/agents-sections';
 export const SKILLS_PREFIX = 'coder/skills';
@@ -11,18 +10,18 @@ export const SKILLS_PREFIX = 'coder/skills';
  * from the deployed sources so re-deploying coder never overwrites them. Agent
  * tools symlink to entities under this root.
  */
-function coderRoot(home: string): string {
-  return join(home, mevRoot, 'coder');
+function coderPath(home: string, name: string): string {
+  return resolveHostPath(mevPath('coder', name), home);
 }
 
 /** The generated AGENTS.md, built by concatenating the enabled sections. */
 export function agentsFile(home: string): string {
-  return join(coderRoot(home), 'AGENTS.md');
+  return coderPath(home, 'AGENTS.md');
 }
 
 /** The generated skills directory, holding one symlink per enabled skill. */
 export function skillsDir(home: string): string {
-  return join(coderRoot(home), 'skills');
+  return coderPath(home, 'skills');
 }
 
 /**
@@ -30,7 +29,7 @@ export function skillsDir(home: string): string {
  * Absence enables every catalog section.
  */
 export function agentsManifest(home: string): string {
-  return join(coderRoot(home), 'agents-sections.yml');
+  return coderPath(home, 'agents-sections.yml');
 }
 
 /**
@@ -38,5 +37,5 @@ export function agentsManifest(home: string): string {
  * enables every catalog skill.
  */
 export function skillsManifest(home: string): string {
-  return join(coderRoot(home), 'skills-selection.yml');
+  return coderPath(home, 'skills-selection.yml');
 }

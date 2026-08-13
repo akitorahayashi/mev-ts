@@ -13,6 +13,7 @@ import {
 } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
 import { target } from '../../src/provisioning/target';
+import { mapAssetSource } from '../fixtures/asset-source';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -23,26 +24,6 @@ function scanned(scan: TargetScan | undefined): TargetScanResult {
     throw new Error('expected a classified (non-error) scan');
   }
   return scan;
-}
-
-function assets(
-  contents: Readonly<Record<string, string>>,
-  executable: readonly string[] = [],
-): AssetSource {
-  const executableKeys = new Set(executable);
-  return {
-    async read(key) {
-      const content = contents[key];
-      if (content === undefined) throw new Error(`unknown asset ${key}`);
-      return content;
-    },
-    keysByPrefix(prefix) {
-      return Object.keys(contents).filter((key) => key.startsWith(prefix));
-    },
-    isExecutable(key) {
-      return executableKeys.has(key);
-    },
-  };
 }
 
 function contextFor(home: string, source: AssetSource): Context {
@@ -59,7 +40,10 @@ const demoTarget = target('demo', {
 sandboxTest(
   'missing state and deployed config select the target',
   async (home) => {
-    const context = contextFor(home, assets({ 'demo/config': 'value\n' }));
+    const context = contextFor(
+      home,
+      mapAssetSource({ 'demo/config': 'value\n' }),
+    );
 
     const [scan] = await scanTargets([demoTarget], context);
 
@@ -68,7 +52,9 @@ sandboxTest(
 );
 
 sandboxTest('matching applied and deployed state is current', async (home) => {
-  const source = assets({ 'demo/script': '#!/bin/sh\n' }, ['demo/script']);
+  const source = mapAssetSource({ 'demo/script': '#!/bin/sh\n' }, [
+    'demo/script',
+  ]);
   const context = contextFor(home, source);
   await deployRole('demo', context);
   await writeApplied(
@@ -84,7 +70,9 @@ sandboxTest('matching applied and deployed state is current', async (home) => {
 sandboxTest(
   'content, executable, and extra-path drift is detected',
   async (home) => {
-    const source = assets({ 'demo/script': '#!/bin/sh\n' }, ['demo/script']);
+    const source = mapAssetSource({ 'demo/script': '#!/bin/sh\n' }, [
+      'demo/script',
+    ]);
     const context = contextFor(home, source);
     await deployRole('demo', context);
     await writeApplied(
@@ -107,7 +95,7 @@ sandboxTest(
 sandboxTest(
   'a package-only declaration change is detected by signature',
   async (home) => {
-    const source = assets({});
+    const source = mapAssetSource({});
     const context = contextFor(home, source);
     await writeApplied(
       appliedPath(home, demoTarget.name),
@@ -129,7 +117,7 @@ sandboxTest(
 sandboxTest(
   'a single unreadable marker fails only its target, not the batch',
   async (home) => {
-    const source = assets({ 'demo/config': 'value\n' });
+    const source = mapAssetSource({ 'demo/config': 'value\n' });
     const context = contextFor(home, source);
     // Plant a malformed applied marker for `demo` so its scan throws while the
     // sibling target still classifies.

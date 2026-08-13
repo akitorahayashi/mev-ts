@@ -1,4 +1,3 @@
-import { join } from 'node:path';
 import { AppError, errorMessage } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
@@ -9,7 +8,7 @@ import {
   requireExactKeys,
   requireRecord,
 } from '../host/parse';
-import { mevRoot } from '../host/path';
+import { mevPath, resolveHostPath } from '../host/path';
 import { allScopes, type IdentityScope } from './scope';
 
 // The identity domain is reached from `mev user`/`mev switch`, not provisioning,
@@ -32,7 +31,7 @@ export function makeIdentity(name: string, email: string): Identity | null {
 }
 
 export function identityFilePath(home: string): string {
-  return join(home, mevRoot, 'identity.json');
+  return resolveHostPath(mevPath('identity.json'), home);
 }
 
 export function emptyState(): IdentityState {

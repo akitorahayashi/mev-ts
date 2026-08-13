@@ -1,15 +1,8 @@
-import {
-  chmod,
-  lstat,
-  mkdir,
-  mkdtemp,
-  readdir,
-  rename,
-  rm,
-} from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { errorMessage } from '../src/errors';
+import { lstatIfPresent, readDirentsIfPresent } from '../src/host/absence';
 import { runWithCleanup } from '../src/host/cleanup-error';
 import {
   type BuildInvocation,
@@ -44,11 +37,13 @@ function defaultInstallDir(): string {
  * where nothing else would ever notice it.
  */
 async function pruneStaleStaging(installDir: string): Promise<void> {
-  const entries = await readdir(installDir).catch(() => []);
-  for (const name of entries) {
+  const entries = await readDirentsIfPresent(installDir);
+  if (entries === null) return;
+  for (const entry of entries) {
+    const { name } = entry;
     if (!name.startsWith(STAGING_PREFIX)) continue;
     const path = join(installDir, name);
-    const stats = await lstat(path).catch(() => null);
+    const stats = await lstatIfPresent(path);
     if (stats && Date.now() - stats.mtimeMs < STAGING_ORPHAN_AGE_MS) continue;
     await rm(path, { force: true, recursive: true });
   }
