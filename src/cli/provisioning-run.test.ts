@@ -84,7 +84,7 @@ function runReturning(report: MakeReport): {
       request.onInstallStart?.(1);
       request.onInstallTokenStart?.({ kind: 'formula', name: 'git' });
       request.onInstallTick?.({ kind: 'formula', name: 'git' });
-      request.onActivationPhaseStart?.({ totalTargets: report.groups.length });
+      request.onActivationPhaseStart?.();
       for (const group of report.groups) {
         for (const activation of group.reports) {
           request.onActivationStart?.({

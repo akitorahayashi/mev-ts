@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
-import { formatCommandFailure } from '../../host/command';
 import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
 import { downloadOverHttps } from '../../host/https-download';
@@ -71,19 +70,12 @@ async function verifyChecksum(
     await readFile(checksumPath, 'utf8'),
     activation.label,
   );
-  const actualResult = await context.commands.run('shasum', [
-    '-a',
-    '256',
-    script,
-  ]);
-  if (actualResult.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure(
-        `shasum verification failed for ${activation.label}`,
-        actualResult,
-      ),
-    );
-  }
+  const actualResult = await runProcessStep(
+    context.commands,
+    'shasum',
+    ['-a', '256', script],
+    `shasum verification failed for ${activation.label}`,
+  );
   const actual = parseSha256(actualResult.stdout, activation.label);
   if (actual !== expected) {
     throw new ProvisioningError(

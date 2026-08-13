@@ -5,6 +5,8 @@ import { documentConversionError } from './conversion-error';
 import { planConversions } from './input-files';
 import { runConversions } from './run-conversions';
 
+const PDF_CONVERSION_CONCURRENCY = 4;
+
 export interface PdfToMarkdownRequest {
   readonly input: string;
   readonly outputDirectory?: string;
@@ -29,16 +31,22 @@ export async function convertPdfToMarkdown(
     '.md',
   );
 
-  await runConversions(pairs, write, warn, async (pair) => {
-    await replaceFileAtomically(pair.output, async (temporary) => {
-      const result = await runProcessStep(
-        run,
-        'pdftotext',
-        ['-enc', 'UTF-8', '-nopgbrk', pair.input, temporary],
-        `Failed to convert '${pair.input}'`,
-        { raise: documentConversionError },
-      );
-      if (result.stderr.trim()) warn(`${result.stderr.trim()}\n`);
-    });
-  });
+  await runConversions(
+    pairs,
+    write,
+    warn,
+    async (pair) => {
+      await replaceFileAtomically(pair.output, async (temporary) => {
+        const result = await runProcessStep(
+          run,
+          'pdftotext',
+          ['-enc', 'UTF-8', '-nopgbrk', pair.input, temporary],
+          `Failed to convert '${pair.input}'`,
+          { raise: documentConversionError },
+        );
+        if (result.stderr.trim()) warn(`${result.stderr.trim()}\n`);
+      });
+    },
+    { concurrency: PDF_CONVERSION_CONCURRENCY },
+  );
 }

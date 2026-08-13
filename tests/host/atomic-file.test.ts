@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test';
 import {
   chmod,
   lstat,
-  readdir,
   readFile,
   realpath,
   stat,
@@ -14,14 +13,8 @@ import {
   replaceFileAtomically,
   writeFileAtomically,
 } from '../../src/host/atomic-file';
+import { stagingSiblings } from '../fixtures/path-probe';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
-
-async function runOwnedSiblings(path: string): Promise<string[]> {
-  const prefix = `.${basename(path)}.`;
-  return (await readdir(dirname(path))).filter((name) =>
-    name.startsWith(prefix),
-  );
-}
 
 test('writes the final file without leaving transaction siblings', async () => {
   await withTemporaryDirectory(async (dir) => {
@@ -30,7 +23,7 @@ test('writes the final file without leaving transaction siblings', async () => {
     await writeFileAtomically(dest, '{"ok":true}\n');
 
     expect(await readFile(dest, 'utf8')).toBe('{"ok":true}\n');
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -91,7 +84,7 @@ test('keeps an existing destination when the writer fails', async () => {
     ).rejects.toThrow('write failed');
 
     expect(await readFile(dest, 'utf8')).toBe('old');
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -113,7 +106,7 @@ test('does not treat a writer rejection without a reason as success', async () =
     expect(rejected).toBe(true);
     expect(reason).toBeUndefined();
     expect(await Bun.file(dest).exists()).toBe(false);
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -130,7 +123,7 @@ test('lends a named path inside a private destination-adjacent directory', async
     expect(dirname(dirname(observed))).toBe(await realpath(dir));
     expect(basename(dirname(observed)).startsWith('.tool.')).toBe(true);
     expect(await readFile(dest, 'utf8')).toBe('downloaded');
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 
@@ -150,7 +143,7 @@ test('fails closed when the borrowed output path is substituted with a symlink',
 
     expect(await readFile(dest, 'utf8')).toBe('old');
     expect(await readFile(foreign, 'utf8')).toBe('foreign');
-    expect(await runOwnedSiblings(dest)).toEqual([]);
+    expect(await stagingSiblings(dest)).toEqual([]);
   });
 });
 

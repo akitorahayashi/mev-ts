@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { type AssetSource, embeddedAssets } from '../../src/assets/registry';
+import { embeddedAssets } from '../../src/assets/registry';
 import { ProvisioningError } from '../../src/errors';
 import { home } from '../../src/host/path';
 import {
@@ -10,22 +10,7 @@ import {
 } from '../../src/provisioning/activation';
 import { validateEmbeddedAssets } from '../../src/provisioning/preflight';
 import { target } from '../../src/provisioning/target';
-
-function assets(contents: Readonly<Record<string, string>>): AssetSource {
-  return {
-    async read(key) {
-      const content = contents[key];
-      if (content === undefined) throw new Error(`unknown asset ${key}`);
-      return content;
-    },
-    keysByPrefix(prefix) {
-      return Object.keys(contents).filter((key) => key.startsWith(prefix));
-    },
-    isExecutable() {
-      return false;
-    },
-  };
-}
+import { mapAssetSource } from '../fixtures/asset-source';
 
 test('embedded asset preflight accepts the shipped registry', async () => {
   await expect(validateEmbeddedAssets(embeddedAssets)).resolves.toBeUndefined();
@@ -45,7 +30,7 @@ test('embedded asset preflight rejects a command read with no such asset', async
   });
 
   await expect(
-    validateEmbeddedAssets(assets({ 'demo/other.json': '{}' }), [demo]),
+    validateEmbeddedAssets(mapAssetSource({ 'demo/other.json': '{}' }), [demo]),
   ).rejects.toBeInstanceOf(ProvisioningError);
 });
 
@@ -60,7 +45,9 @@ test('embedded asset preflight rejects a Grove repository without a URL', async 
 
   await expect(
     validateEmbeddedAssets(
-      assets({ 'demo/grove.toml': '[repos.invalid]\npath = "invalid"\n' }),
+      mapAssetSource({
+        'demo/grove.toml': '[repos.invalid]\npath = "invalid"\n',
+      }),
       [demo],
     ),
   ).rejects.toBeInstanceOf(ProvisioningError);
@@ -75,7 +62,7 @@ test('embedded asset preflight rejects a coder catalog missing a section file', 
 
   await expect(
     validateEmbeddedAssets(
-      assets({
+      mapAssetSource({
         'coder/agents-sections/catalog.yml': 'sections:\n  - communication\n',
       }),
       [demo],
@@ -99,7 +86,7 @@ binaries:
 test('embedded asset preflight accepts a release manifest', async () => {
   await expect(
     validateEmbeddedAssets(
-      assets({
+      mapAssetSource({
         'demo/binaries.yml': `${RELEASE_MANIFEST}  - name: mx\n    repo: akitorahayashi/mx\n    tag: latest\n`,
       }),
       [releaseDemo],
@@ -110,7 +97,7 @@ test('embedded asset preflight accepts a release manifest', async () => {
 test('embedded asset preflight rejects a malformed release manifest', async () => {
   await expect(
     validateEmbeddedAssets(
-      assets({
+      mapAssetSource({
         'demo/binaries.yml': `${RELEASE_MANIFEST}  - name: mx\n    repo: notaslug\n    tag: v4.0.0\n`,
       }),
       [releaseDemo],
@@ -127,7 +114,7 @@ test('embedded asset preflight rejects an unlisted coder section file', async ()
 
   await expect(
     validateEmbeddedAssets(
-      assets({
+      mapAssetSource({
         'coder/agents-sections/catalog.yml': 'sections:\n  - communication\n',
         'coder/agents-sections/communication.md': '## Communication\n',
         'coder/agents-sections/testing.md': '## Testing\n',

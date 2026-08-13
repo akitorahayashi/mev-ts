@@ -1,31 +1,9 @@
 import { expect, test } from 'bun:test';
-import type { AssetSource } from '../assets/registry';
+import { mapAssetSource } from '../../tests/fixtures/asset-source';
 import { home } from '../host/path';
 import { link, runCommand } from './activation';
 import { targetSignature } from './signature';
 import { target } from './target';
-
-function assetSource(
-  contents: Readonly<Record<string, string>> = {},
-  executable: readonly string[] = [],
-): AssetSource {
-  const executableKeys = new Set(executable);
-  return {
-    async read(key) {
-      const content = contents[key];
-      if (content === undefined) throw new Error(`unknown asset ${key}`);
-      return content;
-    },
-    keysByPrefix(prefix) {
-      return Object.keys(contents)
-        .filter((key) => key.startsWith(prefix))
-        .sort();
-    },
-    isExecutable(key) {
-      return executableKeys.has(key);
-    },
-  };
-}
 
 const config = { key: 'demo/config' };
 
@@ -62,7 +40,7 @@ const GOLDEN_TARGET = target('golden', {
   ],
 });
 
-const GOLDEN_ASSETS = assetSource(
+const GOLDEN_ASSETS = mapAssetSource(
   { 'demo/config': 'config contents\n', 'demo/version': '1.2.3\n' },
   ['demo/version'],
 );
@@ -92,12 +70,12 @@ test('declared assets, packages, and activation destinations affect the signatur
     packages: { formulae: ['fd'] },
     activations: [link(config, home('.config/demo/config'))],
   });
-  const assets = assetSource({ [config.key]: 'one\n' });
+  const assets = mapAssetSource({ [config.key]: 'one\n' });
 
   const originalSignature = await targetSignature(original, assets);
   const changedAssetSignature = await targetSignature(
     original,
-    assetSource({ [config.key]: 'two\n' }),
+    mapAssetSource({ [config.key]: 'two\n' }),
   );
   const packageChangedSignature = await targetSignature(packageChanged, assets);
   const destinationChangedSignature = await targetSignature(
@@ -127,8 +105,8 @@ test('package ordering and target display metadata do not affect the signature',
     optional: true,
   });
 
-  expect(await targetSignature(left, assetSource())).toBe(
-    await targetSignature(right, assetSource()),
+  expect(await targetSignature(left, mapAssetSource({}))).toBe(
+    await targetSignature(right, mapAssetSource({})),
   );
 });
 
@@ -144,7 +122,7 @@ test('an argv edit flips the command signature', async () => {
         }),
       ],
     });
-  const assets = assetSource();
+  const assets = mapAssetSource({});
 
   expect(await targetSignature(commandTarget('fast'), assets)).not.toBe(
     await targetSignature(commandTarget('slow'), assets),
@@ -165,7 +143,7 @@ test('an env edit flips the command signature', async () => {
         }),
       ],
     });
-  const assets = assetSource();
+  const assets = mapAssetSource({});
 
   expect(
     await targetSignature(commandTarget({ DEMO_FAST: '1' }), assets),
@@ -190,7 +168,7 @@ test('a skipIf edit flips the command signature', async () => {
         }),
       ],
     });
-  const assets = assetSource();
+  const assets = mapAssetSource({});
 
   expect(await targetSignature(commandTarget('/a'), assets)).not.toBe(
     await targetSignature(commandTarget('/b'), assets),
@@ -210,7 +188,7 @@ test('command label and read declarations affect the signature', async () => {
         }),
       ],
     });
-  const assets = assetSource({
+  const assets = mapAssetSource({
     'demo/version': '1\n',
     'demo/next-version': '2\n',
   });
@@ -249,7 +227,7 @@ test('serializable step metadata affects the signature', async () => {
         }),
       ],
     });
-  const assets = assetSource();
+  const assets = mapAssetSource({});
   const original = await targetSignature(
     commandTarget({ label: 'demo step' }),
     assets,

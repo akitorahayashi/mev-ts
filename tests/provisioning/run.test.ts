@@ -199,8 +199,8 @@ sandboxTest(
     const report = await runMake(
       {
         selectors: ['git'],
-        onActivationPhaseStart: (event) => {
-          events.push(`phase:${event.totalTargets}`);
+        onActivationPhaseStart: () => {
+          events.push('phase');
         },
         onActivationStart: (event) => {
           events.push(
@@ -215,7 +215,7 @@ sandboxTest(
     );
 
     expect(report.failed).toBe(false);
-    expect(events[0]).toBe('phase:1');
+    expect(events[0]).toBe('phase');
     expect(events.some((event) => event.startsWith('start:git:'))).toBe(true);
     expect(events.at(-1)).toBe(
       `complete:git:${gitGroup(report)?.reports.length}`,
@@ -230,8 +230,8 @@ sandboxTest(
     const report = await runMake(
       {
         selectors: ['formulae'],
-        onActivationPhaseStart: (event) => {
-          events.push(`phase:${event.totalTargets}`);
+        onActivationPhaseStart: () => {
+          events.push('phase');
         },
         onActivationStart: () => {
           events.push('start');
@@ -244,7 +244,7 @@ sandboxTest(
     );
 
     expect(report.failed).toBe(false);
-    expect(events).toEqual(['phase:1', 'complete:formulae:0']);
+    expect(events).toEqual(['phase', 'complete:formulae:0']);
     expect(await readApplied(appliedPath(sandbox, 'formulae'))).toBe(
       await targetSignature(resolveTarget('formulae'), embeddedAssets),
     );

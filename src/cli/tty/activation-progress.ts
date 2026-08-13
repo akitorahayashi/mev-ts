@@ -2,7 +2,6 @@ import type { Writable } from 'node:stream';
 import { activationLine } from '../../provisioning/group-outcome';
 import type {
   ActivationGroupReport,
-  ActivationPhaseEvent,
   ActivationStartEvent,
 } from '../../provisioning/run';
 import { renderTargetCompletionLine } from './makelog';
@@ -31,7 +30,7 @@ function createBanner(out: (text: string) => void): () => void {
 }
 
 export interface ActivationProgress {
-  start(event: ActivationPhaseEvent): void;
+  start(): void;
   startActivation(event: ActivationStartEvent): void;
   completeTarget(group: ActivationGroupReport): void;
   finish(): void;

@@ -98,7 +98,7 @@ export async function executeProvisioningRun(
         bar?.setLabel('');
         bar?.advance();
       },
-      onActivationPhaseStart(event) {
+      onActivationPhaseStart() {
         finishInstallBar();
         activation = createActivationProgress({
           isTTY,
@@ -106,7 +106,7 @@ export async function executeProvisioningRun(
           stream,
           nameWidth,
         });
-        activation.start(event);
+        activation.start();
       },
       onActivationStart(event) {
         activation?.startActivation(event);

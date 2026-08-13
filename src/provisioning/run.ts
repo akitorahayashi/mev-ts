@@ -48,10 +48,6 @@ export interface MakeReport {
   readonly failed: boolean;
 }
 
-export interface ActivationPhaseEvent {
-  readonly totalTargets: number;
-}
-
 export interface ActivationStartEvent {
   readonly targetName: string;
   readonly activation: Described;
@@ -66,7 +62,7 @@ export interface MakeRequest {
   readonly onInstallStart?: (total: number) => void;
   readonly onInstallTokenStart?: (token: PackageToken) => void;
   readonly onInstallTick?: (token: PackageToken) => void;
-  readonly onActivationPhaseStart?: (event: ActivationPhaseEvent) => void;
+  readonly onActivationPhaseStart?: () => void;
   readonly onActivationStart?: (event: ActivationStartEvent) => void;
   readonly onActivationTargetComplete?: (group: ActivationGroupReport) => void;
 }
@@ -210,9 +206,7 @@ export async function runMake(
 
   const groups: ActivationGroupReport[] = [];
   if (selection.groups.length > 0) {
-    request.onActivationPhaseStart?.({
-      totalTargets: selection.groups.length,
-    });
+    request.onActivationPhaseStart?.();
   }
   for (const group of selection.groups) {
     const blockers = computeBlockers(group, failedRoles, failedPackages);

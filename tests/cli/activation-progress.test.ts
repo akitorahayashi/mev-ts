@@ -14,7 +14,7 @@ test('the TTY activation progress renders the in-flight line and a completion li
     nameWidth: 5,
   });
 
-  progress.start({ totalTargets: 1 });
+  progress.start();
   progress.startActivation({
     targetName: 'git',
     activation: {
@@ -61,7 +61,7 @@ test('the non-TTY activation progress writes plain lines only to out', () => {
     stream: stream as unknown as NodeJS.WriteStream,
   });
 
-  progress.start({ totalTargets: 1 });
+  progress.start();
   progress.completeTarget({
     targetName: 'git',
     blockers: [],

@@ -14,10 +14,6 @@ export interface DeployResult {
   readonly error?: string;
 }
 
-async function exists(path: string): Promise<boolean> {
-  return (await lstatIfPresent(path)) !== null;
-}
-
 function topLevelFiles(
   role: string,
   keys: readonly string[],
@@ -44,8 +40,7 @@ export async function deployRole(
 ): Promise<DeployResult> {
   const keys = context.assets.keysByPrefix(`${role}/`);
   const destDir = deployedDir(role, context.home);
-  const present = await exists(destDir);
-  if (keys.length === 0 && !present) {
+  if (keys.length === 0 && (await lstatIfPresent(destDir)) === null) {
     return { role, deployed: false, files: [] };
   }
 

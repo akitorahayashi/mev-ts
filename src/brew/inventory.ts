@@ -60,10 +60,10 @@ export async function loadInventory(
   req: PackageRequirement,
   context: Context,
 ): Promise<Inventory> {
-  return {
-    tap: req.taps.length > 0 ? await enumerate(context, 'tap') : unprobed,
-    formula:
-      req.formulae.length > 0 ? await enumerate(context, 'formula') : unprobed,
-    cask: req.casks.length > 0 ? await enumerate(context, 'cask') : unprobed,
-  };
+  const [tap, formula, cask] = await Promise.all([
+    req.taps.length > 0 ? enumerate(context, 'tap') : unprobed,
+    req.formulae.length > 0 ? enumerate(context, 'formula') : unprobed,
+    req.casks.length > 0 ? enumerate(context, 'cask') : unprobed,
+  ]);
+  return { tap, formula, cask };
 }

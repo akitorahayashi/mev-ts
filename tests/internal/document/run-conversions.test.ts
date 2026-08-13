@@ -68,3 +68,60 @@ test('every conversion succeeding resolves without error', async (dir) => {
     ),
   ).resolves.toBeUndefined();
 });
+
+test('defaults to serial conversion', async (dir) => {
+  const pairs = ['a', 'b', 'c'].map((name) => ({
+    input: join(dir, `${name}.pdf`),
+    output: join(dir, 'out', `${name}.md`),
+  }));
+  let active = 0;
+  let maxActive = 0;
+
+  await runConversions(
+    pairs,
+    () => {},
+    () => {},
+    async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await Bun.sleep(1);
+      active -= 1;
+    },
+  );
+
+  expect(maxActive).toBe(1);
+});
+
+test('opt-in concurrency is bounded and failure aggregation remains input ordered', async (dir) => {
+  const pairs = ['a', 'b', 'c', 'd'].map((name) => ({
+    input: join(dir, `${name}.pdf`),
+    output: join(dir, 'out', `${name}.md`),
+  }));
+  const warnings: string[] = [];
+  let active = 0;
+  let maxActive = 0;
+
+  const conversion = runConversions(
+    pairs,
+    () => {},
+    (message) => warnings.push(message),
+    async (pair) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await Bun.sleep(pair.input.endsWith('a.pdf') ? 5 : 1);
+      active -= 1;
+      throw new Error(`failed ${pair.input}`);
+    },
+    { concurrency: 2 },
+  );
+
+  await expect(conversion).rejects.toThrow(
+    `Failed to convert 4 file(s): ${pairs
+      .map((pair) => `${pair.input}: failed ${pair.input}`)
+      .join('; ')}`,
+  );
+  expect(maxActive).toBe(2);
+  expect(warnings.sort()).toEqual(
+    pairs.map((pair) => `${pair.input}: failed ${pair.input}\n`).sort(),
+  );
+});

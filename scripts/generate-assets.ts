@@ -13,20 +13,12 @@
  */
 
 import { relative } from 'node:path';
+import { writeFileIfChanged } from '../src/host/atomic-file';
 import { collectAssets, registryFile, renderRegistry } from './asset-registry';
 
 const entries = await collectAssets();
 const rendered = renderRegistry(entries);
-// Written only when the content differs: this runs from every pre-hook, and
-// churning the mtime on an identical file invalidates downstream build caches
-// for nothing.
-if (
-  (await Bun.file(registryFile)
-    .text()
-    .catch(() => null)) !== rendered
-) {
-  await Bun.write(registryFile, rendered);
-}
+await writeFileIfChanged(registryFile, rendered);
 
 const executableCount = entries.filter((entry) => entry.executable).length;
 console.log(
