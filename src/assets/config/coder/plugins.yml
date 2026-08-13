@@ -15,9 +15,29 @@ marketplaces:
     #   plugins: [agent-device]
     #   uninstall: [diff-verify]
   - client: claude
+    repo: akitorahayashi/charles-traffic
+    plugins:
+      - charles-traffic
+  - client: claude
     repo: akitorahayashi/comment-review
     plugins:
       - comment-review
+  - client: claude
+    repo: akitorahayashi/issue-probe
+    plugins:
+      - issue-probe
+  - client: claude
+    repo: akitorahayashi/prune-comments
+    plugins:
+      - prune-comments
+  - client: claude
+    repo: akitorahayashi/simplify
+    plugins:
+      - simplify
+  - client: codex
+    repo: akitorahayashi/simplify
+    plugins:
+      - simplify
   - client: claude
     repo: akitorahayashi/xlsx
     plugins:
