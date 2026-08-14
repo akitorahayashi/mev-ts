@@ -259,6 +259,58 @@ sandboxTest(
   },
 );
 
+sandboxTest(
+  'a failing marketplace listing fails only its own marketplaces',
+  async (home) => {
+    await deployCatalog(home);
+    const { context } = recordingContext({
+      home,
+      respond: (command, args) => {
+        const line = args.join(' ');
+        if (command === 'claude' && line === 'plugin list --json') {
+          return ok(
+            claudeInventory([
+              'agent-device@agent-device-plugin',
+              'device-verification@agent-device-plugin',
+              'comment-review@comment-review',
+              'xlsx@xlsx',
+            ]),
+          );
+        }
+        // The registration probe's listing fails on a run whose plugins are
+        // all installed — the probe must stay inside the per-marketplace
+        // boundary rather than aborting the whole activation.
+        if (command === 'claude' && line === 'plugin marketplace list --json') {
+          return fail('claude marketplace listing unavailable');
+        }
+        if (command === 'codex' && line === 'plugin list --json') {
+          return ok(codexInventory(['xlsx@xlsx']));
+        }
+        if (command === 'codex' && line === 'plugin marketplace list --json') {
+          return ok(CODEX_XLSX_MARKETPLACES);
+        }
+        return fail(`unexpected ${command} ${line}`);
+      },
+    });
+
+    const report = await run(context);
+
+    // Each of the three claude marketplaces reports unavailable, while the
+    // codex marketplace still converges and reports its plugin unchanged.
+    expect(report.status).toBe('failed');
+    expect(report.error).toBeUndefined();
+    expect(
+      report.entries?.filter(({ value }) => value === 'marketplace unavailable')
+        .length,
+    ).toBe(3);
+    expect(report.entries).toContainEqual({
+      key: 'codex:xlsx@xlsx',
+      value: 'already installed',
+      status: 'unchanged',
+    });
+  },
+);
+
 sandboxTest('enabling a plugin stays off the network', async (home) => {
   const { context, calls } = await disabledClaude(home, 'enables');
 

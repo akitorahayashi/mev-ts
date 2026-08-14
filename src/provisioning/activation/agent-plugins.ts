@@ -510,12 +510,15 @@ async function reconcileMarketplace(
   // installed plugin is a local operation and deliberately does not: the
   // registration listing is a local read, so a converged marketplace whose only
   // gap is a disabled plugin stays off the network entirely.
-  if (
-    upgrade ||
-    desired.some((id) => !installed.has(id)) ||
-    !(await registrationConverged(marketplace, url, context, registrations))
-  ) {
-    try {
+  // The registration probe sits inside the same boundary as the ensure: a
+  // failing or malformed marketplace listing is this marketplace's failure, not
+  // the whole activation's, so its siblings and the removal pass still run.
+  try {
+    if (
+      upgrade ||
+      desired.some((id) => !installed.has(id)) ||
+      !(await registrationConverged(marketplace, url, context, registrations))
+    ) {
       const ensured = await ensureMarketplace(
         marketplace,
         url,
@@ -534,17 +537,17 @@ async function reconcileMarketplace(
       if (ensured.outcome !== 'refreshed' || !upgrade) {
         entries.push(ensured.report);
       }
-    } catch (error) {
-      // A typed drop means the failure already destroyed the namespace on the
-      // host, so its plugins must report as blocked rather than as installed.
-      if (error instanceof DroppedPluginsError) {
-        invalidateNamespacePlugins(installed, marketplace.name);
-      }
-      entries.push(
-        ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
-      );
-      return;
     }
+  } catch (error) {
+    // A typed drop means the failure already destroyed the namespace on the
+    // host, so its plugins must report as blocked rather than as installed.
+    if (error instanceof DroppedPluginsError) {
+      invalidateNamespacePlugins(installed, marketplace.name);
+    }
+    entries.push(
+      ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
+    );
+    return;
   }
 
   const ops = pluginClientOps[marketplace.client];

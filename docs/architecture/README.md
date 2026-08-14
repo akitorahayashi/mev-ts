@@ -18,7 +18,7 @@ src/
   coder/        Coder catalogs, manifests, and renderers
   config-selection/ shared selection manifest parser/resolver
   defaults/     macOS defaults manifest and protocol helpers
-  host/         CommandRunner, Context, HostPath, plus shared primitives for subprocess (command-run), download, managed-link, deploy-read, parsing (parse), YAML (yaml), JSON (json), declared-keys merging (declared-merge), bounded concurrency (task-pool), and cleanup-error composition
+  host/         CommandRunner, Context, HostPath, plus shared primitives for subprocess (command-run), download, managed-link, deploy-read, parsing (parse), YAML (yaml), JSON (json), JSONC (jsonc), declared-keys merging (declared-merge), bounded concurrency (task-pool), and cleanup-error composition
   identity/     Git identity scopes and on-disk store
   assets/       embedded config files and asset registry
   git/          Git config and command helpers

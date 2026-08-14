@@ -3,8 +3,13 @@ import { ProvisioningError } from '../../errors';
 import { lstatIfPresent, readTextIfPresent } from '../../host/absence';
 import { writeFileAtomically } from '../../host/atomic-file';
 import type { Context } from '../../host/context';
-import { mergeDeclared, valueEqual } from '../../host/declared-merge';
+import {
+  declaredAssignments,
+  mergeDeclared,
+  valueEqual,
+} from '../../host/declared-merge';
 import { loadJsonObject, serializeJson } from '../../host/json';
+import { editJsoncObject, loadJsoncObject } from '../../host/jsonc';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { loadToml, serializeToml } from '../../host/toml';
 import type { Activation, ActivationReport, Described } from './contract';
@@ -15,19 +20,38 @@ type DeclaredKeysActivation = Extract<Activation, { kind: 'declaredKeys' }>;
 
 type DocumentFormat = DeclaredKeysActivation['format'];
 
+/** Everything a format needs to render the destination's next contents. */
+interface RenderedDocument {
+  readonly merged: Record<string, unknown>;
+  readonly host: Record<string, unknown>;
+  readonly declared: Record<string, unknown>;
+  /** The destination's current text, absent when there is no document yet. */
+  readonly hostRaw: string | null;
+  readonly source: string;
+}
+
 /**
  * Reading and writing one supported document format. The format is declared per
  * activation rather than derived from the asset's extension, so a destination
- * states what it is instead of resting on a filename convention.
+ * states what it is instead of resting on a filename convention. Whole-document
+ * formats render by serializing `merged`; jsonc instead edits the host text in
+ * place so the comments the format exists to allow survive the write.
  */
 interface DocumentCodec {
   load(raw: string, source: string): Record<string, unknown>;
-  serialize(value: Record<string, unknown>): string;
+  render(document: RenderedDocument): string;
 }
 
 const codecs: Readonly<Record<DocumentFormat, DocumentCodec>> = {
-  toml: { load: loadToml, serialize: serializeToml },
-  json: { load: loadJsonObject, serialize: serializeJson },
+  toml: { load: loadToml, render: ({ merged }) => serializeToml(merged) },
+  json: { load: loadJsonObject, render: ({ merged }) => serializeJson(merged) },
+  jsonc: {
+    load: loadJsoncObject,
+    render: ({ merged, host, declared, hostRaw, source }) =>
+      hostRaw === null
+        ? serializeJson(merged)
+        : editJsoncObject(hostRaw, declaredAssignments(host, declared, source)),
+  },
 };
 
 export function declaredKeys(
@@ -97,7 +121,10 @@ export async function runDeclaredKeys(
     }
     // The atomic rename replaces the destination path itself, so a symlink found
     // there becomes a regular file instead of being written through.
-    await writeFileAtomically(dest, codec.serialize(merged));
+    await writeFileAtomically(
+      dest,
+      codec.render({ merged, host, declared, hostRaw: raw, source: dest }),
+    );
     return { ...base, status: 'changed' };
   });
 }

@@ -40,6 +40,29 @@ const tomlActivation = () =>
 const jsonActivation = () =>
   declaredKeys(asset(JSON_KEY), home('.claude/settings.json'), 'json');
 
+// The editor settings key doubles as the jsonc fixture: the declared asset is
+// strict JSON (a JSONC subset) while the host file may carry comments.
+const JSONC_KEY = 'vscode/settings.json';
+
+const DECLARED_JSONC = `${JSON.stringify(
+  { 'workbench.colorTheme': 'Light+', 'editor.formatOnSave': true },
+  null,
+  2,
+)}\n`;
+
+const jsoncActivation = () =>
+  declaredKeys(
+    asset(JSONC_KEY),
+    home('Library/Application Support/Code/User/settings.json'),
+    'jsonc',
+  );
+
+const deployJsonc = (dir: string, content = DECLARED_JSONC) =>
+  deploy(dir, JSONC_KEY, content);
+
+const vscodePath = (dir: string) =>
+  join(dir, 'Library/Application Support/Code/User/settings.json');
+
 async function deploy(
   dir: string,
   key: string,
@@ -305,3 +328,90 @@ sandboxTest('a JSON host document must be an object', async (dir) => {
   expect(report.status).toBe('failed');
   expect(report.error).toContain('must be a JSON object');
 });
+
+sandboxTest(
+  'a jsonc host with comments merges without losing them',
+  async (dir) => {
+    await deployJsonc(dir);
+    await writeHost(
+      vscodePath(dir),
+      [
+        '{',
+        '  // theme chosen by hand',
+        '  "workbench.colorTheme": "Dark 2026",',
+        '  "editor.fontSize": 13, // mine',
+        '}',
+        '',
+      ].join('\n'),
+    );
+    const { context } = recordingContext({ home: dir });
+
+    const first = await runActivation(jsoncActivation(), context);
+    const second = await runActivation(jsoncActivation(), context);
+
+    expect(first.status).toBe('changed');
+    expect(second.status).toBe('unchanged');
+    const text = await readFile(vscodePath(dir), 'utf8');
+    // Declared keys enforced, the app-owned key and both comments intact.
+    expect(text).toContain('// theme chosen by hand');
+    expect(text).toContain('// mine');
+    expect(text).toContain('"workbench.colorTheme": "Light+"');
+    expect(text).toContain('"editor.fontSize": 13');
+    expect(text).toContain('"editor.formatOnSave": true');
+  },
+);
+
+sandboxTest(
+  'a converged jsonc host with comments is left byte-identical',
+  async (dir) => {
+    await deployJsonc(dir);
+    const converged = [
+      '{',
+      '  // still here',
+      '  "workbench.colorTheme": "Light+",',
+      '  "editor.formatOnSave": true,',
+      '}',
+      '',
+    ].join('\n');
+    await writeHost(vscodePath(dir), converged);
+    const { context } = recordingContext({ home: dir });
+
+    const report = await runActivation(jsoncActivation(), context);
+
+    // Trailing comma and comment are valid JSONC, so the values compare equal
+    // and nothing is rewritten.
+    expect(report.status).toBe('unchanged');
+    expect(await readFile(vscodePath(dir), 'utf8')).toBe(converged);
+  },
+);
+
+sandboxTest(
+  'a malformed jsonc host fails without being overwritten',
+  async (dir) => {
+    await deployJsonc(dir);
+    await writeHost(vscodePath(dir), '{ "a": }');
+    const { context } = recordingContext({ home: dir });
+
+    const report = await runActivation(jsoncActivation(), context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('not valid JSONC');
+    expect(await readFile(vscodePath(dir), 'utf8')).toBe('{ "a": }');
+  },
+);
+
+sandboxTest(
+  'a missing jsonc host file is created from the declared config',
+  async (dir) => {
+    await deployJsonc(dir);
+    const { context } = recordingContext({ home: dir });
+
+    const report = await runActivation(jsoncActivation(), context);
+
+    expect(report.status).toBe('changed');
+    expect(await readJson(vscodePath(dir))).toEqual({
+      'workbench.colorTheme': 'Light+',
+      'editor.formatOnSave': true,
+    });
+  },
+);

@@ -29,12 +29,14 @@ export function editorTarget(spec: EditorTargetSpec): Target {
       // Merged, not linked: the editor rewrites settings.json in place when a
       // setting is toggled through its UI, normalizing values as it goes, so a
       // symlink into the deploy store would route those writes into the deployed
-      // role and every deploy would revert them. keybindings.json is a top-level
-      // array with no per-key merge, and mev owns it outright, so it stays a link.
+      // role and every deploy would revert them. The format is jsonc because
+      // VS Code-family settings files legitimately carry comments and trailing
+      // commas. keybindings.json is a top-level array with no per-key merge,
+      // and mev owns it outright, so it stays a link.
       declaredKeys(
         asset(`${spec.name}/settings.json`),
         home(`${spec.userDir}/settings.json`),
-        'json',
+        'jsonc',
       ),
       link(
         asset(`${spec.name}/keybindings.json`),

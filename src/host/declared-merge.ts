@@ -31,25 +31,83 @@ export function isUnsafeKey(key: string): boolean {
   return UNSAFE_KEYS.has(key);
 }
 
-export function mergeDeclared(
-  host: Record<string, unknown>,
-  declared: Record<string, unknown>,
-  label: string,
-): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...host };
-  for (const [key, value] of Object.entries(declared)) {
+/**
+ * Reject unsafe keys everywhere in the declared document, independent of the
+ * host's shape: a nested mapping is assigned wholesale when the host holds no
+ * mapping at its path, so a merge-time check alone would enforce the rule only
+ * where the host happens to have matching structure. Arrays are walked too —
+ * a declared array replaces the host's, elements included.
+ */
+function assertSafeDocument(value: unknown, label: string): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) assertSafeDocument(entry, label);
+    return;
+  }
+  if (!isMapping(value)) return;
+  for (const [key, entry] of Object.entries(value)) {
     if (UNSAFE_KEYS.has(key)) {
       throw new ProvisioningError(
         `${label} contains a disallowed key '${key}'.`,
       );
     }
+    assertSafeDocument(entry, label);
+  }
+}
+
+export function mergeDeclared(
+  host: Record<string, unknown>,
+  declared: Record<string, unknown>,
+  label: string,
+): Record<string, unknown> {
+  assertSafeDocument(declared, label);
+  return merge(host, declared);
+}
+
+function merge(
+  host: Record<string, unknown>,
+  declared: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...host };
+  for (const [key, value] of Object.entries(declared)) {
     const current = merged[key];
     merged[key] =
-      isMapping(value) && isMapping(current)
-        ? mergeDeclared(current, value, label)
-        : value;
+      isMapping(value) && isMapping(current) ? merge(current, value) : value;
   }
   return merged;
+}
+
+/**
+ * The per-path writes `mergeDeclared` would perform, as [path, value] pairs
+ * where the declared value wins, skipping paths whose host value is already
+ * equal. Same recursion rule as the merge — a declared mapping merges into a
+ * host mapping and replaces anything else — and owned beside it so a format
+ * that edits the host text in place (JSONC) enforces exactly what the
+ * whole-document merge would.
+ */
+export function declaredAssignments(
+  host: Record<string, unknown>,
+  declared: Record<string, unknown>,
+  label: string,
+): readonly (readonly [readonly string[], unknown])[] {
+  assertSafeDocument(declared, label);
+  return assignments(host, declared, []);
+}
+
+function assignments(
+  host: Record<string, unknown>,
+  declared: Record<string, unknown>,
+  path: readonly string[],
+): (readonly [readonly string[], unknown])[] {
+  const out: (readonly [readonly string[], unknown])[] = [];
+  for (const [key, value] of Object.entries(declared)) {
+    const current = host[key];
+    if (isMapping(value) && isMapping(current)) {
+      out.push(...assignments(current, value, [...path, key]));
+    } else if (!valueEqual(current, value)) {
+      out.push([[...path, key], value]);
+    }
+  }
+  return out;
 }
 
 /**
