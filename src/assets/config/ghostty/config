@@ -25,6 +25,9 @@ window-save-state = default
 
 shell-integration-features = cursor,title
 
+env = EDITOR=nvim
+env = VISUAL=nvim
+
 scrollback-limit = 100000
 
 tab-inherit-working-directory = true
