@@ -1,7 +1,9 @@
 import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { Context } from '../../src/host/context';
 import {
+  type ActivationRunOptions,
   installAgentPlugins,
   runActivation,
 } from '../../src/provisioning/activation';
@@ -28,6 +30,10 @@ marketplaces:
 
 const sandboxTest = sandboxedTest('agent-plugins-');
 
+/** Every case runs the same activation; only the context and options vary. */
+const run = (context: Context, options?: ActivationRunOptions) =>
+  runActivation(installAgentPlugins(CONFIG_KEY), context, options);
+
 async function deployCatalog(
   home: string,
   catalog = FULL_CATALOG,
@@ -37,40 +43,38 @@ async function deployCatalog(
   await writeFile(join(directory, 'plugins.yml'), catalog);
 }
 
-function claudeInventory(ids: readonly string[]): string {
-  return JSON.stringify(
-    ids.map((id) => ({ id, scope: 'user', enabled: false })),
-  );
+// One builder per client over entries. A bare string is an enabled, unversioned
+// plugin — what a normally-installed one looks like, and the state a
+// declaration converges on; version and enabled are opted into per entry.
+type InventoryEntry =
+  | string
+  | {
+      readonly id: string;
+      readonly version?: string;
+      readonly enabled?: boolean;
+    };
+
+function inventoryEntry(spec: InventoryEntry) {
+  return typeof spec === 'string' ? { id: spec } : spec;
 }
 
-function codexInventory(ids: readonly string[]): string {
-  return JSON.stringify({
-    installed: ids.map((pluginId) => ({ pluginId, enabled: false })),
-    available: [],
-  });
-}
-
-function claudeVersionedInventory(
-  plugins: Readonly<Record<string, string>>,
-): string {
+function claudeInventory(specs: readonly InventoryEntry[]): string {
   return JSON.stringify(
-    Object.entries(plugins).map(([id, version]) => ({
+    specs.map(inventoryEntry).map(({ id, version, enabled }) => ({
       id,
       version,
       scope: 'user',
-      enabled: true,
+      enabled: enabled ?? true,
     })),
   );
 }
 
-function codexVersionedInventory(
-  plugins: Readonly<Record<string, string>>,
-): string {
+function codexInventory(specs: readonly InventoryEntry[]): string {
   return JSON.stringify({
-    installed: Object.entries(plugins).map(([pluginId, version]) => ({
-      pluginId,
+    installed: specs.map(inventoryEntry).map(({ id, version, enabled }) => ({
+      pluginId: id,
       version,
-      enabled: true,
+      enabled: enabled ?? true,
     })),
     available: [],
   });
@@ -164,10 +168,7 @@ sandboxTest(
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     // Local reads only — the inventory and one registration listing per
     // client — and no mutation or network fetch of any kind.
@@ -183,6 +184,199 @@ sandboxTest(
     expect(
       report.entries?.every(({ value }) => value === 'already installed'),
     ).toBe(true);
+  },
+);
+
+const DISABLED_CATALOG = `
+marketplaces:
+  - client: claude
+    repo: akitorahayashi/xlsx
+    plugins: [xlsx]
+`;
+
+/**
+ * A claude whose declared plugin is installed but disabled, with the marketplace
+ * registered at the declared source and DISABLED_CATALOG already deployed.
+ * `enabled` flips once the enable verb takes effect, so the post-run inventory
+ * reflects it — the CLI's own behavior, and what the activation's verification
+ * reads. The one discriminant names how the enable verb behaves.
+ */
+async function disabledClaude(
+  home: string,
+  enable: 'enables' | 'fails' | 'reports-success-only',
+) {
+  await deployCatalog(home, DISABLED_CATALOG);
+  let enabled = false;
+  return recordingContext({
+    home,
+    respond: (command, args) => {
+      if (command !== 'claude') return fail(`unexpected ${command}`);
+      const line = args.join(' ');
+      if (line === 'plugin list --json') {
+        return ok(claudeInventory([{ id: 'xlsx@xlsx', enabled }]));
+      }
+      if (line === 'plugin marketplace list --json') {
+        return ok(CLAUDE_XLSX_MARKETPLACES);
+      }
+      if (line === 'plugin enable xlsx@xlsx --scope user') {
+        if (enable === 'fails') return fail('enable refused');
+        enabled = enable === 'enables';
+        return ok();
+      }
+      if (args[1] === 'marketplace') return ok();
+      return fail(`unexpected ${command} ${line}`);
+    },
+  });
+}
+
+sandboxTest(
+  'enables a declared plugin that is installed but disabled',
+  async (home) => {
+    const { context, calls } = await disabledClaude(home, 'enables');
+
+    const first = await run(context);
+    const second = await run(context);
+
+    expect(first.status).toBe('changed');
+    expect(first.entries).toEqual([
+      { key: 'claude:xlsx@xlsx', value: 'enabled', status: 'changed' },
+    ]);
+    expect(
+      calls.some(
+        ({ args }) => args.join(' ') === 'plugin enable xlsx@xlsx --scope user',
+      ),
+    ).toBe(true);
+    // Presence alone never satisfied the declaration, and once enabled the run
+    // holds still: no reinstall, no second enable.
+    expect(second.status).toBe('unchanged');
+    expect(second.entries).toEqual([
+      {
+        key: 'claude:xlsx@xlsx',
+        value: 'already installed',
+        status: 'unchanged',
+      },
+    ]);
+  },
+);
+
+sandboxTest(
+  'a failing marketplace listing fails only its own marketplaces',
+  async (home) => {
+    await deployCatalog(home);
+    const { context } = recordingContext({
+      home,
+      respond: (command, args) => {
+        const line = args.join(' ');
+        if (command === 'claude' && line === 'plugin list --json') {
+          return ok(
+            claudeInventory([
+              'agent-device@agent-device-plugin',
+              'device-verification@agent-device-plugin',
+              'comment-review@comment-review',
+              'xlsx@xlsx',
+            ]),
+          );
+        }
+        // The registration probe's listing fails on a run whose plugins are
+        // all installed — the probe must stay inside the per-marketplace
+        // boundary rather than aborting the whole activation.
+        if (command === 'claude' && line === 'plugin marketplace list --json') {
+          return fail('claude marketplace listing unavailable');
+        }
+        if (command === 'codex' && line === 'plugin list --json') {
+          return ok(codexInventory(['xlsx@xlsx']));
+        }
+        if (command === 'codex' && line === 'plugin marketplace list --json') {
+          return ok(CODEX_XLSX_MARKETPLACES);
+        }
+        return fail(`unexpected ${command} ${line}`);
+      },
+    });
+
+    const report = await run(context);
+
+    // Each of the three claude marketplaces reports unavailable, while the
+    // codex marketplace still converges and reports its plugin unchanged.
+    expect(report.status).toBe('failed');
+    expect(report.error).toBeUndefined();
+    expect(
+      report.entries?.filter(({ value }) => value === 'marketplace unavailable')
+        .length,
+    ).toBe(3);
+    expect(report.entries).toContainEqual({
+      key: 'codex:xlsx@xlsx',
+      value: 'already installed',
+      status: 'unchanged',
+    });
+  },
+);
+
+sandboxTest('enabling a plugin stays off the network', async (home) => {
+  const { context, calls } = await disabledClaude(home, 'enables');
+
+  await run(context);
+
+  // Nothing is missing and the registration matches, so the marketplace is
+  // neither refreshed nor re-registered: a local boolean does not earn a fetch.
+  expect(calls.map(({ args }) => args.join(' '))).toEqual([
+    'plugin list --json',
+    'plugin marketplace list --json',
+    'plugin enable xlsx@xlsx --scope user',
+    'plugin list --json',
+  ]);
+});
+
+sandboxTest('a failing enable is reported as failed', async (home) => {
+  const { context } = await disabledClaude(home, 'fails');
+
+  const report = await run(context);
+
+  expect(report.status).toBe('failed');
+  expect(report.entries?.[0]?.value).toBe('enable failed');
+});
+
+sandboxTest(
+  'an enable that reports success but leaves the plugin disabled fails verification',
+  async (home) => {
+    const { context } = await disabledClaude(home, 'reports-success-only');
+
+    const report = await run(context);
+
+    expect(report.status).toBe('failed');
+    expect(report.entries?.[0]?.value).toBe('verification failed');
+    expect(report.entries?.[0]?.error).toContain('still disabled');
+  },
+);
+
+sandboxTest(
+  'a disabled plugin outside the catalog is left alone',
+  async (home) => {
+    await deployCatalog(home, DISABLED_CATALOG);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        const line = args.join(' ');
+        if (command === 'claude' && line === 'plugin list --json') {
+          return ok(
+            JSON.stringify([
+              { id: 'xlsx@xlsx', scope: 'user', enabled: true },
+              { id: 'manual@elsewhere', scope: 'user', enabled: false },
+            ]),
+          );
+        }
+        if (command === 'claude' && line === 'plugin marketplace list --json') {
+          return ok(CLAUDE_XLSX_MARKETPLACES);
+        }
+        return fail(`unexpected ${command} ${line}`);
+      },
+    });
+
+    const report = await run(context);
+
+    // Nothing is derived from inventory diffs: enablement is converged only for
+    // the ids the catalog declares.
+    expect(report.status).toBe('unchanged');
+    expect(calls.some(({ args }) => args[1] === 'enable')).toBe(false);
   },
 );
 
@@ -233,10 +427,7 @@ sandboxTest(
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('changed');
     expect(claudeInstalled).toEqual(
@@ -338,10 +529,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('changed');
     const invocations = calls.map(
@@ -377,10 +565,12 @@ marketplaces:
           return ok(
             JSON.stringify([
               { id: 'xlsx@xlsx', scope: 'project', enabled: true },
+              // An install enables the plugin it installed, as the claude CLI
+              // does by writing `enabledPlugins`.
               ...[...userInstalled].map((id) => ({
                 id,
                 scope: 'user',
-                enabled: false,
+                enabled: true,
               })),
             ]),
           );
@@ -400,10 +590,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     // The project-scope installation does not satisfy the declaration: mev
     // owns the user scope, so the plugin is installed there.
@@ -423,7 +610,9 @@ sandboxTest(
       home,
       respond: (command, args) => {
         if (command === 'claude' && args.join(' ') === 'plugin list --json') {
-          return ok(claudeVersionedInventory({ 'xlsx@xlsx': claudeVersion }));
+          return ok(
+            claudeInventory([{ id: 'xlsx@xlsx', version: claudeVersion }]),
+          );
         }
         if (
           command === 'claude' &&
@@ -437,7 +626,9 @@ sandboxTest(
           return ok();
         }
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
-          return ok(codexVersionedInventory({ 'xlsx@xlsx': codexVersion }));
+          return ok(
+            codexInventory([{ id: 'xlsx@xlsx', version: codexVersion }]),
+          );
         }
         if (
           command === 'codex' &&
@@ -467,11 +658,7 @@ sandboxTest(
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-      { upgrade: true },
-    );
+    const report = await run(context, { upgrade: true });
 
     expect(report.status).toBe('changed');
     const invocations = calls.map(
@@ -509,7 +696,7 @@ sandboxTest(
       home,
       respond: (command, args) => {
         if (command === 'claude' && args.join(' ') === 'plugin list --json') {
-          return ok(claudeVersionedInventory({ 'xlsx@xlsx': '1.0.0' }));
+          return ok(claudeInventory([{ id: 'xlsx@xlsx', version: '1.0.0' }]));
         }
         if (
           command === 'claude' &&
@@ -520,7 +707,7 @@ sandboxTest(
         if (command === 'claude' && args[1] === 'marketplace') return ok();
         if (command === 'claude' && args[1] === 'update') return ok();
         if (command === 'codex' && args.join(' ') === 'plugin list --json') {
-          return ok(codexVersionedInventory({ 'xlsx@xlsx': '0.1.0' }));
+          return ok(codexInventory([{ id: 'xlsx@xlsx', version: '0.1.0' }]));
         }
         if (
           command === 'codex' &&
@@ -547,11 +734,7 @@ sandboxTest(
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-      { upgrade: true },
-    );
+    const report = await run(context, { upgrade: true });
 
     // With refreshes reported as probes, a run that moved nothing is fully
     // idempotent: the activation itself reports unchanged.
@@ -597,11 +780,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-      { upgrade: true },
-    );
+    const report = await run(context, { upgrade: true });
 
     const entry = report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx');
     expect(entry?.status).toBe('changed');
@@ -623,7 +802,7 @@ marketplaces:
       home,
       respond: (command, args) => {
         if (command === 'claude' && args.join(' ') === 'plugin list --json') {
-          return ok(claudeVersionedInventory({ 'xlsx@xlsx': '1.0.0' }));
+          return ok(claudeInventory([{ id: 'xlsx@xlsx', version: '1.0.0' }]));
         }
         if (
           command === 'claude' &&
@@ -638,11 +817,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-      { upgrade: true },
-    );
+    const report = await run(context, { upgrade: true });
 
     expect(report.status).toBe('failed');
     const entry = report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx');
@@ -682,10 +857,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('failed');
     expect(
@@ -752,7 +924,7 @@ sandboxTest(
       },
     });
 
-    const first = await runActivation(installAgentPlugins(CONFIG_KEY), context);
+    const first = await run(context);
 
     expect(first.status).toBe('changed');
     const invocations = calls.map(
@@ -772,10 +944,7 @@ sandboxTest(
       first.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.value,
     ).toBe('already installed');
 
-    const second = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const second = await run(context);
 
     expect(second.status).toBe('unchanged');
     expect(
@@ -877,7 +1046,7 @@ removed_marketplaces:
       },
     });
 
-    const first = await runActivation(installAgentPlugins(CONFIG_KEY), context);
+    const first = await run(context);
 
     expect(first.status).toBe('changed');
     const invocations = calls.map(
@@ -909,10 +1078,7 @@ removed_marketplaces:
       first.entries?.find(({ key }) => key === 'codex:retired')?.value,
     ).toBe('marketplace removed');
 
-    const second = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const second = await run(context);
 
     expect(second.status).toBe('unchanged');
     expect(
@@ -968,10 +1134,7 @@ removed_marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('changed');
     expect(
@@ -1024,10 +1187,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     // The alias is transport, not identity: the same repository under a stale
     // alias is still mev's registration, so it converges to the declared
@@ -1104,10 +1264,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('changed');
     expect(
@@ -1122,10 +1279,7 @@ marketplaces:
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(false);
 
     // Converged: the pinned registration now matches and the run holds still.
-    const second = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const second = await run(context);
     expect(second.status).toBe('unchanged');
   },
 );
@@ -1197,10 +1351,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('changed');
     const invocations = calls.map(
@@ -1286,7 +1437,7 @@ marketplaces:
       },
     });
 
-    const first = await runActivation(installAgentPlugins(CONFIG_KEY), context);
+    const first = await run(context);
 
     // The removal destroyed the namespace before the add failed, so the
     // plugin must not surface as 'already installed' off the pre-run
@@ -1303,10 +1454,7 @@ marketplaces:
     // A later run finds no registration, adds the declared source, and
     // reinstalls: the destructive partial failure heals.
     addFails = false;
-    const second = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const second = await run(context);
     expect(second.status).toBe('changed');
     expect(installed).toEqual(new Set(['xlsx@xlsx']));
     expect(source).toBe('git@github.com:akitorahayashi/xlsx.git');
@@ -1363,10 +1511,7 @@ removed_marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     // Nothing in a foreign marketplace's namespace is touched.
     expect(report.status).toBe('failed');
@@ -1416,10 +1561,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('failed');
     const entry = report.entries?.find(
@@ -1462,10 +1604,7 @@ marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     // The install of the missing declared plugin fails offline, but the
     // local-only uninstall still converges.
@@ -1517,10 +1656,7 @@ removed_marketplaces:
       },
     });
 
-    const report = await runActivation(
-      installAgentPlugins(CONFIG_KEY),
-      context,
-    );
+    const report = await run(context);
 
     expect(report.status).toBe('failed');
     expect(

@@ -49,7 +49,7 @@ The value is an OpenSSH `Host` alias and accepts letters, digits, `.`, `_`, and 
 
 ## Agent Plugin Catalog
 
-The embedded catalog lists the marketplaces and plugin names for Claude Code and Codex. Each entry names its GitHub repository in `owner/name` form; the registered marketplace name defaults to the repo name and is declared as `name` only when the repository's marketplace.json diverges from it:
+The embedded catalog lists the marketplaces and plugin names for Claude Code and Codex. A name under `plugins` means the plugin is installed and enabled — presence alone does not satisfy it, so a plugin disabled through a client's own interface is re-enabled by the next run, and turning one off is spelled by moving its name into the entry's `uninstall` list. Each entry names its GitHub repository in `owner/name` form; the registered marketplace name defaults to the repo name and is declared as `name` only when the repository's marketplace.json diverges from it:
 
 ```yaml
 marketplaces:

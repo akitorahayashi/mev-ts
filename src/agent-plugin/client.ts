@@ -5,6 +5,7 @@ import type { Context } from '../host/context';
 import { MARKETPLACE_REF, type PluginClient } from './catalog';
 import {
   addClaudeMarketplace,
+  enableClaudePlugin,
   installClaudePlugin,
   listClaudeMarketplaces,
   listClaudePlugins,
@@ -22,9 +23,7 @@ import {
   removeCodexPlugin,
   upgradeCodexMarketplace,
 } from './codex';
-
-/** Installed plugin ids mapped to the version each client reports, if any. */
-export type PluginInventory = Map<string, string | undefined>;
+import type { PluginInventory } from './inventory';
 
 /** One registered marketplace as the host reports it. */
 export interface MarketplaceRegistration {
@@ -63,16 +62,30 @@ export class DroppedPluginsError extends ProvisioningError {}
 
 /**
  * The plugin operations every supported client provides, keyed by client. The
- * two CLIs spell the same operations differently — codex has no plugin-level
- * update verb, and only claude reports a ref alongside a marketplace source —
- * and those differences are absorbed here, in the capability layer that owns
- * each tool's protocol. The activation performs lookups, so adding a third
- * client is one entry rather than an edit to every dispatch site.
+ * two CLIs spell the same operations differently — codex has neither a
+ * plugin-level update nor an enable verb, and only claude reports a ref
+ * alongside a marketplace source — and those differences are absorbed here, in
+ * the capability layer that owns each tool's protocol. The activation performs
+ * lookups, so adding a third client is one entry rather than an edit to every
+ * dispatch site.
  */
 export interface PluginClientOps {
   listPlugins(context: Context): Promise<PluginInventory>;
   installPlugin(id: string, context: Context): Promise<void>;
+  /**
+   * Enable an installed-but-disabled plugin. Issued only for a plugin the
+   * inventory reported disabled, and always settled by the post-run inventory
+   * rather than by the command's exit status.
+   */
+  enablePlugin(id: string, context: Context): Promise<void>;
   upgradePlugin(id: string, context: Context): Promise<void>;
+  /**
+   * Whether `upgradePlugin` also enables a disabled plugin, so the reconcile
+   * loop skips a redundant enable command after an upgrade. The verb overlap is
+   * a fact about the client's CLI, so it lives here in the capability table
+   * rather than being inferred in the activation.
+   */
+  readonly upgradeEnables: boolean;
   uninstallPlugin(id: string, context: Context): Promise<void>;
   listMarketplaces(context: Context): Promise<MarketplaceRemotes>;
   removeMarketplace(name: string, context: Context): Promise<void>;
@@ -113,7 +126,11 @@ export interface EnsuredRegistration {
 const claudeOps: PluginClientOps = {
   listPlugins: (context) => listClaudePlugins(context),
   installPlugin: (id, context) => installClaudePlugin(id, context),
+  enablePlugin: (id, context) => enableClaudePlugin(id, context),
   upgradePlugin: (id, context) => updateClaudePlugin(id, context),
+  // `plugin update` leaves enablement alone, so a disabled plugin still needs
+  // the enable verb after an upgrade.
+  upgradeEnables: false,
   uninstallPlugin: (id, context) => uninstallClaudePlugin(id, context),
   async listMarketplaces(context) {
     const inventory = await listClaudeMarketplaces(context);
@@ -157,11 +174,14 @@ const claudeOps: PluginClientOps = {
 const codexOps: PluginClientOps = {
   listPlugins: (context) => listCodexPlugins(context),
   installPlugin: (id, context) => installCodexPlugin(id, context),
-  // codex has no plugin-level update verb. Re-adding an installed plugin is
-  // idempotent and re-resolves its version from the marketplace snapshot that
-  // ensureMarketplace just refreshed (verified against the codex CLI: `plugin
-  // add` on an installed plugin succeeds and reports the resolved version).
+  // codex has neither an enable nor a plugin-level update verb; `plugin add` is
+  // both. Verified against the codex CLI: re-adding an installed plugin succeeds,
+  // reports the version re-resolved from the marketplace snapshot that
+  // ensureMarketplace just refreshed, and sets `plugins.<id>.enabled = true` — so
+  // it converges a plugin disabled in `~/.codex/config.toml`.
+  enablePlugin: (id, context) => installCodexPlugin(id, context),
   upgradePlugin: (id, context) => installCodexPlugin(id, context),
+  upgradeEnables: true,
   uninstallPlugin: (id, context) => removeCodexPlugin(id, context),
   async listMarketplaces(context) {
     const sources = await listCodexMarketplaces(context);

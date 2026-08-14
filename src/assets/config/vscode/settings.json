@@ -1,7 +1,7 @@
 {
-  "workbench.colorTheme": "Default Light+",
+  "workbench.colorTheme": "Light+",
   "window.autoDetectColorScheme": true,
-  "workbench.preferredLightColorTheme": "Default Light+",
+  "workbench.preferredLightColorTheme": "Light+",
   "workbench.preferredDarkColorTheme": "Dark 2026",
   "workbench.settings.applyToAllProfiles": [],
   "workbench.browser.openLocalhostLinks": false,
@@ -33,7 +33,7 @@
   "git.autofetch": true,
   "git.confirmSync": false,
   "git.replaceTagsWhenPull": true,
-  "extensions.autoUpdate": false,
+  "extensions.autoUpdate": "off",
   "github.copilot.nextEditSuggestions.enabled": false,
   "chat.editing.confirmEditRequestRemoval": false,
   "chat.editing.confirmEditRequestRetry": false,

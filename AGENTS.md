@@ -11,10 +11,10 @@ src/
   main.ts        CLI entry point
   errors.ts      Typed error hierarchy
   app/           Use-case orchestration (identity and SSH host changes; config-toggle.ts, the interactive toggle flow layered over config-selection/)
-  agent-plugin/  Claude Code/Codex marketplace catalogs, inventories, and installers
+  agent-plugin/  Claude Code/Codex marketplace catalogs, installed-plugin inventories, and install/enable operations
   assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
   brew/          Homebrew batch install via Brewfile
-  coder/         Coder section/skill catalogs, manifests, renderers, and the codex config merge
+  coder/         Coder section/skill catalogs, manifests, and renderers
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
       config/    Config toggle commands built by defineConfigCommand plus GitHub SSH host configuration (aliased `cf`)
@@ -26,7 +26,7 @@ src/
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download and the per-machine SSH host alias store
   grove/         Grove catalog parsing and per-machine SSH host rendering
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions and labeled JSON framing, each taking the error class to raise), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), transaction.ts (atomic staging and the swap-transaction envelope), atomic-file.ts (atomic write, write-if-changed), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
+  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions and labeled JSON framing, each taking the error class to raise), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), json.ts (JSON-object load/serialize), jsonc.ts (JSONC load and comment-preserving edits), declared-merge.ts (declared-keys merge and structural equality for app-owned config files), transaction.ts (atomic staging and the swap-transaction envelope), atomic-file.ts (atomic write, write-if-changed), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
@@ -55,7 +55,9 @@ use reviewed major or release tags for convenient trusted maintenance updates.
 First-party agent plugin marketplaces are the exception: their SSH sources
 track `main` for missing-plugin installation, while installed plugins are
 upgraded only by an explicit `--upgrade` run, never implicitly, and removed
-only when the catalog explicitly lists them for uninstall.
+only when the catalog explicitly lists them for uninstall. Enablement is not an
+upgrade concern: a declared plugin converges on installed and enabled on every
+run, since an installed-but-disabled plugin contributes nothing.
 Third-party GitHub Actions use full commit SHAs with version comments, and
 third-party Git-hosted dependencies use immutable full commits.
 

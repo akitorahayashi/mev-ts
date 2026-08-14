@@ -13,12 +13,12 @@ src/
   cli/          argv parsing, exit code mapping, terminal rendering (clipanion)
   app/          use-case orchestration (identity, config selection)
   provisioning/ target DSL, activation engines, 3-phase orchestrator
-  agent-plugin/ Claude Code/Codex marketplace inventory and install protocols
+  agent-plugin/ Claude Code/Codex marketplace and installed-plugin inventory, install/enable protocols
   brew/         Homebrew install
   coder/        Coder catalogs, manifests, and renderers
   config-selection/ shared selection manifest parser/resolver
   defaults/     macOS defaults manifest and protocol helpers
-  host/         CommandRunner, Context, HostPath, plus shared primitives for subprocess (command-run), download, managed-link, deploy-read, parsing (parse), YAML (yaml), bounded concurrency (task-pool), and cleanup-error composition
+  host/         CommandRunner, Context, HostPath, plus shared primitives for subprocess (command-run), download, managed-link, deploy-read, parsing (parse), YAML (yaml), JSON (json), JSONC (jsonc), declared-keys merging (declared-merge), bounded concurrency (task-pool), and cleanup-error composition
   identity/     Git identity scopes and on-disk store
   assets/       embedded config files and asset registry
   git/          Git config and command helpers
@@ -33,7 +33,7 @@ src/
 - [provisioning.md](provisioning.md) — the 3-phase engine and the preservation boundary
 - [targets.md](targets.md) — target shape, registry-driven selection, and semantic sync
 - [activation.md](activation.md) — the activation DSL, the kind table, the reconcile envelope, shared manifest vocabulary, selection manifests, and the capability module boundary
-- [agent-plugins.md](agent-plugins.md) — the agentPlugins reconciler and the codexConfig ownership inversion
+- [agent-plugins.md](agent-plugins.md) — the agentPlugins reconciler and the declaredKeys ownership inversion
 - [command-pipeline.md](command-pipeline.md) — the command activation kind's scope and step vocabulary
 - [release.md](release.md) — release binary reconciliation and reviewed remote installers
 - [host.md](host.md) — Context assembly and CommandRunner's contract
