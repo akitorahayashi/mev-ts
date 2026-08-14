@@ -3,16 +3,17 @@ import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 import { MARKETPLACE_REF } from './catalog';
+import { decodeInstalledPlugin, type PluginInventory } from './inventory';
 import { capturePluginJson } from './output';
 
 /**
- * Installed plugin ids mapped to their reported version. The version is kept
- * optional because only the pluginId is contractual; upgrade mode uses the
- * version to classify an upgrade as changed or unchanged when reported.
+ * Installed plugins mapped to what codex reports about each. The version is kept
+ * optional because only the pluginId and enablement are contractual; upgrade mode
+ * uses the version to classify an upgrade as changed or unchanged when reported.
  */
 export async function listCodexPlugins(
   context: Context,
-): Promise<Map<string, string | undefined>> {
+): Promise<PluginInventory> {
   const raw = await capturePluginJson(
     context.commands,
     'codex',
@@ -24,17 +25,15 @@ export async function listCodexPlugins(
       'Codex plugin inventory requires an installed array.',
     );
   }
-  const installed = new Map<string, string | undefined>();
+  const installed: PluginInventory = new Map();
   for (const [index, entry] of raw['installed'].entries()) {
-    if (!isRecord(entry) || typeof entry['pluginId'] !== 'string') {
+    const decoded = decodeInstalledPlugin(entry, 'pluginId');
+    if (decoded === null) {
       throw new ProvisioningError(
-        `Codex plugin inventory entry ${index + 1} requires a string pluginId.`,
+        `Codex plugin inventory entry ${index + 1} requires a string pluginId and a boolean enabled field.`,
       );
     }
-    installed.set(
-      entry['pluginId'],
-      typeof entry['version'] === 'string' ? entry['version'] : undefined,
-    );
+    installed.set(decoded.id, decoded.plugin);
   }
   return installed;
 }

@@ -3,6 +3,7 @@ import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 import { MARKETPLACE_REF } from './catalog';
+import { decodeInstalledPlugin, type PluginInventory } from './inventory';
 import { capturePluginJson } from './output';
 
 export interface ClaudeMarketplace {
@@ -12,16 +13,16 @@ export interface ClaudeMarketplace {
 }
 
 /**
- * Installed user-scope plugin ids mapped to their reported version. Project
- * and local scope entries are dropped: mev installs and uninstalls only in the
- * user scope, so a same-id plugin in another scope must neither satisfy an
- * install nor fail an uninstall verification. The version is kept optional
- * because only the id is contractual; upgrade mode uses the version to
- * classify an upgrade as changed or unchanged when the client reports it.
+ * Installed user-scope plugins mapped to what the client reports about each.
+ * Project and local scope entries are dropped: mev installs and uninstalls only
+ * in the user scope, so a same-id plugin in another scope must neither satisfy
+ * an install nor fail an uninstall verification. The version is kept optional
+ * because only the id and enablement are contractual; upgrade mode uses the
+ * version to classify an upgrade as changed or unchanged when reported.
  */
 export async function listClaudePlugins(
   context: Context,
-): Promise<Map<string, string | undefined>> {
+): Promise<PluginInventory> {
   const raw = await capturePluginJson(
     context.commands,
     'claude',
@@ -33,22 +34,17 @@ export async function listClaudePlugins(
       'Claude plugin inventory must be a JSON array.',
     );
   }
-  const installed = new Map<string, string | undefined>();
+  const installed: PluginInventory = new Map();
   for (const [index, entry] of raw.entries()) {
-    if (
-      !isRecord(entry) ||
-      typeof entry['id'] !== 'string' ||
-      typeof entry['scope'] !== 'string'
-    ) {
+    const decoded = decodeInstalledPlugin(entry, 'id');
+    const scope = isRecord(entry) ? entry['scope'] : undefined;
+    if (decoded === null || typeof scope !== 'string') {
       throw new ProvisioningError(
-        `Claude plugin inventory entry ${index + 1} requires string id and scope fields.`,
+        `Claude plugin inventory entry ${index + 1} requires string id and scope fields and a boolean enabled field.`,
       );
     }
-    if (entry['scope'] !== 'user') continue;
-    installed.set(
-      entry['id'],
-      typeof entry['version'] === 'string' ? entry['version'] : undefined,
-    );
+    if (scope !== 'user') continue;
+    installed.set(decoded.id, decoded.plugin);
   }
   return installed;
 }
@@ -120,6 +116,21 @@ export async function installClaudePlugin(
     'claude',
     ['plugin', 'install', id],
     `Claude plugin install ${id}`,
+  );
+}
+
+// Only ever issued for a plugin the inventory reported disabled: the verb exits
+// non-zero on an already-enabled plugin (verified against the claude CLI), so a
+// presence-only caller would turn every converged run into a failure.
+export async function enableClaudePlugin(
+  id: string,
+  context: Context,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'claude',
+    ['plugin', 'enable', id, '--scope', 'user'],
+    `Claude plugin enable ${id}`,
   );
 }
 

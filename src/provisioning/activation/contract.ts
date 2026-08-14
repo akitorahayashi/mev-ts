@@ -78,9 +78,10 @@ export type Activation =
       readonly dest: HostPath;
     }
   | {
-      readonly kind: 'codexConfig';
+      readonly kind: 'declaredKeys';
       readonly source: AssetRef;
       readonly dest: HostPath;
+      readonly format: 'toml' | 'json';
     }
   | {
       readonly kind: 'command';

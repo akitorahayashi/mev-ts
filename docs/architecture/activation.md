@@ -17,7 +17,7 @@ activation/
   extensions.ts 'editorExtensions' factory and runner
   agent-plugins.ts 'agentPlugins' marketplace and plugin reconciler
   coder.ts      'coderAgents' + 'coderSkills' factories and runners
-  codex-config.ts 'codexConfig' factory and runner
+  declared-keys.ts 'declaredKeys' factory and runner
   zed.ts        'zedSettings' factory and runner
   grove-config.ts 'groveConfig' factory and runner
   command.ts    'command' factory and step execution engine
@@ -42,9 +42,9 @@ Sixteen activation kinds:
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's installed extensions against a JSON manifest |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out embedded agent config sections into Coder workspace directories |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out embedded skill files into Coder workspace directories |
-| `agentPlugins` | `installAgentPlugins(configKey)` | Installs missing Claude Code and Codex plugins from SSH-backed `main` marketplaces; installed plugins are upgraded only in upgrade mode; uninstalls only the plugins and marketplaces the catalog explicitly lists for removal |
+| `agentPlugins` | `installAgentPlugins(configKey)` | Converges declared Claude Code and Codex plugins on installed and enabled from SSH-backed `main` marketplaces; installed plugins are upgraded only in upgrade mode; uninstalls only the plugins and marketplaces the catalog explicitly lists for removal |
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Deep-merges the base settings asset with the enabled named override fragments and symlinks the result into place |
-| `codexConfig` | `codexConfig(source, dest)` | Enforces the declared TOML values into the codex-owned config file, preserving runtime tables; equality is structural, so codex's own rewrites never re-trigger it |
+| `declaredKeys` | `declaredKeys(source, dest, format)` | Enforces the declared TOML or JSON keys into an app-owned config file, preserving the keys the application writes at runtime; equality is structural, so the app's own rewrites never re-trigger it, and the destination is declared preserved so the deploy phase cannot erase it |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered, idempotent host-command pipeline |
 | `release` | `releaseBinaries(binaries)` | Fetches GitHub release binaries at a pinned tag or the repository's latest release; skips when the installed binary already reports that tag's version, and re-resolves `latest` only in upgrade mode |
 | `remoteInstaller` | `remoteInstaller({ label, url, interpreter, args, creates, integrity })` | Downloads a reviewed HTTPS installer script or binary to a temporary file, satisfies its required `integrity` discriminant, runs it with declared arguments, and cleans the temporary file |
@@ -69,7 +69,7 @@ A manifest-backed kind contributes its whole handler from `manifestKind`, includ
 
 `coderAgents` and `coderSkills` do not use this envelope but apply the same per-item boundary to their symlink fan-out: a read or build failure fails the whole activation, while an unwritable destination directory fails only its own entry and its siblings still apply.
 
-See agent-plugins.md for the `agentPlugins` reconciler's marketplace and plugin lifecycle, and the `codexConfig` kind's ownership inversion relative to the linked configs.
+See agent-plugins.md for the `agentPlugins` reconciler's marketplace and plugin lifecycle, and the `declaredKeys` kind's ownership inversion relative to the linked configs.
 
 ## Shared Manifest Vocabulary
 
@@ -99,7 +99,7 @@ Several activation kinds delegate external-tool protocol and state detection to 
 | `duti/` | `duti -x` output parse; `duti -s` apply |
 | `editor/` | `--list-extensions` parse; `--install-extension` |
 | `coder/` | Coder section/skill catalogs, manifests, and renderers |
-| `agent-plugin/` | Claude Code/Codex JSON inventories and SSH marketplace operations |
+| `agent-plugin/` | Claude Code/Codex JSON inventories (presence and enablement) and SSH marketplace operations |
 | `github/` | Public GitHub release download via `curl`; per-machine SSH host alias store |
 | `grove/` | Grove catalog parsing and per-machine SSH host rendering |
 | `git/` | Git config mutation and locale-pinned git command helpers |

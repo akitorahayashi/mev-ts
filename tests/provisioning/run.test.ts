@@ -162,6 +162,40 @@ sandboxTest(
 );
 
 sandboxTest(
+  'app-written state under a legacy link survives the deploy that follows',
+  async (sandbox) => {
+    // The pre-merge layout, which every already-provisioned machine carries: the
+    // app's config path is a link into the deploy store, so what the app wrote at
+    // runtime lives in the role file the deploy phase is about to replace. No
+    // target declares this path — the protection comes from the activation kind.
+    const storePath = deployedPath({ key: 'vscode/settings.json' }, sandbox);
+    const hostPath = join(
+      sandbox,
+      'Library/Application Support/Code/User/settings.json',
+    );
+    mkdirSync(join(storePath, '..'), { recursive: true });
+    // A key no embedded asset declares, so only preservation can keep it.
+    await writeFile(storePath, '{"mev.test.appOwnedKey": 15}\n');
+    mkdirSync(join(hostPath, '..'), { recursive: true });
+    await symlink(storePath, hostPath);
+
+    const report = await runMake(
+      { selectors: ['vscode'] },
+      contextFor(sandbox),
+    );
+
+    expect(report.failed).toBe(false);
+    const stats = await lstat(hostPath);
+    expect(stats.isSymbolicLink()).toBe(false);
+    const written = JSON.parse(await readFile(hostPath, 'utf8'));
+    expect(written['mev.test.appOwnedKey']).toBe(15);
+    // The deploy reset the role file, so preservation is the only reason the key
+    // is still here.
+    expect(await readFile(storePath, 'utf8')).not.toContain('appOwnedKey');
+  },
+);
+
+sandboxTest(
   'an alias and its tag select the same target once',
   async (sandbox) => {
     const report = await runMake(

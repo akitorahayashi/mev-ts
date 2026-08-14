@@ -5,7 +5,7 @@ Each target is a self-contained file registered in `provisioning/registry.ts`. A
 - `aliases` for alternate selector resolution
 - `role` — the asset namespace under `src/assets/config/`
 - `packages` — Homebrew formulae, taps, and casks required before activation
-- `preserveBeforeDeploy` — optional protection for mutable host state that role replacement would destroy
+- `preserveBeforeDeploy` — optional protection for target-specific mutable host state that role replacement would destroy, beyond the paths its activation kinds already declare preserved
 - `activations` — ordered list of `Activation` values
 - `optional` — when set, the target is selectable by name or alias but excluded from a full-environment `create`
 - `perMachineInputs` — per-machine facts the target bakes into its applied output, declared only where the value is materialized

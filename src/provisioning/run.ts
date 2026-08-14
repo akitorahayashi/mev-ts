@@ -2,11 +2,14 @@ import { type InstallReport, installPackages } from '../brew/install';
 import { type PackageToken, tokens } from '../brew/package';
 import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
+import { resolveHostPath } from '../host/path';
+import { materializeSymlink } from '../host/symlink';
 import {
   type ActivationReport,
   blockedReport,
   type Described,
   describeActivation,
+  preservedPaths,
   runActivation,
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
@@ -182,8 +185,15 @@ export async function runMake(
 
   // Preserve mutable host state before invalidating applied markers or
   // replacing deployed roles. A preservation failure leaves provisioning's
-  // managed state untouched.
+  // managed state untouched. The activation-derived paths come first so a kind
+  // that inverts file ownership needs no per-target declaration; the hook is for
+  // what only the target knows.
   for (const target of selection.groups) {
+    for (const activation of target.activations) {
+      for (const path of preservedPaths(activation)) {
+        await materializeSymlink(resolveHostPath(path, context.home));
+      }
+    }
     await target.preserveBeforeDeploy?.(context);
   }
 

@@ -10,10 +10,13 @@ import {
   DroppedPluginsError,
   type EnsureOutcome,
   type MarketplaceRemotes,
-  type PluginInventory,
   pluginClientOps,
   type RegistrationCache,
 } from '../../agent-plugin/client';
+import type {
+  InstalledPlugin,
+  PluginInventory,
+} from '../../agent-plugin/inventory';
 import { errorMessage } from '../../errors';
 import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
 import { readSshHost } from '../../github/ssh-host';
@@ -31,8 +34,6 @@ import { aggregateStatus, guarded } from './reconcile';
 
 type AgentPluginsActivation = Extract<Activation, { kind: 'agentPlugins' }>;
 
-/** Installed plugin ids with the version the client reported, if any. */
-
 interface ClientInventory {
   readonly installed?: PluginInventory;
   readonly error?: string;
@@ -44,11 +45,37 @@ interface VerificationTarget {
   readonly entryIndex: number;
 }
 
-interface UpgradeTarget {
+/** What the run did to converge one declared plugin, in the order performed. */
+type PluginAction = 'installed' | 'upgraded' | 'enabled';
+
+/**
+ * A declared plugin the run acted on, settled against the post-run inventory:
+ * present and enabled to stand. `previousVersion` is recorded only when the
+ * upgrade was the sole action, so it doubles as the version-diff refinement
+ * gate — anything else changed the host whatever the version says.
+ */
+interface DeclaredTarget {
   readonly client: PluginClient;
   readonly id: string;
   readonly entryIndex: number;
   readonly previousVersion: string | undefined;
+}
+
+/**
+ * The first action a declared plugin still needs, or null when it already sits
+ * at the declared state. Desired state is installed *and* enabled — an
+ * installed-but-disabled plugin contributes nothing to the client, so presence
+ * alone never satisfies a declaration. In upgrade mode an installed plugin
+ * always needs the upgrade first; the reconcile loop enables it afterwards when
+ * it was also disabled.
+ */
+function pendingAction(
+  current: InstalledPlugin | undefined,
+  upgrade: boolean,
+): 'install' | 'upgrade' | 'enable' | null {
+  if (current === undefined) return 'install';
+  if (upgrade) return 'upgrade';
+  return current.enabled ? null : 'enable';
 }
 
 export function installAgentPlugins(configKey: string): Activation {
@@ -93,29 +120,14 @@ function marketplaceFailureEntries(
     },
     ...marketplace.plugins.map((plugin): StepReport => {
       const id = pluginId(plugin, marketplace.name);
-      if (!installed.has(id)) {
-        return {
-          key: `${marketplace.client}:${id}`,
-          value: 'install blocked',
-          status: 'failed',
-          error: detail,
-        };
-      }
-      // In upgrade mode an unreachable marketplace blocks the requested
-      // upgrade, so the installed plugin is a failure rather than an
-      // unchanged presence.
-      return upgrade
-        ? {
-            key: `${marketplace.client}:${id}`,
-            value: 'upgrade blocked',
-            status: 'failed',
-            error: detail,
-          }
-        : {
-            key: `${marketplace.client}:${id}`,
-            value: 'already installed',
-            status: 'unchanged',
-          };
+      const key = `${marketplace.client}:${id}`;
+      const pending = pendingAction(installed.get(id), upgrade);
+      // A plugin that still needed something never reached it, so it is a
+      // failure rather than a presence; only a plugin nothing was asked of is
+      // unchanged.
+      return pending === null
+        ? { key, value: 'already installed', status: 'unchanged' }
+        : { key, value: `${pending} blocked`, status: 'failed', error: detail };
     }),
   ];
 }
@@ -206,6 +218,20 @@ class MarketplaceRegistrations {
 const SURVIVED_UNINSTALL =
   'Plugin was still present in the post-uninstall inventory.';
 
+/** The one shape every inventory-settled failure renders as. */
+function verificationFailure(
+  client: PluginClient,
+  id: string,
+  error: string,
+): StepReport {
+  return {
+    key: `${client}:${id}`,
+    value: 'verification failed',
+    status: 'failed',
+    error,
+  };
+}
+
 /**
  * Uninstall one installed plugin, mutating the in-memory inventory so later
  * phases see post-removal state. Returns the index of the pushed entry, or
@@ -277,24 +303,23 @@ async function confirmUninstalled(
   try {
     const remaining = await pluginClientOps[client].listPlugins(context);
     for (const target of issued) {
-      if (!remaining.has(target.id)) continue;
-      installed.set(target.id, remaining.get(target.id));
-      entries[target.entryIndex] = {
-        key: `${client}:${target.id}`,
-        value: 'verification failed',
-        status: 'failed',
-        error: SURVIVED_UNINSTALL,
-      };
+      const survivor = remaining.get(target.id);
+      if (survivor === undefined) continue;
+      installed.set(target.id, survivor);
+      entries[target.entryIndex] = verificationFailure(
+        client,
+        target.id,
+        SURVIVED_UNINSTALL,
+      );
       confirmed = false;
     }
   } catch (error) {
     for (const target of issued) {
-      entries[target.entryIndex] = {
-        key: `${client}:${target.id}`,
-        value: 'verification failed',
-        status: 'failed',
-        error: errorMessage(error),
-      };
+      entries[target.entryIndex] = verificationFailure(
+        client,
+        target.id,
+        errorMessage(error),
+      );
     }
     confirmed = false;
   }
@@ -448,8 +473,7 @@ async function reconcileMarketplace(
   context: Context,
   registrations: MarketplaceRegistrations,
   entries: StepReport[],
-  verification: VerificationTarget[],
-  upgrades: UpgradeTarget[],
+  declared: DeclaredTarget[],
   removals: VerificationTarget[],
 ): Promise<void> {
   // Uninstalls are local-only, so they run before — and independently of — the
@@ -479,212 +503,189 @@ async function reconcileMarketplace(
   const desired = marketplace.plugins.map((plugin) =>
     pluginId(plugin, marketplace.name),
   );
-  const missing = desired.filter((id) => !installed.has(id));
   const url = sshRemoteUrl(sshHost, marketplace.repo);
-  try {
-    // A fully-installed marketplace holds still only while its registration
-    // still matches the declared source; the listing is a local read, so this
-    // probe keeps routine runs off the network while letting a drifted
-    // registration (a stale SSH alias, an unpinned ref) flow into the ensure
-    // pass and converge instead of persisting silently.
-    if (
-      !upgrade &&
-      missing.length === 0 &&
-      (await registrationConverged(marketplace, url, context, registrations))
-    ) {
+  // The marketplace phase is what makes a missing plugin resolvable and what an
+  // upgrade re-resolves against, and it is the only way a drifted registration
+  // converges — so those three are what earn the network. Enabling an already
+  // installed plugin is a local operation and deliberately does not: the
+  // registration listing is a local read, so a converged marketplace whose only
+  // gap is a disabled plugin stays off the network entirely.
+  if (
+    upgrade ||
+    desired.some((id) => !installed.has(id)) ||
+    !(await registrationConverged(marketplace, url, context, registrations))
+  ) {
+    try {
+      const ensured = await ensureMarketplace(
+        marketplace,
+        url,
+        context,
+        registrations,
+      );
+      // A convergence that uninstalled the marketplace's plugins invalidates the
+      // pre-run inventory for its id namespace: the desired plugins below then
+      // reinstall and verify instead of standing on a stale 'already installed'.
+      if (ensured.droppedPlugins) {
+        invalidateNamespacePlugins(installed, marketplace.name);
+      }
+      // In upgrade mode a refresh of an existing marketplace is a probe: the
+      // fetch itself would otherwise report every run as changed, so change is
+      // reported solely through the per-plugin version diffs it enables.
+      if (ensured.outcome !== 'refreshed' || !upgrade) {
+        entries.push(ensured.report);
+      }
+    } catch (error) {
+      // A typed drop means the failure already destroyed the namespace on the
+      // host, so its plugins must report as blocked rather than as installed.
+      if (error instanceof DroppedPluginsError) {
+        invalidateNamespacePlugins(installed, marketplace.name);
+      }
       entries.push(
-        ...desired.map(
-          (id): StepReport => ({
-            key: `${marketplace.client}:${id}`,
-            value: 'already installed',
-            status: 'unchanged',
-          }),
-        ),
+        ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
       );
       return;
     }
-    const ensured = await ensureMarketplace(
-      marketplace,
-      url,
-      context,
-      registrations,
-    );
-    // A convergence that uninstalled the marketplace's plugins invalidates the
-    // pre-run inventory for its id namespace: the desired plugins below then
-    // reinstall and verify instead of standing on a stale 'already installed'.
-    if (ensured.droppedPlugins) {
-      invalidateNamespacePlugins(installed, marketplace.name);
-    }
-    // In upgrade mode a refresh of an existing marketplace is a probe: the
-    // fetch itself would otherwise report every run as changed, so change is
-    // reported solely through the per-plugin version diffs it enables.
-    if (ensured.outcome !== 'refreshed' || !upgrade) {
-      entries.push(ensured.report);
-    }
-  } catch (error) {
-    // A typed drop means the failure already destroyed the namespace on the
-    // host, so its plugins must report as blocked rather than as installed.
-    if (error instanceof DroppedPluginsError) {
-      invalidateNamespacePlugins(installed, marketplace.name);
-    }
-    entries.push(
-      ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
-    );
-    return;
   }
 
+  const ops = pluginClientOps[marketplace.client];
   for (const id of desired) {
-    if (installed.has(id)) {
-      if (!upgrade) {
-        entries.push({
-          key: `${marketplace.client}:${id}`,
-          value: 'already installed',
-          status: 'unchanged',
-        });
-        continue;
-      }
-      const entryIndex = entries.length;
-      try {
-        await pluginClientOps[marketplace.client].upgradePlugin(id, context);
-        // Provisional: the post-run inventory refines this entry to changed or
-        // unchanged by version diff.
-        entries.push({
-          key: `${marketplace.client}:${id}`,
-          value: 'upgraded',
-          status: 'changed',
-        });
-        upgrades.push({
-          client: marketplace.client,
-          id,
-          entryIndex,
-          previousVersion: installed.get(id),
-        });
-      } catch (error) {
-        entries.push({
-          key: `${marketplace.client}:${id}`,
-          value: 'upgrade failed',
-          status: 'failed',
-          error: errorMessage(error),
-        });
-      }
+    const key = `${marketplace.client}:${id}`;
+    const current = installed.get(id);
+    let action = pendingAction(current, upgrade);
+    if (action === null) {
+      entries.push({ key, value: 'already installed', status: 'unchanged' });
       continue;
     }
     const entryIndex = entries.length;
+    const actions: PluginAction[] = [];
     try {
-      await pluginClientOps[marketplace.client].installPlugin(id, context);
-      installed.set(id, undefined);
-      entries.push({
-        key: `${marketplace.client}:${id}`,
-        value: 'installed',
-        status: 'changed',
-      });
-      verification.push({ client: marketplace.client, id, entryIndex });
+      if (current === undefined) {
+        await ops.installPlugin(id, context);
+        actions.push('installed');
+        // Only presence is read from the map for this id after this point; the
+        // post-run inventory is what settles the outcome.
+        installed.set(id, { version: undefined, enabled: true });
+      } else {
+        if (action === 'upgrade') {
+          await ops.upgradePlugin(id, context);
+          actions.push('upgraded');
+        }
+        // Enablement and version are independent axes, so an upgraded plugin
+        // that was disabled is still enabled here — without reissuing the
+        // command on a client whose upgrade verb already enables.
+        if (!current.enabled) {
+          action = 'enable';
+          if (!(upgrade && ops.upgradeEnables)) {
+            await ops.enablePlugin(id, context);
+          }
+          actions.push('enabled');
+        }
+      }
     } catch (error) {
       entries.push({
-        key: `${marketplace.client}:${id}`,
-        value: 'install failed',
+        key,
+        value: `${action} failed`,
         status: 'failed',
         error: errorMessage(error),
       });
+      continue;
     }
+    // Provisional: the post-run inventory confirms presence and enablement, and
+    // refines a pure upgrade to changed or unchanged by version diff.
+    entries.push({ key, value: actions.join(' and '), status: 'changed' });
+    declared.push({
+      client: marketplace.client,
+      id,
+      entryIndex,
+      previousVersion:
+        actions.length === 1 && actions[0] === 'upgraded'
+          ? current?.version
+          : undefined,
+    });
   }
 }
 
 /**
- * One post-run inventory per client settles every outcome kind: an install
- * must be present to stand, an uninstall must be absent, and an upgrade entry
- * is refined to changed or unchanged by comparing the reported version
- * against the pre-run one.
+ * One post-run inventory per client settles every outcome: a declared plugin must
+ * be present and enabled to stand, an uninstall must be absent, and an entry
+ * whose only action was the upgrade is refined to changed or unchanged by
+ * comparing the reported version against the pre-run one.
  */
 async function verifyOutcomes(
   clients: readonly PluginClient[],
   context: Context,
   entries: StepReport[],
-  installs: readonly VerificationTarget[],
-  upgrades: readonly UpgradeTarget[],
+  declared: readonly DeclaredTarget[],
   removals: readonly VerificationTarget[],
 ): Promise<void> {
   // Per-client verifications are independent (each writes only its own
   // targets' entry indices), so the inventory spawns run concurrently.
   await Promise.all(
     clients.map(async (client) => {
-      const clientInstalls = installs.filter(
-        (target) => target.client === client,
-      );
-      const clientUpgrades = upgrades.filter(
+      const clientDeclared = declared.filter(
         (target) => target.client === client,
       );
       const clientRemovals = removals.filter(
         (target) => target.client === client,
       );
-      if (
-        clientInstalls.length === 0 &&
-        clientUpgrades.length === 0 &&
-        clientRemovals.length === 0
-      ) {
-        return;
-      }
+      if (clientDeclared.length === 0 && clientRemovals.length === 0) return;
       try {
         const installed = await pluginClientOps[client].listPlugins(context);
-        for (const target of clientInstalls) {
-          if (installed.has(target.id)) continue;
-          entries[target.entryIndex] = {
-            key: `${client}:${target.id}`,
-            value: 'verification failed',
-            status: 'failed',
-            error: 'Plugin was not present in the post-install inventory.',
-          };
-        }
         for (const target of clientRemovals) {
           if (!installed.has(target.id)) continue;
-          entries[target.entryIndex] = {
-            key: `${client}:${target.id}`,
-            value: 'verification failed',
-            status: 'failed',
-            error: SURVIVED_UNINSTALL,
-          };
+          entries[target.entryIndex] = verificationFailure(
+            client,
+            target.id,
+            SURVIVED_UNINSTALL,
+          );
         }
-        for (const target of clientUpgrades) {
-          if (!installed.has(target.id)) {
-            entries[target.entryIndex] = {
-              key: `${client}:${target.id}`,
-              value: 'verification failed',
-              status: 'failed',
-              error: 'Plugin was not present in the post-upgrade inventory.',
-            };
+        for (const target of clientDeclared) {
+          const current = installed.get(target.id);
+          if (current === undefined) {
+            entries[target.entryIndex] = verificationFailure(
+              client,
+              target.id,
+              'Plugin was not present in the post-run inventory.',
+            );
             continue;
           }
-          const version = installed.get(target.id);
-          if (target.previousVersion === undefined || version === undefined) {
+          if (!current.enabled) {
+            entries[target.entryIndex] = verificationFailure(
+              client,
+              target.id,
+              'Plugin was still disabled in the post-run inventory.',
+            );
+            continue;
+          }
+          if (
+            target.previousVersion === undefined ||
+            current.version === undefined
+          ) {
             // Without versions on both sides a no-op cannot be proven, so the
             // provisional 'upgraded' (changed) entry stands.
             continue;
           }
+          const key = `${client}:${target.id}`;
           entries[target.entryIndex] =
-            version === target.previousVersion
+            current.version === target.previousVersion
               ? {
-                  key: `${client}:${target.id}`,
-                  value: `already latest (${version})`,
+                  key,
+                  value: `already latest (${current.version})`,
                   status: 'unchanged',
                 }
               : {
-                  key: `${client}:${target.id}`,
-                  value: `upgraded to ${version}`,
+                  key,
+                  value: `upgraded to ${current.version}`,
                   status: 'changed',
                 };
         }
       } catch (error) {
-        for (const target of [
-          ...clientInstalls,
-          ...clientUpgrades,
-          ...clientRemovals,
-        ]) {
-          entries[target.entryIndex] = {
-            key: `${client}:${target.id}`,
-            value: 'verification failed',
-            status: 'failed',
-            error: errorMessage(error),
-          };
+        for (const target of [...clientDeclared, ...clientRemovals]) {
+          entries[target.entryIndex] = verificationFailure(
+            client,
+            target.id,
+            errorMessage(error),
+          );
         }
       }
     }),
@@ -727,8 +728,7 @@ export function runAgentPlugins(
     );
 
     const entries: StepReport[] = [];
-    const verification: VerificationTarget[] = [];
-    const upgrades: UpgradeTarget[] = [];
+    const declared: DeclaredTarget[] = [];
     const removals: VerificationTarget[] = [];
     const registrations = new MarketplaceRegistrations();
     for (const marketplace of catalog.marketplaces) {
@@ -750,8 +750,7 @@ export function runAgentPlugins(
         context,
         registrations,
         entries,
-        verification,
-        upgrades,
+        declared,
         removals,
       );
     }
@@ -775,14 +774,7 @@ export function runAgentPlugins(
       );
     }
 
-    await verifyOutcomes(
-      clients,
-      context,
-      entries,
-      verification,
-      upgrades,
-      removals,
-    );
+    await verifyOutcomes(clients, context, entries, declared, removals);
     return {
       ...base,
       status: aggregateStatus(entries),

@@ -4,7 +4,7 @@ import { parseSectionCatalog, reconcileSections } from '../../coder/catalog';
 import { STOCK_SSH_HOST } from '../../github/repository';
 import { renderConfig } from '../../grove/config';
 import type { Context } from '../../host/context';
-import { loadToml } from '../../host/toml';
+import type { HostPath } from '../../host/path';
 import { parseJsonObject } from '../../zed/settings';
 import { describeAgentPlugins, runAgentPlugins } from './agent-plugins';
 import {
@@ -13,7 +13,6 @@ import {
   runCoderAgents,
   runCoderSkills,
 } from './coder';
-import { describeCodexConfig, runCodexConfig } from './codex-config';
 import { describeCommand, runCommandActivation } from './command';
 import type {
   Activation,
@@ -23,6 +22,11 @@ import type {
   AssetReference,
   Described,
 } from './contract';
+import {
+  describeDeclaredKeys,
+  parseDeclared,
+  runDeclaredKeys,
+} from './declared-keys';
 import { defaultsKind } from './defaults';
 import { dutiKind } from './duti';
 import { extensionsKind } from './extensions';
@@ -55,6 +59,13 @@ export interface KindHandler<A extends Activation> {
   ): Promise<ActivationReport>;
   /** Every embedded asset the activation names, for the existence invariant. */
   references(activation: A): readonly AssetReference[];
+  /**
+   * Host paths holding application-written state that the deploy phase would
+   * destroy, materialized before it runs. Declared here rather than in each
+   * target, so a kind that inverts file ownership carries its own protection to
+   * every call site instead of relying on a hand-written per-target hook.
+   */
+  preserved?(activation: A): readonly HostPath[];
   /** Assets whose content is checked before the binary is built. */
   assetChecks?(activation: A, assets: Context['assets']): readonly AssetCheck[];
 }
@@ -100,15 +111,18 @@ export const activationKinds: ActivationKinds = {
       },
     ],
   },
-  codexConfig: {
-    describe: describeCodexConfig,
-    run: (activation, context) => runCodexConfig(activation, context),
+  declaredKeys: {
+    describe: describeDeclaredKeys,
+    run: (activation, context) => runDeclaredKeys(activation, context),
     references: sourceReference,
+    // The destination holds the application's runtime writes, which the deploy
+    // phase would otherwise destroy through a legacy symlink.
+    preserved: (activation) => [activation.dest],
     assetChecks: (activation) => [
       {
         key: activation.source.key,
         parse: (raw, key) => {
-          loadToml(raw, key);
+          parseDeclared(raw, key, activation.format);
         },
       },
     ],
@@ -204,4 +218,9 @@ export const activationKinds: ActivationKinds = {
 /** The handler for an activation, widened so callers need no per-kind narrowing. */
 export function handlerFor(activation: Activation): KindHandler<Activation> {
   return activationKinds[activation.kind];
+}
+
+/** Every host path the activation declares as application-written. */
+export function preservedPaths(activation: Activation): readonly HostPath[] {
+  return handlerFor(activation).preserved?.(activation) ?? [];
 }

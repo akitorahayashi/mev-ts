@@ -1,28 +1,17 @@
 import { join } from 'node:path';
-import { ProvisioningError } from '../errors';
 import { writeFileIfChanged } from '../host/atomic-file';
 import { readDeployedText } from '../host/deployed-file';
-import { isRecord, parseJsonLabeled } from '../host/parse';
+import { loadJsonObject, serializeJson } from '../host/json';
 import { combineOverrides, deepMerge, type JsonObject } from './merge';
-
-// JSON.parse only yields JsonValues, so a top-level object is deeply a
-// JsonObject; the shallow record check is therefore a sound narrowing.
-function isJsonObject(value: unknown): value is JsonObject {
-  return isRecord(value);
-}
 
 export function parseJsonObject(
   raw: string,
   path: string,
   label: string,
 ): JsonObject {
-  const value = parseJsonLabeled(raw, `${label} at ${path}`);
-  if (!isJsonObject(value)) {
-    throw new ProvisioningError(
-      `${label} at ${path} must be a JSON object, not an array or primitive.`,
-    );
-  }
-  return value;
+  // JSON.parse only yields JsonValues, so the record loadJsonObject returns is
+  // deeply a JsonObject; the assertion is a sound narrowing, not a coercion.
+  return loadJsonObject(raw, `${label} at ${path}`) as JsonObject;
 }
 
 async function readJson(path: string, label: string): Promise<JsonObject> {
@@ -46,7 +35,7 @@ async function renderSettings(
     })),
   );
   const merged = deepMerge(base, combineOverrides(overrides));
-  return `${JSON.stringify(merged, null, 2)}\n`;
+  return serializeJson(merged);
 }
 
 /**

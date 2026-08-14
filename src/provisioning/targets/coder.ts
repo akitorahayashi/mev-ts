@@ -1,13 +1,12 @@
 import { asset } from '../../assets/ref';
 import { AGENTS_SECTIONS_PREFIX, SKILLS_PREFIX } from '../../coder/paths';
-import { home, mevPath, resolveHostPath } from '../../host/path';
-import { materializeSymlink } from '../../host/symlink';
+import { home, mevPath } from '../../host/path';
 import {
   brewPath,
   brewPrefixCapture,
   coderAgents,
   coderSkills,
-  codexConfig,
+  declaredKeys,
   installAgentPlugins,
   link,
   remoteInstaller,
@@ -27,8 +26,6 @@ const AGENTS_DESTS = [
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
 const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
-const CODEX_CONFIG = home('.codex/config.toml');
-
 export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
   aliases: ['cdr'],
@@ -39,14 +36,6 @@ export const coderTarget = target('coder', {
   // here lets `sync` reselect the target, whose registration probe then
   // re-registers the drifted marketplaces.
   perMachineInputs: ['githubSshHost'],
-  // Machines provisioned before codexConfig still have this path symlinked into
-  // the deploy store, where codex has been writing its plugin, marketplace, and
-  // MCP registrations. The deploy phase replaces that store file, so the state
-  // is detached into a regular file first and codexConfig then merges the
-  // declared keys into it; without this the first upgraded run loses it.
-  preserveBeforeDeploy: async (context) => {
-    await materializeSymlink(resolveHostPath(CODEX_CONFIG, context.home));
-  },
   activations: [
     remoteInstaller({
       label: 'install claude',
@@ -96,13 +85,24 @@ export const coderTarget = target('coder', {
         ),
       ],
     }),
-    link(asset('coder/claude/settings.json'), home('.claude/settings.json')),
+    // Merged, not linked: claude persists plugin enablement (`enabledPlugins`)
+    // and interactively-toggled settings in this file at runtime, so a symlink
+    // into the deploy store would route those writes into the deployed role and
+    // every deploy would wipe them — which is how declared plugins ended up
+    // installed but disabled.
+    declaredKeys(
+      asset('coder/claude/settings.json'),
+      home('.claude/settings.json'),
+      'json',
+    ),
     link(asset('coder/claude/statusline.sh'), home('.claude/statusline.sh')),
-    // Merged, not linked: codex persists plugin/marketplace registrations and
-    // app-managed tables in this file at runtime, so a symlink into the deploy
-    // store would route those writes into the deployed role and every deploy
-    // would wipe them.
-    codexConfig(asset('coder/codex/config.toml'), CODEX_CONFIG),
+    // Merged for the same reason: codex persists plugin/marketplace
+    // registrations and app-managed tables in this file at runtime.
+    declaredKeys(
+      asset('coder/codex/config.toml'),
+      home('.codex/config.toml'),
+      'toml',
+    ),
     link(asset('coder/codex/hooks.json'), home('.codex/hooks.json')),
     link(
       asset('coder/antigravity-cli/settings.json'),

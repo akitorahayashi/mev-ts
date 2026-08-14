@@ -1,4 +1,5 @@
 import { ProvisioningError } from '../errors';
+import { isUnsafeKey, mergeDeclared } from '../host/declared-merge';
 import { isRecord } from '../host/parse';
 
 export type JsonValue =
@@ -18,28 +19,12 @@ function isPlainObject(value: JsonValue): value is JsonObject {
 }
 
 /**
- * Keys that reassign an object's prototype chain rather than data. None are
- * legitimate Zed setting names, so encountering one is treated as malformed
- * input and rejected rather than merged.
+ * Deep-merge `overlay` onto `base`; `overlay` wins on every leaf it defines.
+ * The merge itself is the shared one; a result built only from JsonObject inputs
+ * is deeply a JsonObject, so the narrowing back is sound.
  */
-const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-
-/** Deep-merge `overlay` onto `base`; `overlay` wins on every leaf it defines. */
 export function deepMerge(base: JsonObject, overlay: JsonObject): JsonObject {
-  const result: Record<string, JsonValue> = { ...base };
-  for (const [key, value] of Object.entries(overlay)) {
-    if (UNSAFE_KEYS.has(key)) {
-      throw new ProvisioningError(
-        `Zed settings contain a disallowed key '${key}'.`,
-      );
-    }
-    const existing = result[key];
-    result[key] =
-      isPlainObject(value) && existing !== undefined && isPlainObject(existing)
-        ? deepMerge(existing, value)
-        : value;
-  }
-  return result;
+  return mergeDeclared(base, overlay, 'Zed settings') as JsonObject;
 }
 
 export interface NamedSettings {
@@ -97,7 +82,7 @@ function mergeTracked(
 ): JsonObject {
   const result: Record<string, JsonValue> = { ...combined };
   for (const [key, value] of Object.entries(override.settings)) {
-    if (UNSAFE_KEYS.has(key)) {
+    if (isUnsafeKey(key)) {
       throw new ProvisioningError(
         `Zed override '${override.name}' sets a disallowed key '${key}'.`,
       );
