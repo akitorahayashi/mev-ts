@@ -6,12 +6,40 @@ export interface Column {
   readonly style?: (cell: string) => string;
 }
 
+const ESCAPE = '\u001b';
+
+/**
+ * Printable width, skipping the SGR sequences a caller may have applied. The
+ * final column's cells arrive already styled, so measuring their raw length
+ * would count invisible bytes and overshoot that column by the size of every
+ * escape sequence in it.
+ */
+function visibleWidth(text: string): number {
+  let width = 0;
+  let index = 0;
+  while (index < text.length) {
+    if (text[index] === ESCAPE && text[index + 1] === '[') {
+      const end = text.indexOf('m', index + 2);
+      if (end !== -1) {
+        index = end + 1;
+        continue;
+      }
+    }
+    width += 1;
+    index += 1;
+  }
+  return width;
+}
+
 /**
  * Render aligned columns as a header row, a dim separator, and body rows (no
  * surrounding blank lines — the caller frames the block). Every column but the
- * last is padded to its widest raw cell and styled; the final column is appended
- * verbatim so a caller whose last cell varies in color styles it itself. Column
- * widths are measured on the raw cell text passed in.
+ * last is padded to its widest cell and styled; the final column is appended
+ * verbatim so a caller whose last cell varies in color styles it itself — but
+ * its separator still spans the widest cell, matching every other column, so
+ * only the padding, not the underline, stops at the last column. Widths are
+ * measured on printable width, so a pre-styled cell does not widen its column
+ * by the length of its escape sequences.
  */
 export function renderTable(
   style: Style,
@@ -21,12 +49,12 @@ export function renderTable(
   const last = columns.length - 1;
   const widths = columns.map((column, index) =>
     Math.max(
-      column.header.length,
-      ...rows.map((row) => (row[index] ?? '').length),
+      visibleWidth(column.header),
+      ...rows.map((row) => visibleWidth(row[index] ?? '')),
     ),
   );
   const pad = (text: string, width: number) =>
-    text + ' '.repeat(width - text.length + 1);
+    text + ' '.repeat(width - visibleWidth(text) + 1);
   const framed = (text: string, index: number): string =>
     index === last ? text : pad(text, widths[index] ?? 0);
 
@@ -34,13 +62,11 @@ export function renderTable(
     .map((column, index) => style.bold(framed(column.header, index)))
     .join('')}`;
   const separator = ` ${columns
-    .map((column, index) =>
-      style.dim(
-        index === last
-          ? '─'.repeat(column.header.length)
-          : pad('─'.repeat(widths[index] ?? 0), widths[index] ?? 0),
-      ),
-    )
+    .map((_column, index) => {
+      const width = widths[index] ?? 0;
+      const rule = '─'.repeat(width);
+      return style.dim(index === last ? rule : pad(rule, width));
+    })
     .join('')}`;
   const body = rows.map(
     (row) =>

@@ -83,6 +83,23 @@ mev switch work
 
 `user` (alias `us`) groups the git identity subcommands. Identities are stored in `~/.mev/identity.json`. `switch` writes the selected name and email to the mutable `~/.gitconfig`; `make git` manages the separate static config at `~/.config/git/config`.
 
+## Worktrees
+
+```bash
+git w-a feature/signup feature/likes   # One worktree per branch, beside the repository
+git w-ls                               # List them by name and branch
+git w-mv feature-signup signup-v2      # Rename a worktree's directory
+git w-rm feature-login                 # Remove worktrees, keeping their branches
+```
+
+`w-a`, `w-ls`, `w-mv`, and `w-rm` are Git aliases for hidden `mev internal git worktree` commands. A worktree for branch `<branch>` is created as `<repo>-<branch with slashes replaced by dashes>` next to the main worktree, and every command derives that layout from the main worktree, so any of them may be run from any worktree.
+
+`w-a` takes branch names. A branch that already exists is checked out, a branch that exists on exactly one remote is created tracking it, and any other name is created from HEAD. The request is validated in full before the first worktree is created, and a failure part-way through removes the worktrees and branches the run had already created.
+
+`w-mv` and `w-rm` identify an existing worktree by its path, its branch, its `<suffix>`, or its directory name — the name `w-ls` displays is always accepted. An ambiguous name is refused rather than guessed; pass the path to settle it. Neither command deletes a branch: `w-rm` names the branches left behind so they can be removed with `git branch -d`.
+
+Bare repositories are not supported.
+
 ## Document Conversion
 
 ```bash
