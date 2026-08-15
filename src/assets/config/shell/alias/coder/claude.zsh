@@ -31,27 +31,34 @@ cld_ln() {
 }
 
 # The lone positional argument is a resume target, so a leading `-` marks the
-# rest as claude flags and keeps the launcher on --continue.
+# rest as claude flags and keeps the launcher on --continue. An empty effort
+# drops the flag, for models that carry no effort axis.
 cld_session() {
   local model="$1" effort="$2"
   shift 2
+  local -a flags=(--model "$model")
+  [[ -n "$effort" ]] && flags+=(--effort "$effort")
   if [[ -n "${1-}" && "$1" != -* ]]; then
     local session="$1"
     shift
-    command claude --resume "$session" --model "$model" --effort "$effort" "$@"
+    command claude --resume "$session" "${flags[@]}" "$@"
   else
-    command claude --continue --model "$model" --effort "$effort" "$@"
+    command claude --continue "${flags[@]}" "$@"
   fi
 }
 
-# cld-<model><effort> launchers over the full model x effort matrix.
+# cld-<model><effort> launchers, plus an effort-less cld-h.
 #
 # `ultracode` is absent from `claude --help` but the CLI accepts it as an
 # --effort value and resolves it to xhigh plus the standing ultracode opt-in,
 # which the deployed workflowKeywordTriggerEnabled=false makes otherwise
 # unreachable at launch. `max` takes `mx` because `medium` already holds `m`.
+#
+# Haiku stays off the effort axis: the CLI's effort, xhigh_effort, and
+# max_effort capability checks all list claude-haiku-4-5 as unsupported, so an
+# effort flag there would name a level the model never applies.
 _cld_define_launchers() {
-  local -A model=(h haiku s sonnet o opus f fable)
+  local -A model=(s sonnet o opus f fable)
   local -A effort=(l low m medium h high x xhigh u ultracode mx max)
   local m e
   for m in ${(k)model}; do
@@ -59,6 +66,7 @@ _cld_define_launchers() {
       functions[cld-${m}${e}]="cld_session ${model[$m]} ${effort[$e]} \"\$@\""
     done
   done
+  functions[cld-h]='cld_session haiku "" "$@"'
 }
 _cld_define_launchers
 unfunction _cld_define_launchers
@@ -103,6 +111,6 @@ cld-ls() {
       "$DIM" "$mtime_h" "$RESET" \
       "$YELLOW" "$branch" "$RESET" \
       "$prompt"
-    (( i++ ))
+    (( ++i ))
   done
 }
