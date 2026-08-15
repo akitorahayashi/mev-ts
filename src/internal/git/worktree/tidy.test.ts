@@ -160,7 +160,23 @@ test('a branch tracking a deleted local branch is skipped', () => {
 
   expect(verdict).toEqual({
     kind: 'skip',
-    reason: "upstream 'refs/heads/dev' is not a remote branch",
+    reason:
+      "upstream 'refs/heads/dev' is not an origin branch, and only origin was pruned",
+  });
+});
+
+test('a branch tracking another remote is skipped', () => {
+  // Only origin is pruned, so gone on a fork upstream is stale local state: the
+  // branch may well exist on that remote and simply not have been fetched.
+  const verdict = verdictFor(
+    inventoryOf(entry()),
+    tracked('feature/a', gone('refs/remotes/fork/feature/a')),
+  );
+
+  expect(verdict).toEqual({
+    kind: 'skip',
+    reason:
+      "upstream 'refs/remotes/fork/feature/a' is not an origin branch, and only origin was pruned",
   });
 });
 
@@ -178,7 +194,8 @@ test('a gone branch with no upstream ref recorded is skipped', () => {
     ),
   ).toEqual({
     kind: 'skip',
-    reason: "upstream 'none' is not a remote branch",
+    reason:
+      "upstream 'none' is not an origin branch, and only origin was pruned",
   });
 });
 

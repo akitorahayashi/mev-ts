@@ -128,6 +128,38 @@ sandboxTest(
 );
 
 sandboxTest(
+  'a path the destination branch tracks is left alone',
+  async (sandbox) => {
+    const source = join(sandbox, 'demo');
+    const destination = join(sandbox, 'demo-feature-a');
+    await mkdir(source, { recursive: true });
+    await mkdir(join(destination, 'Pods'), { recursive: true });
+    await writeFile(join(source, '.env'), 'from main');
+    await writeFile(join(destination, '.env'), 'committed on this branch');
+
+    const warnings: string[] = [];
+    // Nothing is spawned: both destinations already exist, and a worktree git
+    // has just created holds only what its branch tracks.
+    const run = sequenceRunner([], []);
+
+    const report = await carryInto(
+      run,
+      source,
+      destination,
+      ['.env', 'Pods/'],
+      (line) => warnings.push(line),
+    );
+
+    expect(report.carried).toBe(0);
+    expect(await readFile(join(destination, '.env'), 'utf8')).toBe(
+      'committed on this branch',
+    );
+    expect(warnings.join('')).toContain("Left '.env' alone");
+    expect(warnings.join('')).toContain("Left 'Pods/' alone");
+  },
+);
+
+sandboxTest(
   'a clone falls back to a plain copy and says so',
   async (sandbox) => {
     const calls: RecordedCall[] = [];

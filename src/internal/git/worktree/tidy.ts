@@ -20,10 +20,15 @@ export interface Decision {
   readonly verdict: Verdict;
 }
 
-const REMOTES_PREFIX = 'refs/remotes/';
+/**
+ * This command prunes origin and nothing else, so a missing upstream is fresh
+ * evidence only for an origin branch. Any other upstream reports gone from
+ * local state of unknown age.
+ */
+const ORIGIN_PREFIX = 'refs/remotes/origin/';
 
 /**
- * The worktrees whose branch tracked a remote branch that no longer exists,
+ * The worktrees whose branch tracked an origin branch that no longer exists,
  * with the safety every free check can establish. A deleted upstream is the
  * only merge evidence available — `--merged` misses a squash merge, which is
  * the case this exists for — so it decides membership, and the checks here
@@ -75,15 +80,17 @@ function verdictFor(
     const reason = typeof entry.locked === 'string' ? `: ${entry.locked}` : '';
     return { kind: 'skip', reason: `locked${reason}` };
   }
-  // A branch tracking another local branch also reports gone once that branch
-  // is deleted, and carries no evidence of having been merged anywhere.
+  // A branch tracking a local branch reports gone once that branch is deleted
+  // and carries no evidence of having been merged anywhere; a branch on another
+  // remote reports gone from whenever that remote was last pruned, which this
+  // run did not do and so cannot date.
   if (
     tracking.upstream === null ||
-    !tracking.upstream.startsWith(REMOTES_PREFIX)
+    !tracking.upstream.startsWith(ORIGIN_PREFIX)
   ) {
     return {
       kind: 'skip',
-      reason: `upstream '${tracking.upstream ?? 'none'}' is not a remote branch`,
+      reason: `upstream '${tracking.upstream ?? 'none'}' is not an origin branch, and only origin was pruned`,
     };
   }
   return { kind: 'remove' };
@@ -227,6 +234,14 @@ async function updateDefaultBranch(
   const state = tracking.get(defaultBranch);
   if (state === undefined || state.upstream === null) {
     decline(`'${defaultBranch}' has no upstream`);
+    return;
+  }
+  // The counts below are measured against the configured upstream while the
+  // merge names origin's ref, so a default branch tracking anything else would
+  // be judged against one ref and moved by another.
+  const expected = `${ORIGIN_PREFIX}${defaultBranch}`;
+  if (state.upstream !== expected) {
+    decline(`'${defaultBranch}' tracks '${state.upstream}', not '${expected}'`);
     return;
   }
   if (state.ahead > 0) {

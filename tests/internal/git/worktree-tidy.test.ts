@@ -314,6 +314,32 @@ sandboxTest(
 );
 
 sandboxTest(
+  'a default branch tracking another remote is never merged from origin',
+  async (sandbox) => {
+    const calls: RecordedCall[] = [];
+    const lines: string[] = [];
+    const run = sequenceRunner(
+      [
+        inventoryOf(sandbox),
+        head,
+        ok,
+        tracking(['main\0refs/remotes/fork/main\0behind 3']),
+      ],
+      calls,
+    );
+
+    await tidyWorktrees(run, [], (line) => lines.push(line));
+
+    // The behind count describes fork/main; merging origin/main on the strength
+    // of it would move the branch by an amount nothing measured.
+    expect(calls).toHaveLength(4);
+    expect(lines.join('')).toContain(
+      "'main' tracks 'refs/remotes/fork/main', not 'refs/remotes/origin/main'",
+    );
+  },
+);
+
+sandboxTest(
   'a dirty main worktree stops the update short of merging',
   async (sandbox) => {
     const lines: string[] = [];

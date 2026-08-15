@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { ProvisioningError } from '../../../errors';
 import { runCapture } from '../../../git/run';
-import { statIfPresent } from '../../../host/absence';
+import { lstatIfPresent, statIfPresent } from '../../../host/absence';
 import {
   type CommandRunner,
   formatCommandFailure,
@@ -154,6 +154,11 @@ export interface CarryReport {
  *
  * A failure here does not undo the worktree: it is complete and usable, and the
  * paths that did not arrive are named so they can be copied by hand.
+ *
+ * The carry set is read once from the source worktree and reused for every
+ * destination, so it describes the source's ignore rules rather than each new
+ * branch's. Branches disagree about what is ignored, which is why the
+ * destination decides whether a path is carried at all.
  */
 export async function carryInto(
   run: CommandRunner,
@@ -165,15 +170,30 @@ export async function carryInto(
   let carried = 0;
   let copiedWithoutCloning = false;
 
-  for (const path of paths) {
+  for (const reported of paths) {
+    // A directory arrives from `status --ignored` with a trailing separator,
+    // which would make the probe below fail with ENOTDIR instead of reporting
+    // the plain file standing in its place.
+    const path = reported.endsWith('/') ? reported.slice(0, -1) : reported;
     const from = join(source, path);
     const to = join(destination, path);
+
+    // A worktree git has just created holds the checked-out tree and nothing
+    // else, so anything already at the destination is content this branch
+    // tracks and the source ignores only because its own branch does. Copying
+    // over it would replace committed data — `cp` overwrites a file, and nests
+    // the source inside an existing directory.
+    if ((await lstatIfPresent(to)) !== null) {
+      warn(`Left '${reported}' alone: this branch tracks it.\n`);
+      continue;
+    }
+
     const parent = dirname(to);
     if (parent !== destination) await mkdir(parent, { recursive: true });
 
     const { cloned, failure } = await copyPath(run, from, to);
     if (failure !== null) {
-      warn(`Could not carry '${path}': ${failure}\n`);
+      warn(`Could not carry '${reported}': ${failure}\n`);
       continue;
     }
     if (!cloned) copiedWithoutCloning = true;
