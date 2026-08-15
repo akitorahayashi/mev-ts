@@ -12,6 +12,7 @@ export const shellTarget = target('shell', {
   description: 'Shell environment, dotfiles, and aliases',
   aliases: ['sh'],
   role: 'shell',
+  // Keep the conversion aliases and their Pandoc, Poppler, and Chrome runtimes in one target.
   packages: {
     formulae: [
       'fzf',
