@@ -31,7 +31,7 @@ src/
   internal/
     document/    Pandoc/Poppler conversion and browser PDF rendering
     gh/          GitHub CLI wrappers
-    git/         Git wrappers (branches, clone, submodule)
+    git/         Git wrappers (branches, clone, submodule, worktree)
   pipx/          pipx install, inject, and post-install operations
   pnpm/          pnpm global package install and remove through the fnm runtime
   provisioning/

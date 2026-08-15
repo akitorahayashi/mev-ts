@@ -12,6 +12,10 @@ import { InternalGhLabelsResetCommand } from './internal/gh-labels-reset';
 import { InternalGitCloneCommand } from './internal/git-clone';
 import { InternalGitDeleteBranchesCommand } from './internal/git-delete-branches';
 import { InternalGitDeleteSubmoduleCommand } from './internal/git-delete-submodule';
+import { InternalGitWorktreeAddCommand } from './internal/git-worktree-add';
+import { InternalGitWorktreeListCommand } from './internal/git-worktree-list';
+import { InternalGitWorktreeMoveCommand } from './internal/git-worktree-move';
+import { InternalGitWorktreeRemoveCommand } from './internal/git-worktree-remove';
 import { ListCommand } from './list';
 import { MakeCommand } from './make';
 import { SwitchCommand } from './switch';
@@ -43,6 +47,10 @@ export const commands: readonly CommandClass[] = [
   InternalGitCloneCommand,
   InternalGitDeleteBranchesCommand,
   InternalGitDeleteSubmoduleCommand,
+  InternalGitWorktreeAddCommand,
+  InternalGitWorktreeListCommand,
+  InternalGitWorktreeMoveCommand,
+  InternalGitWorktreeRemoveCommand,
   InternalGhLabelsDeployCommand,
   InternalGhLabelsResetCommand,
 ];

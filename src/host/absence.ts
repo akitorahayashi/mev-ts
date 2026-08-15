@@ -1,5 +1,12 @@
 import type { Dirent, Stats } from 'node:fs';
-import { lstat, readdir, readFile, readlink, stat } from 'node:fs/promises';
+import {
+  lstat,
+  readdir,
+  readFile,
+  readlink,
+  realpath,
+  stat,
+} from 'node:fs/promises';
 
 export function isNotFound(error: unknown): boolean {
   return (error as NodeJS.ErrnoException)?.code === 'ENOENT';
@@ -37,6 +44,15 @@ export async function readDirentsIfPresent(
 ): Promise<Dirent[] | null> {
   try {
     return await readdir(path, { withFileTypes: true });
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
+
+export async function realpathIfPresent(path: string): Promise<string | null> {
+  try {
+    return await realpath(path);
   } catch (error) {
     if (isNotFound(error)) return null;
     throw error;

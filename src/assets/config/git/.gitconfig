@@ -52,6 +52,11 @@
     sb-ts = submodule status
     sb-d = !mev internal git delete-submodule
 
+    w-a = !mev internal git worktree add
+    w-ls = !mev internal git worktree list
+    w-mv = !mev internal git worktree move
+    w-rm = !mev internal git worktree remove
+
     ps = push
     ps-u-o = push -u origin
     ps-o = push origin
