@@ -192,7 +192,6 @@ export async function tidyWorktrees(
   );
 }
 
-/** Whether the run is a preview. The only argument tidy accepts. */
 function parseTokens(tokens: readonly string[]): boolean {
   let dryRun = false;
   for (const token of tokens) {

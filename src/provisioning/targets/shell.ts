@@ -12,7 +12,6 @@ export const shellTarget = target('shell', {
   description: 'Shell environment, dotfiles, and aliases',
   aliases: ['sh'],
   role: 'shell',
-  // Own every runtime required by the deployed shell config and aliases.
   packages: {
     formulae: [
       'fzf',

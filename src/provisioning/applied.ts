@@ -45,7 +45,6 @@ export async function readApplied(path: string): Promise<string | null> {
   }
 }
 
-/** Remove a target's proof of successful application when a new run starts. */
 export async function invalidateApplied(path: string): Promise<void> {
   try {
     await unlink(path);

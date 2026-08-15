@@ -218,7 +218,6 @@ class MarketplaceRegistrations {
 const SURVIVED_UNINSTALL =
   'Plugin was still present in the post-uninstall inventory.';
 
-/** The one shape every inventory-settled failure renders as. */
 function verificationFailure(
   client: PluginClient,
   id: string,
@@ -434,7 +433,6 @@ async function removeDeclaredMarketplace(
   }
 }
 
-/** Drop a marketplace's id namespace from the in-memory inventory. */
 function invalidateNamespacePlugins(
   installed: PluginInventory,
   marketplace: string,

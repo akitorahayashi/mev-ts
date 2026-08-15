@@ -19,7 +19,6 @@ function startLine(event: ActivationStartEvent): string {
   return `${event.targetName}  ${activationLine(event.activation)}`;
 }
 
-/** The once-only "Activating targets" banner shared by both progress variants. */
 function createBanner(out: (text: string) => void): () => void {
   let shown = false;
   return () => {

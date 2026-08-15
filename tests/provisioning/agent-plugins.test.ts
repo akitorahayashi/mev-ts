@@ -30,7 +30,6 @@ marketplaces:
 
 const sandboxTest = sandboxedTest('agent-plugins-');
 
-/** Every case runs the same activation; only the context and options vary. */
 const run = (context: Context, options?: ActivationRunOptions) =>
   runActivation(installAgentPlugins(CONFIG_KEY), context, options);
 

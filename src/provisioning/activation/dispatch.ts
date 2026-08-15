@@ -7,7 +7,6 @@ import type {
 } from './contract';
 import { handlerFor } from './kinds';
 
-/** Stable, home-independent description of an activation's verb and endpoints. */
 export function describeActivation(activation: Activation): Described {
   return handlerFor(activation).describe(activation);
 }

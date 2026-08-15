@@ -7,7 +7,6 @@ export interface CommandResult {
 }
 
 export interface CommandOptions {
-  /** Extra variables layered over the inherited environment. */
   readonly env?: Readonly<Record<string, string>>;
   readonly cwd?: string;
   readonly stdout?: 'pipe' | 'inherit';

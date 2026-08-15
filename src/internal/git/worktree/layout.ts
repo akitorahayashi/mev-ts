@@ -37,7 +37,6 @@ export function slug(branch: string): string {
   return branch.replaceAll('/', '-');
 }
 
-/** The `<suffix>` of a sibling worktree, or null when it is not one. */
 export function suffixOf(layout: Layout, path: string): string | null {
   const prefix = nfc(`${layout.repo}-`);
   const name = nfc(basename(path));
@@ -102,7 +101,6 @@ export function branchNameProblem(branch: string): string | null {
   return null;
 }
 
-/** The constraint a worktree name violates, or null when it is valid. */
 export function suffixProblem(suffix: string): string | null {
   if (suffix === '') return 'must not be empty';
   if (suffix.startsWith('-')) return "must not start with '-'";

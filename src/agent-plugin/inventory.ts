@@ -16,7 +16,6 @@ export interface InstalledPlugin {
   readonly enabled: boolean;
 }
 
-/** Installed plugin ids mapped to what the client reports about each. */
 export type PluginInventory = Map<string, InstalledPlugin>;
 
 /**

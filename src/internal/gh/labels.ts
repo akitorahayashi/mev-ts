@@ -7,7 +7,6 @@ import {
   listLabelNames,
 } from './label';
 
-/** One named label reconciliation the caller renders and runs. */
 export interface LabelTask {
   readonly name: string;
   apply(): Promise<void>;
