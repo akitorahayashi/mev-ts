@@ -95,22 +95,34 @@ cld-ls() {
     return 1
   fi
 
+  # Branch and prompt vary wildly in length (a long branch name or a pasted
+  # multi-line prompt), so each session is a two-line block — header, then an
+  # indented prompt line — rather than one wide row: a wrapped single row
+  # loses the boundary between one session and the next.
   local RESET=$'\e[0m' DIM=$'\e[2m' CYAN=$'\e[36m' YELLOW=$'\e[33m'
-  local f id mtime_h branch prompt
+  local f id mtime_h meta branch prompt
   local i=0
   for f in "${files[@]}"; do
     (( i >= n )) && break
-    id="${f:t:r}"
+    # --resume matches on a leading substring, so the 8-char prefix stays
+    # resumable while keeping the header line short.
+    id="${${f:t:r}:0:8}"
     mtime_h="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$f" 2>/dev/null)"
-    branch="$(tail -r "$f" 2>/dev/null | jq -rs 'map(select(.gitBranch != null)) | (first.gitBranch // "-")' 2>/dev/null)"
-    prompt="$(tail -r "$f" 2>/dev/null | jq -rs 'map(select(.type=="last-prompt")) | (first.lastPrompt // "-")' 2>/dev/null)"
-    prompt="${prompt//$'\n'/ }"
-    prompt="${prompt:0:70}"
-    printf '%s%s%s  %s%s%s  %s%-12s%s  %s\n' \
+    meta="$(tail -r "$f" 2>/dev/null | jq -rs '
+      (map(select(.gitBranch != null)) | (first.gitBranch // "-")) as $b
+      | (map(select(.type=="last-prompt")) | (first.lastPrompt // "-") | gsub("\n"; " ")) as $p
+      | [$b, $p] | @tsv
+    ' 2>/dev/null)"
+    branch="${meta%%$'\t'*}"
+    prompt="${meta#*$'\t'}"
+    (( ${#branch} > 40 )) && branch="${branch:0:39}…"
+    (( ${#prompt} > 100 )) && prompt="${prompt:0:99}…"
+
+    printf '%s%s%s  %s%s%s  %s%s%s\n' \
       "$CYAN" "$id" "$RESET" \
       "$DIM" "$mtime_h" "$RESET" \
-      "$YELLOW" "$branch" "$RESET" \
-      "$prompt"
+      "$YELLOW" "$branch" "$RESET"
+    printf '  %s\n\n' "$prompt"
     (( ++i ))
   done
 }

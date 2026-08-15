@@ -1,6 +1,7 @@
 import { CommandLineError, ProvisioningError } from '../../errors';
 import { runCapture, runStep } from '../../git/run';
 import type { CommandRunner } from '../../host/command';
+import { resolveDefaultBranch } from './default-branch';
 
 interface DeletionRequest {
   readonly branches: readonly string[];
@@ -104,25 +105,4 @@ async function findMissingLocalBranches(
   }
   const local = new Set(result.stdout.split('\n').filter((s) => s !== ''));
   return branches.filter((branch) => !local.has(branch));
-}
-
-async function resolveDefaultBranch(run: CommandRunner): Promise<string> {
-  const result = await runCapture(run, [
-    'rev-parse',
-    '--abbrev-ref',
-    'origin/HEAD',
-  ]);
-  if (result.code !== 0) {
-    throw new ProvisioningError(
-      'Unable to resolve the default branch: origin/HEAD is not set. Run `git remote set-head origin --auto` to fix this.',
-    );
-  }
-  const ref = result.stdout.trim();
-  const prefix = 'origin/';
-  if (!ref.startsWith(prefix)) {
-    throw new ProvisioningError(
-      `Unexpected origin/HEAD format: "${ref}". Expected "origin/<branch>".`,
-    );
-  }
-  return ref.slice(prefix.length);
 }

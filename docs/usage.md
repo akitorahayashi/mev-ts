@@ -87,16 +87,32 @@ mev switch work
 
 ```bash
 git w-a feature/signup feature/likes   # One worktree per branch, beside the repository
-git w-ls                               # List them by name and branch
+git w-ls                               # List them by name, branch, and state
 git w-mv feature-signup signup-v2      # Rename a worktree's directory
 git w-rm feature-login                 # Remove worktrees, keeping their branches
+git w-td -n                            # Preview what a tidy would remove
+git w-td                               # Remove the ones whose pull request has merged
+git w-p feature-signup                 # Print one worktree's path
+wcd feature-signup                     # Change into it (shell function; wcd alone returns to the main worktree)
 ```
 
-`w-a`, `w-ls`, `w-mv`, and `w-rm` are Git aliases for hidden `mev internal git worktree` commands. A worktree for branch `<branch>` is created as `<repo>-<branch with slashes replaced by dashes>` next to the main worktree, and every command derives that layout from the main worktree, so any of them may be run from any worktree.
+`w-a`, `w-ls`, `w-mv`, `w-rm`, `w-td`, and `w-p` are Git aliases for hidden `mev internal git worktree` commands; `wcd` is a shell function, because a Git alias runs in a subprocess and cannot move the caller. A worktree for branch `<branch>` is created as `<repo>-<branch with slashes replaced by dashes>` next to the main worktree, and every command derives that layout from the main worktree, so any of them may be run from any worktree.
 
-`w-a` takes branch names. A branch that already exists is checked out, a branch that exists on exactly one remote is created tracking it, and any other name is created from HEAD. The request is validated in full before the first worktree is created, and a failure part-way through removes the worktrees and branches the run had already created.
+`w-a` takes branch names. A branch that already exists is checked out, a branch that exists on exactly one remote is created tracking it, and any other name is created from HEAD. The request is validated in full before the first worktree is created, and a failure part-way through removes the worktrees and branches the run had already created. Creating a branch from HEAD also warns when HEAD is behind the default branch; that comparison is against the local remote-tracking ref, so it is only as current as the last fetch, and a repository with no origin draws no warning at all.
 
-`w-mv` and `w-rm` identify an existing worktree by its path, its branch, its `<suffix>`, or its directory name — the name `w-ls` displays is always accepted. An ambiguous name is refused rather than guessed; pass the path to settle it. Neither command deletes a branch: `w-rm` names the branches left behind so they can be removed with `git branch -d`.
+Each new worktree then receives the main worktree's ignored files — credentials, fetched dependencies, generated project files — so a fresh worktree needs no separate bootstrap. Paths matched by the global ignore list are left behind, which keeps `.DS_Store` and the like out even when the repository lists them in its own `.gitignore` as well. Whole ignored directories are carried as one unit, and the copy is an APFS clone, so a dependency tree costs metadata rather than its size; where cloning is unavailable the paths are copied normally and that is reported. The set is read from the main worktree and so describes its ignore rules rather than each new branch's, so a path the new branch tracks is left as checked out and named rather than overwritten. Carrying never fails the command: the worktrees are already usable, and any path that did not arrive is named.
+
+`w-ls` adds a STATE column: `↑n`/`↓n` for commits ahead of or behind the upstream, `n dirty` for uncommitted changes, and the markers `(gone)`, `(locked)`, and `(prunable)`. `(gone)` means the branch's upstream has been deleted on the remote, which is what `w-td` acts on. A worktree with nothing to report leaves the column empty.
+
+`w-mv`, `w-rm`, and `w-p` identify an existing worktree by its path, its branch, its `<suffix>`, or its directory name — the name `w-ls` displays is always accepted. An ambiguous name is refused rather than guessed; pass the path to settle it. Neither `w-mv` nor `w-rm` deletes a branch: `w-rm` names the branches left behind so they can be removed with `git branch -d`.
+
+`w-td` fetches with `--prune`, removes every worktree whose branch tracked an origin branch that no longer exists, deletes those branches, and fast-forwards the main worktree's default branch. It never checks out, and it declines the fast-forward rather than failing when the main worktree is on another branch, is dirty, carries unpushed commits, or tracks something other than `origin/<default>`. Anything it will not remove is named with its reason: locked, prunable, dirty, the current directory, or an upstream outside `refs/remotes/origin/`.
+
+Only origin is pruned, so only an origin upstream carries evidence this run gathered. A branch tracking a local branch, or one on a second remote, also reads as gone — from local state of an age this command has no way to establish — and is left alone.
+
+A deleted upstream is circumstantial evidence of a merge, not proof — a pull request closed without merging leaves the same trace once its branch is deleted. Because the upstream ref is gone, unpushed commits can no longer be detected either, so a clean working tree is the only additional gate, and `branch -D` is required since a squash-merged branch reads as unmerged. Every deletion therefore prints the tip it discarded, with the `git branch <name> <sha>` that restores it.
+
+`w-td --dry-run` (alias `-n`) reports the same decisions and takes none of them. It is the only argument `w-td` accepts. The `fetch --prune` still runs, because a deleted upstream is only visible after the prune and a preview computed from stale remote-tracking refs would describe a different repository than the real run.
 
 Bare repositories are not supported.
 
