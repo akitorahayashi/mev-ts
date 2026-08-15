@@ -2,7 +2,6 @@ import type { Dirent } from 'node:fs';
 import { ProvisioningError } from '../errors';
 import { readDirentsIfPresent, readTextIfPresent } from './absence';
 
-/** The canonical guidance surfaced when a file mev expects to be deployed is absent. */
 function deployFirstMessage(label: string, path: string): string {
   return `${label} not found: ${path}. Run provisioning to deploy it first.`;
 }

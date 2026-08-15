@@ -7,7 +7,7 @@ export interface CommandResult {
 }
 
 export interface CommandOptions {
-  /** Extra variables layered over the inherited environment. */
+  /** Overrides inherited environment variables; unspecified variables remain inherited. */
   readonly env?: Readonly<Record<string, string>>;
   readonly cwd?: string;
   readonly stdout?: 'pipe' | 'inherit';

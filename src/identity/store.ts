@@ -68,7 +68,6 @@ export async function readState(path: string): Promise<IdentityState | null> {
   ) as IdentityState;
 }
 
-/** Persist state via atomic temp-write + rename. */
 export async function saveState(
   path: string,
   state: IdentityState,

@@ -1,6 +1,5 @@
 import type { AssetSource } from '../../src/assets/registry';
 
-/** An `AssetSource` backed by a plain map, the shape most parser tests want. */
 export function mapAssetSource(
   contents: Readonly<Record<string, string>>,
   executables: readonly string[] = [],

@@ -7,9 +7,7 @@ import type { Writable } from 'node:stream';
  * the real process streams.
  */
 export interface TransientLine {
-  /** Replace the current line with `text`, leaving the cursor on it. */
   render(text: string): void;
-  /** Clear the current line back to empty at column 0. */
   clear(): void;
 }
 

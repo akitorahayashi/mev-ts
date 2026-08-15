@@ -110,7 +110,6 @@ interface DeployPhaseResult {
   readonly failedRoles: ReadonlyMap<string, string>;
 }
 
-/** Phase 1: deploy each role's config, keying failures by role so every group sharing that role is blocked. */
 async function runDeployPhase(
   selection: MakePlan,
   context: Context,

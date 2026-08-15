@@ -27,7 +27,6 @@ export async function findDefaultBranch(
   return ref.slice(PREFIX.length);
 }
 
-/** The same probe for callers that cannot proceed without an answer. */
 export async function resolveDefaultBranch(
   run: CommandRunner,
 ): Promise<string> {

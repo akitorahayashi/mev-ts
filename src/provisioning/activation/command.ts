@@ -34,7 +34,6 @@ export function describeCommand(activation: CommandActivation): Described {
   return { verb: 'run', source: activation.label, dest: 'shell' };
 }
 
-/** Resolve a declarative argv token into zero or more concrete arguments. */
 function resolveArg(arg: CommandArg, scope: CommandScope): string[] {
   if (typeof arg === 'string') return [arg];
   if ('ref' in arg) return [scope.ref(arg.ref)];

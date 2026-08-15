@@ -20,7 +20,6 @@ type DeclaredKeysActivation = Extract<Activation, { kind: 'declaredKeys' }>;
 
 type DocumentFormat = DeclaredKeysActivation['format'];
 
-/** Everything a format needs to render the destination's next contents. */
 interface RenderedDocument {
   readonly merged: Record<string, unknown>;
   readonly host: Record<string, unknown>;

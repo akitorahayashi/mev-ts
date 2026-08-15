@@ -15,7 +15,6 @@ export const GROUP_STATUSES = [
 
 export type GroupStatus = (typeof GROUP_STATUSES)[number];
 
-/** The canonical one-line description of a single activation. */
 export function activationLine(report: Described): string {
   return `${report.verb} ${report.source} -> ${report.dest}`;
 }
