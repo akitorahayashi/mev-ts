@@ -161,7 +161,7 @@ test('renderTargetCompletionLine aligns summaries across target name widths', ()
     ],
   });
   // A long name must not push its summary past a short name's summary column.
-  const width = 'antigravity_ide'.length;
+  const width = 'long_target_name'.length;
   const shortLine = Bun.stripANSI(
     renderTargetCompletionLine(changed('git'), {
       isTTY: true,
@@ -169,7 +169,7 @@ test('renderTargetCompletionLine aligns summaries across target name widths', ()
     }),
   );
   const longLine = Bun.stripANSI(
-    renderTargetCompletionLine(changed('antigravity_ide'), {
+    renderTargetCompletionLine(changed('long_target_name'), {
       isTTY: true,
       nameWidth: width,
     }),

@@ -20,14 +20,13 @@ const AGENTS_DESTS = [
   home('.claude/CLAUDE.md'),
   home('.codex/AGENTS.md'),
   home('.config/zed/AGENTS.md'),
-  home('.gemini/GEMINI.md'),
 ];
 
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
 const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
 export const coderTarget = target('coder', {
-  description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
+  description: 'AI coding agents (Claude Code, Codex)',
   aliases: ['cdr'],
   role: 'coder',
   packages: { formulae: ['rtk'] },
@@ -56,15 +55,6 @@ export const coderTarget = target('coder', {
       env: { CODEX_NON_INTERACTIVE: 'true' },
       pathPrefix: [home('.local/bin')],
     }),
-    remoteInstaller({
-      label: 'install antigravity cli',
-      url: 'https://antigravity.google/cli/install.sh',
-      integrity: { acknowledgedUnverified: true },
-      interpreter: 'bash',
-      args: [],
-      creates: home('.local/bin/agy'),
-      pathPrefix: [home('.local/bin')],
-    }),
     runCommand({
       label: 'coder CLIs',
       steps: [
@@ -74,9 +64,6 @@ export const coderTarget = target('coder', {
         }),
         versionCheckStep('codex --version', {
           concat: [{ ref: 'home' }, '/.local/bin/codex'],
-        }),
-        versionCheckStep('agy --version', {
-          concat: [{ ref: 'home' }, '/.local/bin/agy'],
         }),
         versionCheckStep(
           'rtk --version',
@@ -104,14 +91,6 @@ export const coderTarget = target('coder', {
       'toml',
     ),
     link(asset('coder/codex/hooks.json'), home('.codex/hooks.json')),
-    link(
-      asset('coder/antigravity-cli/settings.json'),
-      home('.gemini/antigravity-cli/settings.json'),
-    ),
-    link(
-      asset('coder/antigravity-cli/statusline.sh'),
-      home('.gemini/antigravity-cli/statusline.sh'),
-    ),
     link(asset('coder/rtk/rewrite.sh'), mevPath('rtk/rewrite.sh')),
     link(
       asset('coder/hooks/claude/pre-tool-use.sh'),
