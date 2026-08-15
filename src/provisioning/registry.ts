@@ -1,6 +1,5 @@
 import { CommandLineError } from '../errors';
 import type { Target } from './target';
-import { antigravityIdeTarget } from './targets/antigravity-ide';
 import { bunTarget } from './targets/bun';
 import { caskTarget } from './targets/cask';
 import { coderTarget } from './targets/coder';
@@ -49,7 +48,6 @@ const targets: readonly Target[] = [
   dutiTarget,
   zedTarget,
   vscodeTarget,
-  antigravityIdeTarget,
   xcodeTarget,
 ];
 

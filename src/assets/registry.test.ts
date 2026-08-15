@@ -7,7 +7,6 @@ import { embeddedAssets } from './registry';
 // code under test. A dropped +x fails the positive checks; a newly executable
 // asset that skips this list fails the completeness check.
 const EXECUTABLE_KEYS = [
-  'coder/antigravity-cli/statusline.sh',
   'coder/claude/statusline.sh',
   'coder/hooks/claude/pre-tool-use.sh',
   'coder/hooks/codex/pre-tool-use.sh',
