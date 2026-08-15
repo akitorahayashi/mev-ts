@@ -8,8 +8,8 @@ export class InternalGitWorktreeAddCommand extends Command {
   args = Option.Proxy();
 
   async execute() {
-    return runInternalCommand(this, (run, write) =>
-      addWorktrees(run, this.args, write),
+    return runInternalCommand(this, (run, write, warn) =>
+      addWorktrees(run, this.args, write, warn),
     );
   }
 }

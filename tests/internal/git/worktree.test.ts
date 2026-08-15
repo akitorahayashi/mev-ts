@@ -8,6 +8,7 @@ import {
 import { addWorktrees } from '../../../src/internal/git/worktree/add';
 import { readInventory } from '../../../src/internal/git/worktree/inventory';
 import { moveWorktree } from '../../../src/internal/git/worktree/move';
+import { printWorktreePath } from '../../../src/internal/git/worktree/path';
 import { removeWorktrees } from '../../../src/internal/git/worktree/remove';
 import {
   type RecordedCall,
@@ -52,33 +53,47 @@ function refs(names: readonly string[]) {
   return { code: 0, stdout: `${names.join('\n')}\n`, stderr: '' };
 }
 
+const headArgs = ['rev-parse', '--abbrev-ref', 'origin/HEAD'];
+
+/**
+ * A repository with nothing ignored, which ends the carry step at its first
+ * probe. Carrying has its own tests; these fixtures only have to get past it.
+ */
+const noIgnored = { code: 0, stdout: '', stderr: '' };
+
+/** The `worktree add` argv a run issued, ignoring the probes around it. */
+function addCall(calls: readonly RecordedCall[]): string[] | undefined {
+  return calls
+    .map((call) => call.args)
+    .find((args) => args[0] === 'worktree' && args[1] === 'add');
+}
+
+/**
+ * A repository with no origin. Branching from HEAD probes for a stale base, and
+ * this is the answer that ends the probe without a second command.
+ */
+const noOrigin = { code: 128, stdout: '', stderr: 'fatal: ambiguous argument' };
+
 const sandboxTest = sandboxedTest('mev-worktree-');
 
 sandboxTest('creates a branch and its worktree', async (sandbox) => {
   const calls: RecordedCall[] = [];
   const run = sequenceRunner(
-    [inventoryOf(sandbox), refs(['refs/heads/main']), ok],
+    [inventoryOf(sandbox), refs(['refs/heads/main']), noOrigin, ok, noIgnored],
     calls,
   );
 
   await addWorktrees(run, ['feature/a']);
 
-  expect(calls).toEqual([
-    { command: 'git', args: listArgs, stdout: undefined, stderr: undefined },
-    { command: 'git', args: refArgs, stdout: undefined, stderr: undefined },
-    {
-      command: 'git',
-      args: [
-        'worktree',
-        'add',
-        '-b',
-        'feature/a',
-        join(sandbox, 'demo-feature-a'),
-      ],
-      stdout: 'inherit',
-      stderr: 'inherit',
-    },
+  expect(calls.map((call) => call.args)).toEqual([
+    listArgs,
+    refArgs,
+    headArgs,
+    ['worktree', 'add', '-b', 'feature/a', join(sandbox, 'demo-feature-a')],
+    ['-C', join(sandbox, 'demo'), 'status', '--porcelain', '--ignored', '-z'],
   ]);
+  // The creation itself streams; every probe around it is captured.
+  expect(calls[3]?.stdout).toBe('inherit');
 });
 
 sandboxTest('checks out a branch that already exists', async (sandbox) => {
@@ -88,13 +103,14 @@ sandboxTest('checks out a branch that already exists', async (sandbox) => {
       inventoryOf(sandbox),
       refs(['refs/heads/main', 'refs/heads/feature/a']),
       ok,
+      noIgnored,
     ],
     calls,
   );
 
   await addWorktrees(run, ['feature/a']);
 
-  expect(calls.map((call) => call.args).at(-1)).toEqual([
+  expect(addCall(calls)).toEqual([
     'worktree',
     'add',
     join(sandbox, 'demo-feature-a'),
@@ -109,6 +125,7 @@ sandboxTest('tracks a branch that exists only on a remote', async (sandbox) => {
       inventoryOf(sandbox),
       refs(['refs/heads/main', 'refs/remotes/origin/feature/a']),
       ok,
+      noIgnored,
     ],
     calls,
   );
@@ -117,7 +134,7 @@ sandboxTest('tracks a branch that exists only on a remote', async (sandbox) => {
 
   // Without --track, -b would branch from HEAD and the remote work would be
   // silently left behind.
-  expect(calls.map((call) => call.args).at(-1)).toEqual([
+  expect(addCall(calls)).toEqual([
     'worktree',
     'add',
     '--track',
@@ -134,14 +151,16 @@ sandboxTest('ignores the remote HEAD symref', async (sandbox) => {
     [
       inventoryOf(sandbox),
       refs(['refs/heads/main', 'refs/remotes/origin/HEAD']),
+      noOrigin,
       ok,
+      noIgnored,
     ],
     calls,
   );
 
   await addWorktrees(run, ['HEAD-ish']);
 
-  expect(calls.map((call) => call.args).at(-1)?.[2]).toBe('-b');
+  expect(addCall(calls)?.[2]).toBe('-b');
 });
 
 sandboxTest('refuses a branch carried by two remotes', async (sandbox) => {
@@ -170,6 +189,7 @@ sandboxTest('rolls back the worktrees it already created', async (sandbox) => {
     [
       inventoryOf(sandbox),
       refs(['refs/heads/main']),
+      noOrigin,
       ok,
       ok,
       { code: 1, stdout: '', stderr: 'boom' },
@@ -185,7 +205,7 @@ sandboxTest('rolls back the worktrees it already created', async (sandbox) => {
     addWorktrees(run, ['feature/a', 'feature/b', 'feature/c']),
   ).rejects.toBeInstanceOf(ProvisioningError);
 
-  expect(calls.map((call) => call.args).slice(5)).toEqual([
+  expect(calls.map((call) => call.args).slice(6)).toEqual([
     ['worktree', 'remove', join(sandbox, 'demo-feature-b')],
     ['branch', '-D', '--', 'feature/b'],
     ['worktree', 'remove', join(sandbox, 'demo-feature-a')],
@@ -231,6 +251,161 @@ sandboxTest('refuses branches colliding only by case', async (sandbox) => {
   await expect(
     addWorktrees(run, ['feature/A', 'feature/a']),
   ).rejects.toBeInstanceOf(CommandLineError);
+});
+
+sandboxTest(
+  'warns when a new branch starts behind the default',
+  async (sandbox) => {
+    const lines: string[] = [];
+    const warnings: string[] = [];
+    const run = sequenceRunner(
+      [
+        inventoryOf(sandbox),
+        refs(['refs/heads/main']),
+        { code: 0, stdout: 'origin/main\n', stderr: '' },
+        { code: 0, stdout: '3\n', stderr: '' },
+        ok,
+        noIgnored,
+      ],
+      [],
+    );
+
+    await addWorktrees(
+      run,
+      ['feature/a'],
+      (line) => lines.push(line),
+      (line) => warnings.push(line),
+    );
+
+    expect(warnings.join('')).toContain(
+      'HEAD is 3 commit(s) behind origin/main',
+    );
+    // The warning is an aside, not part of the command's own progress report.
+    expect(lines.join('')).not.toContain('behind');
+  },
+);
+
+sandboxTest(
+  'says nothing when the default branch is not ahead',
+  async (sandbox) => {
+    const warnings: string[] = [];
+    const run = sequenceRunner(
+      [
+        inventoryOf(sandbox),
+        refs(['refs/heads/main']),
+        { code: 0, stdout: 'origin/main\n', stderr: '' },
+        { code: 0, stdout: '0\n', stderr: '' },
+        ok,
+        noIgnored,
+      ],
+      [],
+    );
+
+    await addWorktrees(
+      run,
+      ['feature/a'],
+      () => {},
+      (line) => warnings.push(line),
+    );
+
+    expect(warnings).toEqual([]);
+  },
+);
+
+sandboxTest(
+  'checking out an existing branch probes nothing',
+  async (sandbox) => {
+    const calls: RecordedCall[] = [];
+    const run = sequenceRunner(
+      [
+        inventoryOf(sandbox),
+        refs(['refs/heads/main', 'refs/heads/feature/a']),
+        ok,
+        noIgnored,
+      ],
+      calls,
+    );
+
+    await addWorktrees(run, ['feature/a']);
+
+    // The branch already exists, so HEAD is not its base and staleness cannot
+    // apply — the probe must cost nothing here.
+    expect(calls.map((call) => call.args)).not.toContainEqual(headArgs);
+  },
+);
+
+sandboxTest('tracking a remote branch probes nothing', async (sandbox) => {
+  const calls: RecordedCall[] = [];
+  const run = sequenceRunner(
+    [
+      inventoryOf(sandbox),
+      refs(['refs/heads/main', 'refs/remotes/origin/feature/a']),
+      ok,
+      noIgnored,
+    ],
+    calls,
+  );
+
+  await addWorktrees(run, ['feature/a']);
+
+  expect(calls.map((call) => call.args)).not.toContainEqual(headArgs);
+});
+
+sandboxTest('a repository with no origin draws no warning', async (sandbox) => {
+  const warnings: string[] = [];
+  const run = sequenceRunner(
+    [inventoryOf(sandbox), refs(['refs/heads/main']), noOrigin, ok, noIgnored],
+    [],
+  );
+
+  await addWorktrees(
+    run,
+    ['feature/a'],
+    () => {},
+    (line) => warnings.push(line),
+  );
+
+  expect(warnings).toEqual([]);
+});
+
+sandboxTest(
+  'path answers the main worktree when given no token',
+  async (sandbox) => {
+    const calls: RecordedCall[] = [];
+    const lines: string[] = [];
+    const run = sequenceRunner([inventoryOf(sandbox)], calls);
+
+    await printWorktreePath(run, [], (line) => lines.push(line));
+
+    expect(calls.map((call) => call.args)).toEqual([listArgs]);
+    // The whole output is the path: a shell substitution captures it verbatim.
+    expect(lines.join('')).toBe(`${join(sandbox, 'demo')}\n`);
+  },
+);
+
+sandboxTest(
+  'path resolves a token the way move and remove do',
+  async (sandbox) => {
+    const lines: string[] = [];
+    const run = sequenceRunner(
+      [inventoryOf(sandbox, [['demo-feature-a', 'feature/a']])],
+      [],
+    );
+
+    await printWorktreePath(run, ['feature/a'], (line) => lines.push(line));
+
+    expect(lines.join('')).toBe(`${join(sandbox, 'demo-feature-a')}\n`);
+  },
+);
+
+test('path rejects a second token before running any command', async () => {
+  const calls: RecordedCall[] = [];
+  const run = sequenceRunner([], calls);
+
+  await expect(printWorktreePath(run, ['a', 'b'])).rejects.toThrow(
+    'path takes at most one argument',
+  );
+  expect(calls).toEqual([]);
 });
 
 test('rejects an invalid branch name before running any command', async () => {

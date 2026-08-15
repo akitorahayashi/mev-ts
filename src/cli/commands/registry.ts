@@ -15,7 +15,9 @@ import { InternalGitDeleteSubmoduleCommand } from './internal/git-delete-submodu
 import { InternalGitWorktreeAddCommand } from './internal/git-worktree-add';
 import { InternalGitWorktreeListCommand } from './internal/git-worktree-list';
 import { InternalGitWorktreeMoveCommand } from './internal/git-worktree-move';
+import { InternalGitWorktreePathCommand } from './internal/git-worktree-path';
 import { InternalGitWorktreeRemoveCommand } from './internal/git-worktree-remove';
+import { InternalGitWorktreeTidyCommand } from './internal/git-worktree-tidy';
 import { ListCommand } from './list';
 import { MakeCommand } from './make';
 import { SwitchCommand } from './switch';
@@ -51,6 +53,8 @@ export const commands: readonly CommandClass[] = [
   InternalGitWorktreeListCommand,
   InternalGitWorktreeMoveCommand,
   InternalGitWorktreeRemoveCommand,
+  InternalGitWorktreePathCommand,
+  InternalGitWorktreeTidyCommand,
   InternalGhLabelsDeployCommand,
   InternalGhLabelsResetCommand,
 ];

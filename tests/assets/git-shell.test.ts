@@ -140,3 +140,86 @@ sandboxTest(
     ).toBe('*\n');
   },
 );
+
+sandboxTest(
+  'wcd moves the shell into the resolved worktree',
+  async (sandbox) => {
+    const bin = join(sandbox, 'bin');
+    const target = join(sandbox, 'demo-feature-a');
+    await mkdir(bin);
+    await mkdir(target);
+    // `w-p` is the only subcommand wcd calls, and its whole contract is one path
+    // on stdout.
+    await executable(
+      join(bin, 'git'),
+      `#!/bin/sh\nprintf '%s\\n' "${target}"\n`,
+    );
+
+    const process = Bun.spawn(
+      [
+        '/bin/zsh',
+        '-f',
+        '-c',
+        'source "$MEV_TEST_GIT_ASSET"\nwcd feature-a\nprint -r -- "$PWD"',
+      ],
+      {
+        env: {
+          ...Bun.env,
+          MEV_TEST_GIT_ASSET: gitShellAsset,
+          PATH: `${bin}:/usr/bin:/bin`,
+        },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
+    );
+
+    const stdout = await new Response(process.stdout).text();
+    expect(await process.exited).toBe(0);
+    // zsh's cd keeps the logical path, so $PWD is what w-p printed rather than
+    // its resolution through the /var symlink macOS puts in front of $TMPDIR.
+    expect(stdout.trim()).toBe(target);
+  },
+);
+
+sandboxTest(
+  'wcd surfaces a failure that would otherwise be swallowed by the substitution',
+  async (sandbox) => {
+    const bin = join(sandbox, 'bin');
+    await mkdir(bin);
+    // Clipanion prints a usage error on stdout, which command substitution
+    // captures instead of showing. Only a real shell can express that, which is
+    // why this case cannot be covered by a fake CommandRunner.
+    await executable(
+      join(bin, 'git'),
+      "#!/bin/sh\nprintf '%s\\n' 'No worktree matches: typo.'\nexit 1\n",
+    );
+
+    const process = Bun.spawn(
+      [
+        '/bin/zsh',
+        '-f',
+        '-c',
+        'source "$MEV_TEST_GIT_ASSET"\ncd "$MEV_TEST_HOME"\nwcd typo\nprint -r -- "exit=$?"\nprint -r -- "$PWD"',
+      ],
+      {
+        env: {
+          ...Bun.env,
+          MEV_TEST_GIT_ASSET: gitShellAsset,
+          MEV_TEST_HOME: sandbox,
+          PATH: `${bin}:/usr/bin:/bin`,
+        },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
+    );
+
+    const stdout = await new Response(process.stdout).text();
+    const stderr = await new Response(process.stderr).text();
+    await process.exited;
+
+    expect(stdout).toContain('exit=1');
+    // The shell stayed where it was rather than following a failed lookup.
+    expect(stdout.trim().split('\n').at(-1)).toBe(sandbox);
+    expect(stderr).toContain('No worktree matches: typo.');
+  },
+);

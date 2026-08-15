@@ -56,6 +56,8 @@
     w-ls = !mev internal git worktree list
     w-mv = !mev internal git worktree move
     w-rm = !mev internal git worktree remove
+    w-p = !mev internal git worktree path
+    w-td = !mev internal git worktree tidy
 
     ps = push
     ps-u-o = push -u origin
