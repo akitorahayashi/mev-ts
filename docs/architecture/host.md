@@ -1,5 +1,27 @@
-# Context (host/)
+# Host Boundaries
 
-`Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }` — is assembled by `createContext()` and injected through every provisioning call. `basePath` is the inherited `PATH`, read once in `createContext`, so command steps and pipx resolve tools through the injected value rather than reading `process.env` themselves. `tmpRoot` is the root for short-lived scratch directories (e.g. the remote-installer workspace), defaulting to the system temp directory; tests inject a sandbox path instead. `resolveHome()` performs the only other `process.env` read (HOME), and `bunCommandRunner` layers an explicit `env` over the ambient `Bun.env` at spawn. Tests supply a hand-built `Context` rather than calling `createContext`, eliminating the need to mock modules or spawn real processes.
+## Context
 
-`CommandRunner.run(command, args, options?)` accepts `CommandOptions { env?, cwd?, stdout?, stderr? }`. `env` is layered over the inherited environment via `{ ...Bun.env, ...options.env }`; `stdout` and `stderr` each select `'pipe'` (the default, captured into the result) or `'inherit'`. A spawn failure — a missing or otherwise unspawnable executable — resolves as `code 127` with the reason in `stderr` rather than rejecting, so every call site handles it as an ordinary non-zero exit.
+| Field | Contract |
+|---|---|
+| `home` | Root used to resolve symbolic host paths. |
+| `commands` | Injected `CommandRunner` for subprocess work. |
+| `assets` | Embedded `AssetSource`. |
+| `basePath` | PATH captured when the default context is created. |
+| `tmpRoot` | Scratch root for temporary work; tests replace it with a sandbox. |
+
+Provisioning receives `Context` through dependency injection. Tests build a
+hand-written context, so pure logic and orchestration do not need module mocks or
+real process launches.
+
+## CommandRunner
+
+| Option | Contract |
+|---|---|
+| `env` | Overlays the inherited environment. |
+| `cwd` | Sets the subprocess working directory. |
+| `stdout`, `stderr` | `pipe` captures output; `inherit` forwards it. |
+| Spawn failure | Resolves as exit code 127 with the failure in stderr. |
+
+Callers handle missing or unspawnable executables as ordinary non-zero results;
+the runner does not turn them into an untyped rejection.

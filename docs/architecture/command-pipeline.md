@@ -1,14 +1,34 @@
 # Command Pipeline
 
-`runCommand` is the activation kind for operations that require running host commands. Its key concepts:
+`runCommand` represents host-command work as declarative data. The declaration
+is both the execution input and part of the target signature.
 
-- `reads` — asset keys whose trimmed content is bound into the scope before any step runs (e.g. `.ruby-version`). A read is a plain key rather than a callable form, so the declared intent hashes into the target signature; validation expressed as a function would be dropped from the hash and let a stale target pass `sync`.
-- Scope — the named values a step resolves against at apply time: the reserved host facts `home` and `basePath` (the inherited `PATH`), the assets declared in `reads`, and the stdout of any prior `capture`. `ref(name)` throws `ProvisioningError` on a missing name so undefined arguments fail loudly.
-- `steps` — ordered declarative data, resolved against the scope at apply time. Each step can declare:
-  - `argv` — argument tokens, each a literal string, a `ref` (one scope value), a `splitRef` (a scope value split on whitespace), or a `concat` of tokens
-  - `env` — environment overrides layered over the inherited environment; each value is a literal, a `ref`, a `concat`, or a `pathList` joined with `:`
-  - `skipIf` — idempotency guard built from the same tokens: `{ pathExists }`, `{ commandSucceeds }`, or `{ commandOutputMatches: { argv, exact } }` / `{ commandOutputMatches: { argv, contains } }`, which compares the guard command's trimmed stdout against a resolved value. Guards run with the step's `env` so toolchain shims are on PATH. The output comparison is declarative data so it hashes into the target signature; a `sh -c '… | grep …'` pipeline would hide it inside an opaque shell argument.
-  - `capture` — register `stdout.trim()` into scope for later steps
-  - `changedWhen` — `'always' | 'never' | { outputContains } | { outputNotContains }` — classify a successful run. `outputContains` and `outputNotContains` both match against combined stdout+stderr.
+## Scope
 
-A failed step halts the pipeline. Skipped steps report `unchanged`. The overall status is `failed` if any step failed, `changed` if any step changed, otherwise `unchanged`.
+| Source | Values |
+|---|---|
+| Reserved facts | `home` and `basePath` (the captured inherited `PATH`) |
+| `reads` | Trimmed content from declared embedded assets |
+| Prior captures | Trimmed stdout registered by an earlier step |
+
+An unresolved `ref` is a provisioning error; undefined arguments never become a
+silent empty value.
+
+## Step vocabulary
+
+| Field | Contract |
+|---|---|
+| `argv` | Literal tokens, references, whitespace-split references, or concatenations |
+| `env` | Inherited environment with literal, reference, concatenated, or path-list values overlaid |
+| `skipIf` | Declarative path, command-success, or output-match guard |
+| `capture` | Stores trimmed stdout for later steps |
+| `changedWhen` | Classifies a successful run as always, never, output-contains, or output-not-contains |
+
+Guards use the step environment. Guard and step declarations are hashed as data,
+so changing a command's inputs or idempotency rule invalidates semantic sync.
+
+## Outcome
+
+Steps run in declaration order. A failed step stops the pipeline; skipped steps
+are unchanged. The pipeline is `failed` if any step fails, `changed` if any step
+changes state, and otherwise `unchanged`.

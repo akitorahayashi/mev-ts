@@ -1,42 +1,42 @@
 # Architecture
 
-## Overview
+`mev` is Local IaC for macOS. Repository configuration is the source of truth;
+the compiled binary carries the configuration assets it deploys.
 
-`mev` is Local IaC for macOS, compiled to a standalone binary via `bun build --compile`. The repository config is the source of truth for personal machine setup, and the binary embeds configuration assets (dotfiles, YAML configs) so no install-time file extraction is needed.
+## Provisioning phases
 
-The execution model protects target-declared mutable host state, then runs three sequential phases: deploy role assets to the deploy store → install required Homebrew packages → activate each asset (symlink, defaults write, or host-command pipeline).
+| Phase | Responsibility |
+|---|---|
+| Preserve | Protect mutable host state before a role can replace it. |
+| Deploy | Reconcile selected role assets in the deploy store. |
+| Install | Resolve required Homebrew packages. |
+| Activate | Apply each declared activation in target order. |
 
-## Layer Map
+## Layer map
 
-```
-src/
-  cli/          argv parsing, exit code mapping, terminal rendering (clipanion)
-  app/          use-case orchestration (identity, config selection)
-  provisioning/ target DSL, activation engines, 3-phase orchestrator
-  agent-plugin/ Claude Code/Codex marketplace and installed-plugin inventory, install/enable protocols
-  brew/         Homebrew install
-  coder/        Coder catalogs, manifests, and renderers
-  config-selection/ shared selection manifest parser/resolver
-  defaults/     macOS defaults manifest and protocol helpers
-  host/         CommandRunner, Context, HostPath, plus shared primitives for subprocess (command-run), download, managed-link, deploy-read, parsing (parse), YAML (yaml), JSON (json), JSONC (jsonc), declared-keys merging (declared-merge), bounded concurrency (task-pool), and cleanup-error composition
-  identity/     Git identity scopes and on-disk store
-  assets/       embedded config files and asset registry
-  git/          Git config and command helpers
-  internal/     document conversion plus gh and hidden git commands
-  zed/          Zed override catalog, manifest, and settings renderer
-  errors.ts     typed error hierarchy
-```
+| Domain | Responsibility |
+|---|---|
+| `cli/` | Argument parsing, command routing, exit codes, and terminal rendering |
+| `app/` | Use-case orchestration for identity and config selection |
+| `provisioning/` | Targets, activations, signatures, and the provisioning phases |
+| `agent-plugin/` | Claude Code and Codex inventories and marketplace protocols |
+| `coder/`, `zed/`, `config-selection/` | Catalogs, manifests, and selected generated configuration |
+| `brew/`, `defaults/`, `duti/`, `editor/`, `pipx/`, `pnpm/` | External tool protocols |
+| `host/` | Context, subprocesses, files, parsing, transactions, and shared host boundaries |
+| `assets/`, `identity/`, `git/`, `internal/` | Embedded assets, Git identity, Git helpers, and hidden document/Git commands |
 
 ## Documents
 
-- [cli.md](cli.md) — command registration, dispatch, and the error/exit-code model
-- [provisioning.md](provisioning.md) — the 3-phase engine and the preservation boundary
-- [targets.md](targets.md) — target shape, registry-driven selection, and semantic sync
-- [activation.md](activation.md) — the activation DSL, the kind table, the reconcile envelope, shared manifest vocabulary, selection manifests, and the capability module boundary
-- [agent-plugins.md](agent-plugins.md) — the agentPlugins reconciler and the declaredKeys ownership inversion
-- [command-pipeline.md](command-pipeline.md) — the command activation kind's scope and step vocabulary
-- [release.md](release.md) — release binary reconciliation and reviewed remote installers
-- [host.md](host.md) — Context assembly and CommandRunner's contract
-- [assets.md](assets.md) — asset embedding, codegen, and the deploy store layout
-- [identity.md](identity.md) — the Git identity domain
-- [document.md](document.md) — Markdown/PDF conversion mechanics
+- [cli.md](cli.md) — command routing and error/exit contracts
+- [provisioning.md](provisioning.md) — preservation and the provisioning phases
+- [targets.md](targets.md) — target shape, signatures, and semantic sync
+- [activation.md](activation.md) — the activation DSL and shared execution boundaries
+- [agent-plugins.md](agent-plugins.md) — plugin ownership and reconciliation
+- [app-owned-config.md](app-owned-config.md) — declared key ownership and deploy protection
+- [command-pipeline.md](command-pipeline.md) — the command activation vocabulary
+- [release.md](release.md) — release binaries and remote installer safety
+- [worktrees.md](worktrees.md) — worktree layout and cleanup safety
+- [host.md](host.md) — Context and CommandRunner contracts
+- [assets.md](assets.md) — asset embedding and the deploy store
+- [identity.md](identity.md) — Git identity ownership
+- [document.md](document.md) — Markdown/PDF conversion boundaries

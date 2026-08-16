@@ -1,11 +1,29 @@
-# 3-Phase Provisioning (provisioning/run.ts)
+# Provisioning Phases
 
-`runMake()` drives three sequential phases per make request:
+## Preservation boundary
 
-Before invalidating applied signatures or entering the phases, each selected target's mutable host state is protected from what its role replacement could otherwise destroy, in two layers. First the paths its activation kinds declare preserved are materialized into regular files — the `declaredKeys` kind names its own destination, so a merged config carries its protection to every call site instead of depending on a per-target declaration. Then the target's own `preserveBeforeDeploy` operation runs, for what only the target knows: the Git target uses it to move legacy identity keys out of its managed XDG config. A preservation failure aborts before provisioning-managed state changes.
+Mutable host state is protected before applied markers are invalidated or roles
+are replaced:
 
-1. Deploy — `deployRole()` stages every embedded asset for the selected roles under a sibling directory. If the staged contents and executable attributes match the present role, the role remains in place; otherwise the old role is moved aside and the staged role replaces it. The final rename sequence provides best-effort rollback for in-process failures; it is not crash-safe.
-2. Install — `installPackages()` collects formulae, taps, and casks from all selected targets, deduped across targets. `loadInventory()` (brew/inventory.ts) enumerates installed state once per declared kind (`brew tap`, `brew list --formula -1`, `brew list --cask -1`), so presence checks are in-memory set lookups and only missing tokens run `brew bundle install --no-upgrade`. An enumeration failure fails every token of that kind. Its hooks expose the token entering the install step so the CLI can render a live progress label.
-3. Activate — `runActivation()` applies activations in declaration order within each target group. A target group is blocked when its role deploy failed or when one of its declared Homebrew requirements failed to install. Multi-item activation kinds may parallelize their own independent items internally when the kind declares that safe.
+| Layer | Owner | Contract |
+|---|---|---|
+| Activation-preserved paths | Activation kind | Protects state whose ownership is implied by the activation, such as app-owned documents. |
+| Target hook | Target | Protects state known only to that target, such as legacy Git identity keys. |
+| Failure boundary | Provisioning | A preservation failure stops the run before managed state changes. |
 
-Each activation also receives the run's `ActivationRunOptions`. Its `upgrade` flag (the `--upgrade`/`-u` CLI option on `make`, `create`, and `sync`) is execution intent, not desired state: it makes the `pipx`, `pnpm`, `release`, and `agentPlugins` kinds refresh installed latest-assumed items, never contributes to target signatures or sync staleness, and leaves version-pinned entries untouched.
+## Phases
+
+| Phase | Order and result | Blocking condition |
+|---|---|---|
+| Deploy | Reconcile each selected role in the deploy store. | A role failure blocks groups using that role. |
+| Install | Resolve the deduplicated Homebrew requirements of the selection. | A failed required package blocks its target group. |
+| Activate | Apply activations in declaration order within each target group. | A blocked group produces blocked activation reports. |
+
+Activation kinds may parallelize independent work only when their own contract
+declares that safe. The phase boundaries preserve Homebrew and activation order.
+
+## Upgrade intent
+
+`--upgrade` is execution intent, not desired state. It refreshes the kinds that
+support latest-assumed values, never changes target signatures, and does not widen
+the target selection made by `sync`.
