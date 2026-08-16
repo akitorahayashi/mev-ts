@@ -1,19 +1,84 @@
-# Agent Plugins and App-Owned Config
+# Agent Plugins
 
-## Agent Plugin Reconciliation
+`agentPlugins` reconciles the plugin state declared for Claude Code and Codex.
+The catalog format is owned by [docs/config.md](../config.md); this document
+defines the lifecycle and ownership contract.
 
-A declared plugin's desired state is installed *and* enabled. An installed-but-disabled plugin contributes nothing to its client, so presence alone never satisfies a declaration: a name under a marketplace's `plugins` means the plugin is active, and turning one off is spelled by moving its name into that entry's `uninstall` list rather than by disabling it interactively. Enablement is read from the same client inventory as presence — both clients report it — and converged through each client's own verb: Claude Code's `plugin enable --scope user`, and for Codex `plugin add`, which has no enable verb of its own but sets `plugins.<id>.enabled` when re-adding an installed plugin. Where upgrade and enable are the same verb, the capability table says so (`upgradeEnables`) and an upgrade run skips the redundant reissue, so the activation reads the overlap as a declared client fact rather than learning each CLI's verbs. A run only ever issues an enable for a plugin the pre-run inventory reported disabled — Claude Code's verb exits non-zero on an already-enabled plugin — and the outcome is settled by the post-run inventory rather than by the exit status.
+## Desired state
 
-`agentPlugins` inventories Claude Code and Codex once per client. A marketplace's declared source is `git@<ssh-host>:<owner>/<name>.git` at `main` — the catalog owns the repository, `MARKETPLACE_REF` the ref, and the per-machine `~/.mev/ssh-host` store the transport — and registrations converge on that declaration. Three things earn the network-bound marketplace phase: a missing plugin, which the phase makes resolvable; upgrade mode, which re-resolves against the refreshed snapshot; and a registration that no longer matches the declared url and ref. Enabling an already installed plugin is a local operation and earns none of them, so a converged marketplace whose only gap is a disabled plugin is enabled without a fetch. The registration listing is itself a local read, so a routine converged run performs no mutation and no network fetch at all. Ownership is decided by the remote's `owner/name`: a same-named marketplace holding a different repository, or any form mev does not register (https, a non-git source), is foreign and fails without removing or replacing user state. The same repository under a stale SSH alias or without the ref pin is drift within mev's ownership and converges by re-registration, reported as changed. How that convergence is spelled is each client's own protocol: Claude Code's `marketplace add` rewrites an existing registration's source and ref in place and keeps its installed plugins, while Codex refuses a name already held from another source and so is removed first — a removal that uninstalls the plugins installed from it. A convergence that dropped them says so, and the activation then reinstalls and verifies the declared plugins in the same run rather than standing on a pre-run inventory the operation invalidated; plugins from that marketplace which the catalog does not declare do not survive it. A final client inventory settles every declared plugin the run acted on: it must be present and enabled to stand, so an install the client left disabled is a verification failure rather than a silent inertness.
+| Declaration | Required state |
+|---|---|
+| `marketplaces[].plugins` | Installed and enabled. |
+| `marketplaces[].uninstall` | The named plugin is absent. |
+| `removed_marketplaces` | The owned marketplace and its namespace are absent. |
+| Omitted removal list | No removal is implied. |
 
-Removal is declarative and strictly explicit: a catalog marketplace may carry an `uninstall` list, and the catalog root a `removed_marketplaces` list. Both are optional and absent by default, since an omitted list means nothing to remove. A name in `uninstall` is uninstalled as `<name>@<marketplace>`; a `removed_marketplaces` entry first verifies that the registered marketplace's remote names the tombstone's repository — a same-named marketplace registered from any other repository (including Codex built-ins, which report no source) refuses removal and leaves its whole namespace untouched — then uninstalls every installed plugin in that marketplace's id namespace, re-inventories the client to confirm they are gone, and only then deregisters the marketplace. The plugin-before-marketplace order is fixed with an inline confirmation because a zero exit status is not proof of removal, and deregistering while a plugin survived would orphan it — so an unconfirmed removal blocks instead of relying on either client's removal cascade. An active marketplace list may be empty, which is what removing the last declared marketplace leaves behind. Nothing is ever derived from inventory diffs against the declared plugins, so manual installs in marketplaces outside the catalog are never touched; inside a managed Codex marketplace they survive these declarative removal lists but not a source-drift re-registration, whose removal cascade takes them (see the reconciliation paragraph above). Uninstalls are local-only — they run before and independently of the network-bound marketplace phase and ignore the upgrade flag — and the final client inventory verifies each removed id is absent. mev owns only the Claude user scope: removals pin `--scope user` and the Claude inventory reads only user-scope entries, so a same-id plugin in another scope neither satisfies an install nor fails an uninstall verification.
+Marketplaces identify GitHub repositories and use the fixed `main` ref through
+the per-machine SSH host. A plugin ID includes its marketplace name.
 
-In upgrade mode every declared marketplace is refreshed from `main` first, then each installed declared plugin is upgraded: Claude Code through `plugin update`, Codex by re-adding the plugin, which re-resolves its version from the refreshed snapshot because the Codex CLI has no plugin-level update verb. The refresh of an existing marketplace is a probe and produces no report entry — only marketplace additions, re-registrations, and failures do — so a run that moved nothing reports unchanged; change surfaces through the per-plugin version diffs. The final client inventory classifies an upgrade as changed or unchanged by that diff; when a client reports no version, the upgrade stays classified as changed because a no-op cannot be proven. Only a plugin whose sole action was the upgrade can be a no-op — one that was also installed or enabled changed the host whatever its version says. Upgrade and enablement are independent axes, so an upgraded plugin that was disabled is enabled in the same run. An unreachable marketplace fails its installed plugins as `upgrade blocked`, or as `enable blocked` when a disabled plugin never reached the enable the run would have issued, instead of reporting them unchanged.
+## Ownership boundary
 
-## App-Owned Config Ownership
+| Host state | Treatment |
+|---|---|
+| Registration from the declared repository | Reconciled to the declared source and ref. |
+| Explicitly declared plugin | Installed, enabled, and verified. |
+| Explicit uninstall declaration | Uninstalled and verified absent. |
+| Explicit marketplace removal | Removed only after the registered source matches the tombstone. |
+| Same-named foreign, non-Git, or built-in marketplace | Refused; user state is not replaced or removed. |
+| Unlisted plugin | Preserved unless a client-required namespace replacement removes it as a side effect. |
 
-`declaredKeys` inverts ownership relative to the linked assets: the destination is a mutable file its application rewrites at runtime, so mev enforces only the keys the embedded asset declares and the application keeps the rest. `~/.codex/config.toml` holds codex's plugin and marketplace registrations and app-managed MCP servers; `~/.claude/settings.json` holds Claude Code's `enabledPlugins` alongside every setting toggled interactively; a VS Code-family `settings.json` is rewritten, and its values normalized, whenever a setting is changed through the editor's UI. A symlink into the deploy store would route those writes into the deployed role (permanent drift) while every deploy would wipe them — which is how declared Claude Code plugins came to be installed but disabled, their enablement erased by each deploy while a presence-only reconciler reported them converged.
+Claude ownership is limited to the user scope. A same-ID plugin in another scope
+does not satisfy a declaration or fail a user-scope removal.
 
-The declared document's format is stated by the activation rather than inferred from the asset's extension: `toml`, `json`, or `jsonc` — the last because VS Code-family settings files are JSON with Comments, where comments and trailing commas are ordinary valid user state that a strict parser would fail on. Declared mappings merge per key with declared values winning, declared scalars and arrays replace, and host-only keys pass through untouched. The unchanged check compares parsed values rather than bytes, so an application reserializing the file with different key order or formatting never re-triggers a write, and a key that would reassign an object's prototype chain anywhere in the declared document is rejected as malformed input. A jsonc write edits the host text in place, assigning only the paths where a declared value wins, so the host's comments and formatting survive; the whole-document formats serialize the merged result. `keybindings.json` stays a plain link: it is a top-level array with no per-key merge, and mev owns it outright.
+## Lifecycle
 
-On machines provisioned before a destination became merged, the path is still a symlink into the deploy store. The kind therefore declares its destination as preserved, and `runMake` materializes every preserved path into a regular file ahead of the deploy phase; without that, the deploy would reset the role file — and with it the application's state — before the activation ever read it. Deriving that set from the activations rather than from a per-target hook is what makes a new merged destination carry its own protection: the per-target `preserveBeforeDeploy` hook remains for what only a target knows, such as the Git target's legacy identity keys. A pre-existing symlink is materialized even when the values already match, because the symlink itself is the hazard.
+| Stage | Contract |
+|---|---|
+| Inventory | Read each participating client's plugin state locally. |
+| Explicit removal | Remove declared plugins before marketplace work. |
+| Marketplace | Add, refresh, or re-register only when a plugin is missing, upgrade mode is active, or the owned source has drifted. |
+| Enablement | Enable an installed-but-disabled declaration locally; it does not fetch the marketplace. |
+| Verification | Declared plugins must be present and enabled; removed plugins must be absent. |
+
+Source identity is the repository `owner/name`; an SSH alias or missing ref is
+transport drift within mev's ownership. A different repository is foreign.
+
+## Removal safety
+
+1. Verify that the registered marketplace belongs to the removal declaration.
+2. Uninstall every plugin covered by that marketplace removal.
+3. Re-inventory and require those plugins to be absent.
+4. Deregister the marketplace only after verification succeeds.
+
+A successful process exit is not removal proof. A survivor or unavailable
+verification blocks deregistration. An already absent registration can still have
+orphaned plugins in its namespace, which the tombstone removes.
+
+## Upgrade
+
+Upgrade is execution intent, not desired state or signature input. It refreshes
+declared marketplaces and re-resolves installed declared plugins. Enablement is
+independent, so an upgraded disabled plugin is enabled in the same run.
+
+The post-run inventory settles the outcome. A pure upgrade can be unchanged when
+both versions match; a missing version cannot prove a no-op and remains changed.
+Installation, enablement, or re-registration is always a host change.
+
+## Client constraints
+
+Capability adapters absorb command vocabulary. Only behavioral differences that
+affect reconciliation remain here:
+
+| Client | Constraint |
+|---|---|
+| Claude Code | Reports the marketplace ref; same-repository source drift can be corrected in place; upgrading does not enable a disabled plugin. |
+| Codex | Does not report the marketplace ref; replacing a drifted registration can remove its namespace, so declared plugins are reinstalled; re-adding also enables. |
+
+## Sources of truth
+
+| Responsibility | Authority |
+|---|---|
+| Catalog schema | `src/agent-plugin/catalog.ts` |
+| Client protocols | `src/agent-plugin/claude.ts`, `src/agent-plugin/codex.ts`, `src/agent-plugin/client.ts` |
+| Reconciliation | `src/provisioning/activation/agent-plugins.ts` |
+| Boundary tests | `tests/provisioning/agent-plugins.test.ts` |

@@ -1,30 +1,50 @@
 # Testing Guide
 
-Tests assert externally observable behavior at the boundary that owns it, split into two suites by execution boundary.
+Tests assert the externally observable contract at the boundary that owns it.
 
-## Unit Tests (src/)
+## Test layers
 
-Colocated `*.test.ts` files next to source. Verify pure transformations, data contracts, and presentation rendering. No filesystem, process, or network access. Run with `bun run test:unit`.
+| Layer | Location | Covers | Prohibitions |
+|---|---|---|---|
+| Unit | Colocated `src/**/*.test.ts` | Pure transformations, data contracts, and rendering | Filesystem, process, and network access |
+| Integration | `tests/**/*.test.ts` | Filesystem, CLI routing, subprocess, and network contracts | Real HTTP requests |
 
-## Integration Tests (tests/)
+Run `bun run test:unit`, `bun run test:integration`, or `bun run test`. Each
+pre-hook regenerates the embedded asset registry.
 
-Files under `tests/`. Verify filesystem, CLI routing, subprocess execution, or network contracts — including tests that use fakes (e.g. a fake `CommandRunner`) but assert on CLI arguments, process sequence, exit codes, or side-effects.
+## Fixtures and boundaries
 
-## Commands
+| Concern | Fixture or rule |
+|---|---|
+| Temporary files | `withTemporaryDirectory` and `sandboxedTest` create and clean per-test sandboxes. |
+| Command execution | `recordingContext`, `respondByCommand`, `sequenceRunner`, and `presetRunner` provide injected responders. |
+| CLI streams | `captureStreams` and `fakeTtyStream` drive output and progress rendering. |
+| Scratch paths | Inject `Context.tmpRoot`; never use the real temporary root. |
+| Host primitives | Atomic and symlink boundaries have direct integration tests under `tests/host/`. |
+| Cleanup | Restore environment variables, process flags, spies, and streams after each test. |
 
-`bun run test` / `bun run test:unit` / `bun run test:integration`. A pre-hook regenerates the embedded asset registry before each run; `src/assets/registry.generated.ts` is gitignored.
+## Real process carve-outs
 
-## Rules
+Real external processes are allowed only when the process or its output format
+is the boundary under test:
 
-- New tests: pure logic goes under `src/`; real I/O or full orchestration goes under `tests/`.
-- Integration tests that write to disk use `tests/fixtures/temporary-directory.ts`: `withTemporaryDirectory` allocates one directory per test under the system temporary root and removes only what it created, and `sandboxedTest(prefix)` is the `test` variant that passes that directory to the body.
-- Never make real HTTP requests. Never call real external binaries, with four carve-outs, and no others: a test whose subject *is* a script needs that script's interpreter (`tests/assets/git-shell.test.ts` runs zsh, `tests/install.test.ts` runs bash); `tests/host/command.test.ts` spawns for real because `bunCommandRunner` is the spawn boundary every other test fakes — faking it would test nothing; and a test whose subject is git's own output format runs git in a sandbox repository (`tests/internal/git/branches.test.ts` for refname abbreviation under a branch/tag collision, `tests/internal/git/worktree.test.ts` for the `-z` porcelain framing), because an expectation written against a fake would only restate the parser it is meant to check. Each such test carries a comment naming why a fake cannot cover it. Everywhere else, inject a fake through the shared fixtures. `tests/fixtures/fake-context.ts` provides `recordingContext` (a `Context` whose runner records every invocation and answers with an injected `Responder`), the `respondByCommand` helper that dispatches by command name, and `emptyAssets`. The `Responder` may be async and side-effecting (for example writing a downloaded file), so tests inject through `recordingContext` rather than rebuilding a `Context`. `tests/fixtures/fake-command-runner.ts` provides the lower-level `sequenceRunner`/`presetRunner`.
-- CLI and progress rendering use `tests/fixtures/streams.ts`: `captureStreams` buffers stdout/stderr for assertion, and `fakeTtyStream` is a fake TTY `WriteStream` that drives the animated progress path without the real process streams.
-- `Context` carries an injectable `tmpRoot`, so a test confines a command's scratch files to a sandbox directory rather than the real system temporary root.
-- Host filesystem primitives that stage atomically (`atomic-file`, `directory-replacement`, `transaction`, `symlink`, `managed-links`) have direct integration tests under `tests/host/`; the make planner is covered by a colocated pure test.
-- Clean up any modified env vars, process flags, or spies; don't let stdout/stderr spillage contaminate the test runner.
-- Two boundaries are covered only through injected fakes and have no direct test: `cli/tty/prompt.ts` (an interactive prompt) and `internal/document/browser-print.ts` (a browser). Both are reached through injected seams, so the flows over them stay testable.
+| Subject | Process |
+|---|---|
+| Script tests | The script interpreter (`zsh` or `bash`) |
+| `bunCommandRunner` | A real subprocess, because it is the spawn boundary |
+| Git output formats | Git in a sandbox repository, when a fake would only restate the parser |
+
+Every carve-out names its reason in the test. Other tests inject a fake through
+the shared fixtures.
+
+Interactive prompt and browser-print boundaries are reached through injected
+seams rather than direct tests.
 
 ## CI
 
-Product-building and test jobs pin `macos-15`, matching the macOS-only product surface; platform-independent validation such as the release tag check runs on `ubuntu-latest`. `run-tests.yml` runs the unit and integration suites as parallel matrix jobs; `run-static-checks.yml` runs `bun run check` and shellcheck on `ubuntu-latest`; `run-build.yml` compiles the binary and smoke-tests it.
+| Workflow | Responsibility |
+|---|---|
+| `run-tests.yml` | Unit and integration suites in parallel macOS matrix jobs |
+| `run-static-checks.yml` | `bun run check` and shellcheck on Ubuntu |
+| `run-build.yml` | Binary compilation and smoke test |
+| Platform policy | Product-facing jobs use `macos-15`; platform-independent checks use Ubuntu. |

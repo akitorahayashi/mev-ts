@@ -1,11 +1,17 @@
-# Asset Embedding (assets/)
+# Asset Embedding
 
-Raw config files live under `src/assets/config/` keyed as `{role}/{filename}`. `scripts/generate-assets.ts` walks the tree and inlines every file's content as a string, emitting `assets/registry.generated.ts`. The content is embedded in the compiled binary; no per-file imports or filesystem access occur at runtime. The generated file also embeds a `registrySourceHash` over the source tree; `scripts/validate-assets.ts` recomputes that hash and fails loudly when the committed registry is stale, so drift surfaces as an explicit error rather than confusing downstream failures.
+The asset directory is the source of truth for deployable configuration.
 
-`assets/registry.ts` wraps the generated map as `AssetSource`. An unknown key throws `ProvisioningError`. `keysByPrefix` lets targets derive their file lists from the embedded set rather than enumerating them by hand.
+| Boundary | Contract |
+|---|---|
+| Source | Files under `src/assets/config/{role}/`. |
+| Code generation | `scripts/generate-assets.ts` embeds content and a source-tree hash in `registry.generated.ts`. |
+| Runtime | `AssetSource` reads the generated map; an unknown key fails with `ProvisioningError`. |
+| Target declarations | `keysByPrefix` derives asset sets from the embedded registry. |
+| Deploy store | `AssetRef.key` is also the relative path under `~/.mev/roles/`. |
 
-`AssetRef` keys double as sub-paths under the deploy root (`~/.mev/roles/`), so the deployed filename preserves the original dotfile name without a separate mapping.
+## Deploy store
 
-## Deploy Store Layout
-
-All deployed assets land at `~/.mev/roles/{key}`. The constant `deployRoot = '${mevRoot}/roles'` (built from `mevRoot = '.mev'` in `host/path.ts`, the sole authority for the mev-managed root) in `assets/ref.ts` is the sole authority for this path. Symlinks created by `file` and `tree` activations point into this store, and declared symlink destinations are reconciled from the current repository config.
+All deployed assets live under `~/.mev/roles/{key}`. `file` and `tree`
+activations link into that store; generated and managed paths derive from the
+single `mevRoot` authority in `host/path.ts`.

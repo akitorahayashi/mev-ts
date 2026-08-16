@@ -2,14 +2,27 @@
 
 ## Release binaries
 
-A `binaries.yml` entry declares `tag` as either an exact release tag or the reserved literal `latest`, the same latest-assumed vocabulary the pnpm manifest uses for `version`. The asset is always downloaded from a concrete tag, so `latest` is resolved first: the release page `https://github.com/{repo}/releases/latest` redirects to `releases/tag/{tag}`, and that Location is what the download URL names. Resolution deliberately avoids the REST API, whose unauthenticated form is capped at 60 requests per hour per IP — a cap a single upgrade run across a few `latest` entries can exhaust — while the web redirect carries no such cap and needs no token. A response that does not redirect (a repository with no releases responds 404), a redirect outside the repository's `releases/tag/` path, and a tag outside the manifest's character set each fail loudly with the observed status or URL. Asset and installer downloads share one curl helper that keeps an HTTP error's response body and reports the status with an excerpt of it, so a failed download carries the server's own explanation rather than only a bare curl exit code.
+| Declaration or state | Contract |
+|---|---|
+| Exact `tag` | Resolve only that tag; a matching installed version is unchanged. |
+| `tag: latest` | Resolve the current release when the binary is missing or unverifiable, or when upgrade mode requests it. |
+| Installed binary | Its reported version is the idempotency probe. A non-zero probe means unavailable or unverifiable and triggers a fetch. |
+| Downloaded asset | Probe it before the atomic swap; a mismatched version leaves the previous binary in place. |
+| Target signature | The declared tag is hashed; upgrade mode does not alter the signature. |
 
-Idempotency is the binary's own `--version`, so no digest lock, inventory, or host-side state store exists. Each declared binary reports `<name> <version>` — clap's default rendering — and its release tag is that version with an optional leading `v`. Only the version token is compared, so a binary whose self-reported name differs from its manifest name or repository (`tc` from `tmpc`) still matches. A non-zero exit is the not-installed signal that triggers a fetch, which subsumes a missing, unspawnable, or broken binary; the cheap execute-bit repair is kept so a stripped mode costs a `chmod` rather than a download. A successful run printing anything else is a contract breach and fails, because degrading to a mismatch would silently re-download the same binary forever. A downloaded asset is probed while still staged, before the atomic rename, and must report the version its tag denotes; rejecting it there leaves the previous binary in place. Verifying after the swap would instead overwrite a working binary with a mislabeled one and, for a `latest` entry, let it pass as up to date on the next run, since that path skips re-resolution whenever a binary is present.
-
-A pinned entry never re-resolves; matching the installed version skips it without touching the network. An installed `latest` entry holds still until upgrade mode asks for re-resolution, and even then a resolved tag equal to the installed version downloads nothing. The network is therefore reached only when a binary is missing or unverifiable, or `--upgrade` is set. Release assets are not digest-verified at download time — the declared binaries are first-party, the same trust boundary that lets first-party plugin marketplaces track `main`.
-
-`tag` is part of the embedded role asset, so flipping an entry between `latest` and a pin moves the target signature and `sync` reselects the target; upgrade mode does not alter declared intent and so does not. Reconciliation compares only the version the binary reports, so replacing an entry's `repo` while its version stays the same is not detected — the reselected target reconciles to `unchanged` and records the new signature over a binary that still came from the old repository. Change the tag alongside the repository, or remove the binary, to force the reinstall.
+Release assets are first-party and are not digest-verified by this activation.
+Changing a repository without changing the version-bearing declaration cannot be
+detected by a version-only probe; changing the tag or removing the binary forces
+resolution.
 
 ## Remote installers
 
-`remoteInstaller` is reserved for upstream installers that are distributed as scripts or installer binaries rather than as Homebrew packages or versioned release binaries. It downloads the HTTPS installer to a temporary file with strict curl transport flags, then satisfies a required `integrity` discriminant before running: `{ checksumUrl }` downloads the checksum document and verifies the file's SHA256 against it, while `{ acknowledgedUnverified: true }` is a loud, reviewed opt-out — there is no silent skip. It then runs a declared interpreter or the downloaded file directly with declared arguments, and removes the temporary directory after the run. Arguments are the command kind's declarative tokens resolved against `reads`, so a versioned installer takes its version from a role asset rather than from a shell string. Idempotence is the declared `creates` path by default; a versioned installer declares `skipIf` instead, because the path exists at every version. Targets use it only for reviewed first-party installer URLs.
+| Declaration | Contract |
+|---|---|
+| `integrity: { checksumUrl }` | Download and verify the installer checksum before execution. |
+| `integrity: { acknowledgedUnverified: true }` | Explicitly records the reviewed unverified exception; no silent bypass exists. |
+| `creates` | Default idempotency guard for an installer path. |
+| `skipIf` | Version-aware guard when the path exists for every version. |
+| Temporary installer | Run with declared arguments, then remove the temporary workspace. |
+
+Targets use remote installers only for reviewed first-party HTTPS sources.
