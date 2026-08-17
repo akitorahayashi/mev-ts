@@ -18,7 +18,8 @@
   "autoCompactEnabled": false,
   "attribution": {
     "commit": "",
-    "pr": ""
+    "pr": "",
+    "sessionUrl": false
   },
   "permissions": {
     "allow": [
