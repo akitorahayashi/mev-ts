@@ -1,0 +1,14 @@
+{
+  "softwrap": true,
+  "wordwrap": true,
+  "savecursor": true,
+  "saveundo": true,
+  "hlsearch": true,
+  "hltrailingws": true,
+  "tabstospaces": true,
+  "tabmovement": true,
+  "tabsize": 4,
+  "rmtrailingws": true,
+  "colorcolumn": 100,
+  "scrollmargin": 5
+}

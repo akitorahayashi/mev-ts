@@ -10,6 +10,7 @@ import { ghosttyTarget } from './targets/ghostty';
 import { gitTarget } from './targets/git';
 import { groveTarget } from './targets/grove';
 import { herdrTarget } from './targets/herdr';
+import { microTarget } from './targets/micro';
 import { nodejsTarget } from './targets/nodejs';
 import { nvimTarget } from './targets/nvim';
 import { pipxTarget } from './targets/pipx';
@@ -42,6 +43,7 @@ const targets: readonly Target[] = [
   rustCliTarget,
   groveTarget,
   nvimTarget,
+  microTarget,
   ghosttyTarget,
   herdrTarget,
   coderTarget,
