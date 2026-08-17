@@ -8,7 +8,7 @@ alias hd-s-s="herdr server stop"
 # session
 alias hd-s="herdr session"
 alias hd-s-a="herdr session attach"
-alias hd-s-s="herdr session stop"
+alias hd-s-st="herdr session stop"
 alias hd-s-d="herdr session delete"
 alias hd-s-ls="herdr session list"
 
