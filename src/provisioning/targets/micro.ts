@@ -9,14 +9,14 @@ export const microTarget = target('micro', {
   role: 'micro',
   packages: { formulae: ['micro'] },
   activations: [
-    // Merged, not linked: Micro rewrites settings.json in place whenever a
-    // setting is changed globally, so a symlink into the deploy store would
-    // route those writes into the deployed role and every deploy would wipe
-    // them (see docs/architecture/app-owned-config.md).
+    // Merged, not linked: Micro rewrites this file at runtime; a symlink
+    // would route those writes into the deployed role (app-owned-config.md).
+    // Format is jsonc: Micro parses via JSON5, so a hand-edited comment or
+    // trailing comma must survive, not fail strict JSON.
     declaredKeys(
       asset('micro/settings.json'),
       home('.config/micro/settings.json'),
-      'json',
+      'jsonc',
     ),
   ],
 });
