@@ -13,8 +13,9 @@
 
 ## Comments
 
+- Avoid writing comments whenever possible; if you do write them, keep them concise. Do not write comments if the code's purpose is obvious from the names or implementation.
 - Include only information that cannot be gleaned from the code itself. Do not include descriptions that merely explain how the code works; such comments add no value and only reduce readability.
-- What to include: reasons for choosing a specific implementation (including why other options were rejected), external constraints, past incidents, the rationale behind specifications, counter-intuitive behaviors, common pitfalls, etc.
+- What to include: reasons for choosing a specific implementation (including why other options were rejected), external constraints, past incidents, the rationale behind specifications, counter-intuitive behaviors, etc.
 - What not to include: the mechanics of the code (details evident from the code), paraphrasing of function or variable names, or simple descriptions of actions (e.g., "initialize X").
 - Do not use comments to address uncertainty in the implementation. Instead, explicitly communicate any uncertainties through interactions with users or in design documentation.
 
