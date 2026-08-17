@@ -6,7 +6,7 @@ import { target } from '../target';
 // target: the Rust toolchain need not be present for these to run.
 export const rustCliTarget = target('rust-cli', {
   description: 'Prebuilt Rust CLI binaries from GitHub Releases',
-  aliases: ['rs-cli'],
+  aliases: ['rs-c'],
   role: 'rust-cli',
   activations: [releaseBinaries('rust-cli/binaries.yml')],
 });

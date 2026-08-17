@@ -5,7 +5,7 @@ import { target } from '../target';
 
 export const microTarget = target('micro', {
   description: 'Micro terminal editor configuration',
-  aliases: ['mi'],
+  aliases: ['mc'],
   role: 'micro',
   packages: { formulae: ['micro'] },
   activations: [
