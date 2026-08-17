@@ -46,6 +46,14 @@ marketplaces:
     repo: akitorahayashi/xlsx
     plugins:
       - xlsx
+  - client: claude
+    repo: akitorahayashi/worktree-crew
+    plugins:
+      - worktree-crew
+  - client: codex
+    repo: akitorahayashi/worktree-crew
+    plugins:
+      - worktree-crew
 # To remove a marketplace and uninstall the plugins it still has installed,
 # delete its entry above and move its client and repo lines here:
 #   removed_marketplaces:
