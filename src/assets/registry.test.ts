@@ -11,7 +11,6 @@ const EXECUTABLE_KEYS = [
   'coder/hooks/claude/pre-tool-use.sh',
   'coder/hooks/codex/pre-tool-use.sh',
   'coder/rtk/rewrite.sh',
-  'coder/skills/jules-task-delegation/scripts/create-session.ts',
 ];
 
 for (const key of EXECUTABLE_KEYS) {
