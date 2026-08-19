@@ -14,16 +14,13 @@ import { sandboxedTest } from '../fixtures/temporary-directory';
 const CONFIG_KEY = 'coder/plugins.yml';
 const FULL_CATALOG = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/agent-device-plugin
     plugins: [agent-device, device-verification]
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/comment-review
     plugins: [comment-review]
-  - client: claude
-    repo: akitorahayashi/xlsx
-    plugins: [xlsx]
-  - client: codex
+  - clients: [claude, codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -81,10 +78,7 @@ function codexInventory(specs: readonly InventoryEntry[]): string {
 
 const UPGRADE_CATALOG = `
 marketplaces:
-  - client: claude
-    repo: akitorahayashi/xlsx
-    plugins: [xlsx]
-  - client: codex
+  - clients: [claude, codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -188,7 +182,7 @@ sandboxTest(
 
 const DISABLED_CATALOG = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -461,10 +455,10 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/agent-device-plugin
     plugins: [agent-device, device-verification]
-  - client: codex
+  - clients: [codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -551,7 +545,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -756,7 +750,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -792,7 +786,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -831,7 +825,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -870,11 +864,11 @@ marketplaces:
 
 const UNINSTALL_CATALOG = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
     uninstall: [old-tool]
-  - client: codex
+  - clients: [codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
     uninstall: [legacy]
@@ -957,13 +951,13 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 removed_marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/retired
-  - client: codex
+  - clients: [codex]
     repo: akitorahayashi/retired
 `;
     await deployCatalog(home, catalog);
@@ -1092,7 +1086,7 @@ sandboxTest(
     const catalog = `
 marketplaces: []
 removed_marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/retired
 `;
     await deployCatalog(home, catalog);
@@ -1150,7 +1144,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -1220,7 +1214,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/comment-review
     plugins: [comment-review]
 `;
@@ -1288,7 +1282,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: codex
+  - clients: [codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -1377,7 +1371,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: codex
+  - clients: [codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
@@ -1466,9 +1460,9 @@ sandboxTest(
     const catalog = `
 marketplaces: []
 removed_marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/retired
-  - client: codex
+  - clients: [codex]
     repo: akitorahayashi/curated
     name: openai-curated
 `;
@@ -1536,7 +1530,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
     uninstall: [old-tool]
@@ -1576,7 +1570,7 @@ sandboxTest(
   async (home) => {
     const catalog = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
     uninstall: [old-tool]
@@ -1624,7 +1618,7 @@ sandboxTest(
     const catalog = `
 marketplaces: []
 removed_marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/retired
 `;
     await deployCatalog(home, catalog);

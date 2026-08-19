@@ -67,28 +67,32 @@ reconciles rendered URLs and marketplace registrations.
 ## Agent plugin catalog
 
 The embedded catalog declares marketplaces and plugin names for Claude Code and
-Codex. The marketplace name defaults to the repository name; `name` is needed
-only when the marketplace metadata uses a different name.
+Codex. An entry declares the same marketplace for every client it lists. The
+marketplace name defaults to the repository name; `name` is needed only when
+the marketplace metadata uses a different name.
 
 ```yaml
 marketplaces:
-  - client: claude
-    repo: akitorahayashi/agent-device-plugin
+  - repo: akitorahayashi/agent-device-plugin
+    clients: [claude]
     plugins: [agent-device, diff-verify]
+  - repo: akitorahayashi/xlsx
+    clients: [claude, codex]
+    plugins: [xlsx]
 ```
 
 Removal is explicit:
 
 ```yaml
 marketplaces:
-  - client: claude
-    repo: akitorahayashi/agent-device-plugin
+  - repo: akitorahayashi/agent-device-plugin
+    clients: [claude]
     plugins: [agent-device]
     uninstall: [diff-verify]
 
 removed_marketplaces:
-  - client: claude
-    repo: akitorahayashi/comment-review
+  - repo: akitorahayashi/comment-review
+    clients: [claude]
 ```
 
 Plugin lifecycle, source ownership, and verification are documented in

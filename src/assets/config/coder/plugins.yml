@@ -1,61 +1,43 @@
 # Agent plugin marketplaces for Claude Code and Codex.
 # Each entry:
-#   - client: claude | codex
 #   - repo: GitHub repo as owner/name; the marketplace name defaults to the
 #       repo name (declare name: only when marketplace.json differs)
+#   - clients: any of claude | codex; the entry applies to each listed client
 #   - plugins: plugin names installed from this marketplace
 marketplaces:
-  - client: claude
-    repo: akitorahayashi/agent-device-plugin
-    plugins:
-      - agent-device
-      - diff-verify
+  - repo: akitorahayashi/agent-device-plugin
+    clients: [claude]
+    plugins: [agent-device, diff-verify]
     # To uninstall a plugin, move its name out of plugins into an uninstall
     # list on the same entry:
     #   plugins: [agent-device]
     #   uninstall: [diff-verify]
-  - client: claude
-    repo: akitorahayashi/charles-traffic
-    plugins:
-      - charles-traffic
-  - client: claude
-    repo: akitorahayashi/comment-review
-    plugins:
-      - comment-review
-  - client: claude
-    repo: akitorahayashi/issue-probe
-    plugins:
-      - issue-probe
-  - client: claude
-    repo: akitorahayashi/prune-comments
-    plugins:
-      - prune-comments
-  - client: claude
-    repo: akitorahayashi/simplify
-    plugins:
-      - simplify
-  - client: codex
-    repo: akitorahayashi/simplify
-    plugins:
-      - simplify
-  - client: claude
-    repo: akitorahayashi/xlsx
-    plugins:
-      - xlsx
-  - client: codex
-    repo: akitorahayashi/xlsx
-    plugins:
-      - xlsx
-  - client: claude
-    repo: akitorahayashi/worktree-crew
-    plugins:
-      - worktree-crew
-  - client: codex
-    repo: akitorahayashi/worktree-crew
-    plugins:
-      - worktree-crew
+  - repo: akitorahayashi/charles-traffic
+    clients: [claude]
+    plugins: [charles-traffic]
+  - repo: akitorahayashi/comment-review
+    clients: [claude]
+    plugins: [comment-review]
+  - repo: akitorahayashi/issue-probe
+    clients: [claude]
+    plugins: [issue-probe]
+  - repo: akitorahayashi/prune-comments
+    clients: [claude]
+    plugins: [prune-comments]
+  - repo: akitorahayashi/simplify
+    clients: [claude, codex]
+    plugins: [simplify]
+  - repo: akitorahayashi/xlsx
+    clients: [claude, codex]
+    plugins: [xlsx]
+  - repo: akitorahayashi/worktree-crew
+    clients: [claude, codex]
+    plugins: [worktree-crew]
+  - repo: akitorahayashi/backlog
+    clients: [claude]
+    plugins: [backlog]
 # To remove a marketplace and uninstall the plugins it still has installed,
-# delete its entry above and move its client and repo lines here:
+# delete its entry above and move its repo and clients lines here:
 #   removed_marketplaces:
-#     - client: claude
-#       repo: akitorahayashi/comment-review
+#     - repo: akitorahayashi/comment-review
+#       clients: [claude]
