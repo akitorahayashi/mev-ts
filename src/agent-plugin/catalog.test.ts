@@ -3,29 +3,31 @@ import { parsePluginCatalog, pluginId } from './catalog';
 
 const VALID = `
 marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/agent-device-plugin
     plugins: [agent-device, device-verification]
-  - client: codex
+  - clients: [claude, codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
     uninstall: [legacy-tool]
 removed_marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/retired
 `;
 
-test('parsePluginCatalog preserves declared marketplace and plugin order', () => {
+test('parsePluginCatalog expands entries per client in declared order', () => {
   const catalog = parsePluginCatalog(VALID, 'plugins.yml');
 
   expect(
     catalog.marketplaces.map(({ client, plugins }) => [client, plugins]),
   ).toEqual([
     ['claude', ['agent-device', 'device-verification']],
+    ['claude', ['xlsx']],
     ['codex', ['xlsx']],
   ]);
   expect(catalog.marketplaces.map(({ uninstall }) => uninstall)).toEqual([
     [],
+    ['legacy-tool'],
     ['legacy-tool'],
   ]);
   expect(catalog.removedMarketplaces).toEqual([
@@ -45,6 +47,7 @@ test('parsePluginCatalog derives the marketplace name from the repo', () => {
       { owner: 'akitorahayashi', name: 'agent-device-plugin' },
       'agent-device-plugin',
     ],
+    [{ owner: 'akitorahayashi', name: 'xlsx' }, 'xlsx'],
     [{ owner: 'akitorahayashi', name: 'xlsx' }, 'xlsx'],
   ]);
 });
@@ -76,13 +79,31 @@ for (const repo of ['xlsx', 'akitorahayashi/xlsx/extra', 'akitorahayashi/']) {
   });
 }
 
+test('parsePluginCatalog rejects an empty clients list', () => {
+  expect(() =>
+    parsePluginCatalog(
+      VALID.replace('clients: [claude, codex]', 'clients: []'),
+      'plugins.yml',
+    ),
+  ).toThrow(/clients must not be empty/);
+});
+
 test('parsePluginCatalog rejects duplicate plugin identities per client', () => {
   expect(() =>
     parsePluginCatalog(
       VALID.replace(
         'plugins: [xlsx]',
-        'plugins: [xlsx]\n  - client: codex\n    repo: akitorahayashi/other\n    name: xlsx\n    plugins: [xlsx]',
+        'plugins: [xlsx]\n  - clients: [codex]\n    repo: akitorahayashi/other\n    plugins: [xlsx]',
       ),
+      'plugins.yml',
+    ),
+  ).toThrow(/duplicate 'codex:xlsx'/);
+});
+
+test('parsePluginCatalog rejects a duplicate client within one entry', () => {
+  expect(() =>
+    parsePluginCatalog(
+      VALID.replace('clients: [claude, codex]', 'clients: [codex, codex]'),
       'plugins.yml',
     ),
   ).toThrow(/duplicate 'codex:xlsx'/);
@@ -112,7 +133,7 @@ test('parsePluginCatalog accepts a removal-only catalog', () => {
     `
 marketplaces: []
 removed_marketplaces:
-  - client: claude
+  - clients: [claude]
     repo: akitorahayashi/retired
 `,
     'plugins.yml',
@@ -128,8 +149,8 @@ test('parsePluginCatalog rejects a removed marketplace still declared active', (
   expect(() =>
     parsePluginCatalog(
       VALID.replace(
-        'client: claude\n    repo: akitorahayashi/retired',
-        'client: codex\n    repo: akitorahayashi/xlsx',
+        'clients: [claude]\n    repo: akitorahayashi/retired',
+        'clients: [codex]\n    repo: akitorahayashi/xlsx',
       ),
       'plugins.yml',
     ),

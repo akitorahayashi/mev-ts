@@ -11,7 +11,8 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "CLAUDE_CODE_SCROLL_SPEED": "0.25"
   },
-  "awaySummaryEnabled": false,
+  "promptSuggestionEnabled": false,
+  "awaySummaryEnabled": true,
   "autoMemoryEnabled": false,
   "copyOnSelect": false,
   "theme": "auto",

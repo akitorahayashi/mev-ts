@@ -51,16 +51,19 @@ function requireSafeName(value: unknown, label: string): string {
   return value;
 }
 
-function requireClient(value: unknown, label: string): PluginClient {
-  if (
-    typeof value !== 'string' ||
-    !pluginClients.includes(value as PluginClient)
-  ) {
-    throw new ProvisioningError(
-      `${label} must be one of: ${pluginClients.join(', ')}.`,
-    );
+function requireClients(value: unknown, label: string): PluginClient[] {
+  const clients = requireStringArray(value, label);
+  if (clients.length === 0) {
+    throw new ProvisioningError(`${label} must not be empty.`);
   }
-  return value as PluginClient;
+  return clients.map((client, index) => {
+    if (!pluginClients.includes(client as PluginClient)) {
+      throw new ProvisioningError(
+        `${label} ${index + 1} must be one of: ${pluginClients.join(', ')}.`,
+      );
+    }
+    return client as PluginClient;
+  });
 }
 
 /**
@@ -78,57 +81,57 @@ function marketplaceName(
     : requireSafeName(record['name'], `${label} name`);
 }
 
-function parseMarketplace(value: unknown, index: number): PluginMarketplace {
+/**
+ * One catalog entry declares the same marketplace for every client it lists,
+ * so an entry expands into one marketplace per client. Divergent per-client
+ * plugin sets from the same repo remain expressible as separate entries.
+ */
+function parseMarketplace(value: unknown, index: number): PluginMarketplace[] {
   const label = `Agent plugin catalog marketplace ${index + 1}`;
   const record = requireRecord(value, label);
   requireExactKeys(
     record,
-    ['client', 'repo', 'name', 'plugins', 'uninstall'],
+    ['clients', 'repo', 'name', 'plugins', 'uninstall'],
     label,
   );
+  const clients = requireClients(record['clients'], `${label} clients`);
   const repo = parseRepository(record['repo'], `${label} repo`);
-  const plugins = requireStringArray(record['plugins'], `${label} plugins`);
-  if (plugins.length === 0) {
+  const rawPlugins = requireStringArray(record['plugins'], `${label} plugins`);
+  if (rawPlugins.length === 0) {
     throw new ProvisioningError(`${label} plugins must not be empty.`);
   }
   // Absent means nothing to remove; only names written here are ever
   // uninstalled.
-  const uninstall =
+  const rawUninstall =
     record['uninstall'] === undefined
       ? []
       : requireStringArray(record['uninstall'], `${label} uninstall`);
-  const parsed = {
-    client: requireClient(record['client'], `${label} client`),
-    repo,
-    name: marketplaceName(record, repo, label),
-    plugins: plugins.map((plugin, pluginIndex) =>
-      requireSafeName(plugin, `${label} plugin ${pluginIndex + 1}`),
-    ),
-    uninstall: uninstall.map((plugin, pluginIndex) =>
-      requireSafeName(plugin, `${label} uninstall ${pluginIndex + 1}`),
-    ),
-  };
+  const name = marketplaceName(record, repo, label);
+  const plugins = rawPlugins.map((plugin, pluginIndex) =>
+    requireSafeName(plugin, `${label} plugin ${pluginIndex + 1}`),
+  );
+  const uninstall = rawUninstall.map((plugin, pluginIndex) =>
+    requireSafeName(plugin, `${label} uninstall ${pluginIndex + 1}`),
+  );
   requireUniqueBy(
-    [...parsed.plugins, ...parsed.uninstall],
+    [...plugins, ...uninstall],
     (plugin) => plugin,
     `${label} plugins`,
   );
-  return parsed;
+  return clients.map((client) => ({ client, repo, name, plugins, uninstall }));
 }
 
 function parseRemovedMarketplace(
   value: unknown,
   index: number,
-): RemovedMarketplace {
+): RemovedMarketplace[] {
   const label = `Agent plugin catalog removed marketplace ${index + 1}`;
   const record = requireRecord(value, label);
-  requireExactKeys(record, ['client', 'repo', 'name'], label);
+  requireExactKeys(record, ['clients', 'repo', 'name'], label);
+  const clients = requireClients(record['clients'], `${label} clients`);
   const repo = parseRepository(record['repo'], `${label} repo`);
-  return {
-    client: requireClient(record['client'], `${label} client`),
-    repo,
-    name: marketplaceName(record, repo, label),
-  };
+  const name = marketplaceName(record, repo, label);
+  return clients.map((client) => ({ client, repo, name }));
 }
 
 export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
@@ -142,7 +145,7 @@ export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
   }
   // An empty sequence is a valid end state: it is what declaring the removal
   // of the last active marketplace leaves behind.
-  const marketplaces = marketplaceValues.map(parseMarketplace);
+  const marketplaces = marketplaceValues.flatMap(parseMarketplace);
   requireUniqueBy(
     marketplaces,
     ({ client, name }) => `${client}:${name}`,
@@ -162,7 +165,7 @@ export function parsePluginCatalog(raw: string, path: string): PluginCatalog {
       `${label} removed_marketplaces must be a sequence.`,
     );
   }
-  const removedMarketplaces = removedValues.map(parseRemovedMarketplace);
+  const removedMarketplaces = removedValues.flatMap(parseRemovedMarketplace);
   requireUniqueBy(
     removedMarketplaces,
     ({ client, name }) => `${client}:${name}`,
