@@ -98,12 +98,16 @@ export async function switchIdentity(
   scope: IdentityScope,
 ): Promise<SwitchResult> {
   const identity = await resolveStoredIdentity(deps.home, scope);
+  // The pin probe runs before the overlay write: it can fail on a broken
+  // repository (e.g. dubious ownership), and failing after the write would
+  // report an error for a switch that already happened.
+  const locallyPinned = await hasLocalPin(deps);
   const overlay = identityOverlayPath(deps.home);
   await configSetFileValues(deps.run, overlay, [
     ['user.name', identity.name],
     ['user.email', identity.email],
   ]);
-  return { identity, locallyPinned: await hasLocalPin(deps) };
+  return { identity, locallyPinned };
 }
 
 export async function pinIdentity(

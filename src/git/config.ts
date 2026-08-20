@@ -82,7 +82,9 @@ export async function configGetLocal(
  * Writes go through `git config --local` rather than the atomic staging used
  * for the overlay: git takes its own .git/config lock, and in a linked
  * worktree `--local` resolves through the .git file to the shared config — a
- * path we must not compute ourselves.
+ * path we must not compute ourselves. `--replace-all` because a plain set
+ * refuses a multi-valued key with exit 5; pinning must converge on one value
+ * regardless of how many lines exist.
  */
 export async function configSetLocalValues(
   run: CommandRunner,
@@ -95,13 +97,14 @@ export async function configSetLocalValues(
       cwd,
       'config',
       '--local',
+      '--replace-all',
       name,
       value,
     ]);
     if (result.code !== 0) {
       throw new ProvisioningError(
         formatCommandFailure(
-          `git -C ${cwd} config --local ${name} failed`,
+          `git -C ${cwd} config --local --replace-all ${name} failed`,
           result,
         ),
       );
@@ -111,8 +114,10 @@ export async function configSetLocalValues(
 
 /**
  * Remove one key from the repository-local config. Returns whether the key
- * existed: `git config --unset` documents exit code 5 for a missing key, the
- * signal that lets idempotent unpinning report honestly.
+ * existed: git documents exit code 5 for a missing key, the signal that lets
+ * idempotent unpinning report honestly. `--unset-all` because plain `--unset`
+ * also exits 5 on a multi-valued key — refusing the removal while looking
+ * identical to "was absent".
  */
 export async function configUnsetLocal(
   run: CommandRunner,
@@ -124,14 +129,14 @@ export async function configUnsetLocal(
     cwd,
     'config',
     '--local',
-    '--unset',
+    '--unset-all',
     name,
   ]);
   if (result.code === 0) return true;
   if (result.code === 5) return false;
   throw new ProvisioningError(
     formatCommandFailure(
-      `git -C ${cwd} config --local --unset ${name} failed`,
+      `git -C ${cwd} config --local --unset-all ${name} failed`,
       result,
     ),
   );

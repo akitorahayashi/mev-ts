@@ -96,18 +96,20 @@ function gitRunner(state: GitFakeState): {
             ? { code: 1, stdout: '', stderr: '' }
             : { code: 0, stdout: `${value}\n`, stderr: '' };
         }
-        if (rest[4] === '--unset') {
+        if (rest[4] === '--unset-all') {
           const key = rest[5] ?? '';
           if (locals[key] === undefined)
             return { code: 5, stdout: '', stderr: '' };
           delete locals[key];
           return { code: 0, stdout: '', stderr: '' };
         }
-        const key = rest[4] ?? '';
-        const value = rest[5] ?? '';
-        locals[key] = value;
-        localWrites.push({ cwd, key, value });
-        return { code: 0, stdout: '', stderr: '' };
+        if (rest[4] === '--replace-all') {
+          const key = rest[5] ?? '';
+          const value = rest[6] ?? '';
+          locals[key] = value;
+          localWrites.push({ cwd, key, value });
+          return { code: 0, stdout: '', stderr: '' };
+        }
       }
       if (
         rest[0] === 'config' &&
@@ -546,7 +548,7 @@ async function git(run: CommandRunner, args: readonly string[]): Promise<void> {
 }
 
 // Exercised against real git because the fake above merely encodes our
-// assumptions about git's contracts: the --unset exit-code 5 signal and
+// assumptions about git's contracts: the unset exit-code 5 signal and
 // `--local` resolving through a linked worktree's .git file to the shared
 // config are behaviors only git itself can confirm.
 sandboxTest(
@@ -597,6 +599,65 @@ sandboxTest(
       identity: { name: 'Personal Name', email: 'personal@example.com' },
       origin: 'global',
     });
+    expect((await unpinIdentity(deps)).kind).toBe('already-global');
+  },
+);
+
+// Real git because plain set/unset refuse a multi-valued key with the same
+// exit 5 that signals "missing": only git can prove --replace-all/--unset-all
+// converge on duplicated identity keys instead of misreporting them.
+sandboxTest(
+  'pin and unpin converge on duplicated local identity values',
+  async (tempHome) => {
+    const home = tempHome();
+    await seed(home);
+    const run = sandboxGitRunner(home);
+    const repo = join(home, 'repo');
+    const deps = { run, home, cwd: repo };
+    await git(run, ['init', repo]);
+    for (const value of ['Stray One', 'Stray Two']) {
+      await git(run, [
+        '-C',
+        repo,
+        'config',
+        '--local',
+        '--add',
+        'user.name',
+        value,
+      ]);
+      await git(run, [
+        '-C',
+        repo,
+        'config',
+        '--local',
+        '--add',
+        'user.email',
+        `${value}@example.invalid`,
+      ]);
+    }
+
+    await pinIdentity(deps, 'work');
+    expect((await showIdentity(deps)).current).toEqual({
+      kind: 'matched',
+      scope: 'work',
+      identity: { name: 'Work Name', email: 'work@example.com' },
+      origin: 'local',
+    });
+
+    for (const value of ['Stray One', 'Stray Two']) {
+      await git(run, [
+        '-C',
+        repo,
+        'config',
+        '--local',
+        '--add',
+        'user.name',
+        value,
+      ]);
+    }
+    const unpinned = await unpinIdentity(deps);
+    expect(unpinned.kind).toBe('unpinned');
+    expect(unpinned.effective.kind).toBe('unset');
     expect((await unpinIdentity(deps)).kind).toBe('already-global');
   },
 );

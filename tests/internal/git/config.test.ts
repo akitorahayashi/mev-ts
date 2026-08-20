@@ -117,12 +117,21 @@ test('configSetLocalValues writes each pair through --local at cwd', async () =>
   ]);
 
   expect(calls).toEqual([
-    ['-C', '/repos/project', 'config', '--local', 'user.name', 'Example'],
     [
       '-C',
       '/repos/project',
       'config',
       '--local',
+      '--replace-all',
+      'user.name',
+      'Example',
+    ],
+    [
+      '-C',
+      '/repos/project',
+      'config',
+      '--local',
+      '--replace-all',
       'user.email',
       'example@example.com',
     ],
@@ -145,7 +154,7 @@ test('configUnsetLocal reports removal on exit 0', async () => {
     '/repos/project',
     'config',
     '--local',
-    '--unset',
+    '--unset-all',
     'user.name',
   ]);
 });
