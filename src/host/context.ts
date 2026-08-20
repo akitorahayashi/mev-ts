@@ -32,8 +32,12 @@ export function resolveHome(): string {
  * (the runtime counterpart to a test's hand-built fake), so those two reads are
  * assembled in one place rather than re-inlined per command.
  */
-export function liveCommandDeps(): { run: CommandRunner; home: string } {
-  return { run: bunCommandRunner, home: resolveHome() };
+export function liveCommandDeps(): {
+  run: CommandRunner;
+  home: string;
+  cwd: string;
+} {
+  return { run: bunCommandRunner, home: resolveHome(), cwd: process.cwd() };
 }
 
 export function createContext(): Context {

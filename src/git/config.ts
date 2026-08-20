@@ -53,6 +53,90 @@ export async function configGetFile(
   return result.stdout.trim();
 }
 
+export async function configGetLocal(
+  run: CommandRunner,
+  cwd: string,
+  name: string,
+): Promise<string | null> {
+  const result = await runCapture(run, [
+    '-C',
+    cwd,
+    'config',
+    '--local',
+    '--get',
+    name,
+  ]);
+  if (result.code === 1) return null;
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      formatCommandFailure(
+        `git -C ${cwd} config --local --get ${name} failed`,
+        result,
+      ),
+    );
+  }
+  return result.stdout.trim();
+}
+
+/**
+ * Writes go through `git config --local` rather than the atomic staging used
+ * for the overlay: git takes its own .git/config lock, and in a linked
+ * worktree `--local` resolves through the .git file to the shared config — a
+ * path we must not compute ourselves.
+ */
+export async function configSetLocalValues(
+  run: CommandRunner,
+  cwd: string,
+  values: readonly (readonly [string, string])[],
+): Promise<void> {
+  for (const [name, value] of values) {
+    const result = await runCapture(run, [
+      '-C',
+      cwd,
+      'config',
+      '--local',
+      name,
+      value,
+    ]);
+    if (result.code !== 0) {
+      throw new ProvisioningError(
+        formatCommandFailure(
+          `git -C ${cwd} config --local ${name} failed`,
+          result,
+        ),
+      );
+    }
+  }
+}
+
+/**
+ * Remove one key from the repository-local config. Returns whether the key
+ * existed: `git config --unset` documents exit code 5 for a missing key, the
+ * signal that lets idempotent unpinning report honestly.
+ */
+export async function configUnsetLocal(
+  run: CommandRunner,
+  cwd: string,
+  name: string,
+): Promise<boolean> {
+  const result = await runCapture(run, [
+    '-C',
+    cwd,
+    'config',
+    '--local',
+    '--unset',
+    name,
+  ]);
+  if (result.code === 0) return true;
+  if (result.code === 5) return false;
+  throw new ProvisioningError(
+    formatCommandFailure(
+      `git -C ${cwd} config --local --unset ${name} failed`,
+      result,
+    ),
+  );
+}
+
 export async function configSetFileValues(
   run: CommandRunner,
   path: string,
