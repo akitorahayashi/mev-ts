@@ -53,6 +53,95 @@ export async function configGetFile(
   return result.stdout.trim();
 }
 
+export async function configGetLocal(
+  run: CommandRunner,
+  cwd: string,
+  name: string,
+): Promise<string | null> {
+  const result = await runCapture(run, [
+    '-C',
+    cwd,
+    'config',
+    '--local',
+    '--get',
+    name,
+  ]);
+  if (result.code === 1) return null;
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      formatCommandFailure(
+        `git -C ${cwd} config --local --get ${name} failed`,
+        result,
+      ),
+    );
+  }
+  return result.stdout.trim();
+}
+
+/**
+ * Writes go through `git config --local` rather than the atomic staging used
+ * for the overlay: git takes its own .git/config lock, and in a linked
+ * worktree `--local` resolves through the .git file to the shared config — a
+ * path we must not compute ourselves. `--replace-all` because a plain set
+ * refuses a multi-valued key with exit 5; pinning must converge on one value
+ * regardless of how many lines exist.
+ */
+export async function configSetLocalValues(
+  run: CommandRunner,
+  cwd: string,
+  values: readonly (readonly [string, string])[],
+): Promise<void> {
+  for (const [name, value] of values) {
+    const result = await runCapture(run, [
+      '-C',
+      cwd,
+      'config',
+      '--local',
+      '--replace-all',
+      name,
+      value,
+    ]);
+    if (result.code !== 0) {
+      throw new ProvisioningError(
+        formatCommandFailure(
+          `git -C ${cwd} config --local --replace-all ${name} failed`,
+          result,
+        ),
+      );
+    }
+  }
+}
+
+/**
+ * Remove one key from the repository-local config. Returns whether the key
+ * existed: git documents exit code 5 for a missing key, the signal that lets
+ * idempotent unpinning report honestly. `--unset-all` because plain `--unset`
+ * also exits 5 on a multi-valued key — refusing the removal while looking
+ * identical to "was absent".
+ */
+export async function configUnsetLocal(
+  run: CommandRunner,
+  cwd: string,
+  name: string,
+): Promise<boolean> {
+  const result = await runCapture(run, [
+    '-C',
+    cwd,
+    'config',
+    '--local',
+    '--unset-all',
+    name,
+  ]);
+  if (result.code === 0) return true;
+  if (result.code === 5) return false;
+  throw new ProvisioningError(
+    formatCommandFailure(
+      `git -C ${cwd} config --local --unset-all ${name} failed`,
+      result,
+    ),
+  );
+}
+
 export async function configSetFileValues(
   run: CommandRunner,
   path: string,

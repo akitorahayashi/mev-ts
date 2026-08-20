@@ -81,12 +81,15 @@ Catalog and manifest semantics are in [config.md](config.md).
 | Command | Effect |
 |---|---|
 | `mev user` (`us`) | List identity subcommands. |
-| `mev user show` | Show stored personal and work identities. |
+| `mev user show` | Show stored identities and the effective one, labeled `git --local` when the current repository is pinned and `git --global` otherwise. |
 | `mev user set` | Configure identities interactively. |
-| `mev switch personal` / `work` (`sw`) | Write the selected identity to `~/.gitconfig`. |
+| `mev switch personal` / `work` (`sw`) | Write the selected identity to the global overlay `~/.gitconfig`. Warns when the current repository is pinned locally, since the pin shadows the change there. |
+| `mev switch <scope> -w` / `--write` | Pin the identity to the current repository's `.git/config` instead of the overlay. Fails outside a git repository. |
+| `mev switch -u` / `--unset` | Remove the current repository's pin so it follows the global identity again. Idempotent; reports the identity that is effective afterwards. Fails outside a git repository. |
 
 `make git` manages the static `~/.config/git/config`; switching manages the
-mutable overlay.
+mutable overlay; pinning manages the repository-local config, which git
+resolves above both.
 
 ## Worktrees
 

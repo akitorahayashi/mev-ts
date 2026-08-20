@@ -71,6 +71,41 @@ sandboxTest(
   },
 );
 
+sandboxTest('switch requires a scope without --unset', async (sandbox) => {
+  const result = await runCli(['switch'], sandbox);
+  expect(result.code).not.toBe(0);
+});
+
+sandboxTest('switch rejects --write combined with --unset', async (sandbox) => {
+  const result = await runCli(['switch', 'personal', '-w', '--unset'], sandbox);
+  expect(result.code).not.toBe(0);
+});
+
+sandboxTest('switch rejects a scope alongside --unset', async (sandbox) => {
+  const result = await runCli(['switch', '-u', 'personal'], sandbox);
+  expect(result.code).not.toBe(0);
+});
+
+sandboxTest(
+  'switch consumes --write and reaches the domain layer',
+  async (sandbox) => {
+    // The empty sandbox PATH makes repo detection fail as a spawn error, which
+    // is the evidence that -w parsed as a flag and delegation happened.
+    const result = await runCli(['switch', 'personal', '-w'], sandbox);
+    expect(result.code).toBe(1);
+    expect(result.stderr).not.toBe('');
+  },
+);
+
+sandboxTest(
+  'switch consumes --unset and reaches the domain layer',
+  async (sandbox) => {
+    const result = await runCli(['switch', '-u'], sandbox);
+    expect(result.code).toBe(1);
+    expect(result.stderr).not.toBe('');
+  },
+);
+
 // Internal leaves invoked with arguments their own validation rejects. The
 // rejection naming the leaf's path is the evidence that it resolved through
 // runInternalCommand rather than stopping at the namespace.

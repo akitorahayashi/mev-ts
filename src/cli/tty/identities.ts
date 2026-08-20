@@ -37,9 +37,10 @@ function renderCurrent(view: IdentityView, c: Style): string {
   if (current.kind === 'unset') {
     return ` git --global  ${c.dim('not set')}`;
   }
+  const label = current.origin === 'local' ? 'git --local ' : 'git --global';
   const who = `${current.identity.name} <${current.identity.email}>`;
   if (current.kind === 'matched') {
-    return ` git --global  ${who}  ${c.green(`→ ${current.scope}`)}`;
+    return ` ${label}  ${who}  ${c.green(`→ ${current.scope}`)}`;
   }
-  return ` git --global  ${who}  ${c.yellow('→ unmanaged')}`;
+  return ` ${label}  ${who}  ${c.yellow('→ unmanaged')}`;
 }

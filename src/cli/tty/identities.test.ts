@@ -29,12 +29,46 @@ test('renderIdentities shows the matched scope in the current footer', () => {
         kind: 'matched',
         scope: 'work',
         identity: { name: 'Work Name', email: 'work@example.com' },
+        origin: 'global',
       },
     },
     false,
   );
   expect(output).toContain('git --global  Work Name <work@example.com>');
   expect(output).toContain('→ work');
+});
+
+test('renderIdentities labels a repo-pinned identity as git --local', () => {
+  const output = renderIdentities(
+    {
+      ...baseView,
+      current: {
+        kind: 'matched',
+        scope: 'work',
+        identity: { name: 'Work Name', email: 'work@example.com' },
+        origin: 'local',
+      },
+    },
+    false,
+  );
+  expect(output).toContain('git --local   Work Name <work@example.com>');
+  expect(output).not.toContain('git --global');
+});
+
+test('renderIdentities labels an unmanaged repo-pinned identity as git --local', () => {
+  const output = renderIdentities(
+    {
+      ...baseView,
+      current: {
+        kind: 'unmanaged',
+        identity: { name: 'Stray', email: 'stray@example.com' },
+        origin: 'local',
+      },
+    },
+    false,
+  );
+  expect(output).toContain('git --local   Stray <stray@example.com>');
+  expect(output).toContain('→ unmanaged');
 });
 
 test('renderIdentities flags an unmanaged current identity', () => {
@@ -44,6 +78,7 @@ test('renderIdentities flags an unmanaged current identity', () => {
       current: {
         kind: 'unmanaged',
         identity: { name: 'Stray', email: 'stray@example.com' },
+        origin: 'global',
       },
     },
     false,
