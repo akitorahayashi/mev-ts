@@ -30,6 +30,10 @@ export const herdrTarget = target('herdr', {
         label: 'herdr update',
         argv: [BINARY, 'update'],
         changedWhen: { outputNotContains: 'already up to date' },
+        blockedWhen: {
+          errorContains:
+            'run `herdr update` outside herdr after detaching from the session',
+        },
       },
       env: { HERDR_INSTALL_DIR: INSTALL_DIR },
       pathPrefix: [home('.local/bin')],

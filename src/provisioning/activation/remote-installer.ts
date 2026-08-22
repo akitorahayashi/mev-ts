@@ -152,6 +152,13 @@ export async function runRemoteInstaller(
           bindings,
           context,
         );
+        if (
+          entry.status === 'failed' &&
+          activation.upgrade.blockedWhen &&
+          entry.error?.includes(activation.upgrade.blockedWhen.errorContains)
+        ) {
+          return { ...base, status: 'blocked', error: entry.error };
+        }
         return { ...base, status: entry.status, entries: [entry] };
       }
       return { ...base, status: 'unchanged' };

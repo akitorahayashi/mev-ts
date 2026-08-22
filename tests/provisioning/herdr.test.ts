@@ -103,3 +103,37 @@ sandboxTest('reports a direct installer failure', async (dir) => {
   expect(report.failed).toBe(true);
   expect(calls.map((call) => call.command)).toEqual(['curl', 'sh', binary]);
 });
+
+sandboxTest('blocks self-update from inside a Herdr pane', async (dir) => {
+  const binary = join(dir, '.local/bin/herdr');
+  await mkdir(join(dir, '.local/bin'), { recursive: true });
+  await writeFile(binary, 'herdr');
+  const guidance =
+    'run `herdr update` outside herdr after detaching from the session';
+  const { context, calls } = recordingContext({
+    home: dir,
+    assets: embeddedAssets,
+    respond(command, args) {
+      if (command === binary && args[0] === 'update') {
+        return fail(`update failed: ${guidance}`);
+      }
+      if (command === binary) return ok('herdr 0.8.2\n');
+      return fail(`unexpected command: ${command}`);
+    },
+  });
+
+  const report = await runMake(
+    { selectors: ['herdr'], upgrade: true },
+    context,
+  );
+
+  expect(report.failed).toBe(true);
+  expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+    [binary, 'update'],
+    [binary, '--version'],
+  ]);
+  expect(report.groups[0]?.reports[1]).toMatchObject({
+    status: 'blocked',
+    error: `update failed: ${guidance}`,
+  });
+});

@@ -196,6 +196,49 @@ test('renderMakeReport summarizes failed and blocked targets', () => {
   expect(rendered).not.toContain('Summary');
 });
 
+test('renderMakeReport shows guidance for an activation-level block', () => {
+  const guidance =
+    'run `herdr update` outside herdr after detaching from the session';
+  const report: MakeReport = {
+    selection: {
+      targetNames: ['herdr'],
+      roles: ['herdr'],
+      packages: emptyPackages,
+      groups: [
+        target('herdr', {
+          description: 'herdr',
+          role: 'herdr',
+          activations: [],
+        }),
+      ],
+    },
+    deploys: [{ role: 'herdr', deployed: false, files: [] }],
+    install: [],
+    groups: [
+      {
+        targetName: 'herdr',
+        blockers: [],
+        reports: [
+          {
+            verb: 'run',
+            source: 'install Herdr',
+            dest: '~/.local/bin/herdr',
+            status: 'blocked',
+            error: guidance,
+          },
+        ],
+      },
+    ],
+    failed: true,
+  };
+
+  const rendered = renderMakeReport(report, { isTTY: false });
+
+  expect(rendered).toContain('herdr blocked during activation');
+  expect(rendered).toContain(guidance);
+  expect(rendered).toContain('mev make herdr');
+});
+
 test('renderMakeReport renders concise successful summaries', () => {
   const report: MakeReport = {
     selection: {

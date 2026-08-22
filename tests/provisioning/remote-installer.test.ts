@@ -363,3 +363,42 @@ sandboxTest(
     expect(calls.map((call) => call.command)).toEqual(['curl', 'bash']);
   },
 );
+
+sandboxTest(
+  'a declared updater safety precondition blocks with its guidance',
+  async (dir) => {
+    const binary = `${dir}/.local/bin/demo`;
+    await mkdir(`${dir}/.local/bin`, { recursive: true });
+    await writeFile(binary, 'installed');
+    const guidance = 'detach before updating demo';
+    const { context } = installerContext(dir, () => ({
+      code: 1,
+      stdout: '',
+      stderr: `update failed: ${guidance}\n`,
+    }));
+
+    const report = await runActivation(
+      remoteInstaller({
+        label: 'install demo',
+        url: 'https://example.test/install',
+        integrity: { acknowledgedUnverified: true },
+        interpreter: 'bash',
+        args: [],
+        creates: home('.local/bin/demo'),
+        upgrade: {
+          label: 'demo update',
+          argv: [binary, 'update'],
+          blockedWhen: { errorContains: guidance },
+        },
+      }),
+      context,
+      { upgrade: true },
+    );
+
+    expect(report).toMatchObject({
+      status: 'blocked',
+      error: `update failed: ${guidance}`,
+    });
+    expect(report.entries).toBeUndefined();
+  },
+);
