@@ -88,7 +88,10 @@ function failedSummary(group: ActivationGroupReport): string | null {
 }
 
 function blockedSummary(group: ActivationGroupReport): string | null {
-  if (group.blockers.length === 0) return null;
+  if (group.blockers.length === 0) {
+    const blocked = group.reports.find((report) => report.status === 'blocked');
+    return blocked ? activationLine(blocked) : null;
+  }
   if (group.blockers.length > 1) return 'prerequisites failed';
   const blocker = group.blockers[0];
   if (!blocker) return null;

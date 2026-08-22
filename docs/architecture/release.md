@@ -23,6 +23,9 @@ resolution.
 | `integrity: { acknowledgedUnverified: true }` | Explicitly records the reviewed unverified exception; no silent bypass exists. |
 | `creates` | Default idempotency guard for an installer path. |
 | `skipIf` | Version-aware guard when the path exists for every version. |
+| `upgrade` | Runs the declared self-update command for an already installed tool only under explicit upgrade intent. A fresh install does not run it again. A known safety-precondition error may be declared as blocked with its actionable upstream guidance. |
+| `env` | Resolves literal, host, and declared values with the command-pipeline vocabulary. |
+| `pathPrefix` | Prepends resolved host paths to the installer process PATH. |
 | Temporary installer | Run with declared arguments, then remove the temporary workspace. |
 
 Targets use remote installers only for reviewed first-party HTTPS sources.

@@ -11,12 +11,15 @@ import {
   guardMatches,
   readBindings,
   resolveArgs,
+  resolveEnv,
   resolveGuard,
+  runCommandStep,
   scopeFor,
 } from './command';
 import type {
   Activation,
   ActivationReport,
+  ActivationRunOptions,
   CommandScope,
   Described,
 } from './contract';
@@ -98,7 +101,7 @@ async function runInstaller(
       script,
       args,
       `installer failed for ${activation.label}`,
-      { env: installerEnv(activation, context) },
+      { env: installerEnv(activation, context, scope) },
     );
     return;
   }
@@ -107,15 +110,16 @@ async function runInstaller(
     activation.interpreter,
     [script, ...args],
     `${activation.interpreter} installer failed for ${activation.label}`,
-    { env: installerEnv(activation, context) },
+    { env: installerEnv(activation, context, scope) },
   );
 }
 
 function installerEnv(
   activation: RemoteInstallerActivation,
   context: Context,
+  scope: CommandScope,
 ): Readonly<Record<string, string>> | undefined {
-  const env: Record<string, string> = { ...activation.env };
+  const env = resolveEnv(activation.env ?? {}, scope);
   const pathPrefix = activation.pathPrefix?.map((path) =>
     resolveHostPath(path, context.home),
   );
@@ -128,18 +132,35 @@ function installerEnv(
 export async function runRemoteInstaller(
   activation: RemoteInstallerActivation,
   context: Context,
+  options: ActivationRunOptions = { upgrade: false },
 ): Promise<ActivationReport> {
   const base = describeRemoteInstaller(activation);
   return guarded(base, async () => {
-    const scope = scopeFor(await readBindings(activation.reads ?? {}, context));
+    const bindings = await readBindings(activation.reads ?? {}, context);
+    const scope = scopeFor(bindings);
     const satisfied = activation.skipIf
       ? await guardMatches(resolveGuard(activation.skipIf, scope), context, {
-          env: installerEnv(activation, context),
+          env: installerEnv(activation, context, scope),
         })
       : (await lstatIfPresent(
           resolveHostPath(activation.creates, context.home),
         )) !== null;
     if (satisfied) {
+      if (options.upgrade && activation.upgrade) {
+        const entry = await runCommandStep(
+          activation.upgrade,
+          bindings,
+          context,
+        );
+        if (
+          entry.status === 'failed' &&
+          activation.upgrade.blockedWhen &&
+          entry.error?.includes(activation.upgrade.blockedWhen.errorContains)
+        ) {
+          return { ...base, status: 'blocked', error: entry.error };
+        }
+        return { ...base, status: entry.status, entries: [entry] };
+      }
       return { ...base, status: 'unchanged' };
     }
     const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));

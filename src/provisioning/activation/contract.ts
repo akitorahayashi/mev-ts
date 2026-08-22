@@ -111,7 +111,13 @@ export type Activation =
       readonly creates: HostPath;
       /** Overrides `creates` when presence alone does not mean up to date. */
       readonly skipIf?: StepGuard;
-      readonly env?: Readonly<Record<string, string>>;
+      /**
+       * Self-update command for an already installed latest-assumed tool. It
+       * runs only under explicit upgrade intent; a fresh install never invokes
+       * it again in the same activation.
+       */
+      readonly upgrade?: RemoteInstallerUpgrade;
+      readonly env?: Readonly<Record<string, CommandEnvValue>>;
       readonly pathPrefix?: readonly HostPath[];
     }
   | {
@@ -204,6 +210,11 @@ export interface CommandStep {
   readonly capture?: string;
   readonly changedWhen?: ChangedWhen;
 }
+
+export type RemoteInstallerUpgrade = CommandStep & {
+  /** Maps a known updater safety precondition to a blocked activation. */
+  readonly blockedWhen?: { readonly errorContains: string };
+};
 
 /**
  * Per-run execution intent threaded from the CLI into the runners that consume

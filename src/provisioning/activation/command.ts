@@ -10,6 +10,7 @@ import type {
   CommandEnvValue,
   CommandRead,
   CommandScope,
+  CommandStep,
   Described,
   StepGuard,
   StepReport,
@@ -64,7 +65,7 @@ function resolveEnvValue(value: CommandEnvValue, scope: CommandScope): string {
     .join(':');
 }
 
-function resolveEnv(
+export function resolveEnv(
   env: Readonly<Record<string, CommandEnvValue>>,
   scope: CommandScope,
 ): Record<string, string> {
@@ -210,6 +211,54 @@ export async function readBindings(
   return bindings;
 }
 
+export async function runCommandStep(
+  step: CommandStep,
+  bindings: Map<string, string>,
+  context: Context,
+): Promise<StepReport> {
+  const scope = scopeFor(bindings);
+  const argv = resolveArgs(step.argv, scope);
+  const [command, ...args] = argv;
+  const label = step.label;
+  if (!command) {
+    throw new ProvisioningError(`Command step '${label}' produced no argv.`);
+  }
+  const env = step.env ? resolveEnv(step.env, scope) : undefined;
+
+  if (
+    step.skipIf &&
+    (await guardMatches(resolveGuard(step.skipIf, scope), context, { env }))
+  ) {
+    return { key: label, value: 'skipped', status: 'unchanged' };
+  }
+
+  const result = await context.commands.run(command, args, { env });
+
+  if (result.code !== 0) {
+    return {
+      key: label,
+      value: argv.join(' '),
+      status: 'failed',
+      error: result.stderr.trim() || `exit code ${result.code}`,
+    };
+  }
+
+  const captured = result.stdout.trim();
+  if (step.capture) {
+    bindings.set(step.capture, captured);
+  }
+  const didChange = classifyChange(
+    step.changedWhen,
+    result.stdout,
+    result.stderr,
+  );
+  return {
+    key: label,
+    value: step.capture ? captured : argv.join(' '),
+    status: didChange ? 'changed' : 'unchanged',
+  };
+}
+
 export async function runCommandActivation(
   activation: CommandActivation,
   context: Context,
@@ -217,54 +266,12 @@ export async function runCommandActivation(
   const base = describeCommand(activation);
   return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
-    const scope = scopeFor(bindings);
     const entries: StepReport[] = [];
 
     for (const step of activation.steps) {
-      const argv = resolveArgs(step.argv, scope);
-      const [command, ...args] = argv;
-      const label = step.label;
-      if (!command) {
-        throw new ProvisioningError(
-          `Command step '${label}' produced no argv.`,
-        );
-      }
-      const env = step.env ? resolveEnv(step.env, scope) : undefined;
-
-      if (
-        step.skipIf &&
-        (await guardMatches(resolveGuard(step.skipIf, scope), context, { env }))
-      ) {
-        entries.push({ key: label, value: 'skipped', status: 'unchanged' });
-        continue;
-      }
-
-      const result = await context.commands.run(command, args, { env });
-
-      if (result.code !== 0) {
-        entries.push({
-          key: label,
-          value: argv.join(' '),
-          status: 'failed',
-          error: result.stderr.trim() || `exit code ${result.code}`,
-        });
-        break;
-      }
-
-      const captured = result.stdout.trim();
-      if (step.capture) {
-        bindings.set(step.capture, captured);
-      }
-      const didChange = classifyChange(
-        step.changedWhen,
-        result.stdout,
-        result.stderr,
-      );
-      entries.push({
-        key: label,
-        value: step.capture ? captured : argv.join(' '),
-        status: didChange ? 'changed' : 'unchanged',
-      });
+      const report = await runCommandStep(step, bindings, context);
+      entries.push(report);
+      if (report.status === 'failed') break;
     }
 
     return { ...base, status: aggregateStatus(entries), entries };

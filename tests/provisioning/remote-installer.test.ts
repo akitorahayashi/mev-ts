@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import type { AssetSource } from '../../src/assets/registry';
 import { home } from '../../src/host/path';
 import {
@@ -51,6 +51,10 @@ sandboxTest(
         interpreter: 'bash',
         args: ['--flag'],
         creates: home('.local/bin/demo'),
+        env: {
+          DEMO_INSTALL_DIR: { concat: [{ ref: 'home' }, '/.local/bin'] },
+        },
+        pathPrefix: [home('.local/bin')],
       }),
       context,
     );
@@ -71,6 +75,10 @@ sandboxTest(
     expect(args.at(-1)).toBe('https://example.test/install.sh');
     expect(calls[1]?.command).toBe('bash');
     expect(calls[1]?.args.slice(1)).toEqual(['--flag']);
+    expect(calls[1]?.options?.env).toEqual({
+      DEMO_INSTALL_DIR: `${dir}/.local/bin`,
+      PATH: `${dir}/.local/bin`,
+    });
     expect(await leakedWorkspaces(dir)).toEqual([]);
   },
 );
@@ -277,5 +285,120 @@ sandboxTest(
     expect(current.calls.map((call) => call.command)).toEqual([
       `${dir}/.demo/bin/demo`,
     ]);
+  },
+);
+
+sandboxTest(
+  'upgrade mode runs the declared updater only for an existing installation',
+  async (dir) => {
+    const binary = `${dir}/.local/bin/demo`;
+    await mkdir(`${dir}/.local/bin`, { recursive: true });
+    await writeFile(binary, 'installed');
+    const activation = remoteInstaller({
+      label: 'install demo',
+      url: 'https://example.test/install',
+      integrity: { acknowledgedUnverified: true },
+      interpreter: 'bash',
+      args: [],
+      creates: home('.local/bin/demo'),
+      upgrade: {
+        label: 'demo update',
+        argv: [{ concat: [{ ref: 'home' }, '/.local/bin/demo'] }, 'update'],
+        changedWhen: { outputNotContains: 'already up to date' },
+      },
+    });
+    const { context, calls } = installerContext(dir, (command) =>
+      command === binary ? ok('already up to date (1.0.0)\n') : ok(),
+    );
+
+    const routine = await runActivation(activation, context);
+    const upgraded = await runActivation(activation, context, {
+      upgrade: true,
+    });
+
+    expect(routine.status).toBe('unchanged');
+    expect(upgraded.status).toBe('unchanged');
+    expect(upgraded.entries).toEqual([
+      {
+        key: 'demo update',
+        value: `${binary} update`,
+        status: 'unchanged',
+      },
+    ]);
+    expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+      [binary, 'update'],
+    ]);
+  },
+);
+
+sandboxTest(
+  'upgrade mode installs a missing tool without running its updater',
+  async (dir) => {
+    const binary = `${dir}/.local/bin/demo`;
+    const { context, calls } = installerContext(dir, async (command, args) => {
+      if (command === 'curl') {
+        const output = args[args.indexOf('-o') + 1] as string;
+        await writeFile(output, 'installer');
+      }
+      return ok();
+    });
+    const report = await runActivation(
+      remoteInstaller({
+        label: 'install demo',
+        url: 'https://example.test/install',
+        integrity: { acknowledgedUnverified: true },
+        interpreter: 'bash',
+        args: [],
+        creates: home('.local/bin/demo'),
+        upgrade: {
+          label: 'demo update',
+          argv: [binary, 'update'],
+        },
+      }),
+      context,
+      { upgrade: true },
+    );
+
+    expect(report.status).toBe('changed');
+    expect(calls.map((call) => call.command)).toEqual(['curl', 'bash']);
+  },
+);
+
+sandboxTest(
+  'a declared updater safety precondition blocks with its guidance',
+  async (dir) => {
+    const binary = `${dir}/.local/bin/demo`;
+    await mkdir(`${dir}/.local/bin`, { recursive: true });
+    await writeFile(binary, 'installed');
+    const guidance = 'detach before updating demo';
+    const { context } = installerContext(dir, () => ({
+      code: 1,
+      stdout: '',
+      stderr: `update failed: ${guidance}\n`,
+    }));
+
+    const report = await runActivation(
+      remoteInstaller({
+        label: 'install demo',
+        url: 'https://example.test/install',
+        integrity: { acknowledgedUnverified: true },
+        interpreter: 'bash',
+        args: [],
+        creates: home('.local/bin/demo'),
+        upgrade: {
+          label: 'demo update',
+          argv: [binary, 'update'],
+          blockedWhen: { errorContains: guidance },
+        },
+      }),
+      context,
+      { upgrade: true },
+    );
+
+    expect(report).toMatchObject({
+      status: 'blocked',
+      error: `update failed: ${guidance}`,
+    });
+    expect(report.entries).toBeUndefined();
   },
 );

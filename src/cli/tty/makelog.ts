@@ -141,11 +141,22 @@ function actionRequiredLines(
       );
     }
     for (const activation of group.reports) {
-      if (activation.status !== 'failed') continue;
-      entry(`${group.targetName} failed during activation`, [
-        `   ${activationLine(activation)}`,
-        ...failedEntryLines(activation),
-      ]);
+      if (activation.status === 'failed') {
+        entry(`${group.targetName} failed during activation`, [
+          `   ${activationLine(activation)}`,
+          ...failedEntryLines(activation),
+        ]);
+      }
+      if (
+        activation.status === 'blocked' &&
+        group.blockers.length === 0 &&
+        activation.error
+      ) {
+        entry(`${group.targetName} blocked during activation`, [
+          `   ${activationLine(activation)}`,
+          `   ${activation.error}`,
+        ]);
+      }
     }
     if (group.markerError) {
       entry(
