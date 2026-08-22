@@ -51,6 +51,10 @@ sandboxTest(
         interpreter: 'bash',
         args: ['--flag'],
         creates: home('.local/bin/demo'),
+        env: {
+          DEMO_INSTALL_DIR: { concat: [{ ref: 'home' }, '/.local/bin'] },
+        },
+        pathPrefix: [home('.local/bin')],
       }),
       context,
     );
@@ -71,6 +75,10 @@ sandboxTest(
     expect(args.at(-1)).toBe('https://example.test/install.sh');
     expect(calls[1]?.command).toBe('bash');
     expect(calls[1]?.args.slice(1)).toEqual(['--flag']);
+    expect(calls[1]?.options?.env).toEqual({
+      DEMO_INSTALL_DIR: `${dir}/.local/bin`,
+      PATH: `${dir}/.local/bin`,
+    });
     expect(await leakedWorkspaces(dir)).toEqual([]);
   },
 );

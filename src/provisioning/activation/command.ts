@@ -64,7 +64,7 @@ function resolveEnvValue(value: CommandEnvValue, scope: CommandScope): string {
     .join(':');
 }
 
-function resolveEnv(
+export function resolveEnv(
   env: Readonly<Record<string, CommandEnvValue>>,
   scope: CommandScope,
 ): Record<string, string> {

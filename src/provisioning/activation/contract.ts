@@ -111,7 +111,7 @@ export type Activation =
       readonly creates: HostPath;
       /** Overrides `creates` when presence alone does not mean up to date. */
       readonly skipIf?: StepGuard;
-      readonly env?: Readonly<Record<string, string>>;
+      readonly env?: Readonly<Record<string, CommandEnvValue>>;
       readonly pathPrefix?: readonly HostPath[];
     }
   | {

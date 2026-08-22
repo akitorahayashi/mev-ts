@@ -11,6 +11,7 @@ import {
   guardMatches,
   readBindings,
   resolveArgs,
+  resolveEnv,
   resolveGuard,
   scopeFor,
 } from './command';
@@ -98,7 +99,7 @@ async function runInstaller(
       script,
       args,
       `installer failed for ${activation.label}`,
-      { env: installerEnv(activation, context) },
+      { env: installerEnv(activation, context, scope) },
     );
     return;
   }
@@ -107,15 +108,16 @@ async function runInstaller(
     activation.interpreter,
     [script, ...args],
     `${activation.interpreter} installer failed for ${activation.label}`,
-    { env: installerEnv(activation, context) },
+    { env: installerEnv(activation, context, scope) },
   );
 }
 
 function installerEnv(
   activation: RemoteInstallerActivation,
   context: Context,
+  scope: CommandScope,
 ): Readonly<Record<string, string>> | undefined {
-  const env: Record<string, string> = { ...activation.env };
+  const env = resolveEnv(activation.env ?? {}, scope);
   const pathPrefix = activation.pathPrefix?.map((path) =>
     resolveHostPath(path, context.home),
   );
@@ -134,7 +136,7 @@ export async function runRemoteInstaller(
     const scope = scopeFor(await readBindings(activation.reads ?? {}, context));
     const satisfied = activation.skipIf
       ? await guardMatches(resolveGuard(activation.skipIf, scope), context, {
-          env: installerEnv(activation, context),
+          env: installerEnv(activation, context, scope),
         })
       : (await lstatIfPresent(
           resolveHostPath(activation.creates, context.home),
