@@ -42,6 +42,10 @@ Each entry under `dependencies.tools[]` takes:
 | `url` | Endpoint of a `streamable_http` server |
 | `command` | Launch command of a `stdio` server |
 
+## Delegation
+
+`agents/openai.yaml` does not configure subagents. Codex multi-agent tools and custom agents come from host and project configuration independently of the skill package. A shared skill describes delegation by capability and states the equivalent main-session behavior when delegation is unavailable; it does not depend on Codex tool identifiers.
+
 ## Example
 
 ```yaml

@@ -74,7 +74,7 @@ the marketplace metadata uses a different name.
 ```yaml
 marketplaces:
   - repo: akitorahayashi/agent-device-plugin
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [agent-device, diff-verify]
   - repo: akitorahayashi/xlsx
     clients: [claude, codex]

@@ -16,7 +16,7 @@ Keep configuration standalone while it is project-specific, personal, or still b
 A plugin has one coherent purpose. Each host-supported component contributes directly to that purpose:
 
 - a skill carries a user- or model-invoked capability
-- an agent carries isolated delegated work
+- a host-supported packaged agent carries isolated delegated work
 - a hook reacts automatically to lifecycle or tool events
 - an MCP server exposes an external service or tool protocol
 - a connector exposes an authenticated external service through a supported host surface
@@ -40,6 +40,7 @@ Existing `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.claude-plu
 - Component-specific behavior remains in the owning skill, agent, hook, or server definition. The plugin manifest does not duplicate those instructions.
 - Cross-component workflow states each input, output, caller boundary, and persistent artifact's owner and mutation policy without making components depend on the original authoring conversation.
 - Component consolidation traces callers, consumers, artifacts, and runtime paths, then assigns responsibilities by comparing owned decisions, outputs, consumers, and lifecycles.
+- Built-in and standalone subagents are host capabilities rather than plugin components. A plugin declares packaged agents only for a host whose plugin format supports them.
 
 ## Paths and State
 
@@ -47,6 +48,8 @@ Installed marketplace plugins may run from a copied or versioned cache rather th
 
 - Claude Code uses `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`.
 - Codex hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for persistent state. Codex resolves relative MCP `cwd` values against the plugin root.
+
+Bundled skills refer to their own supporting files with Markdown links relative to the skill directory. Plugin-root variables apply only where the selected host documents substitution; they do not replace skill-relative links in a shared `SKILL.md`.
 
 Runtime files do not use paths that escape the plugin root. Hook scripts resolve bundled files from the host's documented plugin-root variable. Bundled-file paths in Codex MCP commands and arguments are relative to a plugin-root-relative `cwd`; they do not use plugin-variable substitution. Other scripts accept project paths explicitly and do not assume the shell working directory. Writes target the host's documented persistent state location rather than immutable installed plugin files.
 
@@ -68,7 +71,7 @@ Plugins are trusted code that can execute with the user's operating-system privi
 3. Select only the component types required by the purpose.
 4. Define each component with its own responsibility and boundary contract.
 5. Add or revise the host-specific manifest for stable identity, metadata, custom paths, dependencies, options, or publication.
-6. Replace checkout-relative paths with plugin runtime variables and separate immutable files from persistent state.
+6. Replace checkout-relative runtime-configuration paths with the host's documented plugin-root resolution, retain skill-relative links for skill supporting files, and separate immutable files from persistent state.
 7. Add a marketplace entry only when installation or distribution requires a catalog.
 8. Select explicit semantic versions for reviewed releases or commit-derived versions for continuous internal delivery.
 9. Validate the package, exercise every component, and test installation through its intended distribution path.

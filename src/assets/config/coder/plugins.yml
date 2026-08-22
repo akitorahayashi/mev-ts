@@ -6,23 +6,23 @@
 #   - plugins: plugin names installed from this marketplace
 marketplaces:
   - repo: akitorahayashi/agent-device-plugin
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [agent-device, diff-verify]
     # To uninstall a plugin, move its name out of plugins into an uninstall
     # list on the same entry:
     #   plugins: [agent-device]
     #   uninstall: [diff-verify]
   - repo: akitorahayashi/charles-traffic
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [charles-traffic]
   - repo: akitorahayashi/comment-review
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [comment-review]
   - repo: akitorahayashi/issue-probe
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [issue-probe]
   - repo: akitorahayashi/prune-comments
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [prune-comments]
   - repo: akitorahayashi/simplify
     clients: [claude, codex]
@@ -34,7 +34,7 @@ marketplaces:
     clients: [claude, codex]
     plugins: [worktree-crew]
   - repo: akitorahayashi/backlog
-    clients: [claude]
+    clients: [claude, codex]
     plugins: [backlog]
 # To remove a marketplace and uninstall the plugins it still has installed,
 # delete its entry above and move its repo and clients lines here:

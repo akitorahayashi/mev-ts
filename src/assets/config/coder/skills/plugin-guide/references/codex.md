@@ -7,7 +7,7 @@
 - [Package your plugin](https://developers.openai.com/plugins/build/plugins)
 - [Build skills](https://developers.openai.com/codex/build-skills)
 
-OpenAI plugins are installable bundles shared by supported ChatGPT and Codex surfaces. They can include skills, connectors, MCP servers, hooks, scheduled task templates, browser extensions, and assets. Codex CLI supports browsing and installing plugins from configured marketplaces; installed bundled skills and tools are available in new sessions.
+OpenAI plugins are installable bundles shared by supported ChatGPT and Codex surfaces. They can include skills, portable agents, connectors, MCP servers, hooks, scheduled task templates, browser extensions, and assets. Codex CLI supports browsing and installing plugins from configured marketplaces; installed bundled skills and tools are available in new sessions.
 
 ## Standard Layout
 
@@ -17,6 +17,8 @@ OpenAI plugins are installable bundles shared by supported ChatGPT and Codex sur
 │   └── plugin.json
 ├── skills/
 │   └── <skill>/SKILL.md
+├── agents/
+│   └── <agent>.md
 ├── hooks/
 │   └── hooks.json
 ├── .app.json
@@ -31,12 +33,15 @@ Every OpenAI plugin has `.codex-plugin/plugin.json`. Only `plugin.json` belongs 
 | component | default location | behavior |
 | --- | --- | --- |
 | skills | `skills/<name>/SKILL.md` | reusable workflows loaded by ChatGPT or Codex |
+| agents | `agents/<name>.md` | portable packaged agents loaded on host surfaces that support them |
 | hooks | `hooks/hooks.json` | lifecycle hooks loaded when the plugin is enabled and trusted |
 | MCP servers | `.mcp.json` | bundled server configuration for tools and context |
 | app mappings | `.app.json` | registered MCP server connections used by connector-style plugins |
 | assets | `assets/` | icons, logos, screenshots, and presentation materials |
 
 Connectors are backed by MCP servers and may include custom UI on supported ChatGPT surfaces. Codex can use bundled skills and MCP tools where the active surface supports plugins.
+
+OpenAI plugins can package portable Agent Plugin agents under `agents/` and declare them through the manifest's `agents` field. These packaged Markdown agents are distinct from Codex custom-agent TOML under `.codex/agents/` or `~/.codex/agents/`; custom-agent model, sandbox, and tool configuration remains host or project configuration. A bundled shared skill can delegate to a packaged agent where the active host supports it and states equivalent main-session behavior for surfaces where delegation is unavailable.
 
 ## Manifest
 
@@ -48,6 +53,7 @@ Connectors are backed by MCP servers and may include custom UI on supported Chat
   "version": "0.1.0",
   "description": "Bundle reusable skills and MCP servers.",
   "skills": "./skills/",
+  "agents": ["./agents/reviewer.md"],
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks/hooks.json",
   "apps": "./.app.json",
@@ -60,11 +66,13 @@ Connectors are backed by MCP servers and may include custom UI on supported Chat
 }
 ```
 
-`name`, `version`, and `description` identify the plugin. `author`, `homepage`, `repository`, `license`, and `keywords` provide publisher and discovery metadata. `skills`, `mcpServers`, `hooks`, and `apps` point to bundled components. `interface` controls display metadata such as `displayName`, descriptions, category, default prompts, icons, logos, and screenshots.
+`name`, `version`, and `description` identify the plugin. `author`, `homepage`, `repository`, `license`, and `keywords` provide publisher and discovery metadata. `skills`, `agents`, `mcpServers`, `hooks`, and `apps` point to bundled components. `interface` controls display metadata such as `displayName`, descriptions, category, default prompts, icons, logos, and screenshots.
 
 ## Path Rules
 
-Manifest paths are relative to the plugin root and start with `./`. Store visual assets under `./assets/` when possible. Use `skills` for bundled skill folders, `mcpServers` for `.mcp.json`, `hooks` for lifecycle hooks, and `apps` for registered MCP server mappings in `.app.json`.
+Manifest paths are relative to the plugin root and start with `./`. Store visual assets under `./assets/` when possible. Use `skills` for bundled skill folders, `agents` for portable packaged agent definitions, `mcpServers` for `.mcp.json`, `hooks` for lifecycle hooks, and `apps` for registered MCP server mappings in `.app.json`.
+
+Bundled skills refer to their own supporting files with Markdown links relative to the skill directory. They do not use plugin-root variables or a skill-directory placeholder for those files.
 
 Codex plugin hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for writable persistent state. Hook commands quote substituted paths when using shell forms.
 

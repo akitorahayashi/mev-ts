@@ -67,6 +67,8 @@ Frontmatter carries what the host application processes: identification, discove
 
 Host-specific frontmatter differs by tool. Read [Claude Code](references/claude-code.md) or [Codex](references/codex.md) when the skill sets invocation policy, model selection, or tool permissions.
 
+A skill shared across hosts names required capabilities and outcomes rather than host-specific tool identifiers. Delegation instructions define the work partition, write ownership, result contract, continuation behavior, and the equivalent fallback when delegation is unavailable. Host-specific invocation syntax belongs in a supporting reference that the skill reads only on that host.
+
 ## Optional supporting files
 
 A skill may include supporting files next to `SKILL.md`:
@@ -115,7 +117,9 @@ Run [validator](scripts/validate.py).
 
 `references/` is flat, and `SKILL.md` links each file directly.
 
-Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve the script path relative to the skill directory and pass project files as explicit arguments.
+Supporting-file references use Markdown links rather than host directory variables or a `<skill-dir>` placeholder. Placeholders represent caller-provided values, not paths owned by the skill.
+
+Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve its linked path relative to the skill directory before invoking the shell, and pass project files as explicit arguments.
 
 ## Creating or revising a skill
 
