@@ -24,6 +24,9 @@ marketplaces:
   - repo: akitorahayashi/prune-comments
     clients: [claude, codex]
     plugins: [prune-comments]
+  - repo: akitorahayashi/repro-steps
+    clients: [claude, codex]
+    plugins: [repro-steps]
   - repo: akitorahayashi/simplify
     clients: [claude, codex]
     plugins: [simplify]
