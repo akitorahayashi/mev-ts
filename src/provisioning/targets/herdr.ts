@@ -26,6 +26,11 @@ export const herdrTarget = target('herdr', {
       interpreter: 'sh',
       args: [],
       creates: home('.local/bin/herdr'),
+      upgrade: {
+        label: 'herdr update',
+        argv: [BINARY, 'update'],
+        changedWhen: { outputNotContains: 'already up to date' },
+      },
       env: { HERDR_INSTALL_DIR: INSTALL_DIR },
       pathPrefix: [home('.local/bin')],
     }),

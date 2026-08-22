@@ -207,7 +207,8 @@ export const activationKinds: ActivationKinds = {
   },
   remoteInstaller: {
     describe: describeRemoteInstaller,
-    run: (activation, context) => runRemoteInstaller(activation, context),
+    run: (activation, context, options) =>
+      runRemoteInstaller(activation, context, options),
     references: (activation) =>
       Object.values(activation.reads ?? {}).map((key) => ({ key })),
     assetChecks: (activation) =>

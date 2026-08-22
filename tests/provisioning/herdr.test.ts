@@ -32,6 +32,9 @@ sandboxTest(
           await chmod(binary, 0o755);
           return ok();
         }
+        if (command === binary && args[0] === 'update') {
+          return ok('updated to 0.8.3\n');
+        }
         if (command === binary) return ok('herdr 0.8.2\n');
         return fail(`unexpected command: ${command}`);
       },
@@ -53,6 +56,27 @@ sandboxTest(
     expect(second.groups[0]?.reports.map((report) => report.status)).toEqual([
       'unchanged',
       'unchanged',
+      'unchanged',
+    ]);
+
+    const upgradeCallCount = calls.length;
+    const upgraded = await runMake(
+      { selectors: ['herdr'], upgrade: true },
+      context,
+    );
+
+    expect(upgraded.failed).toBe(false);
+    expect(calls.slice(upgradeCallCount).map((call) => call.command)).toEqual([
+      binary,
+      binary,
+    ]);
+    expect(calls.slice(upgradeCallCount).map((call) => call.args)).toEqual([
+      ['update'],
+      ['--version'],
+    ]);
+    expect(upgraded.groups[0]?.reports.map((report) => report.status)).toEqual([
+      'unchanged',
+      'changed',
       'unchanged',
     ]);
   },
