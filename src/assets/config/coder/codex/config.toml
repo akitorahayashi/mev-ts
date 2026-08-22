@@ -1,10 +1,11 @@
 # Default model to use
-model = "gpt-5.5"
+model = "gpt-5.6-sol"
 model_provider = "openai"
 model_reasoning_effort = "high"
 
 # Approval policy for executing commands, Options: "on-request"
 approval_policy = "on-request"
+approvals_reviewer = "user"
 
 # Options: "read-only", "workspace-write", "danger-full-access"
 sandbox_mode = "danger-full-access"

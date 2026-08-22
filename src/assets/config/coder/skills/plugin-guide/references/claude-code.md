@@ -83,6 +83,8 @@ Use default locations unless a custom layout removes real complexity.
 
 Skill and agent content can substitute these variables. Hook commands and MCP or LSP configuration support substitution in their documented command, argument, environment, URL, header, or workspace fields.
 
+A skill shared with other hosts uses skill-relative Markdown links for its own supporting files. `${CLAUDE_PLUGIN_ROOT}` remains for Claude-specific content and plugin-root files outside the skill directory.
+
 Prefer argument-array or exec forms where supported. Shell-form commands quote substituted paths.
 
 ## Cache Behavior

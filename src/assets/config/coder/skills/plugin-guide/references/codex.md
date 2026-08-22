@@ -38,6 +38,8 @@ Every OpenAI plugin has `.codex-plugin/plugin.json`. Only `plugin.json` belongs 
 
 Connectors are backed by MCP servers and may include custom UI on supported ChatGPT surfaces. Codex can use bundled skills and MCP tools where the active surface supports plugins.
 
+OpenAI plugins do not package Claude `agents/*.md` or Codex custom-agent TOML. Codex custom agents and multi-agent tools come from host and project configuration independently of the plugin. A bundled shared skill treats delegation as an optional host capability and states equivalent main-session behavior when it is unavailable.
+
 ## Manifest
 
 `<plugin-root>/.codex-plugin/plugin.json` identifies the plugin, points to bundled components, and supplies install-surface metadata.
@@ -65,6 +67,8 @@ Connectors are backed by MCP servers and may include custom UI on supported Chat
 ## Path Rules
 
 Manifest paths are relative to the plugin root and start with `./`. Store visual assets under `./assets/` when possible. Use `skills` for bundled skill folders, `mcpServers` for `.mcp.json`, `hooks` for lifecycle hooks, and `apps` for registered MCP server mappings in `.app.json`.
+
+Bundled skills refer to their own supporting files with Markdown links relative to the skill directory. They do not use plugin-root variables or a skill-directory placeholder for those files.
 
 Codex plugin hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for writable persistent state. Hook commands quote substituted paths when using shell forms.
 
