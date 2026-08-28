@@ -14,7 +14,7 @@
 # Set indent width to 2 spaces
 - key: DVTTextIndentWidth
   type: int
-  value: 2
+  value: 4
   domain: com.apple.dt.Xcode
 
 # Set tab character display width to 2 spaces
