@@ -2,7 +2,7 @@
 	defaultBranch = main
 
 [alias]
-    ini = init
+    i = init
     cl = !mev internal git clone
     rf-cl = "!f() { mkdir -p references && echo '*' > references/.gitignore && cd references && gv clone \"$@\"; }; f"
 
@@ -29,7 +29,7 @@
     cpd = !git diff | pbcopy
     ts = status
     ts-s = status --stat
-    
+
     sh = stash
     sh-p = stash pop
     sh-d = stash drop
