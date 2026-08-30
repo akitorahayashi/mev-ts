@@ -21,7 +21,7 @@ export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
 
 interface ProvisioningRunOptions {
   readonly selectors: readonly string[];
-  /** Upgrade mode (`--upgrade`): refresh installed latest-assumed items. */
+  /** Upgrade selected Homebrew packages and installed latest-assumed items. */
   readonly upgrade?: boolean;
   readonly intro?: string;
   readonly footer?: (report: MakeReport) => readonly string[] | undefined;
@@ -89,8 +89,9 @@ export async function executeProvisioningRun(
           });
         }
       },
-      onInstallTokenStart(token) {
-        bar?.setLabel(`installing ${token.kind} ${token.name}`);
+      onInstallTokenStart(token, action) {
+        const label = action === 'install' ? 'installing' : 'upgrading';
+        bar?.setLabel(`${label} ${token.kind} ${token.name}`);
       },
       onInstallTick() {
         // Clear the label so it only ever names an in-flight install; present

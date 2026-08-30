@@ -13,7 +13,8 @@ export class MakeCommand extends Command {
   });
 
   upgrade = Option.Boolean('-u,--upgrade', false, {
-    description: 'Also upgrade installed latest-assumed tools',
+    description:
+      'Also upgrade selected Homebrew packages and installed latest-assumed tools',
   });
 
   selectors = Option.Rest({ required: 1 });

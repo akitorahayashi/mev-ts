@@ -82,7 +82,10 @@ function runReturning(report: MakeReport): {
       if (deploy) request.onDeploy?.(deploy);
       request.onHeader?.(report.selection);
       request.onInstallStart?.(1);
-      request.onInstallTokenStart?.({ kind: 'formula', name: 'git' });
+      request.onInstallTokenStart?.(
+        { kind: 'formula', name: 'git' },
+        'install',
+      );
       request.onInstallTick?.({ kind: 'formula', name: 'git' });
       request.onActivationPhaseStart?.();
       for (const group of report.groups) {

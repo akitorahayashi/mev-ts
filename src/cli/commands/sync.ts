@@ -19,7 +19,8 @@ export class SyncCommand extends Command {
   // tools only within the targets staleness already selected, so a
   // synchronized environment stays a fast no-op with no network access.
   upgrade = Option.Boolean('-u,--upgrade', false, {
-    description: 'Also upgrade installed latest-assumed tools in stale targets',
+    description:
+      'Also upgrade Homebrew packages and installed latest-assumed tools in stale targets',
   });
 
   async execute() {

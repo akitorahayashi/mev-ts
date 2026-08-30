@@ -9,6 +9,8 @@ import { type PackageRequirement, type PackageToken, tokens } from './package';
 
 export type InstallStatus = 'installed' | 'present' | 'failed';
 
+export type InstallAction = 'install' | 'upgrade';
+
 export interface InstallReport {
   readonly token: PackageToken;
   readonly status: InstallStatus;
@@ -17,9 +19,13 @@ export interface InstallReport {
 
 export interface InstallHooks {
   onStart?(total: number): void;
-  /** Fires only for tokens that actually reach the install step. */
-  onTokenStart?(token: PackageToken): void;
+  /** Fires only for tokens that actually reach an install or upgrade step. */
+  onTokenStart?(token: PackageToken, action: InstallAction): void;
   onTick?(token: PackageToken): void;
+}
+
+export interface InstallOptions extends InstallHooks {
+  readonly upgrade?: boolean;
 }
 
 /**
@@ -76,21 +82,35 @@ async function install(
   });
 }
 
+async function upgrade(
+  context: Context,
+  kind: 'formula' | 'cask',
+  name: string,
+): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'brew',
+    ['upgrade', `--${kind}`, name],
+    `brew upgrade failed for ${name}`,
+  );
+}
+
 /**
  * Resolve every required package as a batch. Installed state is enumerated
  * once up front (see loadInventory), so present tokens resolve as in-memory
- * lookups and only missing tokens spawn `brew bundle install`. Tokens run in
- * taps→formulae→casks order, so a missing tap is installed before the
- * formulae that resolve through it. The hooks drive live progress labels and
- * count completed tokens.
+ * lookups. Missing tokens spawn `brew bundle install`; explicit upgrade mode
+ * also runs `brew upgrade` for installed formulae and casks. Tokens run in
+ * taps→formulae→casks order, so a missing tap is installed before the formulae
+ * that resolve through it. The hooks drive live progress labels and count
+ * completed tokens.
  */
 export async function installPackages(
   req: PackageRequirement,
   context: Context,
-  hooks: InstallHooks = {},
+  options: InstallOptions = {},
 ): Promise<InstallReport[]> {
   const list = tokens(req);
-  hooks.onStart?.(list.length);
+  options.onStart?.(list.length);
   if (list.length === 0) return [];
 
   const inventory = await loadInventory(req, context);
@@ -101,13 +121,23 @@ export async function installPackages(
     let report: InstallReport;
     if (!installed.loaded) {
       report = { token, status: 'failed', error: installed.error };
-    } else if (installed.names.has(token.name)) {
+    } else if (
+      installed.names.has(token.name) &&
+      (!options.upgrade || token.kind === 'tap')
+    ) {
       report = { token, status: 'present' };
     } else {
       try {
-        hooks.onTokenStart?.(token);
-        await install(context, brewfileLine(token), token.name);
-        report = { token, status: 'installed' };
+        const isUpgrade = installed.names.has(token.name);
+        if (isUpgrade && token.kind !== 'tap') {
+          options.onTokenStart?.(token, 'upgrade');
+          await upgrade(context, token.kind, token.name);
+          report = { token, status: 'present' };
+        } else {
+          options.onTokenStart?.(token, 'install');
+          await install(context, brewfileLine(token), token.name);
+          report = { token, status: 'installed' };
+        }
       } catch (error) {
         report = {
           token,
@@ -117,7 +147,7 @@ export async function installPackages(
       }
     }
     reports.push(report);
-    hooks.onTick?.(token);
+    options.onTick?.(token);
   }
   return reports;
 }

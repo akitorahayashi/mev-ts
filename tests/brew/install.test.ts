@@ -15,6 +15,7 @@ interface Sink {
   brewfile?: string;
   brewfilePath?: string;
   bundleArgs?: string[];
+  calls?: string[][];
 }
 
 interface BrewState {
@@ -35,6 +36,7 @@ function brewContext(
     assets: emptyAssets,
     tmpRoot,
     async respond(_command, args) {
+      sink.calls = [...(sink.calls ?? []), [...args]];
       if (args[0] === 'tap') {
         return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
       }
@@ -64,6 +66,78 @@ test('reports present without invoking brew bundle when the formula is listed', 
 
   expect(reports[0]?.status).toBe('present');
   expect(sink.bundleArgs).toBeUndefined();
+});
+
+test('upgrade mode upgrades an installed formula without invoking brew update', async (sandbox) => {
+  const sink: Sink = {};
+  const actions: string[] = [];
+  const reports = await installPackages(
+    oneFormula,
+    brewContext(sandbox, { formulae: ['git'] }, sink),
+    {
+      upgrade: true,
+      onTokenStart: (token, action) =>
+        actions.push(`${action} ${token.kind} ${token.name}`),
+    },
+  );
+
+  expect(reports[0]?.status).toBe('present');
+  expect(sink.calls).toContainEqual(['upgrade', '--formula', 'git']);
+  expect(sink.calls?.some((args) => args[0] === 'update')).toBe(false);
+  expect(actions).toEqual(['upgrade formula git']);
+});
+
+test('upgrade mode upgrades an installed cask and leaves an installed tap alone', async (sandbox) => {
+  const sink: Sink = {};
+  const reports = await installPackages(
+    packages({ taps: ['a/b'], casks: ['zed'] }),
+    brewContext(sandbox, { taps: ['a/b'], casks: ['zed'] }, sink),
+    { upgrade: true },
+  );
+
+  expect(reports.map((report) => report.status)).toEqual([
+    'present',
+    'present',
+  ]);
+  expect(sink.calls).toContainEqual(['upgrade', '--cask', 'zed']);
+  expect(sink.calls).not.toContainEqual(['upgrade', '--tap', 'a/b']);
+});
+
+test('upgrade mode installs a missing formula without invoking upgrade', async (sandbox) => {
+  const sink: Sink = {};
+  const reports = await installPackages(
+    oneFormula,
+    brewContext(sandbox, {}, sink),
+    { upgrade: true },
+  );
+
+  expect(reports[0]?.status).toBe('installed');
+  expect(sink.bundleArgs).toContain('--no-upgrade');
+  expect(sink.calls?.some((args) => args[0] === 'upgrade')).toBe(false);
+});
+
+test('a failed formula upgrade fails the package', async (sandbox) => {
+  const context = recordingContext({
+    home: sandbox,
+    assets: emptyAssets,
+    respond(_command, args) {
+      if (args[0] === 'list') {
+        return { code: 0, stdout: 'git\n', stderr: '' };
+      }
+      if (args[0] === 'upgrade') {
+        return { code: 1, stdout: '', stderr: 'upgrade unavailable' };
+      }
+      return { code: 0, stdout: '', stderr: '' };
+    },
+  }).context;
+
+  const reports = await installPackages(oneFormula, context, { upgrade: true });
+
+  expect(reports[0]).toEqual({
+    token: { kind: 'formula', name: 'git' },
+    status: 'failed',
+    error: 'brew upgrade failed for git with code 1: upgrade unavailable',
+  });
 });
 
 test('installs a missing formula through a temporary Brewfile', async (sandbox) => {
