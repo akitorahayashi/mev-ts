@@ -565,9 +565,10 @@ sandboxTest(
 );
 
 sandboxTest(
-  'upgrade mode upgrades selected installed Homebrew packages before activation',
+  'upgrade mode reports selected Homebrew upgrades before activation',
   async (sandbox) => {
-    const { context, calls } = recordingContext({
+    const events: string[] = [];
+    const { context } = recordingContext({
       home: sandbox,
       assets: embeddedAssets,
       respond(command, args) {
@@ -577,17 +578,19 @@ sandboxTest(
       },
     });
 
-    const report = await runMake({ selectors: ['gh'], upgrade: true }, context);
+    const report = await runMake(
+      {
+        selectors: ['gh'],
+        upgrade: true,
+        onInstallTokenStart: (token, action) =>
+          events.push(`${action} ${token.kind} ${token.name}`),
+        onActivationPhaseStart: () => events.push('activation'),
+      },
+      context,
+    );
 
     expect(report.failed).toBe(false);
-    expect(
-      calls.filter((call) => call.command === 'brew').map((call) => call.args),
-    ).toContainEqual(['upgrade', '--no-ask', '--formula', 'gh']);
-    expect(
-      calls.some(
-        (call) => call.command === 'brew' && call.args[0] === 'update',
-      ),
-    ).toBe(false);
+    expect(events).toEqual(['upgrade formula gh', 'activation']);
   },
 );
 

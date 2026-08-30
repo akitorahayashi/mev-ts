@@ -5,11 +5,18 @@ import { runWithCleanup } from '../host/cleanup-error';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { loadInventory } from './inventory';
-import { type PackageRequirement, type PackageToken, tokens } from './package';
+import {
+  type PackageKind,
+  type PackageRequirement,
+  type PackageToken,
+  tokens,
+} from './package';
 
 export type InstallStatus = 'installed' | 'present' | 'failed';
 
 export type InstallAction = 'install' | 'upgrade';
+
+type UpgradeablePackageKind = Exclude<PackageKind, 'tap'>;
 
 export interface InstallReport {
   readonly token: PackageToken;
@@ -17,15 +24,12 @@ export interface InstallReport {
   readonly error?: string;
 }
 
-export interface InstallHooks {
+export interface InstallOptions {
+  readonly upgrade?: boolean;
   onStart?(total: number): void;
   /** Fires only for tokens that actually reach an install or upgrade step. */
   onTokenStart?(token: PackageToken, action: InstallAction): void;
   onTick?(token: PackageToken): void;
-}
-
-export interface InstallOptions extends InstallHooks {
-  readonly upgrade?: boolean;
 }
 
 /**
@@ -84,7 +88,7 @@ async function install(
 
 async function upgrade(
   context: Context,
-  kind: 'formula' | 'cask',
+  kind: UpgradeablePackageKind,
   name: string,
 ): Promise<void> {
   await runProcessStep(
@@ -121,29 +125,32 @@ export async function installPackages(
     let report: InstallReport;
     if (!installed.loaded) {
       report = { token, status: 'failed', error: installed.error };
-    } else if (
-      installed.names.has(token.name) &&
-      (!options.upgrade || token.kind === 'tap')
-    ) {
-      report = { token, status: 'present' };
     } else {
-      try {
-        const isUpgrade = installed.names.has(token.name);
-        if (isUpgrade && token.kind !== 'tap') {
-          options.onTokenStart?.(token, 'upgrade');
-          await upgrade(context, token.kind, token.name);
-          report = { token, status: 'present' };
-        } else {
-          options.onTokenStart?.(token, 'install');
-          await install(context, brewfileLine(token), token.name);
-          report = { token, status: 'installed' };
+      const isInstalled = installed.names.has(token.name);
+      const isUpgrade =
+        isInstalled && options.upgrade === true && token.kind !== 'tap';
+      if (isInstalled && !isUpgrade) {
+        report = { token, status: 'present' };
+      } else {
+        try {
+          const action: InstallAction = isUpgrade ? 'upgrade' : 'install';
+          options.onTokenStart?.(token, action);
+          if (isUpgrade) {
+            await upgrade(context, token.kind, token.name);
+          } else {
+            await install(context, brewfileLine(token), token.name);
+          }
+          report = {
+            token,
+            status: action === 'install' ? 'installed' : 'present',
+          };
+        } catch (error) {
+          report = {
+            token,
+            status: 'failed',
+            error: errorMessage(error),
+          };
         }
-      } catch (error) {
-        report = {
-          token,
-          status: 'failed',
-          error: errorMessage(error),
-        };
       }
     }
     reports.push(report);

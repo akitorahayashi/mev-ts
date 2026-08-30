@@ -4,7 +4,11 @@ import { join } from 'node:path';
 import { installPackages } from '../../src/brew/install';
 import { type PackageToken, packages } from '../../src/brew/package';
 import type { Context } from '../../src/host/context';
-import { emptyAssets, recordingContext } from '../fixtures/fake-context';
+import {
+  emptyAssets,
+  type Invocation,
+  recordingContext,
+} from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 // Brewfile staging is real filesystem work, so every case runs against a
@@ -14,8 +18,7 @@ const test = sandboxedTest('brew-');
 interface Sink {
   brewfile?: string;
   brewfilePath?: string;
-  bundleArgs?: string[];
-  calls?: string[][];
+  calls?: readonly Invocation[];
 }
 
 interface BrewState {
@@ -31,12 +34,11 @@ function brewContext(
   sink: Sink = {},
   tmpRoot?: string,
 ): Context {
-  return recordingContext({
+  const recorded = recordingContext({
     home,
     assets: emptyAssets,
     tmpRoot,
     async respond(_command, args) {
-      sink.calls = [...(sink.calls ?? []), [...args]];
       if (args[0] === 'tap') {
         return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
       }
@@ -44,7 +46,6 @@ function brewContext(
         const names = args.includes('--cask') ? state.casks : state.formulae;
         return { code: 0, stdout: (names ?? []).join('\n'), stderr: '' };
       }
-      sink.bundleArgs = [...args];
       const fileArg = args.find((arg) => arg.startsWith('--file='));
       if (fileArg) {
         sink.brewfilePath = fileArg.slice('--file='.length);
@@ -52,10 +53,18 @@ function brewContext(
       }
       return { code: state.installCode ?? 0, stdout: '', stderr: '' };
     },
-  }).context;
+  });
+  sink.calls = recorded.calls;
+  return recorded.context;
 }
 
 const oneFormula = packages({ formulae: ['git'] });
+
+function recordedArgs(sink: Sink): readonly (readonly string[])[] {
+  return (sink.calls ?? [])
+    .filter((call) => call.command === 'brew')
+    .map((call) => call.args);
+}
 
 test('reports present without invoking brew bundle when the formula is listed', async (sandbox) => {
   const sink: Sink = {};
@@ -65,7 +74,7 @@ test('reports present without invoking brew bundle when the formula is listed', 
   );
 
   expect(reports[0]?.status).toBe('present');
-  expect(sink.bundleArgs).toBeUndefined();
+  expect(recordedArgs(sink).some((args) => args[0] === 'bundle')).toBe(false);
 });
 
 test('upgrade mode upgrades an installed formula without invoking brew update', async (sandbox) => {
@@ -82,13 +91,13 @@ test('upgrade mode upgrades an installed formula without invoking brew update', 
   );
 
   expect(reports[0]?.status).toBe('present');
-  expect(sink.calls).toContainEqual([
+  expect(recordedArgs(sink)).toContainEqual([
     'upgrade',
     '--no-ask',
     '--formula',
     'git',
   ]);
-  expect(sink.calls?.some((args) => args[0] === 'update')).toBe(false);
+  expect(recordedArgs(sink).some((args) => args[0] === 'update')).toBe(false);
   expect(actions).toEqual(['upgrade formula git']);
 });
 
@@ -104,8 +113,13 @@ test('upgrade mode upgrades an installed cask and leaves an installed tap alone'
     'present',
     'present',
   ]);
-  expect(sink.calls).toContainEqual(['upgrade', '--no-ask', '--cask', 'zed']);
-  expect(sink.calls).not.toContainEqual([
+  expect(recordedArgs(sink)).toContainEqual([
+    'upgrade',
+    '--no-ask',
+    '--cask',
+    'zed',
+  ]);
+  expect(recordedArgs(sink)).not.toContainEqual([
     'upgrade',
     '--no-ask',
     '--tap',
@@ -122,8 +136,10 @@ test('upgrade mode installs a missing formula without invoking upgrade', async (
   );
 
   expect(reports[0]?.status).toBe('installed');
-  expect(sink.bundleArgs).toContain('--no-upgrade');
-  expect(sink.calls?.some((args) => args[0] === 'upgrade')).toBe(false);
+  expect(recordedArgs(sink).find((args) => args[0] === 'bundle')).toContain(
+    '--no-upgrade',
+  );
+  expect(recordedArgs(sink).some((args) => args[0] === 'upgrade')).toBe(false);
 });
 
 test('a failed formula upgrade fails the package', async (sandbox) => {
@@ -160,7 +176,7 @@ test('installs a missing formula through a temporary Brewfile', async (sandbox) 
   expect(reports[0]?.status).toBe('installed');
   expect(sink.brewfile).toBe('brew "git"\n');
   expect(sink.brewfilePath).toMatch(/Brewfile$/);
-  expect(sink.bundleArgs).toEqual([
+  expect(recordedArgs(sink).find((args) => args[0] === 'bundle')).toEqual([
     'bundle',
     'install',
     '--no-upgrade',
@@ -207,18 +223,16 @@ test('reports failure when the enumeration rejects without a reason', async (san
 });
 
 test('a failed enumeration fails every token of that kind without installing', async (sandbox) => {
-  const sink: Sink = {};
-  const context = recordingContext({
+  const { context, calls } = recordingContext({
     home: sandbox,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
         return { code: 1, stdout: '', stderr: 'brew broken' };
       }
-      sink.bundleArgs = [...args];
       return { code: 0, stdout: '', stderr: '' };
     },
-  }).context;
+  });
 
   const reports = await installPackages(
     packages({ formulae: ['git', 'gh'] }),
@@ -229,7 +243,7 @@ test('a failed enumeration fails every token of that kind without installing', a
   expect(reports[0]?.error).toBe(
     'brew list --formula -1 failed with code 1: brew broken',
   );
-  expect(sink.bundleArgs).toBeUndefined();
+  expect(calls.some((call) => call.args[0] === 'bundle')).toBe(false);
 });
 
 test('allocates Brewfile scratch under the injected temporary root', async (sandbox) => {

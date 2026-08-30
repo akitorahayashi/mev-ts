@@ -15,9 +15,9 @@ export class SyncCommand extends Command {
     ),
   });
 
-  // Upgrade mode does not widen the selection: it refreshes latest-assumed
-  // tools only within the targets staleness already selected, so a
-  // synchronized environment stays a fast no-op with no network access.
+  // Upgrade mode does not widen selection: it affects packages and
+  // latest-assumed tools only in targets already selected as stale, so a
+  // synchronized environment remains a fast no-op without network access.
   upgrade = Option.Boolean('-u,--upgrade', false, {
     description:
       'Also upgrade Homebrew packages and installed latest-assumed tools in stale targets',
