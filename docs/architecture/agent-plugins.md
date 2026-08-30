@@ -74,6 +74,10 @@ affect reconciliation remain here:
 | Claude Code | Reports the marketplace ref; same-repository source drift can be corrected in place; upgrading does not enable a disabled plugin. |
 | Codex | Does not report the marketplace ref; replacing a drifted registration can remove its namespace, so declared plugins are reinstalled; re-adding also enables. |
 
+Client commands run with the activation-declared binary directories prepended
+to the inherited `PATH`, so a tool installed earlier in the same target is
+available without restarting the shell.
+
 ## Sources of truth
 
 | Responsibility | Authority |

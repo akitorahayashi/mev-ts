@@ -12,6 +12,7 @@ import {
   writeApplied,
 } from '../../src/provisioning/applied';
 import { deployRole } from '../../src/provisioning/deploy';
+import { groupStatus } from '../../src/provisioning/group-outcome';
 import { resolveTarget } from '../../src/provisioning/registry';
 import { runMake } from '../../src/provisioning/run';
 import { isScanError, scanTargets } from '../../src/provisioning/scan';
@@ -389,6 +390,62 @@ sandboxTest(
     await runMake({ selectors: ['xcode'] }, context);
 
     expect(writes).toEqual(defaultsKeys);
+  },
+);
+
+sandboxTest(
+  'an unhealthy CLI is reinstalled and blocks later activations if still unhealthy',
+  async (sandbox) => {
+    const binDir = join(sandbox, '.local/bin');
+    await mkdir(binDir, { recursive: true });
+    await writeFile(join(binDir, 'claude'), 'installed');
+    await symlink('missing-codex', join(binDir, 'codex'));
+    const started: string[] = [];
+    const { context, calls } = recordingContext({
+      home: sandbox,
+      assets: embeddedAssets,
+      async respond(command, args) {
+        if (command === join(binDir, 'codex')) {
+          return { code: 127, stdout: '', stderr: 'codex unavailable' };
+        }
+        if (command === 'curl') {
+          await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
+        }
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const report = await runMake(
+      {
+        selectors: ['coder'],
+        onActivationStart: ({ activation }) => {
+          started.push(activation.source);
+        },
+      },
+      context,
+    );
+    const group = report.groups.find(
+      ({ targetName }) => targetName === 'coder',
+    );
+
+    expect(report.failed).toBe(true);
+    expect(group && groupStatus(group)).toBe('failed');
+    expect(started).toEqual(['install claude', 'install codex']);
+    expect(group?.reports[0]?.status).toBe('unchanged');
+    expect(group?.reports[1]).toMatchObject({
+      source: 'install codex',
+      status: 'failed',
+      error:
+        'install codex completed without satisfying its declared post-install guard.',
+    });
+    expect(
+      group?.reports.slice(2).every(({ status }) => status === 'blocked'),
+    ).toBe(true);
+    expect(calls.some(({ command }) => command === 'codex')).toBe(false);
+    expect(
+      calls.filter(({ command }) => command === join(binDir, 'codex')),
+    ).toHaveLength(2);
+    expect(calls.some(({ command }) => command === 'sh')).toBe(true);
   },
 );
 

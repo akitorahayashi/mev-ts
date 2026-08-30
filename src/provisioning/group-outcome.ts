@@ -20,10 +20,7 @@ export function activationLine(report: Described): string {
 }
 
 export function groupStatus(group: ActivationGroupReport): GroupStatus {
-  if (
-    group.blockers.length > 0 ||
-    group.reports.some((report) => report.status === 'blocked')
-  ) {
+  if (group.blockers.length > 0) {
     return 'blocked';
   }
   if (
@@ -31,6 +28,9 @@ export function groupStatus(group: ActivationGroupReport): GroupStatus {
     group.markerError !== undefined
   ) {
     return 'failed';
+  }
+  if (group.reports.some((report) => report.status === 'blocked')) {
+    return 'blocked';
   }
   if (group.reports.some((report) => report.status === 'changed')) {
     return 'changed';

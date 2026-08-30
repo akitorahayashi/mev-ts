@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Context } from '../../src/host/context';
+import { home as hostHome } from '../../src/host/path';
 import {
   type ActivationRunOptions,
   installAgentPlugins,
@@ -28,7 +29,11 @@ marketplaces:
 const sandboxTest = sandboxedTest('agent-plugins-');
 
 const run = (context: Context, options?: ActivationRunOptions) =>
-  runActivation(installAgentPlugins(CONFIG_KEY), context, options);
+  runActivation(
+    installAgentPlugins(CONFIG_KEY, [hostHome('.local/bin')]),
+    context,
+    options,
+  );
 
 async function deployCatalog(
   home: string,
@@ -110,6 +115,7 @@ sandboxTest(
     await deployCatalog(home);
     const { context, calls } = recordingContext({
       home,
+      basePath: '/opt/homebrew/bin:/usr/bin',
       respond: (command, args) => {
         if (command === 'claude' && args.join(' ') === 'plugin list --json') {
           return ok(
@@ -174,6 +180,13 @@ sandboxTest(
       'claude plugin marketplace list --json',
       'codex plugin marketplace list --json',
     ]);
+    expect(
+      calls.every(
+        ({ options }) =>
+          options?.env?.['PATH'] ===
+          `${home}/.local/bin:/opt/homebrew/bin:/usr/bin`,
+      ),
+    ).toBe(true);
     expect(
       report.entries?.every(({ value }) => value === 'already installed'),
     ).toBe(true);

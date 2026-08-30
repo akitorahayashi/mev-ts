@@ -1,5 +1,6 @@
 import { expect } from 'bun:test';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, symlink, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
 import { home } from '../../src/host/path';
 import {
@@ -32,6 +33,11 @@ async function leakedWorkspaces(dir: string): Promise<string[]> {
     .sort();
 }
 
+async function createInstalledBinary(path: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, 'installed');
+}
+
 sandboxTest(
   'downloads with HTTPS-only curl and runs the temp installer',
   async (dir) => {
@@ -39,6 +45,9 @@ sandboxTest(
       if (command === 'curl') {
         const output = args[args.indexOf('-o') + 1] as string;
         await writeFile(output, 'installer');
+      }
+      if (command === 'bash') {
+        await createInstalledBinary(join(dir, '.local/bin/demo'));
       }
       return { code: 0, stdout: '', stderr: '' };
     });
@@ -118,6 +127,9 @@ sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
       const output = args[args.indexOf('-o') + 1] as string;
       await writeFile(output, 'installer');
     }
+    if (command === 'bash') {
+      await createInstalledBinary(join(dir, '.local/bin/demo'));
+    }
     return { code: 0, stdout: '', stderr: '' };
   });
 
@@ -140,6 +152,66 @@ sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
   expect(commands).not.toContain('shasum');
 });
 
+sandboxTest('reinstalls when creates is a dangling symlink', async (dir) => {
+  const binDir = join(dir, '.local/bin');
+  await mkdir(binDir, { recursive: true });
+  await symlink('installed-demo', join(binDir, 'demo'));
+  const { context, calls } = installerContext(dir, async (command, args) => {
+    if (command === 'curl') {
+      await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
+    }
+    if (command === 'bash') {
+      await createInstalledBinary(join(binDir, 'installed-demo'));
+    }
+    return ok();
+  });
+
+  const report = await runActivation(
+    remoteInstaller({
+      label: 'install demo',
+      url: 'https://example.test/install.sh',
+      integrity: { acknowledgedUnverified: true },
+      interpreter: 'bash',
+      args: [],
+      creates: home('.local/bin/demo'),
+    }),
+    context,
+  );
+
+  expect(report.status).toBe('changed');
+  expect(calls.map((call) => call.command)).toEqual(['curl', 'bash']);
+});
+
+sandboxTest(
+  'fails when the installer exits zero without satisfying creates',
+  async (dir) => {
+    const { context } = installerContext(dir, async (command, args) => {
+      if (command === 'curl') {
+        await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
+      }
+      return ok();
+    });
+
+    const report = await runActivation(
+      remoteInstaller({
+        label: 'install demo',
+        url: 'https://example.test/install.sh',
+        integrity: { acknowledgedUnverified: true },
+        interpreter: 'bash',
+        args: [],
+        creates: home('.local/bin/demo'),
+      }),
+      context,
+    );
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain(
+      'install demo completed without satisfying ~/.local/bin/demo',
+    );
+    expect(await leakedWorkspaces(dir)).toEqual([]);
+  },
+);
+
 sandboxTest(
   'verifies checksum and runs a direct installer as executable',
   async (dir) => {
@@ -157,6 +229,9 @@ sandboxTest(
       }
       if (command === 'shasum') {
         return { code: 0, stdout: `${hash}  ${args[2]}\n`, stderr: '' };
+      }
+      if (command.includes('mev-installer-')) {
+        await createInstalledBinary(join(dir, '.cargo/bin/rustup'));
       }
       return { code: 0, stdout: '', stderr: '' };
     });
@@ -250,6 +325,7 @@ sandboxTest(
       },
     });
 
+    let installedVersion = '1.0.0';
     const stale = recordingContext({
       home: dir,
       tmpRoot: dir,
@@ -259,8 +335,11 @@ sandboxTest(
           await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
           return ok();
         }
-        // The installed binary reports an older version than the asset declares.
-        return command.endsWith('/demo') ? ok('1.0.0\n') : ok();
+        if (command === 'bash') {
+          installedVersion = '1.2.3';
+          return ok();
+        }
+        return command.endsWith('/demo') ? ok(`${installedVersion}\n`) : ok();
       },
     });
 
@@ -339,6 +418,9 @@ sandboxTest(
       if (command === 'curl') {
         const output = args[args.indexOf('-o') + 1] as string;
         await writeFile(output, 'installer');
+      }
+      if (command === 'bash') {
+        await createInstalledBinary(binary);
       }
       return ok();
     });

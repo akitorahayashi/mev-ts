@@ -70,6 +70,7 @@ export type Activation =
   | {
       readonly kind: 'agentPlugins';
       readonly configKey: string;
+      readonly pathPrefix: readonly [HostPath, ...HostPath[]];
     }
   | {
       readonly kind: 'zedSettings';

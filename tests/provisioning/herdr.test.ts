@@ -101,7 +101,8 @@ sandboxTest('reports a direct installer failure', async (dir) => {
   const report = await runMake({ selectors: ['herdr'] }, context);
 
   expect(report.failed).toBe(true);
-  expect(calls.map((call) => call.command)).toEqual(['curl', 'sh', binary]);
+  expect(calls.map((call) => call.command)).toEqual(['curl', 'sh']);
+  expect(report.groups[0]?.reports[2]?.status).toBe('blocked');
 });
 
 sandboxTest('blocks self-update from inside a Herdr pane', async (dir) => {
@@ -130,10 +131,10 @@ sandboxTest('blocks self-update from inside a Herdr pane', async (dir) => {
   expect(report.failed).toBe(true);
   expect(calls.map((call) => [call.command, ...call.args])).toEqual([
     [binary, 'update'],
-    [binary, '--version'],
   ]);
   expect(report.groups[0]?.reports[1]).toMatchObject({
     status: 'blocked',
     error: `update failed: ${guidance}`,
   });
+  expect(report.groups[0]?.reports[2]?.status).toBe('blocked');
 });

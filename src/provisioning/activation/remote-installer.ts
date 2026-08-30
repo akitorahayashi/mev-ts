@@ -1,7 +1,7 @@
 import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
-import { lstatIfPresent } from '../../host/absence';
+import { statIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
 import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
@@ -129,6 +129,33 @@ function installerEnv(
   return Object.keys(env).length > 0 ? env : undefined;
 }
 
+async function installerSatisfied(
+  activation: RemoteInstallerActivation,
+  context: Context,
+  scope: CommandScope,
+): Promise<boolean> {
+  if (activation.skipIf) {
+    return guardMatches(resolveGuard(activation.skipIf, scope), context, {
+      env: installerEnv(activation, context, scope),
+    });
+  }
+  return (
+    (await statIfPresent(resolveHostPath(activation.creates, context.home))) !==
+    null
+  );
+}
+
+function unsatisfiedInstallerError(
+  activation: RemoteInstallerActivation,
+): ProvisioningError {
+  const postcondition = activation.skipIf
+    ? 'its declared post-install guard'
+    : symbolic(activation.creates);
+  return new ProvisioningError(
+    `${activation.label} completed without satisfying ${postcondition}.`,
+  );
+}
+
 export async function runRemoteInstaller(
   activation: RemoteInstallerActivation,
   context: Context,
@@ -138,13 +165,7 @@ export async function runRemoteInstaller(
   return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
     const scope = scopeFor(bindings);
-    const satisfied = activation.skipIf
-      ? await guardMatches(resolveGuard(activation.skipIf, scope), context, {
-          env: installerEnv(activation, context, scope),
-        })
-      : (await lstatIfPresent(
-          resolveHostPath(activation.creates, context.home),
-        )) !== null;
+    const satisfied = await installerSatisfied(activation, context, scope);
     if (satisfied) {
       if (options.upgrade && activation.upgrade) {
         const entry = await runCommandStep(
@@ -184,6 +205,9 @@ export async function runRemoteInstaller(
       () => rm(workspace, { force: true, recursive: true }),
       `Failed to clean up remote installer workspace ${workspace}.`,
     );
+    if (!(await installerSatisfied(activation, context, scope))) {
+      throw unsatisfiedInstallerError(activation);
+    }
     return { ...base, status: 'changed' };
   });
 }

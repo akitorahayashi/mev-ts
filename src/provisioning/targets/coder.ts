@@ -25,6 +25,13 @@ const AGENTS_DESTS = [
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
 const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
+const CLAUDE_BINARY = {
+  concat: [{ ref: 'home' }, '/.local/bin/claude'],
+} as const;
+const CODEX_BINARY = {
+  concat: [{ ref: 'home' }, '/.local/bin/codex'],
+} as const;
+
 export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex)',
   aliases: ['cdr'],
@@ -43,6 +50,7 @@ export const coderTarget = target('coder', {
       interpreter: 'bash',
       args: [],
       creates: home('.local/bin/claude'),
+      skipIf: { commandSucceeds: [CLAUDE_BINARY, '--version'] },
       pathPrefix: [home('.local/bin')],
     }),
     remoteInstaller({
@@ -52,19 +60,14 @@ export const coderTarget = target('coder', {
       interpreter: 'sh',
       args: [],
       creates: home('.local/bin/codex'),
+      skipIf: { commandSucceeds: [CODEX_BINARY, '--version'] },
       env: { CODEX_NON_INTERACTIVE: 'true' },
       pathPrefix: [home('.local/bin')],
     }),
     runCommand({
-      label: 'coder CLIs',
+      label: 'rtk CLI',
       steps: [
         brewPrefixCapture(),
-        versionCheckStep('claude --version', {
-          concat: [{ ref: 'home' }, '/.local/bin/claude'],
-        }),
-        versionCheckStep('codex --version', {
-          concat: [{ ref: 'home' }, '/.local/bin/codex'],
-        }),
         versionCheckStep(
           'rtk --version',
           'rtk',
@@ -102,6 +105,6 @@ export const coderTarget = target('coder', {
     ),
     coderAgents(AGENTS_SECTIONS_PREFIX, AGENTS_DESTS),
     coderSkills(SKILLS_PREFIX, SKILLS_TARGETS),
-    installAgentPlugins('coder/plugins.yml'),
+    installAgentPlugins('coder/plugins.yml', [home('.local/bin')]),
   ],
 });

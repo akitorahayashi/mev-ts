@@ -21,6 +21,7 @@ import { errorMessage } from '../../errors';
 import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
 import { readSshHost } from '../../github/ssh-host';
 import type { Context } from '../../host/context';
+import { resolveHostPath } from '../../host/path';
 import { mapWithConcurrency } from '../../host/task-pool';
 import type {
   Activation,
@@ -107,8 +108,11 @@ function pendingAction(
   return current.enabled ? null : 'enable';
 }
 
-export function installAgentPlugins(configKey: string): Activation {
-  return { kind: 'agentPlugins', configKey };
+export function installAgentPlugins(
+  configKey: string,
+  pathPrefix: AgentPluginsActivation['pathPrefix'],
+): Activation {
+  return { kind: 'agentPlugins', configKey, pathPrefix };
 }
 
 export function describeAgentPlugins(
@@ -131,6 +135,31 @@ function inventoryFailureEntries(
     status: 'failed',
     error,
   }));
+}
+
+function withClientPath(
+  activation: AgentPluginsActivation,
+  context: Context,
+): Context {
+  const path = [
+    ...activation.pathPrefix.map((entry) =>
+      resolveHostPath(entry, context.home),
+    ),
+    context.basePath,
+  ]
+    .filter(Boolean)
+    .join(':');
+  return {
+    ...context,
+    commands: {
+      run(command, args, options) {
+        return context.commands.run(command, args, {
+          ...options,
+          env: { ...options?.env, PATH: path },
+        });
+      },
+    },
+  };
 }
 
 function marketplaceFailureEntries(
@@ -743,6 +772,7 @@ export function runAgentPlugins(
 ): Promise<ActivationReport> {
   const base = describeAgentPlugins(activation);
   return guarded(base, async () => {
+    const clientContext = withClientPath(activation, context);
     const catalog = await readDeployedManifest(
       activation.configKey,
       context.home,
@@ -763,7 +793,7 @@ export function runAgentPlugins(
       clients.map(async (client) => {
         try {
           inventories.set(client, {
-            installed: await pluginClientOps[client].listPlugins(context),
+            installed: await pluginClientOps[client].listPlugins(clientContext),
           });
         } catch (error) {
           inventories.set(client, { error: errorMessage(error) });
@@ -795,7 +825,7 @@ export function runAgentPlugins(
           sshHost,
           inventory.installed,
           options.upgrade,
-          context,
+          clientContext,
           registrations,
         );
       },
@@ -822,7 +852,7 @@ export function runAgentPlugins(
         return removeDeclaredMarketplace(
           removed,
           inventory.installed,
-          context,
+          clientContext,
           registrations,
         );
       },
@@ -831,7 +861,7 @@ export function runAgentPlugins(
       entries.push(...removedEntries);
     }
 
-    await verifyOutcomes(clients, context, entries, declared, removals);
+    await verifyOutcomes(clients, clientContext, entries, declared, removals);
     return {
       ...base,
       status: aggregateStatus(entries),
