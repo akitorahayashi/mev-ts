@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { statIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
+import { formatCommandFailure } from '../../host/command';
 import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
 import { downloadOverHttps } from '../../host/https-download';
@@ -22,6 +23,8 @@ import type {
   ActivationRunOptions,
   CommandScope,
   Described,
+  RemoteInstallerUpgrade,
+  StepReport,
 } from './contract';
 import { guarded } from './reconcile';
 
@@ -156,6 +159,64 @@ function unsatisfiedInstallerError(
   );
 }
 
+interface VersionProbeResult {
+  readonly version?: string;
+  readonly error?: string;
+}
+
+async function probeUpgradeVersion(
+  upgrade: RemoteInstallerUpgrade,
+  scope: CommandScope,
+  context: Context,
+): Promise<VersionProbeResult> {
+  const argv = resolveArgs(upgrade.versionProbe, scope);
+  const [command, ...args] = argv;
+  if (!command) {
+    throw new ProvisioningError(
+      `${upgrade.label} version probe produced no argv.`,
+    );
+  }
+  const env = upgrade.env ? resolveEnv(upgrade.env, scope) : undefined;
+  const result = await context.commands.run(command, args, { env });
+  if (result.code !== 0) {
+    return {
+      error: formatCommandFailure(
+        `${upgrade.label} version probe failed`,
+        result,
+      ),
+    };
+  }
+  const version = result.stdout.trim();
+  return version
+    ? { version }
+    : { error: `${upgrade.label} version probe returned empty output.` };
+}
+
+function classifyUpgrade(
+  entry: StepReport,
+  before: string,
+  after: VersionProbeResult,
+): StepReport {
+  if (after.version === undefined) {
+    return {
+      ...entry,
+      status: 'failed',
+      error: after.error ?? 'Version verification failed.',
+    };
+  }
+  return before === after.version
+    ? {
+        ...entry,
+        value: `already latest (${after.version})`,
+        status: 'unchanged',
+      }
+    : {
+        ...entry,
+        value: `${before} -> ${after.version}`,
+        status: 'changed',
+      };
+}
+
 export async function runRemoteInstaller(
   activation: RemoteInstallerActivation,
   context: Context,
@@ -165,22 +226,32 @@ export async function runRemoteInstaller(
   return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
     const scope = scopeFor(bindings);
-    const satisfied = await installerSatisfied(activation, context, scope);
+    const upgrade = options.upgrade ? activation.upgrade : undefined;
+    const before = upgrade
+      ? await probeUpgradeVersion(upgrade, scope, context)
+      : undefined;
+    const satisfied = upgrade
+      ? before?.version !== undefined
+      : await installerSatisfied(activation, context, scope);
     if (satisfied) {
-      if (options.upgrade && activation.upgrade) {
-        const entry = await runCommandStep(
-          activation.upgrade,
-          bindings,
-          context,
-        );
+      if (upgrade && before?.version !== undefined) {
+        const entry = await runCommandStep(upgrade, bindings, context);
         if (
           entry.status === 'failed' &&
-          activation.upgrade.blockedWhen &&
-          entry.error?.includes(activation.upgrade.blockedWhen.errorContains)
+          upgrade.blockedWhen &&
+          entry.error?.includes(upgrade.blockedWhen.errorContains)
         ) {
           return { ...base, status: 'blocked', error: entry.error };
         }
-        return { ...base, status: entry.status, entries: [entry] };
+        if (entry.status === 'failed') {
+          return { ...base, status: 'failed', entries: [entry] };
+        }
+        const classified = classifyUpgrade(
+          entry,
+          before.version,
+          await probeUpgradeVersion(upgrade, scope, context),
+        );
+        return { ...base, status: classified.status, entries: [classified] };
       }
       return { ...base, status: 'unchanged' };
     }

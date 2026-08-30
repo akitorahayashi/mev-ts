@@ -13,6 +13,7 @@ sandboxTest(
   'installs the self-updating binary and is idempotent',
   async (dir) => {
     const binary = join(dir, '.local/bin/herdr');
+    let version = 'herdr 0.8.2';
     const { context, calls } = recordingContext({
       home: dir,
       assets: embeddedAssets,
@@ -33,9 +34,10 @@ sandboxTest(
           return ok();
         }
         if (command === binary && args[0] === 'update') {
+          version = 'herdr 0.8.3';
           return ok('updated to 0.8.3\n');
         }
-        if (command === binary) return ok('herdr 0.8.2\n');
+        if (command === binary) return ok(`${version}\n`);
         return fail(`unexpected command: ${command}`);
       },
     });
@@ -69,9 +71,13 @@ sandboxTest(
     expect(calls.slice(upgradeCallCount).map((call) => call.command)).toEqual([
       binary,
       binary,
+      binary,
+      binary,
     ]);
     expect(calls.slice(upgradeCallCount).map((call) => call.args)).toEqual([
+      ['--version'],
       ['update'],
+      ['--version'],
       ['--version'],
     ]);
     expect(upgraded.groups[0]?.reports.map((report) => report.status)).toEqual([
@@ -130,6 +136,7 @@ sandboxTest('blocks self-update from inside a Herdr pane', async (dir) => {
 
   expect(report.failed).toBe(true);
   expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+    [binary, '--version'],
     [binary, 'update'],
   ]);
   expect(report.groups[0]?.reports[1]).toMatchObject({

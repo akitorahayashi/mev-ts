@@ -29,7 +29,7 @@ export const herdrTarget = target('herdr', {
       upgrade: {
         label: 'herdr update',
         argv: [BINARY, 'update'],
-        changedWhen: { outputNotContains: 'already up to date' },
+        versionProbe: [BINARY, '--version'],
         blockedWhen: {
           errorContains:
             'run `herdr update` outside herdr after detaching from the session',

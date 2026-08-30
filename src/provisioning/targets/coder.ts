@@ -51,6 +51,11 @@ export const coderTarget = target('coder', {
       args: [],
       creates: home('.local/bin/claude'),
       skipIf: { commandSucceeds: [CLAUDE_BINARY, '--version'] },
+      upgrade: {
+        label: 'claude update',
+        argv: [CLAUDE_BINARY, 'update'],
+        versionProbe: [CLAUDE_BINARY, '--version'],
+      },
       pathPrefix: [home('.local/bin')],
     }),
     remoteInstaller({
@@ -61,6 +66,11 @@ export const coderTarget = target('coder', {
       args: [],
       creates: home('.local/bin/codex'),
       skipIf: { commandSucceeds: [CODEX_BINARY, '--version'] },
+      upgrade: {
+        label: 'codex update',
+        argv: [CODEX_BINARY, 'update'],
+        versionProbe: [CODEX_BINARY, '--version'],
+      },
       env: { CODEX_NON_INTERACTIVE: 'true' },
       pathPrefix: [home('.local/bin')],
     }),

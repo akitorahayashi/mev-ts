@@ -7,7 +7,7 @@ import {
   remoteInstaller,
   runActivation,
 } from '../../src/provisioning/activation';
-import { ok } from '../fixtures/fake-command-runner';
+import { fail, ok } from '../fixtures/fake-command-runner';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -383,12 +383,18 @@ sandboxTest(
       upgrade: {
         label: 'demo update',
         argv: [{ concat: [{ ref: 'home' }, '/.local/bin/demo'] }, 'update'],
-        changedWhen: { outputNotContains: 'already up to date' },
+        versionProbe: [
+          { concat: [{ ref: 'home' }, '/.local/bin/demo'] },
+          '--version',
+        ],
       },
     });
-    const { context, calls } = installerContext(dir, (command) =>
-      command === binary ? ok('already up to date (1.0.0)\n') : ok(),
-    );
+    const { context, calls } = installerContext(dir, (command, args) => {
+      if (command !== binary) return ok();
+      return args[0] === '--version'
+        ? ok('demo 1.0.0\n')
+        : ok('already up to date\n');
+    });
 
     const routine = await runActivation(activation, context);
     const upgraded = await runActivation(activation, context, {
@@ -400,13 +406,96 @@ sandboxTest(
     expect(upgraded.entries).toEqual([
       {
         key: 'demo update',
-        value: `${binary} update`,
+        value: 'already latest (demo 1.0.0)',
         status: 'unchanged',
       },
     ]);
     expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+      [binary, '--version'],
       [binary, 'update'],
+      [binary, '--version'],
     ]);
+  },
+);
+
+sandboxTest(
+  'upgrade mode reports a version change from independent probes',
+  async (dir) => {
+    const binary = `${dir}/.local/bin/demo`;
+    await createInstalledBinary(binary);
+    let version = 'demo 1.0.0';
+    const { context } = installerContext(dir, (command, args) => {
+      if (command !== binary) return ok();
+      if (args[0] === '--version') return ok(`${version}\n`);
+      version = 'demo 1.1.0';
+      return ok('updated\n');
+    });
+
+    const report = await runActivation(
+      remoteInstaller({
+        label: 'install demo',
+        url: 'https://example.test/install',
+        integrity: { acknowledgedUnverified: true },
+        interpreter: 'bash',
+        args: [],
+        creates: home('.local/bin/demo'),
+        upgrade: {
+          label: 'demo update',
+          argv: [binary, 'update'],
+          versionProbe: [binary, '--version'],
+        },
+      }),
+      context,
+      { upgrade: true },
+    );
+
+    expect(report.status).toBe('changed');
+    expect(report.entries).toEqual([
+      {
+        key: 'demo update',
+        value: 'demo 1.0.0 -> demo 1.1.0',
+        status: 'changed',
+      },
+    ]);
+  },
+);
+
+sandboxTest(
+  'upgrade mode fails when the updated binary does not pass its version probe',
+  async (dir) => {
+    const binary = `${dir}/.local/bin/demo`;
+    await createInstalledBinary(binary);
+    let probes = 0;
+    const { context } = installerContext(dir, (command, args) => {
+      if (command !== binary || args[0] === 'update') return ok('updated\n');
+      probes += 1;
+      return probes === 1 ? ok('demo 1.0.0\n') : fail('binary broken');
+    });
+
+    const report = await runActivation(
+      remoteInstaller({
+        label: 'install demo',
+        url: 'https://example.test/install',
+        integrity: { acknowledgedUnverified: true },
+        interpreter: 'bash',
+        args: [],
+        creates: home('.local/bin/demo'),
+        upgrade: {
+          label: 'demo update',
+          argv: [binary, 'update'],
+          versionProbe: [binary, '--version'],
+        },
+      }),
+      context,
+      { upgrade: true },
+    );
+
+    expect(report.status).toBe('failed');
+    expect(report.entries?.[0]).toMatchObject({
+      key: 'demo update',
+      status: 'failed',
+      error: 'demo update version probe failed with code 1: binary broken',
+    });
   },
 );
 
@@ -414,13 +503,18 @@ sandboxTest(
   'upgrade mode installs a missing tool without running its updater',
   async (dir) => {
     const binary = `${dir}/.local/bin/demo`;
+    let installed = false;
     const { context, calls } = installerContext(dir, async (command, args) => {
+      if (command === binary) {
+        return installed ? ok('demo 1.0.0\n') : fail('demo unavailable');
+      }
       if (command === 'curl') {
         const output = args[args.indexOf('-o') + 1] as string;
         await writeFile(output, 'installer');
       }
       if (command === 'bash') {
         await createInstalledBinary(binary);
+        installed = true;
       }
       return ok();
     });
@@ -435,6 +529,7 @@ sandboxTest(
         upgrade: {
           label: 'demo update',
           argv: [binary, 'update'],
+          versionProbe: [binary, '--version'],
         },
       }),
       context,
@@ -442,7 +537,7 @@ sandboxTest(
     );
 
     expect(report.status).toBe('changed');
-    expect(calls.map((call) => call.command)).toEqual(['curl', 'bash']);
+    expect(calls.map((call) => call.command)).toEqual([binary, 'curl', 'bash']);
   },
 );
 
@@ -453,11 +548,11 @@ sandboxTest(
     await mkdir(`${dir}/.local/bin`, { recursive: true });
     await writeFile(binary, 'installed');
     const guidance = 'detach before updating demo';
-    const { context } = installerContext(dir, () => ({
-      code: 1,
-      stdout: '',
-      stderr: `update failed: ${guidance}\n`,
-    }));
+    const { context } = installerContext(dir, (_command, args) =>
+      args[0] === '--version'
+        ? ok('demo 1.0.0\n')
+        : fail(`update failed: ${guidance}`),
+    );
 
     const report = await runActivation(
       remoteInstaller({
@@ -470,6 +565,7 @@ sandboxTest(
         upgrade: {
           label: 'demo update',
           argv: [binary, 'update'],
+          versionProbe: [binary, '--version'],
           blockedWhen: { errorContains: guidance },
         },
       }),
