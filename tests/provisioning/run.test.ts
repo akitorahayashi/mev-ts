@@ -12,10 +12,12 @@ import {
   writeApplied,
 } from '../../src/provisioning/applied';
 import { deployRole } from '../../src/provisioning/deploy';
+import { groupStatus } from '../../src/provisioning/group-outcome';
 import { resolveTarget } from '../../src/provisioning/registry';
 import { runMake } from '../../src/provisioning/run';
 import { isScanError, scanTargets } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
+import { ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -389,6 +391,134 @@ sandboxTest(
     await runMake({ selectors: ['xcode'] }, context);
 
     expect(writes).toEqual(defaultsKeys);
+  },
+);
+
+sandboxTest(
+  'an unhealthy CLI is reinstalled and blocks later activations if still unhealthy',
+  async (sandbox) => {
+    const binDir = join(sandbox, '.local/bin');
+    await mkdir(binDir, { recursive: true });
+    await writeFile(join(binDir, 'claude'), 'installed');
+    await symlink('missing-codex', join(binDir, 'codex'));
+    const started: string[] = [];
+    const { context, calls } = recordingContext({
+      home: sandbox,
+      assets: embeddedAssets,
+      async respond(command, args) {
+        if (command === join(binDir, 'codex')) {
+          return { code: 127, stdout: '', stderr: 'codex unavailable' };
+        }
+        if (command === 'curl') {
+          await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
+        }
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const report = await runMake(
+      {
+        selectors: ['coder'],
+        onActivationStart: ({ activation }) => {
+          started.push(activation.source);
+        },
+      },
+      context,
+    );
+    const group = report.groups.find(
+      ({ targetName }) => targetName === 'coder',
+    );
+
+    expect(report.failed).toBe(true);
+    expect(group && groupStatus(group)).toBe('failed');
+    expect(started).toEqual(['install claude', 'install codex']);
+    expect(group?.reports[0]?.status).toBe('unchanged');
+    expect(group?.reports[1]).toMatchObject({
+      source: 'install codex',
+      status: 'failed',
+      error:
+        'install codex completed without satisfying its declared post-install guard.',
+    });
+    expect(
+      group?.reports.slice(2).every(({ status }) => status === 'blocked'),
+    ).toBe(true);
+    expect(calls.some(({ command }) => command === 'codex')).toBe(false);
+    expect(
+      calls.filter(({ command }) => command === join(binDir, 'codex')),
+    ).toHaveLength(2);
+    expect(calls.some(({ command }) => command === 'sh')).toBe(true);
+  },
+);
+
+sandboxTest(
+  'upgrade mode updates healthy coder CLIs before plugin reconciliation',
+  async (sandbox) => {
+    const binDir = join(sandbox, '.local/bin');
+    const claude = join(binDir, 'claude');
+    const codex = join(binDir, 'codex');
+    await mkdir(binDir, { recursive: true });
+    await writeFile(claude, 'installed');
+    await writeFile(codex, 'installed');
+    let claudeVersion = '2.1.0 (Claude Code)';
+    let codexVersion = 'codex-cli 0.150.0';
+    const assets: Context['assets'] = {
+      read: (key) =>
+        key === 'coder/plugins.yml'
+          ? Promise.resolve('marketplaces: []\n')
+          : embeddedAssets.read(key),
+      keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
+      isExecutable: (key) => embeddedAssets.isExecutable(key),
+    };
+    const { context, calls } = recordingContext({
+      home: sandbox,
+      assets,
+      respond(command, args) {
+        if (command === claude) {
+          if (args[0] === '--version') return ok(`${claudeVersion}\n`);
+          claudeVersion = '2.2.0 (Claude Code)';
+          return ok('updated\n');
+        }
+        if (command === codex) {
+          if (args[0] === '--version') return ok(`${codexVersion}\n`);
+          codexVersion = 'codex-cli 0.151.0';
+          return ok('updated\n');
+        }
+        if (command === 'brew' && args[0] === '--prefix') {
+          return ok('/opt/homebrew\n');
+        }
+        return ok();
+      },
+    });
+
+    const report = await runMake(
+      { selectors: ['coder'], upgrade: true },
+      context,
+    );
+    const group = report.groups.find(
+      ({ targetName }) => targetName === 'coder',
+    );
+
+    expect(report.failed).toBe(false);
+    expect(
+      calls
+        .filter(({ command }) => command === claude || command === codex)
+        .map(({ command, args }) => [command, ...args]),
+    ).toEqual([
+      [claude, '--version'],
+      [claude, 'update'],
+      [claude, '--version'],
+      [codex, '--version'],
+      [codex, 'update'],
+      [codex, '--version'],
+    ]);
+    expect(group?.reports[0]?.entries?.[0]).toMatchObject({
+      value: '2.1.0 (Claude Code) -> 2.2.0 (Claude Code)',
+      status: 'changed',
+    });
+    expect(group?.reports[1]?.entries?.[0]).toMatchObject({
+      value: 'codex-cli 0.150.0 -> codex-cli 0.151.0',
+      status: 'changed',
+    });
   },
 );
 

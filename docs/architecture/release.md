@@ -21,9 +21,11 @@ resolution.
 |---|---|
 | `integrity: { checksumUrl }` | Download and verify the installer checksum before execution. |
 | `integrity: { acknowledgedUnverified: true }` | Explicitly records the reviewed unverified exception; no silent bypass exists. |
-| `creates` | Default idempotency guard for an installer path. |
-| `skipIf` | Version-aware guard when the path exists for every version. |
-| `upgrade` | Runs the declared self-update command for an already installed tool only under explicit upgrade intent. A fresh install does not run it again. A known safety-precondition error may be declared as blocked with its actionable upstream guidance. |
+| `creates` | Default idempotency and post-install guard. A dangling symlink is absent. |
+| `skipIf` | Command-health or version-aware idempotency and post-install guard when path existence is insufficient. |
+| `upgrade` | Runs the declared self-update command for an already installed tool only under explicit upgrade intent. A fresh install does not run it again. |
+| `upgrade.versionProbe` | Verifies local health before and after the update; a changed version reports changed, an equal version reports unchanged, and a failed post-update probe fails the activation. |
+| `upgrade.blockedWhen` | Maps a known updater safety-precondition error to a blocked result with the upstream guidance. |
 | `env` | Resolves literal, host, and declared values with the command-pipeline vocabulary. |
 | `pathPrefix` | Prepends resolved host paths to the installer process PATH. |
 | Temporary installer | Run with declared arguments, then remove the temporary workspace. |

@@ -1,8 +1,9 @@
 import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
-import { lstatIfPresent } from '../../host/absence';
+import { statIfPresent } from '../../host/absence';
 import { runWithCleanup } from '../../host/cleanup-error';
+import { formatCommandFailure } from '../../host/command';
 import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
 import { downloadOverHttps } from '../../host/https-download';
@@ -22,6 +23,8 @@ import type {
   ActivationRunOptions,
   CommandScope,
   Described,
+  RemoteInstallerUpgrade,
+  StepReport,
 } from './contract';
 import { guarded } from './reconcile';
 
@@ -129,6 +132,91 @@ function installerEnv(
   return Object.keys(env).length > 0 ? env : undefined;
 }
 
+async function installerSatisfied(
+  activation: RemoteInstallerActivation,
+  context: Context,
+  scope: CommandScope,
+): Promise<boolean> {
+  if (activation.skipIf) {
+    return guardMatches(resolveGuard(activation.skipIf, scope), context, {
+      env: installerEnv(activation, context, scope),
+    });
+  }
+  return (
+    (await statIfPresent(resolveHostPath(activation.creates, context.home))) !==
+    null
+  );
+}
+
+function unsatisfiedInstallerError(
+  activation: RemoteInstallerActivation,
+): ProvisioningError {
+  const postcondition = activation.skipIf
+    ? 'its declared post-install guard'
+    : symbolic(activation.creates);
+  return new ProvisioningError(
+    `${activation.label} completed without satisfying ${postcondition}.`,
+  );
+}
+
+interface VersionProbeResult {
+  readonly version?: string;
+  readonly error?: string;
+}
+
+async function probeUpgradeVersion(
+  upgrade: RemoteInstallerUpgrade,
+  scope: CommandScope,
+  context: Context,
+): Promise<VersionProbeResult> {
+  const argv = resolveArgs(upgrade.versionProbe, scope);
+  const [command, ...args] = argv;
+  if (!command) {
+    throw new ProvisioningError(
+      `${upgrade.label} version probe produced no argv.`,
+    );
+  }
+  const env = upgrade.env ? resolveEnv(upgrade.env, scope) : undefined;
+  const result = await context.commands.run(command, args, { env });
+  if (result.code !== 0) {
+    return {
+      error: formatCommandFailure(
+        `${upgrade.label} version probe failed`,
+        result,
+      ),
+    };
+  }
+  const version = result.stdout.trim();
+  return version
+    ? { version }
+    : { error: `${upgrade.label} version probe returned empty output.` };
+}
+
+function classifyUpgrade(
+  entry: StepReport,
+  before: string,
+  after: VersionProbeResult,
+): StepReport {
+  if (after.version === undefined) {
+    return {
+      ...entry,
+      status: 'failed',
+      error: after.error ?? 'Version verification failed.',
+    };
+  }
+  return before === after.version
+    ? {
+        ...entry,
+        value: `already latest (${after.version})`,
+        status: 'unchanged',
+      }
+    : {
+        ...entry,
+        value: `${before} -> ${after.version}`,
+        status: 'changed',
+      };
+}
+
 export async function runRemoteInstaller(
   activation: RemoteInstallerActivation,
   context: Context,
@@ -138,28 +226,32 @@ export async function runRemoteInstaller(
   return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
     const scope = scopeFor(bindings);
-    const satisfied = activation.skipIf
-      ? await guardMatches(resolveGuard(activation.skipIf, scope), context, {
-          env: installerEnv(activation, context, scope),
-        })
-      : (await lstatIfPresent(
-          resolveHostPath(activation.creates, context.home),
-        )) !== null;
+    const upgrade = options.upgrade ? activation.upgrade : undefined;
+    const before = upgrade
+      ? await probeUpgradeVersion(upgrade, scope, context)
+      : undefined;
+    const satisfied = upgrade
+      ? before?.version !== undefined
+      : await installerSatisfied(activation, context, scope);
     if (satisfied) {
-      if (options.upgrade && activation.upgrade) {
-        const entry = await runCommandStep(
-          activation.upgrade,
-          bindings,
-          context,
-        );
+      if (upgrade && before?.version !== undefined) {
+        const entry = await runCommandStep(upgrade, bindings, context);
         if (
           entry.status === 'failed' &&
-          activation.upgrade.blockedWhen &&
-          entry.error?.includes(activation.upgrade.blockedWhen.errorContains)
+          upgrade.blockedWhen &&
+          entry.error?.includes(upgrade.blockedWhen.errorContains)
         ) {
           return { ...base, status: 'blocked', error: entry.error };
         }
-        return { ...base, status: entry.status, entries: [entry] };
+        if (entry.status === 'failed') {
+          return { ...base, status: 'failed', entries: [entry] };
+        }
+        const classified = classifyUpgrade(
+          entry,
+          before.version,
+          await probeUpgradeVersion(upgrade, scope, context),
+        );
+        return { ...base, status: classified.status, entries: [classified] };
       }
       return { ...base, status: 'unchanged' };
     }
@@ -184,6 +276,9 @@ export async function runRemoteInstaller(
       () => rm(workspace, { force: true, recursive: true }),
       `Failed to clean up remote installer workspace ${workspace}.`,
     );
+    if (!(await installerSatisfied(activation, context, scope))) {
+      throw unsatisfiedInstallerError(activation);
+    }
     return { ...base, status: 'changed' };
   });
 }

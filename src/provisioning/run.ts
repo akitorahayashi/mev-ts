@@ -234,16 +234,22 @@ export async function runMake(
       continue;
     }
     const reports: ActivationReport[] = [];
+    let activationBlocked = false;
     for (const activation of group.activations) {
+      if (activationBlocked) {
+        reports.push(blockedReport(activation));
+        continue;
+      }
       request.onActivationStart?.({
         targetName: group.name,
         activation: describeActivation(activation),
       });
-      reports.push(
-        await runActivation(activation, context, {
-          upgrade: request.upgrade ?? false,
-        }),
-      );
+      const report = await runActivation(activation, context, {
+        upgrade: request.upgrade ?? false,
+      });
+      reports.push(report);
+      activationBlocked =
+        report.status === 'failed' || report.status === 'blocked';
     }
     const baseReport: ActivationGroupReport = {
       targetName: group.name,

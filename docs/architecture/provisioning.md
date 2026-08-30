@@ -17,7 +17,7 @@ are replaced:
 |---|---|---|
 | Deploy | Reconcile each selected role in the deploy store. | A role failure blocks groups using that role. |
 | Install | Resolve the deduplicated Homebrew requirements of the selection. | A failed required package blocks its target group. |
-| Activate | Apply activations in declaration order within each target group. | A blocked group produces blocked activation reports. |
+| Activate | Apply activations in declaration order within each target group. | A failed or blocked activation blocks the remaining activations in that target. A blocked group produces blocked activation reports. |
 
 Activation kinds may parallelize independent work only when their own contract
 declares that safe. The phase boundaries preserve Homebrew and activation order.

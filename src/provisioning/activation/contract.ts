@@ -70,6 +70,7 @@ export type Activation =
   | {
       readonly kind: 'agentPlugins';
       readonly configKey: string;
+      readonly pathPrefix: readonly [HostPath, ...HostPath[]];
     }
   | {
       readonly kind: 'zedSettings';
@@ -211,7 +212,12 @@ export interface CommandStep {
   readonly changedWhen?: ChangedWhen;
 }
 
-export type RemoteInstallerUpgrade = CommandStep & {
+export type RemoteInstallerUpgrade = Omit<
+  CommandStep,
+  'capture' | 'changedWhen' | 'skipIf'
+> & {
+  /** Local version command used before and after to classify and verify the self-update. */
+  readonly versionProbe: readonly CommandArg[];
   /** Maps a known updater safety precondition to a blocked activation. */
   readonly blockedWhen?: { readonly errorContains: string };
 };
