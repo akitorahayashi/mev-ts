@@ -28,7 +28,8 @@ export class CreateCommand extends Command {
   });
 
   upgrade = Option.Boolean('-u,--upgrade', false, {
-    description: 'Also upgrade installed latest-assumed tools',
+    description:
+      'Also upgrade selected Homebrew packages and installed latest-assumed tools',
   });
 
   async execute() {

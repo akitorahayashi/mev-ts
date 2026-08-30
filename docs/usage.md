@@ -29,7 +29,8 @@ for phase boundaries.
 
 `--upgrade` (`-u`) refreshes latest-assumed items: `make` and `create` apply it
 to their selected target set, while `sync` applies it only to targets already
-selected as stale.
+selected as stale. Selected installed Homebrew formulae and casks are upgraded;
+mev does not invoke `brew update`.
 
 Upgrade does not change target signatures or widen sync selection. Pinned entries
 remain untouched, and a plain provisioning run installs and enables declared

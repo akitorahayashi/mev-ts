@@ -25,5 +25,6 @@ declares that safe. The phase boundaries preserve Homebrew and activation order.
 ## Upgrade intent
 
 `--upgrade` is execution intent, not desired state. It refreshes the kinds that
-support latest-assumed values, never changes target signatures, and does not widen
-the target selection made by `sync`.
+support latest-assumed values and upgrades the selected targets' installed
+Homebrew formulae and casks. It never invokes `brew update`, changes target
+signatures, or widens the target selection made by `sync`.

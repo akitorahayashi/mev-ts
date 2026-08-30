@@ -565,6 +565,33 @@ sandboxTest(
 );
 
 sandboxTest(
+  'upgrade mode upgrades selected installed Homebrew packages before activation',
+  async (sandbox) => {
+    const { context, calls } = recordingContext({
+      home: sandbox,
+      assets: embeddedAssets,
+      respond(command, args) {
+        if (command !== 'brew') return ok();
+        if (args[0] === 'list') return ok('gh\n');
+        return ok();
+      },
+    });
+
+    const report = await runMake({ selectors: ['gh'], upgrade: true }, context);
+
+    expect(report.failed).toBe(false);
+    expect(
+      calls.filter((call) => call.command === 'brew').map((call) => call.args),
+    ).toContainEqual(['upgrade', '--no-ask', '--formula', 'gh']);
+    expect(
+      calls.some(
+        (call) => call.command === 'brew' && call.args[0] === 'update',
+      ),
+    ).toBe(false);
+  },
+);
+
+sandboxTest(
   'a failed package blocks dependent activations',
   async (sandbox) => {
     const commands: string[] = [];

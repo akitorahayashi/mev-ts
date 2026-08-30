@@ -1,4 +1,8 @@
-import { type InstallReport, installPackages } from '../brew/install';
+import {
+  type InstallAction,
+  type InstallReport,
+  installPackages,
+} from '../brew/install';
 import { type PackageToken, tokens } from '../brew/package';
 import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
@@ -58,12 +62,15 @@ export interface ActivationStartEvent {
 
 export interface MakeRequest {
   readonly selectors: readonly string[];
-  /** Upgrade mode (`--upgrade`): refresh installed latest-assumed items. */
+  /** Upgrade selected Homebrew packages and installed latest-assumed items. */
   readonly upgrade?: boolean;
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
   readonly onInstallStart?: (total: number) => void;
-  readonly onInstallTokenStart?: (token: PackageToken) => void;
+  readonly onInstallTokenStart?: (
+    token: PackageToken,
+    action: InstallAction,
+  ) => void;
   readonly onInstallTick?: (token: PackageToken) => void;
   readonly onActivationPhaseStart?: () => void;
   readonly onActivationStart?: (event: ActivationStartEvent) => void;
@@ -207,6 +214,7 @@ export async function runMake(
   request.onHeader?.(selection);
 
   const install = await installPackages(selection.packages, context, {
+    upgrade: request.upgrade ?? false,
     onStart: request.onInstallStart,
     onTokenStart: request.onInstallTokenStart,
     onTick: request.onInstallTick,
