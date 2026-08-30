@@ -1,5 +1,5 @@
 import {
-  type InstallAction,
+  type InstallOptions,
   type InstallReport,
   installPackages,
 } from '../brew/install';
@@ -66,12 +66,9 @@ export interface MakeRequest {
   readonly upgrade?: boolean;
   readonly onDeploy?: (result: DeployResult) => void;
   readonly onHeader?: (selection: MakePlan) => void;
-  readonly onInstallStart?: (total: number) => void;
-  readonly onInstallTokenStart?: (
-    token: PackageToken,
-    action: InstallAction,
-  ) => void;
-  readonly onInstallTick?: (token: PackageToken) => void;
+  readonly onInstallStart?: InstallOptions['onStart'];
+  readonly onInstallTokenStart?: InstallOptions['onTokenStart'];
+  readonly onInstallTick?: InstallOptions['onTick'];
   readonly onActivationPhaseStart?: () => void;
   readonly onActivationStart?: (event: ActivationStartEvent) => void;
   readonly onActivationTargetComplete?: (group: ActivationGroupReport) => void;
@@ -188,6 +185,7 @@ export async function runMake(
   context: Context,
 ): Promise<MakeReport> {
   const selection = planMake(request.selectors);
+  const upgrade = request.upgrade ?? false;
 
   // Preserve mutable host state before invalidating applied markers or
   // replacing deployed roles. A preservation failure leaves provisioning's
@@ -214,7 +212,7 @@ export async function runMake(
   request.onHeader?.(selection);
 
   const install = await installPackages(selection.packages, context, {
-    upgrade: request.upgrade ?? false,
+    upgrade,
     onStart: request.onInstallStart,
     onTokenStart: request.onInstallTokenStart,
     onTick: request.onInstallTick,
@@ -253,7 +251,7 @@ export async function runMake(
         activation: describeActivation(activation),
       });
       const report = await runActivation(activation, context, {
-        upgrade: request.upgrade ?? false,
+        upgrade,
       });
       reports.push(report);
       activationBlocked =
