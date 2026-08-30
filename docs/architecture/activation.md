@@ -17,7 +17,7 @@ The runtime dispatches by `Activation['kind']` through one registry.
 | `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's declared extensions. |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out selected embedded agent sections. |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out selected embedded skill files. |
-| `agentPlugins` | `installAgentPlugins(configKey)` | Reconciles declared Claude Code and Codex plugins. See [agent-plugins.md](agent-plugins.md). |
+| `agentPlugins` | `installAgentPlugins(configKey, pathPrefix)` | Reconciles declared Claude Code and Codex plugins. See [agent-plugins.md](agent-plugins.md). |
 | `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Builds settings from a base asset and selected overrides. |
 | `declaredKeys` | `declaredKeys(source, dest, format)` | Enforces declared keys in an app-owned document. See [app-owned-config.md](app-owned-config.md). |
 | `command` | `runCommand({ label, reads?, steps })` | Runs an ordered declarative host-command pipeline. See [command-pipeline.md](command-pipeline.md). |
