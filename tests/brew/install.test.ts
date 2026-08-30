@@ -82,7 +82,12 @@ test('upgrade mode upgrades an installed formula without invoking brew update', 
   );
 
   expect(reports[0]?.status).toBe('present');
-  expect(sink.calls).toContainEqual(['upgrade', '--formula', 'git']);
+  expect(sink.calls).toContainEqual([
+    'upgrade',
+    '--no-ask',
+    '--formula',
+    'git',
+  ]);
   expect(sink.calls?.some((args) => args[0] === 'update')).toBe(false);
   expect(actions).toEqual(['upgrade formula git']);
 });
@@ -99,8 +104,13 @@ test('upgrade mode upgrades an installed cask and leaves an installed tap alone'
     'present',
     'present',
   ]);
-  expect(sink.calls).toContainEqual(['upgrade', '--cask', 'zed']);
-  expect(sink.calls).not.toContainEqual(['upgrade', '--tap', 'a/b']);
+  expect(sink.calls).toContainEqual(['upgrade', '--no-ask', '--cask', 'zed']);
+  expect(sink.calls).not.toContainEqual([
+    'upgrade',
+    '--no-ask',
+    '--tap',
+    'a/b',
+  ]);
 });
 
 test('upgrade mode installs a missing formula without invoking upgrade', async (sandbox) => {

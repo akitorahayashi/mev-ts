@@ -582,7 +582,7 @@ sandboxTest(
     expect(report.failed).toBe(false);
     expect(
       calls.filter((call) => call.command === 'brew').map((call) => call.args),
-    ).toContainEqual(['upgrade', '--formula', 'gh']);
+    ).toContainEqual(['upgrade', '--no-ask', '--formula', 'gh']);
     expect(
       calls.some(
         (call) => call.command === 'brew' && call.args[0] === 'update',

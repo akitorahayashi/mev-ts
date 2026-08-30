@@ -90,7 +90,7 @@ async function upgrade(
   await runProcessStep(
     context.commands,
     'brew',
-    ['upgrade', `--${kind}`, name],
+    ['upgrade', '--no-ask', `--${kind}`, name],
     `brew upgrade failed for ${name}`,
   );
 }
