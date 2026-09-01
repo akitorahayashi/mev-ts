@@ -90,16 +90,18 @@ export function renderTargetReport(
         outcomeLine({ label, status: 'failed', error: blocker.error }, options),
       );
     }
-    lines.push(
-      outcomeLine(
-        {
-          label: `${group.reports.length} dependent resources`,
-          status: 'blocked',
-          reason: 'prerequisite failed',
-        },
-        options,
-      ),
-    );
+    if (group.reports.length > 0) {
+      lines.push(
+        outcomeLine(
+          {
+            label: `${group.reports.length} dependent resources`,
+            status: 'blocked',
+            reason: 'prerequisite failed',
+          },
+          options,
+        ),
+      );
+    }
   } else {
     lines.push(...activationLines(group, options));
   }
@@ -190,6 +192,10 @@ function formatDuration(durationMs: number | undefined): string | null {
   if (seconds === 0) return '<1s';
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h${String(minutes % 60).padStart(2, '0')}m${String(seconds % 60).padStart(2, '0')}s`;
+  }
   return `${minutes}m${String(seconds % 60).padStart(2, '0')}s`;
 }
 
@@ -197,6 +203,9 @@ function countStatuses(report: MakeReport): Map<string, number> {
   const statuses = new Map<string, number>();
   const add = (status: string) =>
     statuses.set(status, (statuses.get(status) ?? 0) + 1);
+  for (const deploy of report.deploys) {
+    if (deploy.error) add('failed');
+  }
   for (const item of report.install) add(packageOutcome(item).status);
   for (const group of report.groups) {
     for (const activation of group.reports) {

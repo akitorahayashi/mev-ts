@@ -1,5 +1,5 @@
 import { type InstallReport, installPackages } from '../brew/install';
-import { type PackageToken, tokens } from '../brew/package';
+import { mergePackages, type PackageToken, tokens } from '../brew/package';
 import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
 import { resolveHostPath } from '../host/path';
@@ -231,7 +231,12 @@ export async function runMake(
     request.onEvent,
   );
 
-  const install = await installPackages(selection.packages, context, {
+  const installablePackages = mergePackages(
+    selection.groups
+      .filter((group) => !failedRoles.has(group.role))
+      .map((group) => group.packages),
+  );
+  const install = await installPackages(installablePackages, context, {
     upgrade,
     onStart: (total) =>
       request.onEvent?.({ type: 'package-phase-start', total }),

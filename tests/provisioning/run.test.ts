@@ -145,7 +145,7 @@ sandboxTest(
     await mkdir(join(deployedConfig, '..'), { recursive: true });
     await writeFile(deployedConfig, 'previous deployed content\n');
 
-    const context = recordingContext({
+    const { context, calls } = recordingContext({
       home: sandbox,
       assets: embeddedAssets,
       respond(command) {
@@ -153,7 +153,7 @@ sandboxTest(
           ? { code: 127, stdout: '', stderr: 'git unavailable' }
           : { code: 0, stdout: '', stderr: '' };
       },
-    }).context;
+    });
 
     const report = await runMake({ selectors: ['git'] }, context);
     expect(report.failed).toBe(true);
@@ -166,6 +166,8 @@ sandboxTest(
     expect(await readFile(deployedConfig, 'utf8')).toBe(
       'previous deployed content\n',
     );
+    expect(report.install).toEqual([]);
+    expect(calls.some(({ command }) => command === 'brew')).toBe(false);
   },
 );
 
@@ -582,6 +584,35 @@ sandboxTest(
       true,
     );
     expect(events).toEqual(['phase', 'complete:git']);
+  },
+);
+
+sandboxTest(
+  'a package shared with a healthy role remains installable after another role fails',
+  async (sandbox) => {
+    const { context } = recordingContext({
+      home: sandbox,
+      assets: {
+        read: (key) =>
+          key.startsWith('duti/')
+            ? Promise.reject(new Error('duti deploy boom'))
+            : embeddedAssets.read(key),
+        keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
+        isExecutable: (key) => embeddedAssets.isExecutable(key),
+      },
+    });
+
+    const report = await runMake({ selectors: ['duti', 'zed'] }, context);
+
+    expect(report.failed).toBe(true);
+    expect(report.install).toEqual([
+      { token: { kind: 'cask', name: 'zed' }, status: 'installed' },
+    ]);
+    expect(
+      report.install.some(
+        ({ token }) => token.kind === 'formula' && token.name === 'duti',
+      ),
+    ).toBe(false);
   },
 );
 

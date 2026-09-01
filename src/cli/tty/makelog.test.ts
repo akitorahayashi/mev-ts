@@ -120,3 +120,40 @@ test('final report summarizes outcomes and provides a retry', () => {
   expect(rendered).toContain('Action required');
   expect(rendered).toContain('Retry: mev make shell');
 });
+
+test('final report counts deploy failures without rendering zero blocked resources', () => {
+  const base = report();
+  const blocked = {
+    targetName: 'shell',
+    blockers: [
+      {
+        kind: 'deploy' as const,
+        role: 'shell',
+        error: 'deploy failed',
+      },
+    ],
+    reports: [],
+  };
+  const failed: MakeReport = {
+    ...base,
+    deploys: [{ role: 'shell', changes: [], error: 'deploy failed' }],
+    groups: [blocked],
+    failed: true,
+  };
+
+  expect(renderTargetReport(blocked, { isTTY: false })).not.toContain(
+    'blocked 0 dependent resources',
+  );
+  expect(renderMakeReport(failed, { isTTY: false })).toContain(
+    'Result: failed — 1 failed',
+  );
+});
+
+test('final report formats durations longer than one hour', () => {
+  const rendered = renderMakeReport(report(), {
+    isTTY: false,
+    durationMs: 7_323_000,
+  });
+
+  expect(rendered).toContain('Duration: 2h02m03s');
+});

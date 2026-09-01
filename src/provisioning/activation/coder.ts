@@ -67,8 +67,7 @@ export function describeCoderSkills(
 }
 
 interface LinkFanout {
-  readonly changed: boolean;
-  readonly failed: readonly ReconcileItemResult[];
+  readonly entries: readonly ReconcileItemResult[];
 }
 
 /** Symlink `target` into each dest, isolating a per-dest failure to its entry. */
@@ -77,16 +76,26 @@ async function fanoutFile(
   target: string,
   context: Context,
 ): Promise<LinkFanout> {
-  let changed = false;
-  const failed: ReconcileItemResult[] = [];
+  const entries: ReconcileItemResult[] = [];
   for (const dest of dests) {
     const link = resolveHostPath(dest, context.home);
     try {
-      if (await isSymlinkTo(link, target)) continue;
-      await placeSymlink(link, target);
-      changed = true;
+      if (await isSymlinkTo(link, target)) {
+        entries.push({
+          key: symbolic(dest),
+          value: 'managed link already current',
+          status: 'unchanged',
+        });
+      } else {
+        await placeSymlink(link, target);
+        entries.push({
+          key: symbolic(dest),
+          value: 'managed link updated',
+          status: 'changed',
+        });
+      }
     } catch (error) {
-      failed.push({
+      entries.push({
         key: symbolic(dest),
         value: 'link failed',
         status: 'failed',
@@ -94,7 +103,7 @@ async function fanoutFile(
       });
     }
   }
-  return { changed, failed };
+  return { entries };
 }
 
 /**
@@ -109,8 +118,7 @@ async function fanoutSkills(
   enabled: readonly string[],
   context: Context,
 ): Promise<LinkFanout> {
-  let changed = false;
-  const failed: ReconcileItemResult[] = [];
+  const entries: ReconcileItemResult[] = [];
   for (const dir of targetDirs) {
     const root = resolveHostPath(dir, context.home);
     const desired = enabled.map((name) => ({
@@ -118,14 +126,20 @@ async function fanoutSkills(
       target: join(intermediate, name),
     }));
     try {
-      if (
-        (await reconcileManagedLinks(root, [`${intermediate}/`], desired))
-          .changed
-      ) {
-        changed = true;
-      }
+      const result = await reconcileManagedLinks(
+        root,
+        [`${intermediate}/`],
+        desired,
+      );
+      entries.push({
+        key: symbolic(dir),
+        value: result.changed
+          ? 'managed links updated'
+          : 'managed links already current',
+        status: result.changed ? 'changed' : 'unchanged',
+      });
     } catch (error) {
-      failed.push({
+      entries.push({
         key: symbolic(dir),
         value: 'link failed',
         status: 'failed',
@@ -133,14 +147,32 @@ async function fanoutSkills(
       });
     }
   }
-  return { changed, failed };
+  return { entries };
+}
+
+function includeGeneratedChanges(
+  fanout: LinkFanout,
+  generatedChanged: boolean,
+): LinkFanout {
+  if (!generatedChanged) return fanout;
+  return {
+    entries: fanout.entries.map((entry) =>
+      entry.status === 'failed'
+        ? entry
+        : {
+            ...entry,
+            value: 'generated content or managed links updated',
+            status: 'changed',
+          },
+    ),
+  };
 }
 
 /**
  * The kind-specific half of a coder activation. `read` parses the deployed
  * catalog; `apply` builds the intermediate output once and fans it out. Read and
  * build failures throw (a whole-activation failure); fan-out failures are
- * isolated into `LinkFanout.failed`.
+ * isolated into per-destination fan-out results.
  */
 interface CoderSpec {
   readonly base: ActivationDescription;
@@ -161,24 +193,10 @@ async function runCoder(
       catalog,
       spec.manifestPath,
     );
-    const { changed, failed } = await spec.apply(sourceDir, enabled);
-    const outcomes =
-      failed.length > 0
-        ? failed.map(stepOutcome)
-        : [
-            {
-              label: spec.base.subject,
-              status: changed ? ('changed' as const) : ('unchanged' as const),
-              details: [
-                changed
-                  ? 'generated content or managed links updated'
-                  : 'generated content and managed links already current',
-              ],
-            },
-          ];
+    const { entries } = await spec.apply(sourceDir, enabled);
     return activationReport(
       spec.base,
-      outcomes,
+      entries.map(stepOutcome),
       unknown.map((name) => `Ignored stale disabled selection: ${name}`),
     );
   });
@@ -197,7 +215,7 @@ export function runCoderAgents(
       const output = agentsFile(context.home);
       const built = await buildAgents(sourceDir, enabled, output);
       const fanout = await fanoutFile(activation.dests, output, context);
-      return { changed: built || fanout.changed, failed: fanout.failed };
+      return includeGeneratedChanges(fanout, built);
     },
   });
 }
@@ -220,7 +238,7 @@ export function runCoderSkills(
         enabled,
         context,
       );
-      return { changed: built || fanout.changed, failed: fanout.failed };
+      return includeGeneratedChanges(fanout, built);
     },
   });
 }
