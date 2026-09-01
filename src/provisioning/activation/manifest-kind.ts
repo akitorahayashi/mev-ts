@@ -1,11 +1,10 @@
-import { basename, extname } from 'node:path';
 import type { Context } from '../../host/context';
 import type {
+  ActivationDescription,
   ActivationReport,
   ActivationRunOptions,
   AssetCheck,
   AssetReference,
-  Described,
 } from './contract';
 import { readDeployedManifest } from './manifest';
 import { type ReconcileStep, reconcile } from './reconcile';
@@ -18,7 +17,7 @@ interface ManifestKindSpec<A extends ManifestActivation, D> {
   readonly parse: (raw: string, path: string) => D[] | Promise<D[]>;
   /** Deploy-first label surfaced when the manifest is missing. */
   readonly manifestLabel: string;
-  readonly describe: (activation: A) => Described;
+  readonly describe: (activation: A) => ActivationDescription;
   readonly steps: (
     declared: readonly D[],
     activation: A,
@@ -30,7 +29,7 @@ interface ManifestKindSpec<A extends ManifestActivation, D> {
 }
 
 export interface ManifestKind<A extends ManifestActivation> {
-  describe(activation: A): Described;
+  describe(activation: A): ActivationDescription;
   references(activation: A): readonly AssetReference[];
   assetChecks(activation: A): readonly AssetCheck[];
   run(
@@ -75,8 +74,4 @@ export function manifestKind<A extends ManifestActivation, D>(
         concurrent: spec.concurrency,
       }),
   };
-}
-
-export function manifestSource(configKey: string): string {
-  return basename(configKey, extname(configKey));
 }

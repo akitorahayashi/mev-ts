@@ -1,4 +1,4 @@
-import { type AssetRef, deployedSymbolic } from '../../assets/ref';
+import type { AssetRef } from '../../assets/ref';
 import { ProvisioningError } from '../../errors';
 import { lstatIfPresent, readTextIfPresent } from '../../host/absence';
 import { writeFileAtomically } from '../../host/atomic-file';
@@ -12,9 +12,14 @@ import { loadJsonObject, serializeJson } from '../../host/json';
 import { editJsoncObject, loadJsoncObject } from '../../host/jsonc';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { loadToml, serializeToml } from '../../host/toml';
-import type { Activation, ActivationReport, Described } from './contract';
+import type {
+  Activation,
+  ActivationDescription,
+  ActivationReport,
+  ActivationRunOptions,
+} from './contract';
 import { readDeployedManifest } from './manifest';
-import { guarded } from './reconcile';
+import { activationReport, guarded } from './reconcile';
 
 type DeclaredKeysActivation = Extract<Activation, { kind: 'declaredKeys' }>;
 
@@ -72,11 +77,9 @@ export function parseDeclared(
 
 export function describeDeclaredKeys(
   activation: DeclaredKeysActivation,
-): Described {
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedSymbolic(activation.source),
-    dest: symbolic(activation.dest),
+    subject: symbolic(activation.dest),
   };
 }
 
@@ -91,6 +94,7 @@ export function describeDeclaredKeys(
 export async function runDeclaredKeys(
   activation: DeclaredKeysActivation,
   context: Context,
+  options: ActivationRunOptions = { upgrade: false },
 ): Promise<ActivationReport> {
   const base = describeDeclaredKeys(activation);
   const codec = codecs[activation.format];
@@ -112,11 +116,18 @@ export async function runDeclaredKeys(
     // document rather than a read failure.
     const raw = await readTextIfPresent(dest);
     const host = raw === null ? {} : codec.load(raw, dest);
+    const assignments = declaredAssignments(host, declared, dest);
     const merged = mergeDeclared(host, declared, dest);
     // A pre-existing symlink is always materialized, even when the values
     // already match, because the symlink itself is the write-through hazard.
-    if (stats?.isFile() && valueEqual(merged, host)) {
-      return { ...base, status: 'unchanged' };
+    if (stats?.isFile() && valueEqual(merged, host) && !options.preserved) {
+      return activationReport(base, [
+        {
+          label: base.subject,
+          status: 'unchanged',
+          details: ['declared keys already current'],
+        },
+      ]);
     }
     // The atomic rename replaces the destination path itself, so a symlink found
     // there becomes a regular file instead of being written through.
@@ -124,6 +135,17 @@ export async function runDeclaredKeys(
       dest,
       codec.render({ merged, host, declared, hostRaw: raw, source: dest }),
     );
-    return { ...base, status: 'changed' };
+    const details = [
+      ...(options.preserved ? ['preserved application-managed state'] : []),
+      ...assignments.map(([path]) => `updated ${path.join('.')}`),
+      ...(raw === null ? ['created config file'] : []),
+    ];
+    return activationReport(base, [
+      {
+        label: base.subject,
+        status: 'changed',
+        details: details.length > 0 ? details : ['reconciled declared keys'],
+      },
+    ]);
   });
 }

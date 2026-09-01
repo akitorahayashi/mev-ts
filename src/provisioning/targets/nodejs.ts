@@ -19,12 +19,29 @@ export const nodejsTarget = target('nodejs', {
           label: 'fnm install',
           argv: ['fnm', 'install', { ref: 'version' }, '--progress=never'],
           changedWhen: { outputNotContains: 'already installed' },
+          report: {
+            kind: 'reconcile',
+            subject: 'Node.js runtime',
+            changed: { concat: ['installed ', { ref: 'version' }] },
+            unchanged: { concat: [{ ref: 'version' }, ' already installed'] },
+          },
           env: brewPath(),
         },
         {
           label: 'fnm default',
           argv: ['fnm', 'default', { ref: 'version' }],
-          changedWhen: 'never',
+          skipIf: {
+            commandOutputMatches: {
+              argv: ['fnm', 'default'],
+              contains: { ref: 'version' },
+            },
+          },
+          report: {
+            kind: 'reconcile',
+            subject: 'default Node.js runtime',
+            changed: { concat: ['set to ', { ref: 'version' }] },
+            unchanged: { concat: [{ ref: 'version' }, ' already selected'] },
+          },
           env: brewPath(),
         },
       ],

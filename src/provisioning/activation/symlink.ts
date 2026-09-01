@@ -5,7 +5,6 @@ import {
   asset,
   deployedDir,
   deployedPath,
-  deployedSymbolic,
 } from '../../assets/ref';
 import { lstatIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
@@ -13,8 +12,13 @@ import { replaceDirectoryAfterBuild } from '../../host/directory-replacement';
 import { reconcileManagedLinks } from '../../host/managed-links';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
-import type { Activation, ActivationReport, Described } from './contract';
-import { guarded } from './reconcile';
+import type {
+  Activation,
+  ActivationDescription,
+  ActivationReport,
+  ActivationRunOptions,
+} from './contract';
+import { activationReport, guarded } from './reconcile';
 
 type FileActivation = Extract<Activation, { kind: 'file' }>;
 type TreeActivation = Extract<Activation, { kind: 'tree' }>;
@@ -27,23 +31,25 @@ export function linkTree(prefix: string, dest: HostPath): Activation {
   return { kind: 'tree', prefix, dest };
 }
 
-export function describeFile(activation: FileActivation): Described {
+export function describeFile(
+  activation: FileActivation,
+): ActivationDescription {
   return {
-    verb: 'link',
-    source: deployedSymbolic(activation.source),
-    dest: symbolic(activation.dest),
+    subject: symbolic(activation.dest),
   };
 }
 
-export function describeTree(activation: TreeActivation): Described {
+export function describeTree(
+  activation: TreeActivation,
+): ActivationDescription {
   return {
-    verb: 'link',
-    source: deployedSymbolic({ key: activation.prefix }),
-    dest: symbolic(activation.dest),
+    subject: symbolic(activation.dest),
+    unchangedCollection: 'managed links',
   };
 }
 
 interface TreeEntry {
+  readonly key: string;
   readonly link: string;
   readonly target: string;
 }
@@ -55,6 +61,7 @@ function treeEntries(
   home: string,
 ): TreeEntry[] {
   return refs.map((ref) => ({
+    key: ref.key,
     link: join(root, ref.key.slice(prefix.length)),
     target: deployedPath(ref, home),
   }));
@@ -75,22 +82,40 @@ async function ensureTreeRoot(root: string): Promise<boolean> {
 export async function runFile(
   activation: FileActivation,
   context: Context,
+  options: ActivationRunOptions = { upgrade: false },
 ): Promise<ActivationReport> {
   const base = describeFile(activation);
   return guarded(base, async () => {
     const link = resolveHostPath(activation.dest, context.home);
     const target = deployedPath(activation.source, context.home);
-    if (await isSymlinkTo(link, target)) {
-      return { ...base, status: 'unchanged' };
+    const linkCurrent = await isSymlinkTo(link, target);
+    if (!linkCurrent) {
+      await placeSymlink(link, target);
     }
-    await placeSymlink(link, target);
-    return { ...base, status: 'changed' };
+    const contentChanged = options.sourceChanges?.some(
+      (change) => change.key === activation.source.key,
+    );
+    const details = [
+      ...(!linkCurrent ? ['linked to managed config'] : []),
+      ...(contentChanged ? ['managed content updated'] : []),
+    ];
+    return activationReport(base, [
+      {
+        label: base.subject,
+        status: details.length > 0 ? 'changed' : 'unchanged',
+        details:
+          details.length > 0
+            ? details
+            : ['already linked to current managed config'],
+      },
+    ]);
   });
 }
 
 export async function runTree(
   activation: TreeActivation,
   context: Context,
+  options: ActivationRunOptions = { upgrade: false },
 ): Promise<ActivationReport> {
   const base = describeTree(activation);
   return guarded(base, async () => {
@@ -102,15 +127,51 @@ export async function runTree(
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
     const rootChanged = await ensureTreeRoot(root);
-    const linksChanged = await reconcileManagedLinks(
+    const links = await reconcileManagedLinks(
       root,
       managedRoots,
       entries.map((entry) => ({ path: entry.link, target: entry.target })),
     );
 
-    return {
-      ...base,
-      status: rootChanged || linksChanged ? 'changed' : 'unchanged',
-    };
+    const changedKeys = new Set(
+      options.sourceChanges
+        ?.filter((change) => change.key.startsWith(activation.prefix))
+        .map((change) => change.key) ?? [],
+    );
+    const placed = new Set(links.placed.map((entry) => entry.path));
+    const outcomes = entries.map((entry) => {
+      const changed = placed.has(entry.link) || changedKeys.has(entry.key);
+      return {
+        label: entry.link.startsWith(`${context.home}/`)
+          ? `~/${entry.link.slice(context.home.length + 1)}`
+          : entry.link,
+        status: changed ? ('changed' as const) : ('unchanged' as const),
+        details: changed
+          ? [
+              ...(placed.has(entry.link) ? ['linked to managed config'] : []),
+              ...(changedKeys.has(entry.key)
+                ? ['managed content updated']
+                : []),
+            ]
+          : ['already linked to current managed config'],
+      };
+    });
+    for (const removed of links.removed) {
+      outcomes.push({
+        label: removed.startsWith(`${context.home}/`)
+          ? `~/${removed.slice(context.home.length + 1)}`
+          : removed,
+        status: 'changed',
+        details: ['removed obsolete managed link'],
+      });
+    }
+    if (rootChanged && outcomes.length === 0) {
+      outcomes.push({
+        label: base.subject,
+        status: 'changed',
+        details: ['created managed directory'],
+      });
+    }
+    return activationReport(base, outcomes);
   });
 }

@@ -39,7 +39,9 @@ src/
     targets/     One file per provisioning target
     signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
     applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
-    scan.ts      Concurrent signature and deployed-role drift classification
+    role-state.ts Shared asset-level embedded/deployed role comparison
+    resource-outcome.ts User-managed resource statuses and reducers
+    scan.ts      Concurrent signature and role-state drift classification
   version-pin.ts The `latest`-versus-pin policy shared by pipx, pnpm, and release binaries
   zed/           Zed override catalog, selection manifest, and settings renderer
 scripts/
@@ -96,7 +98,7 @@ Each target is a file in `provisioning/targets/` registered in `provisioning/reg
 - `HostPath` — symbolic path resolved against `context.home` at apply time.
 - `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), agent plugin source state, identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). `host/path.ts` also exports `mevPath(...segments)`, the sole builder composing mev-owned sub-paths on `mevRoot`, so every mev-managed host path derives from it and no call site hardcodes the `.mev` literal or a parallel root.
 - `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution. See docs/architecture/targets.md for the full target shape and the `optional` flag's role in `create`/`sync` selection.
-- `Activation`, `StepReport`, `CommandScope` are defined in `activation/contract.ts`.
+- `Activation`, `ActivationDescription`, and `CommandScope` are defined in `activation/contract.ts`; `ResourceOutcome` is defined in `provisioning/resource-outcome.ts`.
 
 ### Asset Codegen
 

@@ -14,8 +14,8 @@ import {
 } from '../../github/release';
 import type { Context } from '../../host/context';
 import { needsInstall, shouldUpgrade } from '../../version-pin';
-import type { Activation, StepReport } from './contract';
-import { manifestKind, manifestSource } from './manifest-kind';
+import type { Activation, ReconcileItemResult } from './contract';
+import { manifestKind } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
@@ -31,7 +31,7 @@ function installed(
   binary: ReleaseBinary,
   tag: string,
   previous: string | null,
-): StepReport {
+): ReconcileItemResult {
   return {
     key: binary.name,
     value: previous === null ? `installed ${tag}` : `upgraded to ${tag}`,
@@ -47,7 +47,7 @@ function releaseStep(
   upgrade: boolean,
 ): ReconcileStep {
   const dest = join(binDir, binary.name);
-  const upToDate = (): StepReport => ({
+  const upToDate = (): ReconcileItemResult => ({
     key: binary.name,
     value: 'up to date',
     status: 'unchanged',
@@ -93,10 +93,9 @@ function releaseStep(
 export const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
   parse: parseReleaseBinaries,
   manifestLabel: 'Release binaries manifest',
-  describe: (activation) => ({
-    verb: 'apply',
-    source: manifestSource(activation.configKey),
-    dest: `~/${BIN_DIR}`,
+  describe: () => ({
+    subject: `~/${BIN_DIR} release binaries`,
+    unchangedCollection: 'release binaries',
   }),
   // Each binary is independent and writes to a unique path, so the network-bound
   // reconciliations run concurrently; the envelope isolates a single binary's

@@ -1,11 +1,62 @@
 import { errorMessage } from '../../errors';
 import { mapWithConcurrency } from '../../host/task-pool';
+import { outcomeStatus, type ResourceOutcome } from '../resource-outcome';
 import type {
+  ActivationDescription,
   ActivationReport,
-  ActivationStatus,
-  Described,
-  StepReport,
+  ReconcileItemResult,
 } from './contract';
+
+export function stepOutcome(step: ReconcileItemResult): ResourceOutcome {
+  const details = step.value ? [step.value] : undefined;
+  if (step.status === 'failed') {
+    return {
+      label: step.key,
+      status: 'failed',
+      error: step.error ?? 'Unknown error.',
+      details,
+    };
+  }
+  return { label: step.key, status: step.status, details };
+}
+
+export function activationReport(
+  description: ActivationDescription,
+  outcomes: readonly ResourceOutcome[],
+  notices?: readonly string[],
+): ActivationReport {
+  const status = outcomeStatus(outcomes);
+  const entries: ReconcileItemResult[] = outcomes.flatMap((outcome) => {
+    if (outcome.status === 'blocked') return [];
+    return [
+      {
+        key: outcome.label,
+        value: outcome.details?.join(', ') ?? '',
+        status: outcome.status,
+        ...(outcome.status === 'failed' ? { error: outcome.error } : {}),
+      },
+    ];
+  });
+  return {
+    description,
+    outcomes,
+    ...(notices && notices.length > 0 ? { notices } : {}),
+    status,
+    entries,
+  };
+}
+
+export function aggregateStatus(
+  entries: readonly ReconcileItemResult[],
+): ReturnType<typeof outcomeStatus> {
+  return outcomeStatus(entries.map(stepOutcome));
+}
+
+interface GuardedResult {
+  readonly status: 'changed' | 'unchanged' | 'applied' | 'failed' | 'blocked';
+  readonly entries?: readonly ReconcileItemResult[];
+  readonly error?: string;
+}
 
 /**
  * The per-activation error boundary shared by the hand-rolled runners. Runs
@@ -13,27 +64,46 @@ import type {
  * so the boundary is structural instead of copied into every runner's `catch`.
  */
 export async function guarded(
-  base: Described,
-  fn: () => Promise<ActivationReport>,
+  description: ActivationDescription,
+  fn: () => Promise<ActivationReport | GuardedResult>,
 ): Promise<ActivationReport> {
   try {
-    return await fn();
+    const result = await fn();
+    if ('outcomes' in result) return result;
+    if (result.entries) {
+      return activationReport(description, result.entries.map(stepOutcome));
+    }
+    if (result.status === 'failed') {
+      const error = result.error ?? 'Unknown error.';
+      return {
+        ...activationReport(description, [
+          { label: description.subject, status: 'failed', error },
+        ]),
+        error,
+      };
+    }
+    if (result.status === 'blocked') {
+      const error = result.error ?? 'A prerequisite was not satisfied.';
+      return {
+        ...activationReport(description, [
+          { label: description.subject, status: 'blocked', reason: error },
+        ]),
+        error,
+        entries: undefined,
+      };
+    }
+    return activationReport(description, [
+      { label: description.subject, status: result.status },
+    ]);
   } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
+    const message = errorMessage(error);
+    return {
+      ...activationReport(description, [
+        { label: description.subject, status: 'failed', error: message },
+      ]),
+      error: message,
+    };
   }
-}
-
-/**
- * Fold per-item step statuses into an activation status: any failure fails,
- * else any change is changed, else unchanged. For entry-status aggregation only
- * — not for runners that combine local boolean flags.
- */
-export function aggregateStatus(
-  entries: readonly StepReport[],
-): Extract<ActivationStatus, 'changed' | 'unchanged' | 'failed'> {
-  if (entries.some((entry) => entry.status === 'failed')) return 'failed';
-  if (entries.some((entry) => entry.status === 'changed')) return 'changed';
-  return 'unchanged';
 }
 
 /**
@@ -42,8 +112,8 @@ export function aggregateStatus(
  * item so it can name the item and reflect any partial actions already taken.
  */
 export interface ReconcileStep {
-  run(): Promise<StepReport>;
-  onError(error: unknown): StepReport;
+  run(): Promise<ReconcileItemResult>;
+  onError(error: unknown): ReconcileItemResult;
 }
 
 /**
@@ -60,7 +130,7 @@ export interface ReconcileSpec<D> {
   concurrent?: number;
 }
 
-async function executeStep(step: ReconcileStep): Promise<StepReport> {
+async function executeStep(step: ReconcileStep): Promise<ReconcileItemResult> {
   try {
     return await step.run();
   } catch (error) {
@@ -70,8 +140,8 @@ async function executeStep(step: ReconcileStep): Promise<StepReport> {
 
 async function runSeries(
   steps: readonly ReconcileStep[],
-): Promise<StepReport[]> {
-  const reports: StepReport[] = [];
+): Promise<ReconcileItemResult[]> {
+  const reports: ReconcileItemResult[] = [];
   for (const step of steps) {
     reports.push(await executeStep(step));
   }
@@ -81,7 +151,7 @@ async function runSeries(
 /**
  * The reconcile envelope shared by the list-into-report kinds. It owns the
  * per-item loop, status derivation, and—through `executeStep`—the per-item error
- * boundary, so one item's failure becomes a `failed` `StepReport` that neither
+ * boundary, so one item's failure becomes a failed item result that neither
  * rejects the batch nor aborts its siblings rather than relying on each kind to
  * place that boundary by convention. Concurrent runs report in declaration
  * order because `Promise.all` preserves it. An empty declaration is `unchanged`
@@ -89,21 +159,27 @@ async function runSeries(
  * before it returns the list is a whole-activation error.
  */
 export async function reconcile<D>(
-  base: Described,
+  description: ActivationDescription,
   spec: ReconcileSpec<D>,
 ): Promise<ActivationReport> {
   try {
     const declared = await spec.declare();
     if (declared.length === 0) {
-      return { ...base, status: 'unchanged', entries: [] };
+      return activationReport(description, []);
     }
     const steps = await spec.steps(declared);
     const entries =
       spec.concurrent && spec.concurrent > 1
         ? await mapWithConcurrency(steps, spec.concurrent, executeStep)
         : await runSeries(steps);
-    return { ...base, status: aggregateStatus(entries), entries };
+    return activationReport(description, entries.map(stepOutcome));
   } catch (error) {
-    return { ...base, status: 'failed', error: errorMessage(error) };
+    const message = errorMessage(error);
+    return {
+      ...activationReport(description, [
+        { label: description.subject, status: 'failed', error: message },
+      ]),
+      error: message,
+    };
   }
 }

@@ -30,6 +30,8 @@ non-optional selection; all three use the same provisioning phases.
 
 Command activation declarations contribute their data to the signature; the
 command vocabulary is defined in [command-pipeline.md](command-pipeline.md).
+User-facing `report` metadata is excluded because it does not alter desired
+state or execution.
 
 `runMake()` invalidates selected markers before deployment and records them only
 after deploy, package resolution, and activation succeed. A failed run therefore

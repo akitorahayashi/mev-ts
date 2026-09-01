@@ -9,6 +9,13 @@ export interface DesiredLink {
   readonly target: string;
 }
 
+export interface ManagedLinksResult {
+  readonly placed: readonly DesiredLink[];
+  readonly unchanged: readonly DesiredLink[];
+  readonly removed: readonly string[];
+  readonly changed: boolean;
+}
+
 /**
  * Reconcile the symlinks directly under `root` to exactly `desired`. mev owns
  * only symlinks whose target begins with one of `managedPrefixes`: such a link
@@ -25,17 +32,22 @@ export async function reconcileManagedLinks(
   root: string,
   managedPrefixes: readonly string[],
   desired: readonly DesiredLink[],
-): Promise<boolean> {
+): Promise<ManagedLinksResult> {
   const prefixes = managedPrefixes.map((prefix) =>
     prefix.endsWith('/') ? prefix : `${prefix}/`,
   );
   const desiredPaths = new Set(desired.map((link) => link.path));
-  let changed = false;
+  const placed: DesiredLink[] = [];
+  const unchanged: DesiredLink[] = [];
+  const removed: string[] = [];
 
   for (const link of desired) {
-    if (await isSymlinkTo(link.path, link.target)) continue;
+    if (await isSymlinkTo(link.path, link.target)) {
+      unchanged.push(link);
+      continue;
+    }
     await placeSymlink(link.path, link.target);
-    changed = true;
+    placed.push(link);
   }
 
   const entries = (await readDirentsIfPresent(root)) ?? [];
@@ -46,9 +58,14 @@ export async function reconcileManagedLinks(
     const target = await readlinkIfPresent(path);
     if (target && prefixes.some((prefix) => target.startsWith(prefix))) {
       await rm(path, { force: true });
-      changed = true;
+      removed.push(path);
     }
   }
 
-  return changed;
+  return {
+    placed,
+    unchanged,
+    removed,
+    changed: placed.length > 0 || removed.length > 0,
+  };
 }

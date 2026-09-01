@@ -17,12 +17,14 @@ export async function buildSkills(
   skillsDir: string,
 ): Promise<boolean> {
   await mkdir(skillsDir, { recursive: true });
-  return reconcileManagedLinks(
-    skillsDir,
-    [`${sourceDir}/`],
-    enabled.map((name) => ({
-      path: join(skillsDir, name),
-      target: join(sourceDir, name),
-    })),
-  );
+  return (
+    await reconcileManagedLinks(
+      skillsDir,
+      [`${sourceDir}/`],
+      enabled.map((name) => ({
+        path: join(skillsDir, name),
+        target: join(sourceDir, name),
+      })),
+    )
+  ).changed;
 }

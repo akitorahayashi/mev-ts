@@ -30,6 +30,12 @@ export const herdrTarget = target('herdr', {
         label: 'herdr update',
         argv: [BINARY, 'update'],
         versionProbe: [BINARY, '--version'],
+        report: {
+          kind: 'reconcile',
+          subject: 'Herdr',
+          changed: 'updated',
+          unchanged: 'already latest',
+        },
         blockedWhen: {
           errorContains:
             'run `herdr update` outside herdr after detaching from the session',

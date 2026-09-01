@@ -4,17 +4,15 @@ export { coderAgents, coderSkills } from './coder';
 export { runCommand } from './command';
 export type {
   Activation,
+  ActivationDescription,
   ActivationReport,
   ActivationRunOptions,
-  ActivationStatus,
   ChangedWhen,
   CommandArg,
   CommandEnvValue,
   CommandStep,
-  Described,
+  ReconcileItemResult,
   StepGuard,
-  StepReport,
-  Verb,
 } from './contract';
 export { declaredKeys } from './declared-keys';
 export {

@@ -15,7 +15,7 @@ import {
   shouldUpgrade,
 } from '../../pnpm/reconciliation';
 import type { Activation } from './contract';
-import { manifestKind, manifestSource } from './manifest-kind';
+import { manifestKind } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
 type PnpmActivation = Extract<Activation, { kind: 'pnpm' }>;
@@ -102,10 +102,9 @@ function uninstallStep(
 export const pnpmKind = manifestKind<PnpmActivation, PnpmEntry>({
   parse: parseManifest,
   manifestLabel: 'pnpm global packages manifest',
-  describe: (activation) => ({
-    verb: 'apply',
-    source: manifestSource(activation.configKey),
-    dest: 'pnpm global packages',
+  describe: () => ({
+    subject: 'pnpm global packages',
+    unchangedCollection: 'pnpm global packages',
   }),
   steps: async (entries, _activation, context, runOptions) => {
     const runtime = await pnpmRuntime(context);

@@ -39,11 +39,31 @@ Multi-item kinds share the following boundary:
 | Declare | Resolve the items; a declaration failure aborts the activation. |
 | Build steps | Probe shared state and create one step per item; a probe failure aborts the activation. |
 | Execute | Isolate item failures and continue with independent siblings. |
-| Aggregate | `failed` outranks `changed`, which outranks `unchanged`; an empty declaration is unchanged. |
+| Report | Convert each probe result into a user-managed resource outcome. |
 | Concurrency | Serial by default; parallelism is opt-in for independent work. |
 
 `coderAgents` and `coderSkills` apply the same per-item failure boundary to their
 fan-out without using this envelope.
+
+## Outcome contract
+
+An activation returns an `ActivationDescription` and `ResourceOutcome[]`.
+Descriptions name the user-facing subject and optionally identify a collection
+whose unchanged members may be aggregated. Each outcome names the affected
+path, setting, package, association, runtime, plugin, or other managed resource.
+
+| Status | Meaning |
+|---|---|
+| `changed` | A probe established that the resource changed. |
+| `unchanged` | A probe established that the resource was already current. |
+| `applied` | An action succeeded, but its underlying state change was not independently observable. |
+| `failed` | The resource could not be reconciled. |
+| `blocked` | A prerequisite or earlier resource prevented reconciliation. |
+
+Activation and target statuses are derived from outcomes. Failures outrank
+blocks, observed changes, applied actions, and unchanged results. Internal role
+names, manifests, signatures, and applied markers are not success resources;
+their failures remain visible with phase context.
 
 ## Manifest and selection boundaries
 

@@ -10,11 +10,7 @@ import {
   type ActivationProgress,
   createActivationProgress,
 } from './tty/activation-progress';
-import {
-  renderDeployLine,
-  renderHeader,
-  renderMakeReport,
-} from './tty/makelog';
+import { renderMakeReport, renderPackageReport } from './tty/makelog';
 import { resolveIsTTY } from './tty/style';
 
 export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
@@ -65,55 +61,59 @@ export async function executeProvisioningRun(
     const report = await run({
       selectors: options.selectors,
       upgrade: options.upgrade,
-      onDeploy(result) {
-        const line = renderDeployLine(result, isTTY);
-        if (line) out(`${line}\n`);
-      },
-      onHeader(selection) {
-        nameWidth = Math.max(
-          0,
-          ...selection.targetNames.map((name) => name.length),
-        );
-        out(`${renderHeader(selection)}\n`);
-      },
-      onInstallStart(total) {
-        if (total > 0 && isTTY) {
-          out('\n');
-          bar = createProgressBar({
-            total,
-            isTty: isTTY,
-            // The bar reads terminal facts (columns, cursor) that `Writable`
-            // does not declare. Reaching this branch already required
-            // `isTTY`, so the sink is a terminal stream.
-            stream: stream as NodeJS.WriteStream,
-          });
+      onEvent(event) {
+        switch (event.type) {
+          case 'selection':
+            nameWidth = Math.max(
+              0,
+              ...event.selection.targetNames.map((name) => name.length),
+            );
+            break;
+          case 'deploy-complete':
+            break;
+          case 'package-phase-start':
+            if (event.total > 0 && isTTY) {
+              out('\n');
+              bar = createProgressBar({
+                total: event.total,
+                isTty: isTTY,
+                stream: stream as NodeJS.WriteStream,
+              });
+            }
+            break;
+          case 'package-start': {
+            const label =
+              event.action === 'install' ? 'installing' : 'upgrading';
+            bar?.setLabel(`${label} ${event.token.kind} ${event.token.name}`);
+            break;
+          }
+          case 'package-tick':
+            bar?.setLabel('');
+            bar?.advance();
+            break;
+          case 'package-phase-complete': {
+            finishInstallBar();
+            const packages = renderPackageReport(event.reports, { isTTY });
+            if (packages) out(`\n${packages}\n`);
+            break;
+          }
+          case 'activation-phase-start':
+            finishInstallBar();
+            activation = createActivationProgress({
+              isTTY,
+              out,
+              stream,
+              nameWidth,
+            });
+            activation.start();
+            break;
+          case 'activation-start':
+            activation?.startActivation(event);
+            break;
+          case 'target-complete':
+            activation?.completeTarget(event.group);
+            break;
         }
-      },
-      onInstallTokenStart(token, action) {
-        const label = action === 'install' ? 'installing' : 'upgrading';
-        bar?.setLabel(`${label} ${token.kind} ${token.name}`);
-      },
-      onInstallTick() {
-        // Clear the label so it only ever names an in-flight install; present
-        // tokens and completed installs advance the bar unlabeled.
-        bar?.setLabel('');
-        bar?.advance();
-      },
-      onActivationPhaseStart() {
-        finishInstallBar();
-        activation = createActivationProgress({
-          isTTY,
-          out,
-          stream,
-          nameWidth,
-        });
-        activation.start();
-      },
-      onActivationStart(event) {
-        activation?.startActivation(event);
-      },
-      onActivationTargetComplete(group) {
-        activation?.completeTarget(group);
       },
     });
 

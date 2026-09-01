@@ -12,7 +12,11 @@ import {
   tokens,
 } from './package';
 
-export type InstallStatus = 'installed' | 'present' | 'failed';
+export type InstallStatus =
+  | 'installed'
+  | 'present'
+  | 'upgrade-applied'
+  | 'failed';
 
 export type InstallAction = 'install' | 'upgrade';
 
@@ -142,7 +146,7 @@ export async function installPackages(
           }
           report = {
             token,
-            status: action === 'install' ? 'installed' : 'present',
+            status: action === 'install' ? 'installed' : 'upgrade-applied',
           };
         } catch (error) {
           report = {

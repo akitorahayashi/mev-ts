@@ -14,6 +14,7 @@ export function versionCheckStep(
     label,
     argv: [tool, '--version'],
     changedWhen: 'never',
+    report: { kind: 'probe', subject: label },
     ...(env ? { env } : {}),
   };
 }

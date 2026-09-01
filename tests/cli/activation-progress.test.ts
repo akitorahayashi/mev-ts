@@ -17,21 +17,21 @@ test('the TTY activation progress renders the in-flight line and a completion li
   progress.start();
   progress.startActivation({
     targetName: 'git',
-    activation: {
-      verb: 'link',
-      source: 'git/.gitconfig',
-      dest: '~/.gitconfig',
-    },
+    activation: { subject: '~/.gitconfig' },
   });
   progress.completeTarget({
     targetName: 'git',
     blockers: [],
     reports: [
       {
-        verb: 'link',
-        source: 'git/.gitconfig',
-        dest: '~/.gitconfig',
-        status: 'changed',
+        description: { subject: '~/.gitconfig' },
+        outcomes: [
+          {
+            label: '~/.gitconfig',
+            status: 'changed',
+            details: ['linked to managed config'],
+          },
+        ],
       },
     ],
   });
@@ -42,9 +42,9 @@ test('the TTY activation progress renders the in-flight line and a completion li
   // (`[<params>J|K`) rather than a specific clear code, so tightening the exact
   // reset bytes in transient-line does not break this behavioral assertion.
   const terminal = stream.output();
-  expect(terminal).toContain('link git/.gitconfig -> ~/.gitconfig');
+  expect(terminal).toContain('git  ~/.gitconfig');
   expect(terminal).toMatch(/\[[0-9;]*[JK]/);
-  expect(out).toContain('Activating targets');
+  expect(out).toContain('Applying resources');
   const plainOut = Bun.stripANSI(out);
   expect(plainOut).toContain('git');
   expect(plainOut).toContain('changed');
@@ -67,15 +67,19 @@ test('the non-TTY activation progress writes plain lines only to out', () => {
     blockers: [],
     reports: [
       {
-        verb: 'link',
-        source: 'git/.gitconfig',
-        dest: '~/.gitconfig',
-        status: 'changed',
+        description: { subject: '~/.gitconfig' },
+        outcomes: [
+          {
+            label: '~/.gitconfig',
+            status: 'changed',
+            details: ['linked to managed config'],
+          },
+        ],
       },
     ],
   });
   progress.finish();
 
   expect(stream.output()).toBe('');
-  expect(out).toContain('git: changed');
+  expect(out).toContain('changed   ~/.gitconfig');
 });

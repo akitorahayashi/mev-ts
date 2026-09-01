@@ -24,7 +24,13 @@ test('embedded asset preflight rejects a command read with no such asset', async
       runCommand({
         label: 'demo command',
         reads: { manifest: 'demo/manifest.json' },
-        steps: [{ label: 'noop', argv: ['true'] }],
+        steps: [
+          {
+            label: 'noop',
+            argv: ['true'],
+            report: { kind: 'apply', subject: 'noop', detail: 'ran' },
+          },
+        ],
       }),
     ],
   });

@@ -6,70 +6,55 @@ import {
   type ProvisioningRun,
 } from './provisioning-run';
 
-const emptyPackages = { taps: [], formulae: [], casks: [] };
+const shellTarget = target('shell', {
+  description: 'shell',
+  role: 'shell',
+  activations: [],
+});
 
-interface CaptureResult {
-  readonly code: number;
-  readonly stdout: string;
-}
-
-type ProvisioningOptions = Parameters<typeof executeProvisioningRun>[0];
-
-function reportWithStatus(
-  status: MakeReport['groups'][number]['reports'][number]['status'],
-): MakeReport {
-  const failed = status === 'failed';
+function makeReport(status: 'changed' | 'unchanged' | 'failed'): MakeReport {
   return {
     selection: {
       targetNames: ['shell'],
       roles: ['shell'],
-      packages: emptyPackages,
-      groups: [
-        target('shell', {
-          description: 'shell',
-          role: 'shell',
-          activations: [],
-        }),
-      ],
+      packages: { taps: [], formulae: ['git'], casks: [] },
+      groups: [shellTarget],
     },
-    deploys: [{ role: 'shell', deployed: true, files: ['.zshenv'] }],
-    install: [],
+    deploys: [],
+    install: [{ token: { kind: 'formula', name: 'git' }, status: 'present' }],
     groups: [
       {
         targetName: 'shell',
         blockers: [],
         reports: [
           {
-            verb: 'link',
-            source: 'shell/.zshenv',
-            dest: '~/.zshenv',
-            status,
-            error: failed ? 'link failed' : undefined,
+            description: { subject: '~/.zshrc' },
+            outcomes: [
+              status === 'failed'
+                ? {
+                    label: '~/.zshrc',
+                    status,
+                    error: 'link failed',
+                  }
+                : {
+                    label: '~/.zshrc',
+                    status,
+                    details: [
+                      status === 'changed'
+                        ? 'managed content updated'
+                        : 'already linked to current managed config',
+                    ],
+                  },
+            ],
           },
         ],
       },
     ],
-    failed,
+    failed: status === 'failed',
   };
 }
 
-async function capture(
-  options: Omit<ProvisioningOptions, 'stream'>,
-): Promise<CaptureResult> {
-  let stdout = '';
-  // No isTTY: a non-terminal sink must not be styled, which is the same rule
-  // the production path derives from the stream it was handed.
-  const stream = {
-    write(chunk: unknown) {
-      stdout += String(chunk);
-      return true;
-    },
-  } as unknown as NodeJS.WriteStream;
-  const code = await executeProvisioningRun({ ...options, stream });
-  return { code, stdout: Bun.stripANSI(stdout) };
-}
-
-function runReturning(report: MakeReport): {
+function fakeRun(report: MakeReport): {
   readonly requests: MakeRequest[];
   readonly run: ProvisioningRun;
 } {
@@ -78,107 +63,82 @@ function runReturning(report: MakeReport): {
     requests,
     async run(request) {
       requests.push(request);
-      const deploy = report.deploys[0];
-      if (deploy) request.onDeploy?.(deploy);
-      request.onHeader?.(report.selection);
-      request.onInstallStart?.(1);
-      request.onInstallTokenStart?.(
-        { kind: 'formula', name: 'git' },
-        'install',
-      );
-      request.onInstallTick?.({ kind: 'formula', name: 'git' });
-      request.onActivationPhaseStart?.();
+      request.onEvent?.({ type: 'selection', selection: report.selection });
+      request.onEvent?.({
+        type: 'package-phase-start',
+        total: report.install.length,
+      });
+      request.onEvent?.({
+        type: 'package-phase-complete',
+        reports: report.install,
+      });
+      request.onEvent?.({ type: 'activation-phase-start' });
       for (const group of report.groups) {
         for (const activation of group.reports) {
-          request.onActivationStart?.({
+          request.onEvent?.({
+            type: 'activation-start',
             targetName: group.targetName,
-            activation: {
-              verb: activation.verb,
-              source: activation.source,
-              dest: activation.dest,
-            },
+            activation: activation.description,
           });
         }
-        request.onActivationTargetComplete?.(group);
+        request.onEvent?.({ type: 'target-complete', group });
       }
       return report;
     },
   };
 }
 
-test('executeProvisioningRun renders a successful run and returns zero', async () => {
-  const { run, requests } = runReturning(reportWithStatus('unchanged'));
-
-  const result = await capture({
-    selectors: ['shell'],
-    intro: 'mev: Creating personal environment',
-    footer: () => ['Optional', 'Baseline Homebrew casks: mev make br-c'],
-    run,
-  });
-
-  expect(result.code).toBe(0);
-  expect(requests[0]?.selectors).toEqual(['shell']);
-  expect(result.stdout).toContain('mev: Creating personal environment');
-  expect(result.stdout).toContain('Deployed config for shell  .zshenv');
-  expect(result.stdout).toContain('Running targets: shell');
-  expect(result.stdout).toContain(
-    'Activating shell: link shell/.zshenv -> ~/.zshenv',
-  );
-  expect(result.stdout).toContain('shell: unchanged');
-  expect(result.stdout).toContain('Result: success');
-  expect(result.stdout).not.toContain('Summary');
-  expect(result.stdout).toContain('Optional');
-  expect(result.stdout).toContain('Baseline Homebrew casks: mev make br-c');
-});
-
-test('executeProvisioningRun forwards upgrade mode to the run request', async () => {
-  const { run, requests } = runReturning(reportWithStatus('unchanged'));
-
-  await capture({ selectors: ['shell'], upgrade: true, run });
-
-  expect(requests[0]?.upgrade).toBe(true);
-});
-
-test('executeProvisioningRun drives animated progress on an injected TTY stream', async () => {
-  const { run } = runReturning(reportWithStatus('changed'));
-  // Inline fake terminal (kept hermetic: no fixtures import in a colocated test).
-  let terminal = '';
+async function capture(
+  report: MakeReport,
+  options: { readonly upgrade?: boolean; readonly intro?: string } = {},
+): Promise<{
+  readonly code: number;
+  readonly output: string;
+  readonly request: MakeRequest;
+}> {
+  let output = '';
   const stream = {
-    isTTY: true,
-    columns: 80,
     write(chunk: unknown) {
-      terminal += String(chunk);
+      output += String(chunk);
       return true;
     },
   } as unknown as NodeJS.WriteStream;
-
+  const { run, requests } = fakeRun(report);
   const code = await executeProvisioningRun({
     selectors: ['shell'],
     run,
     stream,
+    ...options,
+  });
+  const request = requests[0];
+  if (!request) throw new Error('provisioning run was not invoked');
+  return { code, output: Bun.stripANSI(output), request };
+}
+
+test('a successful run emits resource results without internal deploy checks', async () => {
+  const result = await capture(makeReport('unchanged'), {
+    intro: 'Creating environment',
   });
 
-  expect(code).toBe(0);
-  // The TTY path renders the in-flight activation line to the injected stream,
-  // instead of process.stdout, so it is observable in a test.
-  expect(Bun.stripANSI(terminal)).toContain('link shell/.zshenv -> ~/.zshenv');
+  expect(result.code).toBe(0);
+  expect(result.output).toContain('Homebrew');
+  expect(result.output).toContain('current   1 packages');
+  expect(result.output).toContain('shell');
+  expect(result.output).toContain('current   ~/.zshrc');
+  expect(result.output).toContain('Result: success');
+  expect(result.output).not.toContain('Deployed config');
+  expect(result.output).not.toContain('Running targets');
+  expect(result.output).not.toContain('CHECK');
 });
 
-test('executeProvisioningRun renders failed runs without success footer', async () => {
-  const { run } = runReturning(reportWithStatus('failed'));
+test('upgrade intent is forwarded', async () => {
+  const result = await capture(makeReport('changed'), { upgrade: true });
+  expect(result.request.upgrade).toBe(true);
+});
 
-  const result = await capture({
-    selectors: ['shell'],
-    footer: (report) =>
-      report.failed
-        ? undefined
-        : ['Optional', 'Baseline Homebrew casks: mev make br-c'],
-    run,
-  });
-
+test('a failed run emits the resource error and retry command', async () => {
+  const result = await capture(makeReport('failed'));
   expect(result.code).toBe(1);
-  expect(result.stdout).toContain('Result: failed');
-  expect(result.stdout).toContain('shell failed during activation');
-  expect(result.stdout).toContain('Retry');
-  expect(result.stdout).not.toContain('Optional');
+  expect(result.output).toContain('failed    ~/.zshrc — link failed');
+  expect(result.output).toContain('Retry: mev make shell');
 });

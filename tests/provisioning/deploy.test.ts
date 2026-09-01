@@ -35,7 +35,13 @@ sandboxTest(
   async (sandbox) => {
     const result = await deployRole('git', contextFor(sandbox));
 
-    expect(result.deployed).toBe(true);
+    expect(result.changes.length).toBeGreaterThan(0);
+    expect(result.changes).toEqual(
+      [...ALL_KEYS, EXECUTABLE_KEY].sort().map((key) => ({
+        key,
+        kind: 'added',
+      })),
+    );
     for (const key of ALL_KEYS) {
       expect(await Bun.file(deployedPath({ key }, sandbox)).text()).toBe(
         `content of ${key}\n`,
@@ -66,7 +72,8 @@ sandboxTest('deployRole regenerates a present role', async (sandbox) => {
 
   const result = await deployRole('git', contextFor(sandbox));
 
-  expect(result.deployed).toBe(true);
+  expect(result.changes.length).toBeGreaterThan(0);
+  expect(result.changes).toEqual([{ key: 'git/.gitconfig', kind: 'updated' }]);
   expect(await Bun.file(deployed).text()).toBe('content of git/.gitconfig\n');
 });
 
@@ -79,7 +86,7 @@ sandboxTest(
 
     const result = await deployRole('git', contextFor(sandbox));
 
-    expect(result.deployed).toBe(false);
+    expect(result.changes).toEqual([]);
     expect((await stat(dest)).ino).toBe(before.ino);
   },
 );
@@ -91,7 +98,8 @@ sandboxTest('deployRole repairs executable-mode drift', async (sandbox) => {
 
   const result = await deployRole('git', contextFor(sandbox));
 
-  expect(result.deployed).toBe(true);
+  expect(result.changes.length).toBeGreaterThan(0);
+  expect(result.changes).toEqual([{ key: EXECUTABLE_KEY, kind: 'updated' }]);
   expect((await stat(executable)).mode & 0o100).not.toBe(0);
 });
 
@@ -100,7 +108,10 @@ sandboxTest(
   async (sandbox) => {
     const result = await deployRole('assetless', contextFor(sandbox));
 
-    expect(result).toEqual({ role: 'assetless', deployed: false, files: [] });
+    expect(result).toEqual({
+      role: 'assetless',
+      changes: [],
+    });
     expect(await Bun.file(deployedDir('assetless', sandbox)).exists()).toBe(
       false,
     );
@@ -115,7 +126,10 @@ sandboxTest('deployRole clears a present assetless role', async (sandbox) => {
 
   const result = await deployRole('assetless', contextFor(sandbox));
 
-  expect(result).toEqual({ role: 'assetless', deployed: true, files: [] });
+  expect(result).toEqual({
+    role: 'assetless',
+    changes: [{ key: 'assetless/stale.txt', kind: 'removed' }],
+  });
   expect((await lstat(dest)).isDirectory()).toBe(true);
   await expect(lstat(stale)).rejects.toThrow();
 });
@@ -127,7 +141,11 @@ sandboxTest('deployRole prunes stale files', async (sandbox) => {
 
   const result = await deployRole('git', contextFor(sandbox));
 
-  expect(result.deployed).toBe(true);
+  expect(result.changes.length).toBeGreaterThan(0);
+  expect(result.changes).toContainEqual({
+    key: 'git/stale.txt',
+    kind: 'removed',
+  });
   await expect(lstat(stale)).rejects.toThrow();
 });
 

@@ -25,13 +25,12 @@ import { resolveHostPath } from '../../host/path';
 import { mapWithConcurrency } from '../../host/task-pool';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
   ActivationRunOptions,
-  Described,
-  StepReport,
+  ReconcileItemResult,
 } from './contract';
 import { readDeployedManifest } from './manifest';
-import { manifestSource } from './manifest-kind';
 import { aggregateStatus, guarded } from './reconcile';
 
 type AgentPluginsActivation = Extract<Activation, { kind: 'agentPlugins' }>;
@@ -70,13 +69,13 @@ interface DeclaredTarget {
 // entryIndex on declared/removals is local to this result's own entries, not
 // the run's shared array — mergeOutcome rebases it once merged.
 interface MarketplaceOutcome {
-  readonly entries: StepReport[];
+  readonly entries: ReconcileItemResult[];
   readonly declared: DeclaredTarget[];
   readonly removals: VerificationTarget[];
 }
 
 function mergeOutcome(
-  entries: StepReport[],
+  entries: ReconcileItemResult[],
   declared: DeclaredTarget[],
   removals: VerificationTarget[],
   outcome: MarketplaceOutcome,
@@ -116,19 +115,18 @@ export function installAgentPlugins(
 }
 
 export function describeAgentPlugins(
-  activation: AgentPluginsActivation,
-): Described {
+  _activation: AgentPluginsActivation,
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: manifestSource(activation.configKey),
-    dest: 'agent plugins',
+    subject: 'agent plugins',
+    unchangedCollection: 'agent plugins',
   };
 }
 
 function inventoryFailureEntries(
   marketplace: PluginMarketplace,
   error: string,
-): StepReport[] {
+): ReconcileItemResult[] {
   return marketplace.plugins.map((plugin) => ({
     key: `${marketplace.client}:${pluginId(plugin, marketplace.name)}`,
     value: 'inventory failed',
@@ -167,7 +165,7 @@ function marketplaceFailureEntries(
   installed: PluginInventory,
   error: unknown,
   upgrade: boolean,
-): StepReport[] {
+): ReconcileItemResult[] {
   const detail = errorMessage(error);
   return [
     {
@@ -176,7 +174,7 @@ function marketplaceFailureEntries(
       status: 'failed',
       error: detail,
     },
-    ...marketplace.plugins.map((plugin): StepReport => {
+    ...marketplace.plugins.map((plugin): ReconcileItemResult => {
       const id = pluginId(plugin, marketplace.name);
       const key = `${marketplace.client}:${id}`;
       const pending = pendingAction(installed.get(id), upgrade);
@@ -198,7 +196,7 @@ function marketplaceFailureEntries(
 interface EnsuredMarketplace {
   readonly outcome: EnsureOutcome;
   readonly droppedPlugins: boolean;
-  readonly report: StepReport;
+  readonly report: ReconcileItemResult;
 }
 
 const ENSURE_WORDING: Readonly<Record<EnsureOutcome, string>> = {
@@ -292,7 +290,7 @@ function verificationFailure(
   client: PluginClient,
   id: string,
   error: string,
-): StepReport {
+): ReconcileItemResult {
   return {
     key: `${client}:${id}`,
     value: 'verification failed',
@@ -312,7 +310,7 @@ async function uninstallInstalled(
   id: string,
   installed: PluginInventory,
   context: Context,
-  entries: StepReport[],
+  entries: ReconcileItemResult[],
 ): Promise<number | null> {
   const entryIndex = entries.length;
   try {
@@ -365,7 +363,7 @@ async function confirmUninstalled(
   issued: readonly VerificationTarget[],
   installed: PluginInventory,
   context: Context,
-  entries: StepReport[],
+  entries: ReconcileItemResult[],
 ): Promise<boolean> {
   if (issued.length === 0) return true;
   let confirmed = true;
@@ -410,8 +408,8 @@ async function removeDeclaredMarketplace(
   installed: PluginInventory,
   context: Context,
   registrations: MarketplaceRegistrations,
-): Promise<StepReport[]> {
-  const entries: StepReport[] = [];
+): Promise<ReconcileItemResult[]> {
+  const entries: ReconcileItemResult[] = [];
   const key = `${removed.client}:${removed.name}`;
   let registration: MarketplaceRegistration;
   try {
@@ -542,7 +540,7 @@ async function reconcileMarketplace(
   context: Context,
   registrations: MarketplaceRegistrations,
 ): Promise<MarketplaceOutcome> {
-  const entries: StepReport[] = [];
+  const entries: ReconcileItemResult[] = [];
   const declared: DeclaredTarget[] = [];
   const removals: VerificationTarget[] = [];
   // Uninstalls are local-only, so they run before — and independently of — the
@@ -687,7 +685,7 @@ async function reconcileMarketplace(
 async function verifyOutcomes(
   clients: readonly PluginClient[],
   context: Context,
-  entries: StepReport[],
+  entries: ReconcileItemResult[],
   declared: readonly DeclaredTarget[],
   removals: readonly VerificationTarget[],
 ): Promise<void> {
@@ -801,7 +799,7 @@ export function runAgentPlugins(
       }),
     );
 
-    const entries: StepReport[] = [];
+    const entries: ReconcileItemResult[] = [];
     const declared: DeclaredTarget[] = [];
     const removals: VerificationTarget[] = [];
     const registrations = new MarketplaceRegistrations();
@@ -837,7 +835,7 @@ export function runAgentPlugins(
     const removalOutcomes = await mapWithConcurrency(
       catalog.removedMarketplaces,
       AGENT_PLUGIN_CONCURRENCY,
-      (removed): Promise<StepReport[]> => {
+      (removed): Promise<ReconcileItemResult[]> => {
         const inventory = inventories.get(removed.client);
         if (!inventory?.installed) {
           return Promise.resolve([

@@ -1,17 +1,13 @@
-import {
-  type InstallOptions,
-  type InstallReport,
-  installPackages,
-} from '../brew/install';
-import { type PackageToken, tokens } from '../brew/package';
+import { type InstallReport, installPackages } from '../brew/install';
+import { mergePackages, type PackageToken, tokens } from '../brew/package';
 import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
 import { resolveHostPath } from '../host/path';
 import { materializeSymlink } from '../host/symlink';
 import {
+  type ActivationDescription,
   type ActivationReport,
   blockedReport,
-  type Described,
   describeActivation,
   preservedPaths,
   runActivation,
@@ -20,6 +16,7 @@ import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
 import { groupSucceeded } from './group-outcome';
 import { type MakePlan, planMake } from './plan';
+import { outcomeStatus } from './resource-outcome';
 import { targetSignature } from './signature';
 import type { Target } from './target';
 
@@ -55,23 +52,36 @@ export interface MakeReport {
   readonly failed: boolean;
 }
 
-export interface ActivationStartEvent {
-  readonly targetName: string;
-  readonly activation: Described;
-}
+export type MakeEvent =
+  | { readonly type: 'selection'; readonly selection: MakePlan }
+  | { readonly type: 'deploy-complete'; readonly result: DeployResult }
+  | { readonly type: 'package-phase-start'; readonly total: number }
+  | {
+      readonly type: 'package-start';
+      readonly token: PackageToken;
+      readonly action: 'install' | 'upgrade';
+    }
+  | { readonly type: 'package-tick'; readonly token: PackageToken }
+  | {
+      readonly type: 'package-phase-complete';
+      readonly reports: readonly InstallReport[];
+    }
+  | { readonly type: 'activation-phase-start' }
+  | {
+      readonly type: 'activation-start';
+      readonly targetName: string;
+      readonly activation: ActivationDescription;
+    }
+  | {
+      readonly type: 'target-complete';
+      readonly group: ActivationGroupReport;
+    };
 
 export interface MakeRequest {
   readonly selectors: readonly string[];
   /** Upgrade selected Homebrew packages and installed latest-assumed items. */
   readonly upgrade?: boolean;
-  readonly onDeploy?: (result: DeployResult) => void;
-  readonly onHeader?: (selection: MakePlan) => void;
-  readonly onInstallStart?: InstallOptions['onStart'];
-  readonly onInstallTokenStart?: InstallOptions['onTokenStart'];
-  readonly onInstallTick?: InstallOptions['onTick'];
-  readonly onActivationPhaseStart?: () => void;
-  readonly onActivationStart?: (event: ActivationStartEvent) => void;
-  readonly onActivationTargetComplete?: (group: ActivationGroupReport) => void;
+  readonly onEvent?: (event: MakeEvent) => void;
 }
 
 function sameToken(a: PackageToken, b: PackageToken): boolean {
@@ -94,18 +104,36 @@ function blockerReason(blockers: readonly ActivationBlocker[]): string {
   return blockers.map(formatBlocker).join('; ');
 }
 
-async function invalidateSelectedTargets(
-  targets: readonly string[],
+interface PreparationResult {
+  readonly preserved: ReadonlySet<Target['activations'][number]>;
+  readonly failedRoles: ReadonlyMap<string, string>;
+}
+
+async function prepareTargets(
+  targets: readonly Target[],
   context: Context,
-): Promise<void> {
-  // Promise.all, so a single invalidation failure rejects the batch. Accepted:
-  // partial invalidation would only over-select on the next run, which is the
-  // safe direction (a stale applied marker never suppresses a needed re-apply).
-  await Promise.all(
-    targets.map((target) =>
-      invalidateApplied(appliedPath(context.home, target)),
-    ),
-  );
+): Promise<PreparationResult> {
+  const preserved = new Set<Target['activations'][number]>();
+  const failedRoles = new Map<string, string>();
+  for (const target of targets) {
+    try {
+      for (const activation of target.activations) {
+        for (const path of preservedPaths(activation)) {
+          if (await materializeSymlink(resolveHostPath(path, context.home))) {
+            preserved.add(activation);
+          }
+        }
+      }
+      await target.preserveBeforeDeploy?.(context);
+      await invalidateApplied(appliedPath(context.home, target.name));
+    } catch (error) {
+      failedRoles.set(
+        target.role,
+        `preparing ${target.name}: ${errorMessage(error)}`,
+      );
+    }
+  }
+  return { preserved, failedRoles };
 }
 
 interface DeployPhaseResult {
@@ -117,22 +145,29 @@ interface DeployPhaseResult {
 async function runDeployPhase(
   selection: MakePlan,
   context: Context,
-  onDeploy?: (result: DeployResult) => void,
+  preparationFailures: ReadonlyMap<string, string>,
+  onEvent?: MakeRequest['onEvent'],
 ): Promise<DeployPhaseResult> {
   const deploys: DeployResult[] = [];
   const failedRoles = new Map<string, string>();
   for (const role of selection.roles) {
-    const result = await deployRole(role, context).catch((error) => ({
-      role,
-      deployed: false,
-      files: [] as readonly string[],
-      error: errorMessage(error),
-    }));
+    const preparationError = preparationFailures.get(role);
+    const result = preparationError
+      ? {
+          role,
+          changes: [],
+          error: preparationError,
+        }
+      : await deployRole(role, context).catch((error) => ({
+          role,
+          changes: [],
+          error: errorMessage(error),
+        }));
     if (result.error) {
       failedRoles.set(role, result.error);
     }
     deploys.push(result);
-    onDeploy?.(result);
+    onEvent?.({ type: 'deploy-complete', result });
   }
 
   return { deploys, failedRoles };
@@ -176,9 +211,9 @@ async function recordSuccessfulTarget(
 /**
  * Protect target-declared mutable state, then drive the three provisioning
  * phases: deploy each role's config, resolve required packages, and activate
- * the deployed assets grouped by target. Phase boundaries fire hooks so the CLI
- * can interleave a live install bar; the returned report carries everything
- * needed to render the log.
+ * the deployed assets grouped by target. Phase boundaries emit typed events so
+ * the CLI can interleave transient progress with permanent result blocks; the
+ * returned report carries everything needed to render the final summary.
  */
 export async function runMake(
   request: MakeRequest,
@@ -186,42 +221,38 @@ export async function runMake(
 ): Promise<MakeReport> {
   const selection = planMake(request.selectors);
   const upgrade = request.upgrade ?? false;
-
-  // Preserve mutable host state before invalidating applied markers or
-  // replacing deployed roles. A preservation failure leaves provisioning's
-  // managed state untouched. The activation-derived paths come first so a kind
-  // that inverts file ownership needs no per-target declaration; the hook is for
-  // what only the target knows.
-  for (const target of selection.groups) {
-    for (const activation of target.activations) {
-      for (const path of preservedPaths(activation)) {
-        await materializeSymlink(resolveHostPath(path, context.home));
-      }
-    }
-    await target.preserveBeforeDeploy?.(context);
-  }
-
-  await invalidateSelectedTargets(selection.targetNames, context);
+  request.onEvent?.({ type: 'selection', selection });
+  const preparation = await prepareTargets(selection.groups, context);
 
   const { deploys, failedRoles } = await runDeployPhase(
     selection,
     context,
-    request.onDeploy,
+    preparation.failedRoles,
+    request.onEvent,
   );
 
-  request.onHeader?.(selection);
-
-  const install = await installPackages(selection.packages, context, {
+  const installablePackages = mergePackages(
+    selection.groups
+      .filter((group) => !failedRoles.has(group.role))
+      .map((group) => group.packages),
+  );
+  const install = await installPackages(installablePackages, context, {
     upgrade,
-    onStart: request.onInstallStart,
-    onTokenStart: request.onInstallTokenStart,
-    onTick: request.onInstallTick,
+    onStart: (total) =>
+      request.onEvent?.({ type: 'package-phase-start', total }),
+    onTokenStart: (token, action) =>
+      request.onEvent?.({ type: 'package-start', token, action }),
+    onTick: (token) => request.onEvent?.({ type: 'package-tick', token }),
   });
   const failedPackages = install.filter((r) => r.status === 'failed');
+  request.onEvent?.({ type: 'package-phase-complete', reports: install });
 
   const groups: ActivationGroupReport[] = [];
+  const changesByRole = new Map(
+    deploys.map((deploy) => [deploy.role, deploy.changes] as const),
+  );
   if (selection.groups.length > 0) {
-    request.onActivationPhaseStart?.();
+    request.onEvent?.({ type: 'activation-phase-start' });
   }
   for (const group of selection.groups) {
     const blockers = computeBlockers(group, failedRoles, failedPackages);
@@ -236,7 +267,7 @@ export async function runMake(
         ),
       };
       groups.push(groupReport);
-      request.onActivationTargetComplete?.(groupReport);
+      request.onEvent?.({ type: 'target-complete', group: groupReport });
       continue;
     }
     const reports: ActivationReport[] = [];
@@ -246,16 +277,20 @@ export async function runMake(
         reports.push(blockedReport(activation));
         continue;
       }
-      request.onActivationStart?.({
+      request.onEvent?.({
+        type: 'activation-start',
         targetName: group.name,
         activation: describeActivation(activation),
       });
       const report = await runActivation(activation, context, {
         upgrade,
+        sourceChanges: changesByRole.get(group.role) ?? [],
+        preserved: preparation.preserved.has(activation),
       });
       reports.push(report);
       activationBlocked =
-        report.status === 'failed' || report.status === 'blocked';
+        outcomeStatus(report.outcomes) === 'failed' ||
+        outcomeStatus(report.outcomes) === 'blocked';
     }
     const baseReport: ActivationGroupReport = {
       targetName: group.name,
@@ -273,7 +308,7 @@ export async function runMake(
     const groupReport: ActivationGroupReport =
       markerError === undefined ? baseReport : { ...baseReport, markerError };
     groups.push(groupReport);
-    request.onActivationTargetComplete?.(groupReport);
+    request.onEvent?.({ type: 'target-complete', group: groupReport });
   }
 
   const failed =

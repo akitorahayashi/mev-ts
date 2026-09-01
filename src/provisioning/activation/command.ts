@@ -4,6 +4,7 @@ import type { CommandOptions, CommandResult } from '../../host/command';
 import type { Context } from '../../host/context';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
   ChangedWhen,
   CommandArg,
@@ -11,14 +12,19 @@ import type {
   CommandRead,
   CommandScope,
   CommandStep,
-  Described,
+  ReconcileItemResult,
   StepGuard,
-  StepReport,
 } from './contract';
 import { aggregateStatus, guarded } from './reconcile';
 
 type CommandActivation = Extract<Activation, { kind: 'command' }>;
-type CommandInput = Omit<CommandActivation, 'kind'>;
+type UnreportedCommandStep = Omit<CommandStep, 'capture' | 'report'> & {
+  readonly capture?: never;
+  readonly report?: never;
+};
+type CommandInput = Omit<CommandActivation, 'kind' | 'steps'> & {
+  readonly steps: readonly (CommandStep | UnreportedCommandStep)[];
+};
 
 export function runCommand(input: CommandInput): Activation {
   for (const [index, step] of input.steps.entries()) {
@@ -28,11 +34,25 @@ export function runCommand(input: CommandInput): Activation {
       );
     }
   }
-  return { kind: 'command', ...input };
+  const steps: CommandStep[] = input.steps.map((step) => {
+    if (step.capture !== undefined || step.report) return step as CommandStep;
+    return {
+      ...step,
+      report: {
+        kind: 'reconcile',
+        subject: step.label,
+        changed: 'completed',
+        unchanged: 'already current',
+      },
+    } as CommandStep;
+  });
+  return { kind: 'command', ...input, steps };
 }
 
-export function describeCommand(activation: CommandActivation): Described {
-  return { verb: 'run', source: activation.label, dest: 'shell' };
+export function describeCommand(
+  activation: CommandActivation,
+): ActivationDescription {
+  return { subject: activation.label };
 }
 
 function resolveArg(arg: CommandArg, scope: CommandScope): string[] {
@@ -215,7 +235,7 @@ export async function runCommandStep(
   step: CommandStep,
   bindings: Map<string, string>,
   context: Context,
-): Promise<StepReport> {
+): Promise<ReconcileItemResult> {
   const scope = scopeFor(bindings);
   const argv = resolveArgs(step.argv, scope);
   const [command, ...args] = argv;
@@ -224,19 +244,26 @@ export async function runCommandStep(
     throw new ProvisioningError(`Command step '${label}' produced no argv.`);
   }
   const env = step.env ? resolveEnv(step.env, scope) : undefined;
+  const subject = step.report
+    ? resolveArg(step.report.subject, scope).join('')
+    : label;
 
   if (
     step.skipIf &&
     (await guardMatches(resolveGuard(step.skipIf, scope), context, { env }))
   ) {
-    return { key: label, value: 'skipped', status: 'unchanged' };
+    const value =
+      step.report?.kind === 'reconcile'
+        ? resolveArg(step.report.unchanged, scope).join('')
+        : 'already current';
+    return { key: subject, value, status: 'unchanged' };
   }
 
   const result = await context.commands.run(command, args, { env });
 
   if (result.code !== 0) {
     return {
-      key: label,
+      key: subject,
       value: argv.join(' '),
       status: 'failed',
       error: result.stderr.trim() || `exit code ${result.code}`,
@@ -246,6 +273,26 @@ export async function runCommandStep(
   const captured = result.stdout.trim();
   if (step.capture) {
     bindings.set(step.capture, captured);
+    return { key: label, value: captured, status: 'unchanged' };
+  }
+  if (!step.report) {
+    throw new ProvisioningError(
+      `Command step '${label}' has no report metadata.`,
+    );
+  }
+  if (step.report.kind === 'probe') {
+    return {
+      key: subject,
+      value: captured ? `current: ${captured}` : 'current',
+      status: 'unchanged',
+    };
+  }
+  if (step.report.kind === 'apply') {
+    return {
+      key: subject,
+      value: resolveArg(step.report.detail, scope).join(''),
+      status: 'applied',
+    };
   }
   const didChange = classifyChange(
     step.changedWhen,
@@ -253,8 +300,11 @@ export async function runCommandStep(
     result.stderr,
   );
   return {
-    key: label,
-    value: step.capture ? captured : argv.join(' '),
+    key: subject,
+    value: resolveArg(
+      didChange ? step.report.changed : step.report.unchanged,
+      scope,
+    ).join(''),
     status: didChange ? 'changed' : 'unchanged',
   };
 }
@@ -266,14 +316,14 @@ export async function runCommandActivation(
   const base = describeCommand(activation);
   return guarded(base, async () => {
     const bindings = await readBindings(activation.reads ?? {}, context);
-    const entries: StepReport[] = [];
+    const entries: ReconcileItemResult[] = [];
 
     for (const step of activation.steps) {
       const report = await runCommandStep(step, bindings, context);
-      entries.push(report);
+      if (!step.capture) entries.push(report);
       if (report.status === 'failed') break;
     }
 
-    return { ...base, status: aggregateStatus(entries), entries };
+    return { status: aggregateStatus(entries), entries };
   });
 }

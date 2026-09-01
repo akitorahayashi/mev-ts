@@ -4,7 +4,7 @@ import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
-import { AppError, CommandLineError } from '../../src/errors';
+import { CommandLineError } from '../../src/errors';
 import type { Context } from '../../src/host/context';
 import {
   appliedPath,
@@ -43,7 +43,9 @@ sandboxTest('apply deploys and links the git target', async (sandbox) => {
   const report = await runMake({ selectors: ['git'] }, contextFor(sandbox));
 
   expect(report.failed).toBe(false);
-  expect(report.deploys.some((d) => d.role === 'git' && d.deployed)).toBe(true);
+  expect(
+    report.deploys.some((d) => d.role === 'git' && d.changes.length > 0),
+  ).toBe(true);
   expect(gitGroup(report)?.reports.every((r) => r.status === 'changed')).toBe(
     true,
   );
@@ -130,7 +132,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'a git identity preservation failure stops before invalidation and deploy',
+  'a git identity preservation failure is reported before invalidation and deploy',
   async (sandbox) => {
     const managedConfig = join(sandbox, '.config/git/config');
     await mkdir(join(managedConfig, '..'), { recursive: true });
@@ -143,7 +145,7 @@ sandboxTest(
     await mkdir(join(deployedConfig, '..'), { recursive: true });
     await writeFile(deployedConfig, 'previous deployed content\n');
 
-    const context = recordingContext({
+    const { context, calls } = recordingContext({
       home: sandbox,
       assets: embeddedAssets,
       respond(command) {
@@ -151,15 +153,21 @@ sandboxTest(
           ? { code: 127, stdout: '', stderr: 'git unavailable' }
           : { code: 0, stdout: '', stderr: '' };
       },
-    }).context;
+    });
 
-    await expect(
-      runMake({ selectors: ['git'] }, context),
-    ).rejects.toBeInstanceOf(AppError);
+    const report = await runMake({ selectors: ['git'] }, context);
+    expect(report.failed).toBe(true);
+    expect(gitGroup(report)?.blockers[0]).toMatchObject({
+      kind: 'deploy',
+      role: 'git',
+      error: expect.stringContaining('preparing git'),
+    });
     expect(await readApplied(marker)).toBe(existingSignature);
     expect(await readFile(deployedConfig, 'utf8')).toBe(
       'previous deployed content\n',
     );
+    expect(report.install).toEqual([]);
+    expect(calls.some(({ command }) => command === 'brew')).toBe(false);
   },
 );
 
@@ -209,16 +217,20 @@ sandboxTest(
 );
 
 sandboxTest(
-  'onDeploy fires for each role and onInstallStart reports formula count',
+  'the event stream reports each deploy and the package count',
   async (sandbox) => {
     const deployed: string[] = [];
     let installTotal = -1;
     await runMake(
       {
         selectors: ['git'],
-        onDeploy: (r) => deployed.push(r.role),
-        onInstallStart: (n) => {
-          installTotal = n;
+        onEvent: (event) => {
+          if (event.type === 'deploy-complete') {
+            deployed.push(event.result.role);
+          }
+          if (event.type === 'package-phase-start') {
+            installTotal = event.total;
+          }
         },
       },
       contextFor(sandbox),
@@ -235,16 +247,18 @@ sandboxTest(
     const report = await runMake(
       {
         selectors: ['git'],
-        onActivationPhaseStart: () => {
-          events.push('phase');
-        },
-        onActivationStart: (event) => {
-          events.push(
-            `start:${event.targetName}:${event.activation.verb}:${event.activation.source}`,
-          );
-        },
-        onActivationTargetComplete: (group) => {
-          events.push(`complete:${group.targetName}:${group.reports.length}`);
+        onEvent: (event) => {
+          if (event.type === 'activation-phase-start') events.push('phase');
+          if (event.type === 'activation-start') {
+            events.push(
+              `start:${event.targetName}:${event.activation.subject}`,
+            );
+          }
+          if (event.type === 'target-complete') {
+            events.push(
+              `complete:${event.group.targetName}:${event.group.reports.length}`,
+            );
+          }
         },
       },
       contextFor(sandbox),
@@ -266,14 +280,14 @@ sandboxTest(
     const report = await runMake(
       {
         selectors: ['formulae'],
-        onActivationPhaseStart: () => {
-          events.push('phase');
-        },
-        onActivationStart: () => {
-          events.push('start');
-        },
-        onActivationTargetComplete: (group) => {
-          events.push(`complete:${group.targetName}:${group.reports.length}`);
+        onEvent: (event) => {
+          if (event.type === 'activation-phase-start') events.push('phase');
+          if (event.type === 'activation-start') events.push('start');
+          if (event.type === 'target-complete') {
+            events.push(
+              `complete:${event.group.targetName}:${event.group.reports.length}`,
+            );
+          }
         },
       },
       contextFor(sandbox),
@@ -297,7 +311,12 @@ sandboxTest(
     const report = await runMake(
       {
         selectors,
-        onActivationStart: (event) => {
+        onEvent: (event) => {
+          if (event.type === 'target-complete') {
+            completed.push(event.group.targetName);
+            return;
+          }
+          if (event.type !== 'activation-start') return;
           if (firstTarget === undefined) firstTarget = event.targetName;
           // Turn the first target's marker path into a directory so its
           // writeApplied fails after its activations have already succeeded.
@@ -305,7 +324,6 @@ sandboxTest(
             mkdirSync(appliedPath(sandbox, firstTarget), { recursive: true });
           }
         },
-        onActivationTargetComplete: (group) => completed.push(group.targetName),
       },
       contextFor(sandbox),
     );
@@ -419,8 +437,10 @@ sandboxTest(
     const report = await runMake(
       {
         selectors: ['coder'],
-        onActivationStart: ({ activation }) => {
-          started.push(activation.source);
+        onEvent: (event) => {
+          if (event.type === 'activation-start') {
+            started.push(event.activation.subject);
+          }
         },
       },
       context,
@@ -434,7 +454,7 @@ sandboxTest(
     expect(started).toEqual(['install claude', 'install codex']);
     expect(group?.reports[0]?.status).toBe('unchanged');
     expect(group?.reports[1]).toMatchObject({
-      source: 'install codex',
+      description: { subject: 'install codex' },
       status: 'failed',
       error:
         'install codex completed without satisfying its declared post-install guard.',
@@ -541,9 +561,12 @@ sandboxTest(
     const report = await runMake(
       {
         selectors: ['git'],
-        onActivationPhaseStart: () => events.push('phase'),
-        onActivationTargetComplete: (entry) =>
-          events.push(`complete:${entry.targetName}`),
+        onEvent: (event) => {
+          if (event.type === 'activation-phase-start') events.push('phase');
+          if (event.type === 'target-complete') {
+            events.push(`complete:${event.group.targetName}`);
+          }
+        },
       },
       context,
     );
@@ -551,7 +574,7 @@ sandboxTest(
 
     expect(report.failed).toBe(true);
     const deploy = report.deploys.find((d) => d.role === 'git');
-    expect(deploy?.deployed).toBe(false);
+    expect(deploy?.changes).toEqual([]);
     expect(deploy?.error).toContain('deploy boom');
     expect(group?.blockers).toContainEqual(
       expect.objectContaining({ kind: 'deploy', role: 'git' }),
@@ -561,6 +584,35 @@ sandboxTest(
       true,
     );
     expect(events).toEqual(['phase', 'complete:git']);
+  },
+);
+
+sandboxTest(
+  'a package shared with a healthy role remains installable after another role fails',
+  async (sandbox) => {
+    const { context } = recordingContext({
+      home: sandbox,
+      assets: {
+        read: (key) =>
+          key.startsWith('duti/')
+            ? Promise.reject(new Error('duti deploy boom'))
+            : embeddedAssets.read(key),
+        keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
+        isExecutable: (key) => embeddedAssets.isExecutable(key),
+      },
+    });
+
+    const report = await runMake({ selectors: ['duti', 'zed'] }, context);
+
+    expect(report.failed).toBe(true);
+    expect(report.install).toEqual([
+      { token: { kind: 'cask', name: 'zed' }, status: 'installed' },
+    ]);
+    expect(
+      report.install.some(
+        ({ token }) => token.kind === 'formula' && token.name === 'duti',
+      ),
+    ).toBe(false);
   },
 );
 
@@ -582,9 +634,16 @@ sandboxTest(
       {
         selectors: ['gh'],
         upgrade: true,
-        onInstallTokenStart: (token, action) =>
-          events.push(`${action} ${token.kind} ${token.name}`),
-        onActivationPhaseStart: () => events.push('activation'),
+        onEvent: (event) => {
+          if (event.type === 'package-start') {
+            events.push(
+              `${event.action} ${event.token.kind} ${event.token.name}`,
+            );
+          }
+          if (event.type === 'activation-phase-start') {
+            events.push('activation');
+          }
+        },
       },
       context,
     );

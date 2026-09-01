@@ -1,9 +1,4 @@
-import {
-  type AssetRef,
-  deployedDir,
-  deployedPath,
-  deployedSymbolic,
-} from '../../assets/ref';
+import { type AssetRef, deployedDir, deployedPath } from '../../assets/ref';
 import type { Context } from '../../host/context';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
@@ -13,11 +8,11 @@ import { overridesManifest, settingsFile } from '../../zed/paths';
 import { buildSettings } from '../../zed/settings';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
-  Described,
-  StepReport,
+  ReconcileItemResult,
 } from './contract';
-import { guarded } from './reconcile';
+import { activationReport, guarded } from './reconcile';
 
 type ZedSettingsActivation = Extract<Activation, { kind: 'zedSettings' }>;
 
@@ -35,11 +30,9 @@ export function zedSettings(
 
 export function describeZedSettings(
   activation: ZedSettingsActivation,
-): Described {
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedSymbolic(activation.base),
-    dest: symbolic(activation.dest),
+    subject: symbolic(activation.dest),
   };
 }
 
@@ -61,10 +54,11 @@ export async function runZedSettings(
     // apply — a misconfiguration. Fail and name each one before any mutation, so
     // a failed activation never leaves partially-applied settings or a symlink.
     if (unknown.length > 0) {
-      const entries: StepReport[] = unknown.map((name) => ({
+      const entries: ReconcileItemResult[] = unknown.map((name) => ({
         key: name,
         value: 'not in catalog',
         status: 'failed',
+        error: `Selected Zed override is not in the catalog: ${name}`,
       }));
       return { ...base, status: 'failed', entries };
     }
@@ -79,6 +73,19 @@ export async function runZedSettings(
       linked = true;
     }
 
-    return { ...base, status: built || linked ? 'changed' : 'unchanged' };
+    const details = [
+      ...(built ? ['selected settings updated'] : []),
+      ...(linked ? ['linked to generated settings'] : []),
+    ];
+    return activationReport(base, [
+      {
+        label: base.subject,
+        status: details.length > 0 ? 'changed' : 'unchanged',
+        details:
+          details.length > 0
+            ? details
+            : ['selected settings and link already current'],
+      },
+    ]);
   });
 }

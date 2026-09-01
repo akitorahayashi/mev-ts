@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
+import { deployedDir } from '../../assets/ref';
 import { buildAgents } from '../../coder/agents';
 import { readSections, readSkills } from '../../coder/catalog';
 import { catalogSelection } from '../../coder/manifest';
@@ -17,27 +17,14 @@ import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
-  Described,
-  StepReport,
+  ReconcileItemResult,
 } from './contract';
-import { guarded } from './reconcile';
+import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type CoderAgentsActivation = Extract<Activation, { kind: 'coderAgents' }>;
 type CoderSkillsActivation = Extract<Activation, { kind: 'coderSkills' }>;
-
-/**
- * Report opt-out manifest names the catalog no longer contains. A stale disabled
- * entry is benign (it applies nothing), so it surfaces as `unchanged` config
- * drift rather than failing the run.
- */
-function staleManifestEntries(unknown: readonly string[]): StepReport[] {
-  return unknown.map((name) => ({
-    key: name,
-    value: 'stale manifest entry',
-    status: 'unchanged',
-  }));
-}
 
 /**
  * Build the intermediate AGENTS.md from the enabled sections and symlink it to
@@ -62,28 +49,25 @@ export function coderSkills(
 }
 
 export function describeCoderAgents(
-  activation: CoderAgentsActivation,
-): Described {
+  _activation: CoderAgentsActivation,
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedDirSymbolic(activation.sectionsPrefix),
-    dest: 'agent instructions',
+    subject: 'agent instructions',
+    unchangedCollection: 'agent instruction files',
   };
 }
 
 export function describeCoderSkills(
-  activation: CoderSkillsActivation,
-): Described {
+  _activation: CoderSkillsActivation,
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedDirSymbolic(activation.skillsPrefix),
-    dest: 'agent skills',
+    subject: 'agent skills',
+    unchangedCollection: 'agent skill links',
   };
 }
 
 interface LinkFanout {
-  readonly changed: boolean;
-  readonly failed: readonly StepReport[];
+  readonly entries: readonly ReconcileItemResult[];
 }
 
 /** Symlink `target` into each dest, isolating a per-dest failure to its entry. */
@@ -92,16 +76,26 @@ async function fanoutFile(
   target: string,
   context: Context,
 ): Promise<LinkFanout> {
-  let changed = false;
-  const failed: StepReport[] = [];
+  const entries: ReconcileItemResult[] = [];
   for (const dest of dests) {
     const link = resolveHostPath(dest, context.home);
     try {
-      if (await isSymlinkTo(link, target)) continue;
-      await placeSymlink(link, target);
-      changed = true;
+      if (await isSymlinkTo(link, target)) {
+        entries.push({
+          key: symbolic(dest),
+          value: 'managed link already current',
+          status: 'unchanged',
+        });
+      } else {
+        await placeSymlink(link, target);
+        entries.push({
+          key: symbolic(dest),
+          value: 'managed link updated',
+          status: 'changed',
+        });
+      }
     } catch (error) {
-      failed.push({
+      entries.push({
         key: symbolic(dest),
         value: 'link failed',
         status: 'failed',
@@ -109,7 +103,7 @@ async function fanoutFile(
       });
     }
   }
-  return { changed, failed };
+  return { entries };
 }
 
 /**
@@ -124,8 +118,7 @@ async function fanoutSkills(
   enabled: readonly string[],
   context: Context,
 ): Promise<LinkFanout> {
-  let changed = false;
-  const failed: StepReport[] = [];
+  const entries: ReconcileItemResult[] = [];
   for (const dir of targetDirs) {
     const root = resolveHostPath(dir, context.home);
     const desired = enabled.map((name) => ({
@@ -133,11 +126,20 @@ async function fanoutSkills(
       target: join(intermediate, name),
     }));
     try {
-      if (await reconcileManagedLinks(root, [`${intermediate}/`], desired)) {
-        changed = true;
-      }
+      const result = await reconcileManagedLinks(
+        root,
+        [`${intermediate}/`],
+        desired,
+      );
+      entries.push({
+        key: symbolic(dir),
+        value: result.changed
+          ? 'managed links updated'
+          : 'managed links already current',
+        status: result.changed ? 'changed' : 'unchanged',
+      });
     } catch (error) {
-      failed.push({
+      entries.push({
         key: symbolic(dir),
         value: 'link failed',
         status: 'failed',
@@ -145,17 +147,35 @@ async function fanoutSkills(
       });
     }
   }
-  return { changed, failed };
+  return { entries };
+}
+
+function includeGeneratedChanges(
+  fanout: LinkFanout,
+  generatedChanged: boolean,
+): LinkFanout {
+  if (!generatedChanged) return fanout;
+  return {
+    entries: fanout.entries.map((entry) =>
+      entry.status === 'failed'
+        ? entry
+        : {
+            ...entry,
+            value: 'generated content or managed links updated',
+            status: 'changed',
+          },
+    ),
+  };
 }
 
 /**
  * The kind-specific half of a coder activation. `read` parses the deployed
  * catalog; `apply` builds the intermediate output once and fans it out. Read and
  * build failures throw (a whole-activation failure); fan-out failures are
- * isolated into `LinkFanout.failed`.
+ * isolated into per-destination fan-out results.
  */
 interface CoderSpec {
-  readonly base: Described;
+  readonly base: ActivationDescription;
   readonly prefix: string;
   readonly manifestPath: string;
   read(sourceDir: string): Promise<readonly string[]>;
@@ -173,13 +193,12 @@ async function runCoder(
       catalog,
       spec.manifestPath,
     );
-    const { changed, failed } = await spec.apply(sourceDir, enabled);
-    const entries = [...staleManifestEntries(unknown), ...failed];
-    const status =
-      failed.length > 0 ? 'failed' : changed ? 'changed' : 'unchanged';
-    return entries.length > 0
-      ? { ...spec.base, status, entries }
-      : { ...spec.base, status };
+    const { entries } = await spec.apply(sourceDir, enabled);
+    return activationReport(
+      spec.base,
+      entries.map(stepOutcome),
+      unknown.map((name) => `Ignored stale disabled selection: ${name}`),
+    );
   });
 }
 
@@ -196,7 +215,7 @@ export function runCoderAgents(
       const output = agentsFile(context.home);
       const built = await buildAgents(sourceDir, enabled, output);
       const fanout = await fanoutFile(activation.dests, output, context);
-      return { changed: built || fanout.changed, failed: fanout.failed };
+      return includeGeneratedChanges(fanout, built);
     },
   });
 }
@@ -219,7 +238,7 @@ export function runCoderSkills(
         enabled,
         context,
       );
-      return { changed: built || fanout.changed, failed: fanout.failed };
+      return includeGeneratedChanges(fanout, built);
     },
   });
 }

@@ -117,7 +117,7 @@ sandboxTest('coderAgents reports unchanged on a second run', async (dir) => {
 });
 
 sandboxTest(
-  'coderAgents surfaces a stale disabled manifest entry as unchanged',
+  'coderAgents surfaces a stale disabled manifest entry as a notice',
   async (dir) => {
     await deploySections(dir, 'sections:\n  - alpha\n', {
       alpha: '## Alpha\n',
@@ -135,8 +135,7 @@ sandboxTest(
     );
 
     expect(report.status).not.toBe('failed');
-    const ghost = report.entries?.find((e) => e.key === 'ghost');
-    expect(ghost?.status).toBe('unchanged');
+    expect(report.notices).toEqual(['Ignored stale disabled selection: ghost']);
   },
 );
 
@@ -284,27 +283,41 @@ sandboxTest(
 );
 
 sandboxTest(
-  'coderSkills applies healthy target directories when one fails',
+  'coderSkills reports current, changed, and failed target directories together',
   async (dir) => {
     await deploySkills(dir, ['toon']);
-    const good = home('.config/agent-a/skills');
-    const bad = home('.config/agent-b/skills');
+    const current = home('.config/agent-a/skills');
+    const changed = home('.config/agent-b/skills');
+    const bad = home('.config/agent-c/skills');
+    const context = recordingContext({ home: dir }).context;
+    await runActivation(coderSkills(SKILLS_PREFIX, [current]), context);
     await mkdir(join(dir, '.config'), { recursive: true });
-    // A file where agent-b's parent directory must be blocks only that dest.
-    await writeFile(join(dir, '.config', 'agent-b'), 'not a directory');
+    // A file where agent-c's parent directory must be blocks only that dest.
+    await writeFile(join(dir, '.config', 'agent-c'), 'not a directory');
 
     const report = await runActivation(
-      coderSkills(SKILLS_PREFIX, [good, bad]),
-      recordingContext({ home: dir }).context,
+      coderSkills(SKILLS_PREFIX, [current, changed, bad]),
+      context,
     );
 
     expect(report.status).toBe('failed');
-    // The healthy directory still received its link despite the sibling failure.
     expect(
-      await readlink(join(dir, '.config', 'agent-a', 'skills', 'toon')),
+      await readlink(join(dir, '.config', 'agent-b', 'skills', 'toon')),
     ).toBe(join(dir, '.mev', 'coder', 'skills', 'toon'));
-    const failed = report.entries?.find((entry) => entry.status === 'failed');
-    expect(failed?.key).toContain('agent-b');
+    expect(report.outcomes).toEqual([
+      expect.objectContaining({
+        label: '~/.config/agent-a/skills',
+        status: 'unchanged',
+      }),
+      expect.objectContaining({
+        label: '~/.config/agent-b/skills',
+        status: 'changed',
+      }),
+      expect.objectContaining({
+        label: '~/.config/agent-c/skills',
+        status: 'failed',
+      }),
+    ]);
   },
 );
 
