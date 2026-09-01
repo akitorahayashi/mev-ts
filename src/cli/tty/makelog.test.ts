@@ -1,259 +1,27 @@
 import { expect, test } from 'bun:test';
-import { summarizeGroup } from '../../provisioning/group-outcome';
 import type { MakeReport } from '../../provisioning/run';
 import { target } from '../../provisioning/target';
-import { renderMakeReport, renderTargetCompletionLine } from './makelog';
+import {
+  renderMakeReport,
+  renderPackageReport,
+  renderTargetReport,
+} from './makelog';
 
-const emptyPackages = { taps: [], formulae: [], casks: [] };
-
-const failedReport: MakeReport = {
-  selection: {
-    targetNames: ['git', 'python'],
-    roles: ['git', 'python'],
-    packages: { taps: [], formulae: ['git', 'uv'], casks: [] },
-    groups: [
-      target('git', {
-        description: 'git',
-        role: 'git',
-        packages: { formulae: ['git'] },
-        activations: [],
-      }),
-      target('python', {
-        description: 'python',
-        role: 'python',
-        packages: { formulae: ['uv'] },
-        activations: [],
-      }),
-    ],
-  },
-  deploys: [
-    { role: 'git', deployed: false, files: [] },
-    { role: 'python', deployed: true, files: ['uv.toml'] },
-  ],
-  install: [
-    { token: { kind: 'formula', name: 'git' }, status: 'present' },
-    {
-      token: { kind: 'formula', name: 'uv' },
-      status: 'failed',
-      error: 'uv unavailable',
-    },
-  ],
-  groups: [
-    {
-      targetName: 'git',
-      blockers: [],
-      reports: [
-        {
-          verb: 'link',
-          source: 'git/.gitconfig',
-          dest: '~/.config/git/config',
-          status: 'failed',
-          error: 'unmanaged file exists',
-        },
-      ],
-    },
-    {
-      targetName: 'python',
-      blockers: [
-        {
-          kind: 'package',
-          token: { kind: 'formula', name: 'uv' },
-          error: 'uv unavailable',
-        },
-      ],
-      reports: [
-        {
-          verb: 'link',
-          source: 'python/uv.toml',
-          dest: '~/.config/uv/uv.toml',
-          status: 'blocked',
-          error: 'formula uv: uv unavailable',
-        },
-      ],
-    },
-  ],
-  failed: true,
-};
-
-test('renderTargetCompletionLine summarizes changed groups by outcome kind', () => {
-  const rendered = renderTargetCompletionLine(
-    {
-      targetName: 'shell',
-      blockers: [],
-      reports: [
-        {
-          verb: 'link',
-          source: 'shell/.zshenv',
-          dest: '~/.zshenv',
-          status: 'changed',
-        },
-        {
-          verb: 'apply',
-          source: 'macos/defaults',
-          dest: 'defaults',
-          status: 'changed',
-          entries: [
-            { key: 'Dock autohide', value: 'true', status: 'changed' },
-            { key: 'Key repeat', value: 'fast', status: 'changed' },
-            { key: 'Finder path bar', value: 'true', status: 'unchanged' },
-          ],
-        },
-      ],
-    },
-    { isTTY: false },
-  );
-
-  // Assert the load-bearing tokens, not the exact spacing/concatenation.
-  expect(rendered).toContain('shell:');
-  expect(rendered).toContain('changed');
-  expect(rendered).toContain('1 linked');
-  expect(rendered).toContain('2 applied');
+const shellTarget = target('shell', {
+  description: 'shell',
+  role: 'shell',
+  activations: [],
 });
 
-test('renderTargetCompletionLine summarizes failed and blocked groups', () => {
-  const [git, python] = failedReport.groups;
-  if (!git || !python) throw new Error('failed report fixture is incomplete');
-
-  const gitLine = renderTargetCompletionLine(git, { isTTY: false });
-  expect(gitLine).toContain('git:');
-  expect(gitLine).toContain('failed');
-  expect(gitLine).toContain('link git/.gitconfig -> ~/.config/git/config');
-  const pythonLine = renderTargetCompletionLine(python, { isTTY: false });
-  expect(pythonLine).toContain('python:');
-  expect(pythonLine).toContain('blocked');
-  expect(pythonLine).toContain('formula uv failed');
-  expect(summarizeGroup(python)).toBe('formula uv failed');
-});
-
-test('renderTargetCompletionLine marks an unrecorded applied marker as failed', () => {
-  const group = {
-    targetName: 'git',
-    blockers: [],
-    reports: [
-      {
-        verb: 'link' as const,
-        source: 'git/.gitconfig',
-        dest: '~/.config/git/config',
-        status: 'changed' as const,
-      },
-    ],
-    markerError: 'EACCES: permission denied writing ~/.mev/applied/git',
-  };
-
-  const line = renderTargetCompletionLine(group, { isTTY: false });
-  expect(line).toContain('git:');
-  expect(line).toContain('failed');
-  expect(line).not.toContain('changed');
-  expect(summarizeGroup(group)).toBe('applied marker not recorded');
-});
-
-test('renderTargetCompletionLine aligns summaries across target name widths', () => {
-  const changed = (targetName: string) => ({
-    targetName,
-    blockers: [],
-    reports: [
-      {
-        verb: 'link' as const,
-        source: 'x',
-        dest: 'y',
-        status: 'changed' as const,
-      },
-    ],
-  });
-  // A long name must not push its summary past a short name's summary column.
-  const width = 'long_target_name'.length;
-  const shortLine = Bun.stripANSI(
-    renderTargetCompletionLine(changed('git'), {
-      isTTY: true,
-      nameWidth: width,
-    }),
-  );
-  const longLine = Bun.stripANSI(
-    renderTargetCompletionLine(changed('long_target_name'), {
-      isTTY: true,
-      nameWidth: width,
-    }),
-  );
-
-  expect(shortLine.indexOf('1 linked')).toBeGreaterThan(0);
-  expect(shortLine.indexOf('1 linked')).toBe(longLine.indexOf('1 linked'));
-});
-
-test('renderMakeReport summarizes failed and blocked targets', () => {
-  const rendered = renderMakeReport(failedReport, {
-    isTTY: false,
-    durationMs: 123_000,
-  });
-
-  expect(rendered).toContain('Result: failed');
-  expect(rendered).toContain('Duration: 2m03s');
-  expect(rendered).toContain('git failed during activation');
-  expect(rendered).toContain('unmanaged file exists');
-  expect(rendered).toContain('python blocked by failed package');
-  expect(rendered).toContain('formula uv: uv unavailable');
-  expect(rendered).toContain('mev make git python');
-  expect(rendered).not.toContain('Targets:');
-  expect(rendered).not.toContain('Summary');
-});
-
-test('renderMakeReport shows guidance for an activation-level block', () => {
-  const guidance =
-    'run `herdr update` outside herdr after detaching from the session';
-  const report: MakeReport = {
-    selection: {
-      targetNames: ['herdr'],
-      roles: ['herdr'],
-      packages: emptyPackages,
-      groups: [
-        target('herdr', {
-          description: 'herdr',
-          role: 'herdr',
-          activations: [],
-        }),
-      ],
-    },
-    deploys: [{ role: 'herdr', deployed: false, files: [] }],
-    install: [],
-    groups: [
-      {
-        targetName: 'herdr',
-        blockers: [],
-        reports: [
-          {
-            verb: 'run',
-            source: 'install Herdr',
-            dest: '~/.local/bin/herdr',
-            status: 'blocked',
-            error: guidance,
-          },
-        ],
-      },
-    ],
-    failed: true,
-  };
-
-  const rendered = renderMakeReport(report, { isTTY: false });
-
-  expect(rendered).toContain('herdr blocked during activation');
-  expect(rendered).toContain(guidance);
-  expect(rendered).toContain('mev make herdr');
-});
-
-test('renderMakeReport renders concise successful summaries', () => {
-  const report: MakeReport = {
+function report(failed = false): MakeReport {
+  return {
     selection: {
       targetNames: ['shell'],
       roles: ['shell'],
-      packages: emptyPackages,
-      groups: [
-        target('shell', {
-          description: 'shell',
-          role: 'shell',
-          activations: [],
-        }),
-      ],
+      packages: { taps: [], formulae: [], casks: [] },
+      groups: [shellTarget],
     },
-    deploys: [{ role: 'shell', deployed: false, files: [] }],
+    deploys: [],
     install: [],
     groups: [
       {
@@ -261,28 +29,94 @@ test('renderMakeReport renders concise successful summaries', () => {
         blockers: [],
         reports: [
           {
-            verb: 'link',
-            source: 'shell/.zshenv',
-            dest: '~/.zshenv',
-            status: 'unchanged',
+            description: {
+              subject: 'macOS settings',
+              unchangedCollection: 'macOS settings',
+            },
+            outcomes: [
+              {
+                label: 'macOS setting com.apple.dock / autohide',
+                status: 'changed',
+                details: ['0 -> 1'],
+              },
+              {
+                label: 'macOS setting com.apple.dock / tilesize',
+                status: 'unchanged',
+              },
+              ...(failed
+                ? [
+                    {
+                      label: 'macOS setting NSGlobalDomain / KeyRepeat',
+                      status: 'failed' as const,
+                      error: 'defaults write failed',
+                    },
+                  ]
+                : [
+                    {
+                      label: 'macOS setting NSGlobalDomain / KeyRepeat',
+                      status: 'unchanged' as const,
+                    },
+                  ]),
+            ],
           },
         ],
       },
     ],
-    failed: false,
+    failed,
   };
+}
 
-  const rendered = renderMakeReport(report, {
+test('target report lists changes and aggregates collection no-ops', () => {
+  const group = report().groups[0];
+  if (!group) throw new Error('target report fixture is empty');
+  const rendered = renderTargetReport(group, { isTTY: false });
+
+  expect(rendered).toContain('shell');
+  expect(rendered).toContain(
+    'changed   macOS setting com.apple.dock / autohide — 0 -> 1',
+  );
+  expect(rendered).toContain('current   2 other macOS settings');
+  expect(rendered).not.toContain('tilesize');
+  expect(rendered).not.toContain('CHECK');
+});
+
+test('target report keeps failures individual', () => {
+  const group = report(true).groups[0];
+  if (!group) throw new Error('target report fixture is empty');
+  const rendered = renderTargetReport(group, {
     isTTY: false,
-    durationMs: 1,
   });
 
-  expect(rendered).toContain('Result: success');
-  expect(rendered).toContain('Duration: <1s');
-  expect(rendered).toContain('Mode: apply');
-  expect(rendered).not.toContain('Targets:');
-  expect(rendered).not.toContain('Summary');
-  expect(rendered).not.toContain('Activation:');
-  expect(rendered).not.toContain('Action required');
-  expect(rendered).not.toContain('Retry');
+  expect(rendered).toContain(
+    'failed    macOS setting NSGlobalDomain / KeyRepeat',
+  );
+  expect(rendered).toContain('defaults write failed');
+  expect(rendered).toContain('current   1 other macOS settings');
+});
+
+test('package report distinguishes applied upgrades from observed changes', () => {
+  const rendered = renderPackageReport(
+    [
+      { token: { kind: 'formula', name: 'uv' }, status: 'installed' },
+      { token: { kind: 'formula', name: 'git' }, status: 'upgrade-applied' },
+      { token: { kind: 'cask', name: 'zed' }, status: 'present' },
+    ],
+    { isTTY: false },
+  );
+
+  expect(rendered).toContain('changed   formula uv — installed');
+  expect(rendered).toContain('applied   formula git');
+  expect(rendered).toContain('current   1 other packages');
+});
+
+test('final report summarizes outcomes and provides a retry', () => {
+  const rendered = renderMakeReport(report(true), {
+    isTTY: false,
+    durationMs: 123_000,
+  });
+
+  expect(rendered).toContain('Result: failed');
+  expect(rendered).toContain('Duration: 2m03s');
+  expect(rendered).toContain('Action required');
+  expect(rendered).toContain('Retry: mev make shell');
 });

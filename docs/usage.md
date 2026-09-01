@@ -19,11 +19,21 @@ mev create
 mev sync
 ```
 
-Provisioning reports `changed`, `unchanged`, or `failed` activation items and a
-run summary. App-owned configuration files enforce declared keys while keeping
-application-written keys; other declared destinations converge to the current
-repository configuration. See [provisioning.md](architecture/provisioning.md)
-for phase boundaries.
+Provisioning reports user-managed resources rather than internal config-file
+checks. `changed` means a probe observed a change, `current` means the resource
+was already correct, `applied` means an action succeeded without an independent
+state-difference probe, and failures identify blocked dependents. Changed and
+failed resources are listed individually; unchanged members of large
+collections such as macOS settings are summarized by count. Explicit paths stay
+visible individually.
+
+TTY progress is transient. Completed target results and the final counts remain
+in the log; redirected output contains the same results without animation or
+ANSI control sequences. A no-op `sync` reports that no targets need reapplying
+and how many target definitions and managed assets match the last successful
+apply. App-owned configuration files enforce declared keys while keeping
+application-written keys. See [provisioning.md](architecture/provisioning.md)
+for phase boundaries and result semantics.
 
 ### Upgrade
 

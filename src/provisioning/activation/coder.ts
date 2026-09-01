@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { deployedDir, deployedDirSymbolic } from '../../assets/ref';
+import { deployedDir } from '../../assets/ref';
 import { buildAgents } from '../../coder/agents';
 import { readSections, readSkills } from '../../coder/catalog';
 import { catalogSelection } from '../../coder/manifest';
@@ -17,27 +17,14 @@ import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { isSymlinkTo, placeSymlink } from '../../host/symlink';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
-  Described,
-  StepReport,
+  ReconcileItemResult,
 } from './contract';
-import { guarded } from './reconcile';
+import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type CoderAgentsActivation = Extract<Activation, { kind: 'coderAgents' }>;
 type CoderSkillsActivation = Extract<Activation, { kind: 'coderSkills' }>;
-
-/**
- * Report opt-out manifest names the catalog no longer contains. A stale disabled
- * entry is benign (it applies nothing), so it surfaces as `unchanged` config
- * drift rather than failing the run.
- */
-function staleManifestEntries(unknown: readonly string[]): StepReport[] {
-  return unknown.map((name) => ({
-    key: name,
-    value: 'stale manifest entry',
-    status: 'unchanged',
-  }));
-}
 
 /**
  * Build the intermediate AGENTS.md from the enabled sections and symlink it to
@@ -62,28 +49,26 @@ export function coderSkills(
 }
 
 export function describeCoderAgents(
-  activation: CoderAgentsActivation,
-): Described {
+  _activation: CoderAgentsActivation,
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedDirSymbolic(activation.sectionsPrefix),
-    dest: 'agent instructions',
+    subject: 'agent instructions',
+    unchangedCollection: 'agent instruction files',
   };
 }
 
 export function describeCoderSkills(
-  activation: CoderSkillsActivation,
-): Described {
+  _activation: CoderSkillsActivation,
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedDirSymbolic(activation.skillsPrefix),
-    dest: 'agent skills',
+    subject: 'agent skills',
+    unchangedCollection: 'agent skill links',
   };
 }
 
 interface LinkFanout {
   readonly changed: boolean;
-  readonly failed: readonly StepReport[];
+  readonly failed: readonly ReconcileItemResult[];
 }
 
 /** Symlink `target` into each dest, isolating a per-dest failure to its entry. */
@@ -93,7 +78,7 @@ async function fanoutFile(
   context: Context,
 ): Promise<LinkFanout> {
   let changed = false;
-  const failed: StepReport[] = [];
+  const failed: ReconcileItemResult[] = [];
   for (const dest of dests) {
     const link = resolveHostPath(dest, context.home);
     try {
@@ -125,7 +110,7 @@ async function fanoutSkills(
   context: Context,
 ): Promise<LinkFanout> {
   let changed = false;
-  const failed: StepReport[] = [];
+  const failed: ReconcileItemResult[] = [];
   for (const dir of targetDirs) {
     const root = resolveHostPath(dir, context.home);
     const desired = enabled.map((name) => ({
@@ -133,7 +118,10 @@ async function fanoutSkills(
       target: join(intermediate, name),
     }));
     try {
-      if (await reconcileManagedLinks(root, [`${intermediate}/`], desired)) {
+      if (
+        (await reconcileManagedLinks(root, [`${intermediate}/`], desired))
+          .changed
+      ) {
         changed = true;
       }
     } catch (error) {
@@ -155,7 +143,7 @@ async function fanoutSkills(
  * isolated into `LinkFanout.failed`.
  */
 interface CoderSpec {
-  readonly base: Described;
+  readonly base: ActivationDescription;
   readonly prefix: string;
   readonly manifestPath: string;
   read(sourceDir: string): Promise<readonly string[]>;
@@ -174,12 +162,25 @@ async function runCoder(
       spec.manifestPath,
     );
     const { changed, failed } = await spec.apply(sourceDir, enabled);
-    const entries = [...staleManifestEntries(unknown), ...failed];
-    const status =
-      failed.length > 0 ? 'failed' : changed ? 'changed' : 'unchanged';
-    return entries.length > 0
-      ? { ...spec.base, status, entries }
-      : { ...spec.base, status };
+    const outcomes =
+      failed.length > 0
+        ? failed.map(stepOutcome)
+        : [
+            {
+              label: spec.base.subject,
+              status: changed ? ('changed' as const) : ('unchanged' as const),
+              details: [
+                changed
+                  ? 'generated content or managed links updated'
+                  : 'generated content and managed links already current',
+              ],
+            },
+          ];
+    return activationReport(
+      spec.base,
+      outcomes,
+      unknown.map((name) => `Ignored stale disabled selection: ${name}`),
+    );
   });
 }
 

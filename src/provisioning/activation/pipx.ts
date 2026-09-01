@@ -24,7 +24,7 @@ import {
   shouldUpgrade,
 } from '../../pipx/reconciliation';
 import type { Activation } from './contract';
-import { manifestKind, manifestSource } from './manifest-kind';
+import { manifestKind } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
 type PipxActivation = Extract<Activation, { kind: 'pipx' }>;
@@ -145,10 +145,9 @@ function pipxUninstallStep(
 export const pipxKind = manifestKind<PipxActivation, PipxEntry>({
   parse: parseManifest,
   manifestLabel: 'Pipx config file',
-  describe: (activation) => ({
-    verb: 'apply',
-    source: manifestSource(activation.configKey),
-    dest: 'python tools',
+  describe: () => ({
+    subject: 'Python tools',
+    unchangedCollection: 'Python tools',
   }),
   steps: async (entries, _activation, context, runOptions) => {
     const options = await brewEnv(context);

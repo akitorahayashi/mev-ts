@@ -42,15 +42,38 @@ export const rubyTarget = target('ruby', {
               concat: ['--with-openssl-dir=', { ref: 'opensslPrefix' }],
             },
           },
+          report: {
+            kind: 'reconcile',
+            subject: 'Ruby runtime',
+            changed: { concat: ['installed ', { ref: 'version' }] },
+            unchanged: { concat: [{ ref: 'version' }, ' already installed'] },
+          },
         },
         {
           label: 'rbenv global',
           argv: ['rbenv', 'global', { ref: 'version' }],
+          skipIf: {
+            commandOutputMatches: {
+              argv: ['rbenv', 'global'],
+              exact: { ref: 'version' },
+            },
+          },
+          report: {
+            kind: 'reconcile',
+            subject: 'default Ruby runtime',
+            changed: { concat: ['set to ', { ref: 'version' }] },
+            unchanged: { concat: [{ ref: 'version' }, ' already selected'] },
+          },
           env: brewPath(),
         },
         {
           label: 'rbenv rehash',
           argv: ['rbenv', 'rehash'],
+          report: {
+            kind: 'apply',
+            subject: 'Ruby shims',
+            detail: 'refreshed',
+          },
           env: brewPath(),
         },
         {
@@ -83,6 +106,12 @@ export const rubyTarget = target('ruby', {
                 { ref: 'basePath' },
               ],
             },
+          },
+          report: {
+            kind: 'reconcile',
+            subject: 'Bundler',
+            changed: { concat: ['installed ', { ref: 'bundler' }] },
+            unchanged: { concat: [{ ref: 'bundler' }, ' already installed'] },
           },
         },
       ],

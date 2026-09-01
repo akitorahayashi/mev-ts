@@ -1,13 +1,16 @@
 import type { Context } from '../../host/context';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
   ActivationRunOptions,
-  Described,
 } from './contract';
 import { handlerFor } from './kinds';
+import { activationReport } from './reconcile';
 
-export function describeActivation(activation: Activation): Described {
+export function describeActivation(
+  activation: Activation,
+): ActivationDescription {
   return handlerFor(activation).describe(activation);
 }
 
@@ -15,11 +18,14 @@ export function blockedReport(
   activation: Activation,
   reason?: string,
 ): ActivationReport {
-  return {
-    ...describeActivation(activation),
-    status: 'blocked',
-    error: reason,
-  };
+  const description = describeActivation(activation);
+  return activationReport(description, [
+    {
+      label: description.subject,
+      status: 'blocked',
+      reason: reason ?? 'A previous resource failed.',
+    },
+  ]);
 }
 
 export function runActivation(

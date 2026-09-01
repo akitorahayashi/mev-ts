@@ -1,8 +1,8 @@
 import type { AssetRef } from '../../assets/ref';
 import type { AssetSource } from '../../assets/registry';
 import type { HostPath } from '../../host/path';
-
-export type Verb = 'link' | 'apply' | 'run';
+import type { OutcomeStatus, ResourceOutcome } from '../resource-outcome';
+import type { RoleAssetChange } from '../role-state';
 
 /**
  * How a `remoteInstaller` verifies the script it downloads before executing it.
@@ -203,24 +203,51 @@ export type ChangedWhen =
  * registers stdout into the scope for later steps, and `changedWhen` classifies
  * a successful run.
  */
-export interface CommandStep {
+interface CommandStepBase {
   readonly label: string;
   readonly argv: readonly CommandArg[];
   readonly env?: Readonly<Record<string, CommandEnvValue>>;
   readonly skipIf?: StepGuard;
-  readonly capture?: string;
   readonly changedWhen?: ChangedWhen;
 }
 
-export type RemoteInstallerUpgrade = Omit<
-  CommandStep,
-  'capture' | 'changedWhen' | 'skipIf'
-> & {
+export type CommandStepReport =
+  | {
+      readonly kind: 'probe';
+      readonly subject: CommandArg;
+    }
+  | {
+      readonly kind: 'reconcile';
+      readonly subject: CommandArg;
+      readonly changed: CommandArg;
+      readonly unchanged: CommandArg;
+    }
+  | {
+      readonly kind: 'apply';
+      readonly subject: CommandArg;
+      readonly detail: CommandArg;
+    };
+
+export type CommandStep =
+  | (CommandStepBase & {
+      readonly capture: string;
+      readonly report?: never;
+    })
+  | (CommandStepBase & {
+      readonly capture?: never;
+      readonly report: CommandStepReport;
+    });
+
+export interface RemoteInstallerUpgrade {
+  readonly label: string;
+  readonly argv: readonly CommandArg[];
+  readonly env?: Readonly<Record<string, CommandEnvValue>>;
+  readonly report?: Extract<CommandStepReport, { readonly kind: 'reconcile' }>;
   /** Local version command used before and after to classify and verify the self-update. */
   readonly versionProbe: readonly CommandArg[];
   /** Maps a known updater safety precondition to a blocked activation. */
   readonly blockedWhen?: { readonly errorContains: string };
-};
+}
 
 /**
  * Per-run execution intent threaded from the CLI into the runners that consume
@@ -230,35 +257,32 @@ export type RemoteInstallerUpgrade = Omit<
  */
 export interface ActivationRunOptions {
   readonly upgrade: boolean;
-}
-
-export type ActivationStatus = 'changed' | 'unchanged' | 'failed' | 'blocked';
-
-export interface StepReport {
-  readonly key: string;
-  /**
-   * Display-only free text with per-kind semantics: the resolved argv for a
-   * command step, the applied actions for a pipx item, `installed <tag>` for a
-   * release, etc. It is rendered, never parsed — no consumer depends on its shape.
-   */
-  readonly value: string;
-  readonly status: 'changed' | 'unchanged' | 'failed';
-  readonly error?: string;
+  readonly sourceChanges?: readonly RoleAssetChange[];
+  readonly preserved?: boolean;
 }
 
 export interface ActivationReport {
-  readonly verb: Verb;
-  readonly source: string;
-  readonly dest: string;
-  readonly status: ActivationStatus;
+  readonly description: ActivationDescription;
+  readonly outcomes: readonly ResourceOutcome[];
+  readonly notices?: readonly string[];
+  /** Derived from `outcomes`; never supplied independently by a runner. */
+  readonly status?: OutcomeStatus;
+  /** Low-level probe projection retained for capability-focused diagnostics. */
+  readonly entries?: readonly ReconcileItemResult[];
+  /** Whole-activation failure; item failures live on their resource outcomes. */
   readonly error?: string;
-  readonly entries?: readonly StepReport[];
 }
 
-export interface Described {
-  readonly verb: Verb;
-  readonly source: string;
-  readonly dest: string;
+export interface ActivationDescription {
+  readonly subject: string;
+  readonly unchangedCollection?: string;
+}
+
+export interface ReconcileItemResult {
+  readonly key: string;
+  readonly value: string;
+  readonly status: 'changed' | 'unchanged' | 'applied' | 'failed';
+  readonly error?: string;
 }
 
 /** An embedded asset an activation references: one key, or every key under a prefix. */

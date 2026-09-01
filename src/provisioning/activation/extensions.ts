@@ -49,9 +49,8 @@ export const extensionsKind = manifestKind<ExtensionsActivation, string>({
   // Source is the editor CLI, not the manifest basename, so two editors that
   // share a manifest name still render distinctly.
   describe: (activation) => ({
-    verb: 'apply',
-    source: activation.command,
-    dest: 'extensions',
+    subject: `${activation.command} extensions`,
+    unchangedCollection: `${activation.command} extensions`,
   }),
   steps: async (desired, activation, context) => {
     const installed = await listInstalled(activation.command, context);

@@ -7,7 +7,7 @@ import {
 import { errorMessage } from '../../errors';
 import type { Context } from '../../host/context';
 import type { Activation } from './contract';
-import { manifestKind, manifestSource } from './manifest-kind';
+import { manifestKind } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
 type DutiActivation = Extract<Activation, { kind: 'duti' }>;
@@ -22,16 +22,26 @@ function dutiStep(
 ): ReconcileStep {
   return {
     async run() {
-      if ((await currentApp(extension, context)) === bundleId) {
-        return { key: extension, value: bundleId, status: 'unchanged' };
+      const current = await currentApp(extension, context);
+      const label = `file association .${extension}`;
+      if (current === bundleId) {
+        return {
+          key: label,
+          value: `current: ${bundleId}`,
+          status: 'unchanged',
+        };
       }
       await setApp(bundleId, extension, context);
-      return { key: extension, value: bundleId, status: 'changed' };
+      return {
+        key: label,
+        value: `${current ?? 'not set'} -> ${bundleId}`,
+        status: 'changed',
+      };
     },
     onError(error) {
       return {
-        key: extension,
-        value: bundleId,
+        key: `file association .${extension}`,
+        value: `wanted: ${bundleId}`,
         status: 'failed',
         error: errorMessage(error),
       };
@@ -42,10 +52,9 @@ function dutiStep(
 export const dutiKind = manifestKind<DutiActivation, Association>({
   parse: parseAssociations,
   manifestLabel: 'Duti config file',
-  describe: (activation) => ({
-    verb: 'apply',
-    source: manifestSource(activation.configKey),
-    dest: 'file associations',
+  describe: () => ({
+    subject: 'file associations',
+    unchangedCollection: 'file associations',
   }),
   // Extensions are unique (enforced at parse time), so the per-extension duti
   // probes are independent subprocess spawns and run concurrently.

@@ -16,11 +16,11 @@ import {
 import { describeCommand, runCommandActivation } from './command';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
   ActivationRunOptions,
   AssetCheck,
   AssetReference,
-  Described,
 } from './contract';
 import {
   describeDeclaredKeys,
@@ -51,7 +51,7 @@ import { describeZedSettings, runZedSettings } from './zed';
  * needs no per-kind cast.
  */
 export interface KindHandler<A extends Activation> {
-  describe(activation: A): Described;
+  describe(activation: A): ActivationDescription;
   run(
     activation: A,
     context: Context,
@@ -88,12 +88,14 @@ const sourceReference = (activation: {
 export const activationKinds: ActivationKinds = {
   file: {
     describe: describeFile,
-    run: (activation, context) => runFile(activation, context),
+    run: (activation, context, options) =>
+      runFile(activation, context, options),
     references: sourceReference,
   },
   tree: {
     describe: describeTree,
-    run: (activation, context) => runTree(activation, context),
+    run: (activation, context, options) =>
+      runTree(activation, context, options),
     references: (activation) => [{ prefix: activation.prefix }],
   },
   groveConfig: {
@@ -113,7 +115,8 @@ export const activationKinds: ActivationKinds = {
   },
   declaredKeys: {
     describe: describeDeclaredKeys,
-    run: (activation, context) => runDeclaredKeys(activation, context),
+    run: (activation, context, options) =>
+      runDeclaredKeys(activation, context, options),
     references: sourceReference,
     // The destination holds the application's runtime writes, which the deploy
     // phase would otherwise destroy through a legacy symlink.

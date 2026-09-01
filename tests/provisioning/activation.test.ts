@@ -57,13 +57,25 @@ sandboxTest(
 
     const first = await runActivation(activation, context);
     expect(first.status).toBe('changed');
-    expect(first.verb).toBe('link');
+    expect(first.description.subject).toBe('~/.config/git/config');
     expect(await readlink(join(sandbox, '.config/git/config'))).toBe(
       deployedPath(ref, sandbox),
     );
 
     const second = await runActivation(activation, context);
     expect(second.status).toBe('unchanged');
+
+    const contentUpdate = await runActivation(activation, context, {
+      upgrade: false,
+      sourceChanges: [{ key: ref.key, kind: 'updated' }],
+    });
+    expect(contentUpdate.outcomes).toEqual([
+      {
+        label: '~/.config/git/config',
+        status: 'changed',
+        details: ['managed content updated'],
+      },
+    ]);
   },
 );
 
@@ -155,6 +167,21 @@ sandboxTest(
 
     const second = await runActivation(activation, context);
     expect(second.status).toBe('unchanged');
+
+    const contentUpdate = await runActivation(activation, context, {
+      upgrade: false,
+      sourceChanges: [{ key: `${aliasPrefix}sub/b.zsh`, kind: 'updated' }],
+    });
+    expect(contentUpdate.outcomes).toContainEqual({
+      label: '~/.mev/alias/sub/b.zsh',
+      status: 'changed',
+      details: ['managed content updated'],
+    });
+    expect(contentUpdate.outcomes).toContainEqual({
+      label: '~/.mev/alias/a.zsh',
+      status: 'unchanged',
+      details: ['already linked to current managed config'],
+    });
   },
 );
 

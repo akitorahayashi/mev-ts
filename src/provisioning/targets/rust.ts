@@ -59,6 +59,12 @@ export const rustTarget = target('rust', {
               contains: { ref: 'version' },
             },
           },
+          report: {
+            kind: 'reconcile',
+            subject: 'default Rust toolchain',
+            changed: { concat: ['set to ', { ref: 'version' }] },
+            unchanged: { concat: [{ ref: 'version' }, ' already selected'] },
+          },
         },
         {
           label: 'rustup component add',
@@ -70,6 +76,12 @@ export const rustTarget = target('rust', {
           ],
           skipIf: { commandSucceeds: ['test', '-z', { ref: 'components' }] },
           changedWhen: { outputContains: 'installing' },
+          report: {
+            kind: 'reconcile',
+            subject: 'Rust components',
+            changed: 'installed declared components',
+            unchanged: 'declared components already installed',
+          },
         },
         {
           label: 'rustup target add',
@@ -81,6 +93,12 @@ export const rustTarget = target('rust', {
           ],
           skipIf: { commandSucceeds: ['test', '-z', { ref: 'targets' }] },
           changedWhen: { outputContains: 'installing' },
+          report: {
+            kind: 'reconcile',
+            subject: 'Rust targets',
+            changed: 'installed declared targets',
+            unchanged: 'declared targets already installed',
+          },
         },
       ],
     }),

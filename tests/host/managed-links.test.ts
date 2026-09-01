@@ -36,7 +36,8 @@ sandboxTest('creates each desired link', async (dir) => {
     [{ path: join(root, 'a'), target: join(source, 'a') }],
   );
 
-  expect(changed).toBe(true);
+  expect(changed.changed).toBe(true);
+  expect(changed.placed).toHaveLength(1);
   expect(await readlink(join(root, 'a'))).toBe(join(source, 'a'));
 });
 
@@ -47,7 +48,8 @@ sandboxTest('reports unchanged when already reconciled', async (dir) => {
   await reconcileManagedLinks(root, [`${source}/`], desired);
   const second = await reconcileManagedLinks(root, [`${source}/`], desired);
 
-  expect(second).toBe(false);
+  expect(second.changed).toBe(false);
+  expect(second.unchanged).toHaveLength(1);
 });
 
 sandboxTest(
@@ -63,7 +65,7 @@ sandboxTest(
       [{ path: join(root, 'a'), target: join(source, 'a') }],
     );
 
-    expect(changed).toBe(true);
+    expect(changed.changed).toBe(true);
     expect(await readlink(join(root, 'a'))).toBe(join(source, 'a'));
   },
 );
@@ -86,7 +88,8 @@ sandboxTest(
       [{ path: join(root, 'a'), target: join(source, 'a') }],
     );
 
-    expect(changed).toBe(true);
+    expect(changed.changed).toBe(true);
+    expect(changed.removed).toEqual([join(root, 'stale')]);
     expect(await present(join(root, 'stale'))).toBe(false);
     expect(await readlink(join(root, 'keep'))).toBe(foreign);
     expect(await present(join(root, 'real'))).toBe(true);

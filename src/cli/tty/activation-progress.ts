@@ -1,9 +1,6 @@
 import type { Writable } from 'node:stream';
 import { activationLine } from '../../provisioning/group-outcome';
-import type {
-  ActivationGroupReport,
-  ActivationStartEvent,
-} from '../../provisioning/run';
+import type { ActivationGroupReport, MakeEvent } from '../../provisioning/run';
 import { renderTargetCompletionLine } from './makelog';
 import { createTransientLine } from './transient-line';
 
@@ -15,6 +12,11 @@ interface ActivationProgressOptions {
   readonly nameWidth?: number;
 }
 
+type ActivationStartEvent = Omit<
+  Extract<MakeEvent, { readonly type: 'activation-start' }>,
+  'type'
+>;
+
 function startLine(event: ActivationStartEvent): string {
   return `${event.targetName}  ${activationLine(event.activation)}`;
 }
@@ -24,7 +26,7 @@ function createBanner(out: (text: string) => void): () => void {
   return () => {
     if (shown) return;
     shown = true;
-    out('\nActivating targets\n');
+    out('\nApplying resources\n');
   };
 }
 
@@ -50,12 +52,8 @@ function createLineActivationProgress(
   options: ActivationProgressOptions,
 ): ActivationProgress {
   return {
-    start: createBanner(options.out),
-    startActivation(event) {
-      options.out(
-        `Activating ${event.targetName}: ${activationLine(event.activation)}\n`,
-      );
-    },
+    start() {},
+    startActivation() {},
     completeTarget(group) {
       options.out(`${renderTargetCompletionLine(group, { isTTY: false })}\n`);
     },
@@ -105,7 +103,6 @@ function createTTYActivationProgress(
       options.out(
         `${renderTargetCompletionLine(group, {
           isTTY: true,
-          nameWidth: options.nameWidth,
         })}\n`,
       );
     },

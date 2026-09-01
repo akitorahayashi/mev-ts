@@ -6,6 +6,11 @@ import { targetSignature } from './signature';
 import { target } from './target';
 
 const config = { key: 'demo/config' };
+const report = {
+  kind: 'apply',
+  subject: 'demo resource',
+  detail: 'applied',
+} as const;
 
 /**
  * A change-detector over the serialization, not an independent authority: the
@@ -34,6 +39,7 @@ const GOLDEN_TARGET = target('golden', {
           env: { PATH: { pathList: [{ ref: 'home' }, { ref: 'basePath' }] } },
           skipIf: { pathExists: { concat: [{ ref: 'home' }, '/.demo'] } },
           changedWhen: { outputContains: 'installed' },
+          report,
         },
       ],
     }),
@@ -118,7 +124,7 @@ test('an argv edit flips the command signature', async () => {
       activations: [
         runCommand({
           label: 'demo command',
-          steps: [{ label: 'demo step', argv: ['demo', lastArg] }],
+          steps: [{ label: 'demo step', argv: ['demo', lastArg], report }],
         }),
       ],
     });
@@ -138,7 +144,12 @@ test('an env edit flips the command signature', async () => {
         runCommand({
           label: 'demo command',
           steps: [
-            { label: 'demo step', argv: ['demo'], ...(env ? { env } : {}) },
+            {
+              label: 'demo step',
+              argv: ['demo'],
+              report,
+              ...(env ? { env } : {}),
+            },
           ],
         }),
       ],
@@ -163,6 +174,7 @@ test('a skipIf edit flips the command signature', async () => {
               label: 'demo step',
               argv: ['demo'],
               skipIf: { pathExists: path },
+              report,
             },
           ],
         }),
@@ -184,7 +196,7 @@ test('command label and read declarations affect the signature', async () => {
         runCommand({
           label,
           reads: { version: key },
-          steps: [{ label: 'demo step', argv: ['demo'] }],
+          steps: [{ label: 'demo step', argv: ['demo'], report }],
         }),
       ],
     });
@@ -223,7 +235,27 @@ test('serializable step metadata affects the signature', async () => {
       activations: [
         runCommand({
           label: 'demo command',
-          steps: [{ ...step, argv: ['demo'] }],
+          steps:
+            step.capture === undefined
+              ? [
+                  {
+                    label: step.label,
+                    argv: ['demo'],
+                    ...(step.changedWhen
+                      ? { changedWhen: step.changedWhen }
+                      : {}),
+                  },
+                ]
+              : [
+                  {
+                    label: step.label,
+                    argv: ['demo'],
+                    capture: step.capture,
+                    ...(step.changedWhen
+                      ? { changedWhen: step.changedWhen }
+                      : {}),
+                  },
+                ],
         }),
       ],
     });
@@ -248,4 +280,28 @@ test('serializable step metadata affects the signature', async () => {
       assets,
     ),
   ).not.toBe(original);
+});
+
+test('display report metadata does not affect the command signature', async () => {
+  const commandTarget = (subject: string) =>
+    target('demo', {
+      description: 'demo',
+      role: 'demo',
+      activations: [
+        runCommand({
+          label: 'demo command',
+          steps: [
+            {
+              label: 'demo step',
+              argv: ['demo'],
+              report: { kind: 'apply', subject, detail: 'done' },
+            },
+          ],
+        }),
+      ],
+    });
+  const assets = mapAssetSource({});
+  expect(await targetSignature(commandTarget('old'), assets)).toBe(
+    await targetSignature(commandTarget('new'), assets),
+  );
 });

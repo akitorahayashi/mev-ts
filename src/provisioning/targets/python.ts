@@ -26,6 +26,12 @@ export const pythonTarget = target('python', {
             '--no-progress',
           ],
           changedWhen: { outputContains: 'Installed Python' },
+          report: {
+            kind: 'reconcile',
+            subject: 'Python runtime',
+            changed: { concat: ['installed ', { ref: 'version' }] },
+            unchanged: { concat: [{ ref: 'version' }, ' already installed'] },
+          },
           env: brewPath(),
         },
       ],

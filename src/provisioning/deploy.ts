@@ -4,29 +4,13 @@ import { deployedDir } from '../assets/ref';
 import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { replaceDirectoryAfterBuild } from '../host/directory-replacement';
+import { type RoleAssetChange, roleAssetChanges } from './role-state';
+import { readAssetIntents } from './signature';
 
 export interface DeployResult {
   readonly role: string;
-  /** True when the role's assets were (re)written; false when left untouched. */
-  readonly deployed: boolean;
-  /** Top-level file/dir names under the role, e.g. `.zshenv`, `alias/`. */
-  readonly files: readonly string[];
+  readonly changes: readonly RoleAssetChange[];
   readonly error?: string;
-}
-
-function topLevelFiles(
-  role: string,
-  keys: readonly string[],
-): readonly string[] {
-  const prefix = `${role}/`;
-  const seen = new Set<string>();
-  for (const key of keys) {
-    if (!key.startsWith(prefix)) continue;
-    const rel = key.slice(prefix.length);
-    const slash = rel.indexOf('/');
-    seen.add(slash === -1 ? rel : rel.slice(0, slash + 1));
-  }
-  return [...seen];
 }
 
 /**
@@ -38,28 +22,29 @@ export async function deployRole(
   role: string,
   context: Context,
 ): Promise<DeployResult> {
-  const keys = context.assets.keysByPrefix(`${role}/`);
+  const intents = await readAssetIntents(role, context.assets);
   const destDir = deployedDir(role, context.home);
-  if (keys.length === 0 && (await lstatIfPresent(destDir)) === null) {
-    return { role, deployed: false, files: [] };
+  const changes = await roleAssetChanges(role, intents, context.home);
+  if (intents.length === 0 && (await lstatIfPresent(destDir)) === null) {
+    return { role, changes };
   }
 
-  const deployed = await replaceDirectoryAfterBuild(destDir, async (tmp) => {
+  await replaceDirectoryAfterBuild(destDir, async (tmp) => {
     const createdDirs = new Set<string>();
-    for (const key of keys) {
-      const relative = key.slice(`${role}/`.length);
+    for (const intent of intents) {
+      const relative = intent.key.slice(`${role}/`.length);
       const dest = join(tmp, relative);
       const destParent = dirname(dest);
       if (!createdDirs.has(destParent)) {
         await mkdir(destParent, { recursive: true });
         createdDirs.add(destParent);
       }
-      await writeFile(dest, await context.assets.read(key));
-      if (context.assets.isExecutable(key)) {
+      await writeFile(dest, intent.content);
+      if (intent.executable) {
         await chmod(dest, 0o755);
       }
     }
   });
 
-  return { role, deployed, files: topLevelFiles(role, keys) };
+  return { role, changes };
 }

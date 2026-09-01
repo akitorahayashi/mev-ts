@@ -1,10 +1,22 @@
 import { Command, Option } from 'clipanion';
 import { runMake } from '../../provisioning/run';
+import type { SyncReason } from '../../provisioning/scan';
 import { isScanError, scanTargets } from '../../provisioning/scan';
 import { executeProvisioningRun } from '../provisioning-run';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 import { prepareFullSetup } from './full-setup';
+
+function describeReason(reason: SyncReason): string {
+  switch (reason) {
+    case 'unapplied':
+      return 'not applied yet';
+    case 'signature':
+      return 'declared setup changed';
+    case 'drift':
+      return 'managed files differ';
+  }
+}
 
 export class SyncCommand extends Command {
   static override paths = [['sync'], ['s']];
@@ -47,14 +59,26 @@ export class SyncCommand extends Command {
         // A scan error means at least one target's staleness is unknown, so the
         // environment cannot be reported as synchronized.
         if (scanFailed) return 1;
-        this.context.stdout.write('mev: environment is synchronized\n');
+        this.context.stdout.write(
+          `No targets need reapplying.\n${targets.length} target definitions and managed assets match the last successful apply.\n`,
+        );
         return 0;
       }
+
+      const reasonText = scans
+        .flatMap((scan) =>
+          isScanError(scan) || scan.reasons.length === 0 ? [] : [scan],
+        )
+        .map(
+          (scan) =>
+            `  ${scan.target.name} — ${scan.reasons.map(describeReason).join(', ')}`,
+        )
+        .join('\n');
 
       const code = await executeProvisioningRun({
         selectors,
         upgrade: this.upgrade,
-        intro: 'mev: Syncing environment',
+        intro: `Reapplying ${selectors.length} stale targets\n${reasonText}`,
         run: (request) => runMake(request, context),
         stream: this.context.stdout,
       });

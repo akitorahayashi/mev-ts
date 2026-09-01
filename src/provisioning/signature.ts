@@ -34,8 +34,8 @@ function packageIntent(packages: PackageRequirement): PackageRequirement {
  * Canonicalize an activation (or any value reached from one) into a stable,
  * order-independent shape to hash. It recurses arrays and objects, sorts every
  * object's keys so construction order never shifts the digest, and drops
- * function-valued properties — a command read's `validate`/`derive` are runner
- * code, not declared intent. `HostPath` (`{ kind: 'home', rel }`) and `AssetRef`
+ * function-valued properties and presentation-only `report` metadata.
+ * `HostPath` (`{ kind: 'home', rel }`) and `AssetRef`
  * (`{ key }`) are plain data, so their serialized form already carries their
  * identity; there is no per-kind projection. This replaces the parallel
  * re-declaration of the `Activation` contract, so a new kind or field needs no
@@ -50,6 +50,7 @@ function canonicalize(value: unknown): unknown {
   const record = value as Record<string, unknown>;
   const canonical: Record<string, unknown> = {};
   for (const key of Object.keys(record).sort()) {
+    if (key === 'report') continue;
     const entry = canonicalize(record[key]);
     if (entry !== undefined) canonical[key] = entry;
   }

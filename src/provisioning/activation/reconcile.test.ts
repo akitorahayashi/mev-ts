@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
 import { errorMessage, ProvisioningError } from '../../errors';
-import type { Described, StepReport } from './contract';
+import type { ActivationDescription, ReconcileItemResult } from './contract';
 import { type ReconcileStep, reconcile } from './reconcile';
 
-const base: Described = { verb: 'apply', source: 'src', dest: 'dst' };
+const base: ActivationDescription = { subject: 'dst' };
 
-function step(report: StepReport): ReconcileStep {
+function step(report: ReconcileItemResult): ReconcileStep {
   return { run: async () => report, onError: () => report };
 }
 
@@ -86,7 +86,9 @@ test('a failure from declare is a whole-activation error', async () => {
 
   expect(report.status).toBe('failed');
   expect(report.error).toBe('manifest missing');
-  expect(report.entries).toBeUndefined();
+  expect(report.outcomes).toEqual([
+    { label: 'dst', status: 'failed', error: 'manifest missing' },
+  ]);
 });
 
 test('a shared-probe failure raised in steps is a whole-activation error', async () => {
@@ -99,7 +101,9 @@ test('a shared-probe failure raised in steps is a whole-activation error', async
 
   expect(report.status).toBe('failed');
   expect(report.error).toBe('probe failed');
-  expect(report.entries).toBeUndefined();
+  expect(report.outcomes).toEqual([
+    { label: 'dst', status: 'failed', error: 'probe failed' },
+  ]);
 });
 
 test('an empty declaration reports unchanged with no entries', async () => {

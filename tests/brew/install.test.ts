@@ -90,7 +90,7 @@ test('upgrade mode upgrades an installed formula without invoking brew update', 
     },
   );
 
-  expect(reports[0]?.status).toBe('present');
+  expect(reports[0]?.status).toBe('upgrade-applied');
   expect(recordedArgs(sink)).toContainEqual([
     'upgrade',
     '--no-ask',
@@ -111,7 +111,7 @@ test('upgrade mode upgrades an installed cask and leaves an installed tap alone'
 
   expect(reports.map((report) => report.status)).toEqual([
     'present',
-    'present',
+    'upgrade-applied',
   ]);
   expect(recordedArgs(sink)).toContainEqual([
     'upgrade',

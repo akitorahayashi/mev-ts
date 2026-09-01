@@ -1,17 +1,17 @@
 import { stat } from 'node:fs/promises';
-import {
-  type AssetRef,
-  deployedPath,
-  deployedSymbolic,
-} from '../../assets/ref';
+import { type AssetRef, deployedPath } from '../../assets/ref';
 import { readSshHost } from '../../github/ssh-host';
 import { renderConfig } from '../../grove/config';
 import type { Context } from '../../host/context';
 import { readDeployedText } from '../../host/deployed-file';
 import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import { reconcileRegularFile } from '../../host/regular-file';
-import type { Activation, ActivationReport, Described } from './contract';
-import { guarded } from './reconcile';
+import type {
+  Activation,
+  ActivationDescription,
+  ActivationReport,
+} from './contract';
+import { activationReport, guarded } from './reconcile';
 
 type GroveConfigActivation = Extract<Activation, { kind: 'groveConfig' }>;
 
@@ -21,11 +21,9 @@ export function groveConfig(source: AssetRef, dest: HostPath): Activation {
 
 export function describeGroveConfig(
   activation: GroveConfigActivation,
-): Described {
+): ActivationDescription {
   return {
-    verb: 'apply',
-    source: deployedSymbolic(activation.source),
-    dest: symbolic(activation.dest),
+    subject: symbolic(activation.dest),
   };
 }
 
@@ -50,6 +48,16 @@ export async function runGroveConfig(
       Buffer.from(rendered),
       sourceStats.mode & 0o7777,
     );
-    return { ...base, status: changed ? 'changed' : 'unchanged' };
+    return activationReport(base, [
+      {
+        label: base.subject,
+        status: changed ? 'changed' : 'unchanged',
+        details: [
+          changed
+            ? 'rendered repository configuration updated'
+            : 'repository configuration already current',
+        ],
+      },
+    ]);
   });
 }

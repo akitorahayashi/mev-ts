@@ -117,7 +117,7 @@ sandboxTest('coderAgents reports unchanged on a second run', async (dir) => {
 });
 
 sandboxTest(
-  'coderAgents surfaces a stale disabled manifest entry as unchanged',
+  'coderAgents surfaces a stale disabled manifest entry as a notice',
   async (dir) => {
     await deploySections(dir, 'sections:\n  - alpha\n', {
       alpha: '## Alpha\n',
@@ -135,8 +135,7 @@ sandboxTest(
     );
 
     expect(report.status).not.toBe('failed');
-    const ghost = report.entries?.find((e) => e.key === 'ghost');
-    expect(ghost?.status).toBe('unchanged');
+    expect(report.notices).toEqual(['Ignored stale disabled selection: ghost']);
   },
 );
 

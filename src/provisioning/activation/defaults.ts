@@ -9,7 +9,7 @@ import { errorMessage } from '../../errors';
 import { formatCommandFailure } from '../../host/command';
 import type { Context } from '../../host/context';
 import type { Activation } from './contract';
-import { manifestKind, manifestSource } from './manifest-kind';
+import { manifestKind } from './manifest-kind';
 import type { ReconcileStep } from './reconcile';
 
 type DefaultsActivation = Extract<Activation, { kind: 'defaults' }>;
@@ -33,6 +33,7 @@ export function applyDefaultsTree(
 
 function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
   const displayValue = defaultsArg(entry.type, entry.value, context.home);
+  const label = `macOS setting ${entry.domain} / ${entry.key}`;
   const writeArgs = [
     'write',
     entry.domain,
@@ -61,13 +62,17 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
         defaultsTypeMatches(entry.type, currentType.stdout) &&
         defaultsValueMatches(entry.type, displayValue, current.stdout)
       ) {
-        return { key: entry.key, value: displayValue, status: 'unchanged' };
+        return {
+          key: label,
+          value: `current: ${displayValue}`,
+          status: 'unchanged',
+        };
       }
       const result = await context.commands.run('defaults', writeArgs);
       if (result.code !== 0) {
         return {
-          key: entry.key,
-          value: displayValue,
+          key: label,
+          value: `wanted: ${displayValue}`,
           status: 'failed',
           error: formatCommandFailure(
             `defaults write failed for ${entry.domain} ${entry.key}`,
@@ -75,12 +80,17 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
           ),
         };
       }
-      return { key: entry.key, value: displayValue, status: 'changed' };
+      const previous = current.code === 0 ? current.stdout.trim() : 'not set';
+      return {
+        key: label,
+        value: `${previous} -> ${displayValue}`,
+        status: 'changed',
+      };
     },
     onError(error) {
       return {
-        key: entry.key,
-        value: displayValue,
+        key: label,
+        value: `wanted: ${displayValue}`,
         status: 'failed',
         error: errorMessage(error),
       };
@@ -91,10 +101,9 @@ function defaultsStep(entry: DefaultsEntry, context: Context): ReconcileStep {
 export const defaultsKind = manifestKind<DefaultsActivation, DefaultsEntry>({
   parse: parseDefaults,
   manifestLabel: 'Defaults config file',
-  describe: (activation) => ({
-    verb: 'apply',
-    source: manifestSource(activation.configKey),
-    dest: 'macOS defaults',
+  describe: () => ({
+    subject: 'macOS settings',
+    unchangedCollection: 'macOS settings',
   }),
   // Entries are unique per (domain, key) and each step is a handful of
   // independent `defaults` spawns serialized by cfprefsd, so the probe-heavy

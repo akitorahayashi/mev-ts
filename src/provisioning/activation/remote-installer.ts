@@ -19,14 +19,14 @@ import {
 } from './command';
 import type {
   Activation,
+  ActivationDescription,
   ActivationReport,
   ActivationRunOptions,
   CommandScope,
-  Described,
+  ReconcileItemResult,
   RemoteInstallerUpgrade,
-  StepReport,
 } from './contract';
-import { guarded } from './reconcile';
+import { activationReport, guarded } from './reconcile';
 
 type RemoteInstallerActivation = Extract<
   Activation,
@@ -41,11 +41,9 @@ export function remoteInstaller(
 
 export function describeRemoteInstaller(
   activation: RemoteInstallerActivation,
-): Described {
+): ActivationDescription {
   return {
-    verb: 'run',
-    source: activation.label,
-    dest: symbolic(activation.creates),
+    subject: activation.label,
   };
 }
 
@@ -193,10 +191,10 @@ async function probeUpgradeVersion(
 }
 
 function classifyUpgrade(
-  entry: StepReport,
+  entry: ReconcileItemResult,
   before: string,
   after: VersionProbeResult,
-): StepReport {
+): ReconcileItemResult {
   if (after.version === undefined) {
     return {
       ...entry,
@@ -235,7 +233,19 @@ export async function runRemoteInstaller(
       : await installerSatisfied(activation, context, scope);
     if (satisfied) {
       if (upgrade && before?.version !== undefined) {
-        const entry = await runCommandStep(upgrade, bindings, context);
+        const entry = await runCommandStep(
+          {
+            ...upgrade,
+            report: upgrade.report ?? {
+              kind: 'reconcile',
+              subject: upgrade.label,
+              changed: 'updated',
+              unchanged: 'already latest',
+            },
+          },
+          bindings,
+          context,
+        );
         if (
           entry.status === 'failed' &&
           upgrade.blockedWhen &&
@@ -253,7 +263,13 @@ export async function runRemoteInstaller(
         );
         return { ...base, status: classified.status, entries: [classified] };
       }
-      return { ...base, status: 'unchanged' };
+      return activationReport(base, [
+        {
+          label: base.subject,
+          status: 'unchanged',
+          details: ['already installed and healthy'],
+        },
+      ]);
     }
     const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));
     await runWithCleanup(
@@ -279,6 +295,12 @@ export async function runRemoteInstaller(
     if (!(await installerSatisfied(activation, context, scope))) {
       throw unsatisfiedInstallerError(activation);
     }
-    return { ...base, status: 'changed' };
+    return activationReport(base, [
+      {
+        label: base.subject,
+        status: 'changed',
+        details: ['installed and post-install condition verified'],
+      },
+    ]);
   });
 }
