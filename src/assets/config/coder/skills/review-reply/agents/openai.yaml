@@ -1,0 +1,7 @@
+interface:
+  display_name: "Review Reply"
+  short_description: "レビュー指摘への修正に対する上司への返信を作成する"
+  default_prompt: "$review-reply を使用して差分に対する返信を作成してください。"
+
+policy:
+  allow_implicit_invocation: false

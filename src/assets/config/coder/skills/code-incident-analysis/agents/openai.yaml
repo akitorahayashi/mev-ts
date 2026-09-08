@@ -1,0 +1,7 @@
+interface:
+  display_name: "コード上の障害調査"
+  short_description: "障害のコード上の再現可否を判定し、必要な根本対応を説明する"
+  default_prompt: "$code-incident-analysis を使用して、この障害のコード上の再現可否と必要な根本対応を調査してください。"
+
+policy:
+  allow_implicit_invocation: false
