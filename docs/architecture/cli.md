@@ -13,7 +13,7 @@
 | Error class | Output | Exit behavior |
 |---|---|---|
 | `CommandLineError` / `UsageError` | Usage and the error on stdout | Command-line failure |
-| `AppError` or `ProvisioningError` | `<command>: <message>` on stderr | Exit code 1, without usage or a stack |
+| `AppError`, `ProvisioningError`, or `UpdateError` | `<error class>: <message>` on stderr | Exit code 1, without usage or a stack |
 | Pure renderer result | Renderer-owned output | No domain-error wrapper |
 
 The error hierarchy is defined in `src/errors.ts`; command routing and reporting

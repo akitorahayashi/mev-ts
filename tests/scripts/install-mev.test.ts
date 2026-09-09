@@ -65,6 +65,7 @@ test('installLocalMev installs a Bun-targeted JavaScript bundle', async () => {
       expect(invocations[build]?.args).toContain('--target');
       expect(invocations[build]?.args).toContain('bun');
       expect(invocations[build]?.args).not.toContain('--compile');
+      expect(invocations[build]?.args).toContain('MEV_BUILD_KIND="bundle"');
       expect(await readFile(dest, 'utf8')).toBe(
         '#!/usr/bin/env bun\nconsole.log("mev")\n',
       );

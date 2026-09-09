@@ -10,6 +10,7 @@ behavior.
 | `mev make <target...>` (`mk`) | Deploy selected roles, install missing packages, and activate them. |
 | `mev create` (`cr`) | Provision every registered non-optional target. |
 | `mev sync` (`s`) | Apply only stale non-optional targets. |
+| `mev update` | Install the latest mev release and then apply `sync`. |
 | `mev list` (`ls`) | List registered targets. |
 
 ```bash
@@ -17,6 +18,7 @@ mev make git
 mev make git shell
 mev create
 mev sync
+mev update
 ```
 
 Provisioning reports user-managed resources rather than internal config-file
@@ -45,6 +47,25 @@ mev does not invoke `brew update`.
 Upgrade does not change target signatures or widen sync selection. Pinned entries
 remain untouched, and a plain provisioning run installs and enables declared
 agent plugins without requiring upgrade mode.
+
+## Updating mev
+
+`mev update` resolves the latest published GitHub Release. The installed
+version comes from the running binary and the release version comes from its
+`v`-prefixed tag. A newer verified release replaces the installed command
+atomically; an equal version is also checked against the published SHA256 and
+reinstalled when its bytes differ. A locally newer version is kept rather than
+downgraded.
+
+After a successful check or replacement, `update` runs `sync` through the exact
+installed path. `mev update --upgrade` (`-u`) runs `sync --upgrade`; as with a
+direct sync invocation, this affects only targets already selected as stale. An
+update failure does not run the old binary's sync, while a sync failure keeps the
+new binary installed for a direct retry.
+
+Updates require an installed standalone release or the bundle installed by
+`bun run up`. Direct source execution through `bun e update` is rejected so a
+source file or the Bun runtime cannot be mistaken for the installed command.
 
 ## Repository workspace
 

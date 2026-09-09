@@ -31,3 +31,18 @@ test('full-environment commands reject stale profile arguments', async () => {
   expect(create.code).toBe(1);
   expect(create.stdout).toContain('$ mev create');
 });
+
+test('update exposes only the optional upgrade intent', async () => {
+  const result = await captureCommandLine(['update', '--help']);
+
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('$ mev update');
+  expect(result.stdout).toContain('-u,--upgrade');
+});
+
+test('update rejects positional arguments', async () => {
+  const result = await captureCommandLine(['update', 'extra']);
+
+  expect(result.code).toBe(1);
+  expect(result.stdout).toContain('$ mev update');
+});

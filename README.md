@@ -16,6 +16,17 @@ The script downloads the release binary for the host architecture, verifies its 
 mev --version
 ```
 
+Installed releases update and reconcile the environment in one command:
+
+```bash
+mev update
+mev update --upgrade
+```
+
+`update` resolves the latest published release, verifies and atomically replaces
+the installed command when needed, then runs `sync` from that exact path. The
+`--upgrade` form forwards the existing upgrade intent to `sync`.
+
 Homebrew is a prerequisite; `mev` installs packages through it but does not bootstrap it:
 
 ```bash
@@ -33,13 +44,14 @@ MEV_INSTALL_DIR="$HOME/.local/bin" bun run up
 mev --version
 ```
 
-`bun run up` is the local self-update path for a development clone. It regenerates the embedded asset registry, builds a Bun-targeted single-file JavaScript bundle, and installs it as `mev`. This replaces any previously installed standalone release binary at that path; the release installer remains the clean-install path for machines that do not yet have Bun. The full local verification task surface is in CONTRIBUTING.md.
+`bun run up` is the local installation path for a development clone. It regenerates the embedded asset registry, builds a Bun-targeted single-file JavaScript bundle, and installs it as `mev`. This replaces any previously installed standalone release binary at that path; the release installer remains the clean-install path for machines that do not yet have Bun. The full local verification task surface is in CONTRIBUTING.md.
 
 ## Usage
 
 ```bash
 mev create                      # Provision the full environment
 mev sync                        # Re-apply only what changed since the last run
+mev update                      # Install the latest release and then sync
 ```
 
-`create` runs every registered target except the optional ones through the deploy, package-install, and activation phases; `sync` re-scans the same targets and re-applies only the ones whose declared state or deployed assets changed. The complete command reference — `make`, `config`, `list`, `user`/`switch`, and the `md2pdf`/`pdf2md` conversion aliases — is in docs/usage.md. Provisioning mechanics are in docs/architecture/provisioning.md, the activation DSL in docs/architecture/activation.md; the `mev config` selection surfaces are in docs/config.md.
+`create` runs every registered target except the optional ones through the deploy, package-install, and activation phases; `sync` re-scans the same targets and re-applies only the ones whose declared state or deployed assets changed. The complete command reference — `make`, `sync`, `update`, `config`, `list`, `user`/`switch`, and the `md2pdf`/`pdf2md` conversion aliases — is in docs/usage.md. Provisioning mechanics are in docs/architecture/provisioning.md, the activation DSL in docs/architecture/activation.md; the `mev config` selection surfaces are in docs/config.md.

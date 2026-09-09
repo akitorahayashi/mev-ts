@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { argv } from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { isSemanticVersion } from '../src/semantic-version.js';
+
+export { isSemanticVersion };
 
 export function packageVersion(packageJsonText) {
   const parsed = JSON.parse(packageJsonText);
@@ -11,6 +14,11 @@ export function packageVersion(packageJsonText) {
     parsed.version.length === 0
   ) {
     throw new Error('package.json must contain a non-empty string version.');
+  }
+  if (!isSemanticVersion(parsed.version)) {
+    throw new Error(
+      'package.json version must be a canonical semantic version without a leading v.',
+    );
   }
   return parsed.version;
 }

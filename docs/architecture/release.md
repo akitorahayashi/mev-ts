@@ -31,3 +31,23 @@ resolution.
 | Temporary installer | Run with declared arguments, then remove the temporary workspace. |
 
 Targets use remote installers only for reviewed first-party HTTPS sources.
+
+## mev updates
+
+`package.json` is the version authority embedded into every mev build. Published
+tags are the same canonical semantic version prefixed by `v`, and release assets
+remain immutable.
+
+The updater resolves the latest tag, selects the existing darwin architecture
+asset, and downloads its adjacent SHA256 document. Version ordering decides
+whether to update, hold a locally newer command, or verify an equal version's
+bytes. A replacement is staged beside the destination and must pass both digest
+verification and its own `--version` probe before the atomic rename.
+
+Standalone builds identify their executable through the running process; the
+Bun-targeted development bundle identifies its entrypoint. Unbundled source
+execution has no install destination and cannot update. After resolution or
+replacement, the updater invokes the installed absolute path with `sync` and
+forwards explicit upgrade intent. A failed update leaves the previous command
+in place and does not sync; a failed sync leaves the verified updated command in
+place for retry.
