@@ -87,6 +87,8 @@ export async function buildBundle(options: BundleBuildOptions): Promise<void> {
     'build',
     resolve(options.projectRoot, 'src/main.ts'),
     ...(options.compile ? ['--compile'] : []),
+    '--define',
+    `MEV_BUILD_KIND=${JSON.stringify(options.compile ? 'standalone' : 'bundle')}`,
     // Playwright's regular Chrome path does not initialize its optional
     // BiDi-over-CDP mapper, which is not published with playwright-core.
     '--external',

@@ -22,6 +22,7 @@ import { ListCommand } from './list';
 import { MakeCommand } from './make';
 import { SwitchCommand } from './switch';
 import { SyncCommand } from './sync';
+import { UpdateCommand } from './update';
 import { UserHelpCommand, UserSetCommand, UserShowCommand } from './user';
 
 /**
@@ -34,6 +35,7 @@ export const commands: readonly CommandClass[] = [
   MakeCommand,
   CreateCommand,
   SyncCommand,
+  UpdateCommand,
   ConfigHelpCommand,
   ConfigAgentsCommand,
   ConfigSkillsCommand,

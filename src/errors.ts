@@ -13,6 +13,8 @@ import { hasCleanupError } from './host/cleanup-error';
  *   own domain failures (parsing/validating the identity store and its input).
  * - `ProvisioningError extends AppError` marks a failure in the provisioning or
  *   activation domain (deploy, package install, host commands, manifest parse).
+ * - `UpdateError extends AppError` marks release resolution, verification, and
+ *   self-replacement failures.
  *
  * Handlers catch the `AppError` base, so the `AppError`/`ProvisioningError`
  * split is documentary: it names the failing domain at the throw site rather
@@ -28,6 +30,8 @@ export class AppError extends Error {
 }
 
 export class ProvisioningError extends AppError {}
+
+export class UpdateError extends AppError {}
 
 function formatError(error: unknown, seen: Set<Error>): string {
   if (!(error instanceof Error)) return String(error);

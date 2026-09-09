@@ -50,7 +50,7 @@ function latestReleasePageUrl(repo: Repository): string {
   return `https://github.com/${repositoryPath(repo)}/releases/latest`;
 }
 
-function assetDownloadUrl(
+export function releaseAssetDownloadUrl(
   repo: Repository,
   tag: string,
   asset: string,
@@ -284,7 +284,7 @@ export async function fetchReleaseBinary(
   const asset = releaseAssetName(binary, arch);
   const label = `${binary.name} ${tag}`;
   await replaceFileAtomically(dest, async (tmp) => {
-    const url = assetDownloadUrl(binary.repo, tag, asset);
+    const url = releaseAssetDownloadUrl(binary.repo, tag, asset);
     await downloadOverHttps(context.commands, url, tmp, binary.name);
     await chmod(tmp, 0o755);
     const reported = await reportedVersion(tmp, label, context);

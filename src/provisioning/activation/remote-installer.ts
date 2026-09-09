@@ -2,6 +2,7 @@ import { chmod, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { statIfPresent } from '../../host/absence';
+import { parseSha256Document } from '../../host/checksum';
 import { runWithCleanup } from '../../host/cleanup-error';
 import { formatCommandFailure } from '../../host/command';
 import { runProcessStep } from '../../host/command-run';
@@ -47,16 +48,6 @@ export function describeRemoteInstaller(
   };
 }
 
-function parseSha256(raw: string, label: string): string {
-  const [hash] = raw.trim().split(/\s+/);
-  if (!hash || !/^[a-fA-F0-9]{64}$/.test(hash)) {
-    throw new ProvisioningError(
-      `Invalid SHA256 checksum document for ${label}.`,
-    );
-  }
-  return hash.toLowerCase();
-}
-
 async function verifyChecksum(
   activation: RemoteInstallerActivation,
   context: Context,
@@ -70,7 +61,7 @@ async function verifyChecksum(
     checksumPath,
     `${activation.label} checksum`,
   );
-  const expected = parseSha256(
+  const expected = parseSha256Document(
     await readFile(checksumPath, 'utf8'),
     activation.label,
   );
@@ -80,7 +71,7 @@ async function verifyChecksum(
     ['-a', '256', script],
     `shasum verification failed for ${activation.label}`,
   );
-  const actual = parseSha256(actualResult.stdout, activation.label);
+  const actual = parseSha256Document(actualResult.stdout, activation.label);
   if (actual !== expected) {
     throw new ProvisioningError(
       `SHA256 mismatch for ${activation.label}: expected ${expected}, got ${actual}.`,

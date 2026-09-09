@@ -35,6 +35,13 @@ without leaving intermediate files in the repository root.
 `bun run test:integration` runs the integration tests under `tests/`.
 Before each test command runs, the asset registry code is automatically generated. Test layer boundaries, fixture conventions, and CI layout are in docs/testing.md.
 
+## Release Version
+
+`package.json` is the release-version authority. A release commit contains a
+canonical semantic version, and its immutable tag is exactly that value prefixed
+with `v`. For example, version `0.2.0` is released from tag `v0.2.0`; the release
+workflow rejects a mismatch.
+
 ## Runtime Version
 
 The Bun version is fixed by the `packageManager` field in `package.json`.
