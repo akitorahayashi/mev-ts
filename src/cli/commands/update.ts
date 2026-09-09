@@ -15,19 +15,22 @@ function reportOutcome(command: UpdateCommand, outcome: MevUpdateOutcome) {
       command.context.stdout.write(
         `Updated mev ${outcome.previousVersion} -> ${outcome.version}.\n`,
       );
-      return;
+      break;
     case 'reinstalled':
       command.context.stdout.write(
         `Reinstalled mev ${outcome.version} from its published release.\n`,
       );
-      return;
+      break;
     case 'current':
       command.context.stdout.write(`mev ${outcome.version} is up to date.\n`);
-      return;
+      break;
     case 'ahead':
       command.context.stderr.write(
         `Warning: installed mev ${outcome.version} is newer than latest release ${outcome.latestVersion}; keeping it.\n`,
       );
+  }
+  if (outcome.cleanupWarning) {
+    command.context.stderr.write(`Warning: ${outcome.cleanupWarning}\n`);
   }
 }
 

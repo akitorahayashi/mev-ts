@@ -41,17 +41,20 @@ export type MevUpdateOutcome =
       readonly previousVersion: string;
       readonly version: string;
       readonly executablePath: string;
+      readonly cleanupWarning?: string;
     }
   | {
       readonly kind: 'reinstalled' | 'current';
       readonly version: string;
       readonly executablePath: string;
+      readonly cleanupWarning?: string;
     }
   | {
       readonly kind: 'ahead';
       readonly version: string;
       readonly latestVersion: string;
       readonly executablePath: string;
+      readonly cleanupWarning?: string;
     };
 
 export function mevReleaseAsset(arch: ReleaseArch, suffix = ''): string {
@@ -138,35 +141,49 @@ async function installRelease(
   version: string,
   asset: string,
   expectedSha256: string,
-): Promise<void> {
+  onCommit: () => void,
+): Promise<string | undefined> {
   const { context, executablePath } = options;
-  await replaceFileAtomically(executablePath, async (staged) => {
-    await downloadOverHttps(
-      context.commands,
-      releaseAssetDownloadUrl(MEV_RELEASE.repo, tag, asset),
-      staged,
-      `mev ${tag}`,
+  let committed = false;
+  try {
+    await replaceFileAtomically(
+      executablePath,
+      async (staged) => {
+        await downloadOverHttps(
+          context.commands,
+          releaseAssetDownloadUrl(MEV_RELEASE.repo, tag, asset),
+          staged,
+          `mev ${tag}`,
+        );
+        const actualSha256 = await sha256File(staged);
+        if (actualSha256 !== expectedSha256) {
+          throw new UpdateError(
+            `SHA256 mismatch for mev ${tag}: expected ${expectedSha256}, got ${actualSha256}.`,
+          );
+        }
+        await chmod(staged, 0o755);
+        const probe = await context.commands.run(staged, ['--version']);
+        if (probe.code !== 0) {
+          throw new UpdateError(
+            formatCommandFailure(`mev ${tag} version probe failed`, probe),
+          );
+        }
+        const reported = probe.stdout.trim();
+        if (reported !== version) {
+          throw new UpdateError(
+            `mev ${tag} reports version '${reported}', expected '${version}'.`,
+          );
+        }
+      },
+      () => {
+        committed = true;
+        onCommit();
+      },
     );
-    const actualSha256 = await sha256File(staged);
-    if (actualSha256 !== expectedSha256) {
-      throw new UpdateError(
-        `SHA256 mismatch for mev ${tag}: expected ${expectedSha256}, got ${actualSha256}.`,
-      );
-    }
-    await chmod(staged, 0o755);
-    const probe = await context.commands.run(staged, ['--version']);
-    if (probe.code !== 0) {
-      throw new UpdateError(
-        formatCommandFailure(`mev ${tag} version probe failed`, probe),
-      );
-    }
-    const reported = probe.stdout.trim();
-    if (reported !== version) {
-      throw new UpdateError(
-        `mev ${tag} reports version '${reported}', expected '${version}'.`,
-      );
-    }
-  });
+  } catch (error) {
+    if (!committed) throw error;
+    return `The updated mev command was installed, but cleanup failed: ${errorMessage(error)}`;
+  }
 }
 
 async function updateMevUnchecked(
@@ -188,45 +205,76 @@ async function updateMevUnchecked(
   const arch = await detectArch(context);
   const asset = mevReleaseAsset(arch);
   const workspace = await mkdtemp(join(context.tmpRoot, 'mev-update-'));
-  return runWithCleanup(
-    async () => {
-      const checksumPath = join(workspace, `${asset}.sha256`);
-      await downloadOverHttps(
-        context.commands,
-        releaseAssetDownloadUrl(
-          MEV_RELEASE.repo,
+  let committed = false;
+  let result: MevUpdateOutcome | undefined;
+  try {
+    await runWithCleanup(
+      async () => {
+        const checksumPath = join(workspace, `${asset}.sha256`);
+        await downloadOverHttps(
+          context.commands,
+          releaseAssetDownloadUrl(
+            MEV_RELEASE.repo,
+            tag,
+            mevReleaseAsset(arch, '.sha256'),
+          ),
+          checksumPath,
+          `mev ${tag} checksum`,
+        );
+        const expectedSha256 = parseSha256Document(
+          await readFile(checksumPath, 'utf8'),
+          `mev ${tag}`,
+          (message) => new UpdateError(message),
+        );
+
+        if (
+          relation === 'same' &&
+          (await sha256File(executablePath)) === expectedSha256
+        ) {
+          result = { kind: 'current', version, executablePath };
+          return result;
+        }
+
+        const cleanupWarning = await installRelease(
+          options,
           tag,
-          mevReleaseAsset(arch, '.sha256'),
-        ),
-        checksumPath,
-        `mev ${tag} checksum`,
-      );
-      const expectedSha256 = parseSha256Document(
-        await readFile(checksumPath, 'utf8'),
-        `mev ${tag}`,
-        (message) => new UpdateError(message),
-      );
-
-      if (
-        relation === 'same' &&
-        (await sha256File(executablePath)) === expectedSha256
-      ) {
-        return { kind: 'current', version, executablePath };
-      }
-
-      await installRelease(options, tag, version, asset, expectedSha256);
-      return relation === 'newer'
-        ? {
-            kind: 'updated',
-            previousVersion: currentVersion,
-            version,
-            executablePath,
-          }
-        : { kind: 'reinstalled', version, executablePath };
-    },
-    () => rm(workspace, { force: true, recursive: true }),
-    `Failed to clean up mev update workspace ${workspace}.`,
-  );
+          version,
+          asset,
+          expectedSha256,
+          () => {
+            committed = true;
+          },
+        );
+        const baseOutcome: MevUpdateOutcome =
+          relation === 'newer'
+            ? {
+                kind: 'updated',
+                previousVersion: currentVersion,
+                version,
+                executablePath,
+              }
+            : { kind: 'reinstalled', version, executablePath };
+        result = cleanupWarning
+          ? { ...baseOutcome, cleanupWarning }
+          : baseOutcome;
+        return result;
+      },
+      () => rm(workspace, { force: true, recursive: true }),
+      `Failed to clean up mev update workspace ${workspace}.`,
+    );
+    return result as MevUpdateOutcome;
+  } catch (error) {
+    if (!committed || !result) throw error;
+    return {
+      ...result,
+      cleanupWarning: [
+        result.cleanupWarning,
+        `The updated mev command was installed, but cleanup failed: ${errorMessage(error)}`,
+      ]
+        .filter((warning): warning is string => warning !== undefined)
+        .join('; '),
+    };
+  }
 }
 
 export async function updateMev(

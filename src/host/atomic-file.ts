@@ -38,6 +38,7 @@ export async function writeFileIfChanged(
 export async function replaceFileAtomically(
   path: string,
   writeTemp: (tmp: string) => Promise<void>,
+  onCommit?: () => void,
 ): Promise<void> {
   const transaction = await transactionDirectory(path);
   const tmp = join(transaction, 'file');
@@ -45,6 +46,7 @@ export async function replaceFileAtomically(
     async () => {
       await writeTemp(tmp);
       await rename(tmp, path);
+      onCommit?.();
     },
     () => rm(transaction, { force: true, recursive: true }),
     `Failed to clean up temporary file transaction for ${path}.`,
