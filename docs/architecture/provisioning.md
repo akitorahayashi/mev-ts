@@ -46,3 +46,9 @@ failures, and a retry command.
 support latest-assumed values and upgrades the selected targets' installed
 Homebrew formulae and casks. It never invokes `brew update`, changes target
 signatures, or widens the target selection made by `sync`.
+
+Homebrew upgrade outcomes compare its installed-version inventory before and
+after the upgrade phase. A changed version set reports `changed`; an equal set
+reports `unchanged`. Formulae and casks are probed in per-kind batches through
+Homebrew's JSON v2 interface. A missing or invalid version observation fails the
+affected package rather than treating an unobserved upgrade as successful.

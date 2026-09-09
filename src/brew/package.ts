@@ -49,6 +49,8 @@ export function mergePackages(
 
 export type PackageKind = 'tap' | 'formula' | 'cask';
 
+export type UpgradeablePackageKind = Exclude<PackageKind, 'tap'>;
+
 export interface PackageToken {
   readonly kind: PackageKind;
   readonly name: string;

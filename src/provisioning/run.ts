@@ -176,7 +176,10 @@ async function runDeployPhase(
 function computeBlockers(
   group: Target,
   failedRoles: ReadonlyMap<string, string>,
-  failedPackages: readonly InstallReport[],
+  failedPackages: readonly Extract<
+    InstallReport,
+    { readonly status: 'failed' }
+  >[],
 ): ActivationBlocker[] {
   const blockers: ActivationBlocker[] = [];
   const deployError = failedRoles.get(group.role);
@@ -191,7 +194,7 @@ function computeBlockers(
       blockers.push({
         kind: 'package',
         token: failedPackage.token,
-        error: failedPackage.error ?? 'unknown error',
+        error: failedPackage.error,
       });
     }
   }
@@ -244,7 +247,10 @@ export async function runMake(
       request.onEvent?.({ type: 'package-start', token, action }),
     onTick: (token) => request.onEvent?.({ type: 'package-tick', token }),
   });
-  const failedPackages = install.filter((r) => r.status === 'failed');
+  const failedPackages = install.filter(
+    (report): report is Extract<InstallReport, { readonly status: 'failed' }> =>
+      report.status === 'failed',
+  );
   request.onEvent?.({ type: 'package-phase-complete', reports: install });
 
   const groups: ActivationGroupReport[] = [];
