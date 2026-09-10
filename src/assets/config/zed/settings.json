@@ -5,6 +5,7 @@
     "dark": "Tokyo Night"
   },
   "base_keymap": "VSCode",
+  "auto_update": false,
   "format_on_save": "off",
   "tab_size": 2,
   "hard_tabs": false,

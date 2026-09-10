@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
 import { runActivation, runCommand } from '../../src/provisioning/activation';
-import { ok } from '../fixtures/fake-command-runner';
+import { fail, ok } from '../fixtures/fake-command-runner';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
@@ -51,6 +51,42 @@ test('reads inject asset values and captures feed later steps', async () => {
 
   expect(report.status).toBe('changed');
   expect(calls[1]?.args).toEqual(['3.3.3', '/opt/homebrew']);
+});
+
+test('a failed capture fails the activation and stops the pipeline', async () => {
+  const { context, calls } = recordingContext({
+    home: '/home/u',
+    respond: (command) =>
+      command === 'brew' ? fail('prefix unavailable') : ok(),
+  });
+  const activation = runCommand({
+    label: 'demo',
+    steps: [
+      {
+        label: 'brew prefix',
+        argv: ['brew', '--prefix'],
+        capture: 'prefix',
+        changedWhen: 'never',
+      },
+      {
+        label: 'install',
+        argv: ['install', { ref: 'prefix' }],
+      },
+    ],
+  });
+
+  const report = await runActivation(activation, context);
+
+  expect(report.status).toBe('failed');
+  expect(report.entries).toEqual([
+    {
+      key: 'brew prefix',
+      value: 'brew --prefix',
+      status: 'failed',
+      error: 'prefix unavailable',
+    },
+  ]);
+  expect(calls.map((call) => call.command)).toEqual(['brew']);
 });
 
 test('home and basePath resolve as reserved scope references', async () => {

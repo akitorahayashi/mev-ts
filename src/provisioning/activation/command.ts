@@ -320,7 +320,7 @@ export async function runCommandActivation(
 
     for (const step of activation.steps) {
       const report = await runCommandStep(step, bindings, context);
-      if (!step.capture) entries.push(report);
+      if (!step.capture || report.status === 'failed') entries.push(report);
       if (report.status === 'failed') break;
     }
 
