@@ -18,6 +18,7 @@ export type KindVersionInventory =
   | {
       readonly loaded: true;
       readonly versions: ReadonlyMap<string, readonly string[]>;
+      readonly errors: ReadonlyMap<string, string>;
     }
   | { readonly loaded: false; readonly error: string };
 
@@ -37,6 +38,7 @@ const unprobed: KindInventory = { loaded: true, names: new Set() };
 const unprobedVersions: KindVersionInventory = {
   loaded: true,
   versions: new Map(),
+  errors: new Map(),
 };
 
 function parseNames(stdout: string): ReadonlySet<string> {
@@ -94,10 +96,59 @@ function normalizedVersions(versions: readonly string[]): readonly string[] {
   );
 }
 
-function installedVersionMap(
+type ParsedVersions =
+  | { readonly versions: readonly string[] }
+  | { readonly error: string };
+
+function formulaInstalledVersions(
+  installed: unknown,
+  name: string,
+  label: string,
+): ParsedVersions {
+  if (!Array.isArray(installed)) {
+    return {
+      error: `Invalid ${label}: installed versions for formula '${name}' must be an array.`,
+    };
+  }
+  const versions: string[] = [];
+  for (const [index, value] of installed.entries()) {
+    if (!isRecord(value)) {
+      return {
+        error: `Invalid ${label}: installed[${index}] for formula '${name}' must be an object.`,
+      };
+    }
+    const version = value['version'];
+    if (typeof version !== 'string' || version.trim() === '') {
+      return {
+        error: `Invalid ${label}: installed[${index}].version for formula '${name}' must be a non-empty string.`,
+      };
+    }
+    versions.push(version.trim());
+  }
+  return { versions: normalizedVersions(versions) };
+}
+
+function caskInstalledVersions(
+  installed: unknown,
+  name: string,
+  label: string,
+): ParsedVersions {
+  if (installed === null) return { versions: [] };
+  if (typeof installed !== 'string' || installed.trim() === '') {
+    return {
+      error: `Invalid ${label}: installed version for cask '${name}' must be a non-empty string or null.`,
+    };
+  }
+  return { versions: [installed.trim()] };
+}
+
+function installedVersionMaps(
   stdout: string,
   kind: UpgradeablePackageKind,
-): ReadonlyMap<string, readonly string[]> {
+): {
+  readonly versions: ReadonlyMap<string, readonly string[]>;
+  readonly errors: ReadonlyMap<string, string>;
+} {
   const label = `brew info --json=v2 --${kind} output`;
   const data = parseJsonLabeled(stdout, label);
   if (!isRecord(data)) {
@@ -112,6 +163,7 @@ function installedVersionMap(
   }
 
   const versions = new Map<string, readonly string[]>();
+  const errors = new Map<string, string>();
   for (const [index, entry] of collection.entries()) {
     if (!isRecord(entry)) {
       throw new ProvisioningError(
@@ -119,55 +171,31 @@ function installedVersionMap(
       );
     }
     const nameField = kind === 'formula' ? 'name' : 'token';
-    const name = entry[nameField];
-    if (typeof name !== 'string' || name.trim() === '') {
+    const reportedName = entry[nameField];
+    if (typeof reportedName !== 'string' || reportedName.trim() === '') {
       throw new ProvisioningError(
         `Invalid ${label}: ${collectionName}[${index}].${nameField} must be a non-empty string.`,
       );
     }
-    if (versions.has(name)) {
-      throw new ProvisioningError(
-        `Invalid ${label}: duplicate ${kind} '${name}'.`,
-      );
+    const name = reportedName.trim();
+    if (versions.has(name) || errors.has(name)) {
+      versions.delete(name);
+      errors.set(name, `Invalid ${label}: duplicate ${kind} '${name}'.`);
+      continue;
     }
 
     const installed = entry['installed'];
-    if (kind === 'formula') {
-      if (!Array.isArray(installed)) {
-        throw new ProvisioningError(
-          `Invalid ${label}: installed versions for formula '${name}' must be an array.`,
-        );
-      }
-      const formulaVersions = installed.map((value, installedIndex) => {
-        if (!isRecord(value)) {
-          throw new ProvisioningError(
-            `Invalid ${label}: installed[${installedIndex}] for formula '${name}' must be an object.`,
-          );
-        }
-        const version = value['version'];
-        if (typeof version !== 'string' || version.trim() === '') {
-          throw new ProvisioningError(
-            `Invalid ${label}: installed[${installedIndex}].version for formula '${name}' must be a non-empty string.`,
-          );
-        }
-        return version.trim();
-      });
-      versions.set(name, normalizedVersions(formulaVersions));
-      continue;
+    const parsed =
+      kind === 'formula'
+        ? formulaInstalledVersions(installed, name, label)
+        : caskInstalledVersions(installed, name, label);
+    if ('error' in parsed) {
+      errors.set(name, parsed.error);
+    } else {
+      versions.set(name, parsed.versions);
     }
-
-    if (installed === null) {
-      versions.set(name, []);
-      continue;
-    }
-    if (typeof installed !== 'string' || installed.trim() === '') {
-      throw new ProvisioningError(
-        `Invalid ${label}: installed version for cask '${name}' must be a non-empty string or null.`,
-      );
-    }
-    versions.set(name, [installed.trim()]);
   }
-  return versions;
+  return { versions, errors };
 }
 
 async function enumerateInstalledVersions(
@@ -184,10 +212,8 @@ async function enumerateInstalledVersions(
         error: formatCommandFailure(`brew ${args.join(' ')} failed`, result),
       };
     }
-    return {
-      loaded: true,
-      versions: installedVersionMap(result.stdout, kind),
-    };
+    const parsed = installedVersionMaps(result.stdout, kind);
+    return { loaded: true, ...parsed };
   } catch (error) {
     return { loaded: false, error: errorMessage(error) };
   }

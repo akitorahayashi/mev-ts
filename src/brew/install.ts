@@ -123,6 +123,20 @@ async function upgrade(
   );
 }
 
+async function installMissingPackage(
+  token: PackageToken,
+  context: Context,
+  options: InstallOptions,
+): Promise<InstallReport> {
+  try {
+    options.onTokenStart?.(token, 'install');
+    await install(context, brewfileLine(token), token.name);
+    return { token, status: 'installed' };
+  } catch (error) {
+    return { token, status: 'failed', error: errorMessage(error) };
+  }
+}
+
 function upgradeCandidates(
   req: PackageRequirement,
   inventory: Awaited<ReturnType<typeof loadInventory>>,
@@ -191,28 +205,35 @@ export async function installPackages(
   if (list.length === 0) return [];
 
   const inventory = await loadInventory(req, context);
+  const reports: Array<InstallReport | PendingUpgrade> = [];
+  for (const token of list) {
+    if (token.kind !== 'tap') continue;
+    const report = !inventory.tap.loaded
+      ? { token, status: 'failed' as const, error: inventory.tap.error }
+      : inventory.tap.names.has(token.name)
+        ? { token, status: 'present' as const }
+        : await installMissingPackage(token, context, options);
+    reports.push(report);
+    options.onTick?.(token);
+  }
+
   const before = await loadInstalledVersions(
     upgradeCandidates(req, inventory, options.upgrade === true),
     context,
   );
 
-  const reports: Array<InstallReport | PendingUpgrade> = [];
   for (const token of list) {
+    if (token.kind === 'tap') continue;
     const installed = inventory[token.kind];
     let report: InstallReport | PendingUpgrade;
     if (!installed.loaded) {
       report = { token, status: 'failed', error: installed.error };
     } else {
       const isInstalled = installed.names.has(token.name);
-      const isUpgrade =
-        isInstalled && options.upgrade === true && token.kind !== 'tap';
+      const isUpgrade = isInstalled && options.upgrade === true;
       if (isInstalled && !isUpgrade) {
         report = { token, status: 'present' };
-      } else if (
-        isInstalled &&
-        options.upgrade === true &&
-        token.kind !== 'tap'
-      ) {
+      } else if (isUpgrade) {
         const upgradeToken: PendingUpgrade['token'] = {
           kind: token.kind,
           name: token.name,
@@ -221,10 +242,13 @@ export async function installPackages(
         if (!versionInventory.loaded) {
           report = probeFailure('before', upgradeToken, versionInventory.error);
         } else {
+          const versionError = versionInventory.errors.get(upgradeToken.name);
           const previousVersions = versionInventory.versions.get(
             upgradeToken.name,
           );
-          if (!previousVersions || previousVersions.length === 0) {
+          if (versionError) {
+            report = probeFailure('before', upgradeToken, versionError);
+          } else if (!previousVersions || previousVersions.length === 0) {
             report = {
               token: upgradeToken,
               status: 'failed',
@@ -249,21 +273,11 @@ export async function installPackages(
           }
         }
       } else {
-        try {
-          options.onTokenStart?.(token, 'install');
-          await install(context, brewfileLine(token), token.name);
-          report = { token, status: 'installed' };
-        } catch (error) {
-          report = {
-            token,
-            status: 'failed',
-            error: errorMessage(error),
-          };
-        }
+        report = await installMissingPackage(token, context, options);
       }
     }
     reports.push(report);
-    options.onTick?.(token);
+    if (report.status !== 'upgrade-pending') options.onTick?.(token);
   }
 
   const pending = reports.filter(
@@ -282,11 +296,15 @@ export async function installPackages(
     context,
   );
 
-  return reports.map((report): InstallReport => {
+  const settled = reports.map((report): InstallReport => {
     if (report.status !== 'upgrade-pending') return report;
     const versionInventory = after[report.token.kind];
     if (!versionInventory.loaded) {
       return probeFailure('after', report.token, versionInventory.error);
+    }
+    const versionError = versionInventory.errors.get(report.token.name);
+    if (versionError) {
+      return probeFailure('after', report.token, versionError);
     }
     const versions = versionInventory.versions.get(report.token.name);
     if (!versions || versions.length === 0) {
@@ -305,4 +323,6 @@ export async function installPackages(
           versions,
         };
   });
+  for (const report of pending) options.onTick?.(report.token);
+  return settled;
 }

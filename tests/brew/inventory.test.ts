@@ -178,10 +178,12 @@ test('reads and normalizes formula and cask versions from JSON v2', async () => 
   expect(inventory.formula).toEqual({
     loaded: true,
     versions: new Map([['git', ['2.50.0', '2.51.0']]]),
+    errors: new Map(),
   });
   expect(inventory.cask).toEqual({
     loaded: true,
     versions: new Map([['zed', ['1.17.2']]]),
+    errors: new Map(),
   });
 });
 
@@ -194,15 +196,52 @@ test('does not probe versions for empty kinds', async () => {
   const inventory = await loadInstalledVersions(packages(), context);
 
   expect(calls).toEqual([]);
-  expect(inventory.formula).toEqual({ loaded: true, versions: new Map() });
-  expect(inventory.cask).toEqual({ loaded: true, versions: new Map() });
+  expect(inventory.formula).toEqual({
+    loaded: true,
+    versions: new Map(),
+    errors: new Map(),
+  });
+  expect(inventory.cask).toEqual({
+    loaded: true,
+    versions: new Map(),
+    errors: new Map(),
+  });
 });
 
-test('carries malformed version inventory as a per-kind error', async () => {
+test('isolates a malformed named entry from valid package versions', async () => {
   const { context } = recordingContext({
     home: '/sandbox',
     assets: emptyAssets,
-    respond: () => listed(JSON.stringify({ formulae: [{ name: 'git' }] })),
+    respond: () =>
+      listed(
+        JSON.stringify({
+          formulae: [
+            { name: 'git' },
+            { name: 'gh', installed: [{ version: '2.80.0' }] },
+          ],
+        }),
+      ),
+  });
+
+  const inventory = await loadInstalledVersions(
+    packages({ formulae: ['git', 'gh'] }),
+    context,
+  );
+
+  expect(inventory.formula.loaded).toBe(true);
+  if (inventory.formula.loaded) {
+    expect(inventory.formula.versions).toEqual(new Map([['gh', ['2.80.0']]]));
+    expect(inventory.formula.errors.get('git')).toContain(
+      "installed versions for formula 'git' must be an array",
+    );
+  }
+});
+
+test('carries an invalid collection as a per-kind error', async () => {
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => listed(JSON.stringify({ formulae: {} })),
   });
 
   const inventory = await loadInstalledVersions(
@@ -210,10 +249,9 @@ test('carries malformed version inventory as a per-kind error', async () => {
     context,
   );
 
-  expect(inventory.formula.loaded).toBe(false);
-  if (!inventory.formula.loaded) {
-    expect(inventory.formula.error).toContain(
-      "installed versions for formula 'git' must be an array",
-    );
-  }
+  expect(inventory.formula).toEqual({
+    loaded: false,
+    error:
+      'Invalid brew info --json=v2 --formula output: formulae must be an array.',
+  });
 });
