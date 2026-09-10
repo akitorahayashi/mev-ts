@@ -4,28 +4,48 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { runWithCleanup } from '../host/cleanup-error';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
-import { loadInventory } from './inventory';
 import {
-  type PackageKind,
+  type KindInventory,
+  loadInstalledVersions,
+  loadInventory,
+} from './inventory';
+import {
   type PackageRequirement,
   type PackageToken,
   tokens,
+  type UpgradeablePackageKind,
 } from './package';
-
-export type InstallStatus =
-  | 'installed'
-  | 'present'
-  | 'upgrade-applied'
-  | 'failed';
 
 export type InstallAction = 'install' | 'upgrade';
 
-type UpgradeablePackageKind = Exclude<PackageKind, 'tap'>;
+export type InstallReport =
+  | {
+      readonly token: PackageToken;
+      readonly status: 'installed' | 'present';
+    }
+  | {
+      readonly token: PackageToken;
+      readonly status: 'upgraded';
+      readonly previousVersions: readonly string[];
+      readonly versions: readonly string[];
+    }
+  | {
+      readonly token: PackageToken;
+      readonly status: 'upgrade-current';
+      readonly versions: readonly string[];
+    }
+  | {
+      readonly token: PackageToken;
+      readonly status: 'failed';
+      readonly error: string;
+    };
 
-export interface InstallReport {
-  readonly token: PackageToken;
-  readonly status: InstallStatus;
-  readonly error?: string;
+export type InstallStatus = InstallReport['status'];
+
+interface PendingUpgrade {
+  readonly token: PackageToken & { readonly kind: UpgradeablePackageKind };
+  readonly status: 'upgrade-pending';
+  readonly previousVersions: readonly string[];
 }
 
 export interface InstallOptions {
@@ -103,6 +123,69 @@ async function upgrade(
   );
 }
 
+async function installMissingPackage(
+  token: PackageToken,
+  context: Context,
+  options: InstallOptions,
+): Promise<InstallReport> {
+  try {
+    options.onTokenStart?.(token, 'install');
+    await install(context, brewfileLine(token), token.name);
+    return { token, status: 'installed' };
+  } catch (error) {
+    return { token, status: 'failed', error: errorMessage(error) };
+  }
+}
+
+function upgradeCandidates(
+  req: PackageRequirement,
+  inventory: Awaited<ReturnType<typeof loadInventory>>,
+  enabled: boolean,
+): PackageRequirement {
+  if (!enabled) return { taps: [], formulae: [], casks: [] };
+  const installedCandidates = (
+    names: readonly string[],
+    kindInventory: KindInventory,
+  ): string[] =>
+    kindInventory.loaded
+      ? names.filter((name) => kindInventory.names.has(name))
+      : [];
+  return {
+    taps: [],
+    formulae: installedCandidates(req.formulae, inventory.formula),
+    casks: installedCandidates(req.casks, inventory.cask),
+  };
+}
+
+function missingVersionError(
+  phase: 'pre-upgrade' | 'post-upgrade',
+  token: PackageToken,
+): string {
+  return `Homebrew ${phase} inventory did not report an installed version for ${token.kind} ${token.name}.`;
+}
+
+function probeFailure(
+  phase: 'before' | 'after',
+  token: PackageToken,
+  error: string,
+): InstallReport {
+  return {
+    token,
+    status: 'failed',
+    error: `Could not verify the installed version for ${token.kind} ${token.name} ${phase} upgrade: ${error}`,
+  };
+}
+
+function sameVersions(
+  before: readonly string[],
+  after: readonly string[],
+): boolean {
+  return (
+    before.length === after.length &&
+    before.every((version, index) => version === after[index])
+  );
+}
+
 /**
  * Resolve every required package as a batch. Installed state is enumerated
  * once up front (see loadInventory), so present tokens resolve as in-memory
@@ -122,43 +205,124 @@ export async function installPackages(
   if (list.length === 0) return [];
 
   const inventory = await loadInventory(req, context);
-
-  const reports: InstallReport[] = [];
+  const reports: Array<InstallReport | PendingUpgrade> = [];
   for (const token of list) {
+    if (token.kind !== 'tap') continue;
+    const report = !inventory.tap.loaded
+      ? { token, status: 'failed' as const, error: inventory.tap.error }
+      : inventory.tap.names.has(token.name)
+        ? { token, status: 'present' as const }
+        : await installMissingPackage(token, context, options);
+    reports.push(report);
+    options.onTick?.(token);
+  }
+
+  const before = await loadInstalledVersions(
+    upgradeCandidates(req, inventory, options.upgrade === true),
+    context,
+  );
+
+  for (const token of list) {
+    if (token.kind === 'tap') continue;
     const installed = inventory[token.kind];
-    let report: InstallReport;
+    let report: InstallReport | PendingUpgrade;
     if (!installed.loaded) {
       report = { token, status: 'failed', error: installed.error };
     } else {
       const isInstalled = installed.names.has(token.name);
-      const isUpgrade =
-        isInstalled && options.upgrade === true && token.kind !== 'tap';
+      const isUpgrade = isInstalled && options.upgrade === true;
       if (isInstalled && !isUpgrade) {
         report = { token, status: 'present' };
-      } else {
-        try {
-          const action: InstallAction = isUpgrade ? 'upgrade' : 'install';
-          options.onTokenStart?.(token, action);
-          if (isUpgrade) {
-            await upgrade(context, token.kind, token.name);
+      } else if (isUpgrade) {
+        const upgradeToken: PendingUpgrade['token'] = {
+          kind: token.kind,
+          name: token.name,
+        };
+        const versionInventory = before[upgradeToken.kind];
+        if (!versionInventory.loaded) {
+          report = probeFailure('before', upgradeToken, versionInventory.error);
+        } else {
+          const versionError = versionInventory.errors.get(upgradeToken.name);
+          const previousVersions = versionInventory.versions.get(
+            upgradeToken.name,
+          );
+          if (versionError) {
+            report = probeFailure('before', upgradeToken, versionError);
+          } else if (!previousVersions || previousVersions.length === 0) {
+            report = {
+              token: upgradeToken,
+              status: 'failed',
+              error: missingVersionError('pre-upgrade', upgradeToken),
+            };
           } else {
-            await install(context, brewfileLine(token), token.name);
+            try {
+              options.onTokenStart?.(upgradeToken, 'upgrade');
+              await upgrade(context, upgradeToken.kind, upgradeToken.name);
+              report = {
+                token: upgradeToken,
+                status: 'upgrade-pending',
+                previousVersions,
+              };
+            } catch (error) {
+              report = {
+                token: upgradeToken,
+                status: 'failed',
+                error: errorMessage(error),
+              };
+            }
           }
-          report = {
-            token,
-            status: action === 'install' ? 'installed' : 'upgrade-applied',
-          };
-        } catch (error) {
-          report = {
-            token,
-            status: 'failed',
-            error: errorMessage(error),
-          };
         }
+      } else {
+        report = await installMissingPackage(token, context, options);
       }
     }
     reports.push(report);
-    options.onTick?.(token);
+    if (report.status !== 'upgrade-pending') options.onTick?.(token);
   }
-  return reports;
+
+  const pending = reports.filter(
+    (report): report is PendingUpgrade => report.status === 'upgrade-pending',
+  );
+  const after = await loadInstalledVersions(
+    {
+      taps: [],
+      formulae: pending
+        .filter((report) => report.token.kind === 'formula')
+        .map((report) => report.token.name),
+      casks: pending
+        .filter((report) => report.token.kind === 'cask')
+        .map((report) => report.token.name),
+    },
+    context,
+  );
+
+  const settled = reports.map((report): InstallReport => {
+    if (report.status !== 'upgrade-pending') return report;
+    const versionInventory = after[report.token.kind];
+    if (!versionInventory.loaded) {
+      return probeFailure('after', report.token, versionInventory.error);
+    }
+    const versionError = versionInventory.errors.get(report.token.name);
+    if (versionError) {
+      return probeFailure('after', report.token, versionError);
+    }
+    const versions = versionInventory.versions.get(report.token.name);
+    if (!versions || versions.length === 0) {
+      return {
+        token: report.token,
+        status: 'failed',
+        error: missingVersionError('post-upgrade', report.token),
+      };
+    }
+    return sameVersions(report.previousVersions, versions)
+      ? { token: report.token, status: 'upgrade-current', versions }
+      : {
+          token: report.token,
+          status: 'upgraded',
+          previousVersions: report.previousVersions,
+          versions,
+        };
+  });
+  for (const report of pending) options.onTick?.(report.token);
+  return settled;
 }

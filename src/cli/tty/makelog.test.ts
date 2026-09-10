@@ -94,19 +94,49 @@ test('target report keeps failures individual', () => {
   expect(rendered).toContain('current   1 other macOS settings');
 });
 
-test('package report distinguishes applied upgrades from observed changes', () => {
+test('package report shows observed upgrades and current upgrade targets', () => {
   const rendered = renderPackageReport(
     [
       { token: { kind: 'formula', name: 'uv' }, status: 'installed' },
-      { token: { kind: 'formula', name: 'git' }, status: 'upgrade-applied' },
+      {
+        token: { kind: 'formula', name: 'git' },
+        status: 'upgraded',
+        previousVersions: ['2.50.0'],
+        versions: ['2.51.0'],
+      },
+      {
+        token: { kind: 'formula', name: 'rtk' },
+        status: 'upgrade-current',
+        versions: ['0.46.0'],
+      },
       { token: { kind: 'cask', name: 'zed' }, status: 'present' },
     ],
     { isTTY: false },
   );
 
   expect(rendered).toContain('changed   formula uv — installed');
-  expect(rendered).toContain('applied   formula git');
+  expect(rendered).toContain('changed   formula git — 2.50.0 -> 2.51.0');
+  expect(rendered).toContain(
+    'current   formula rtk — already current (0.46.0)',
+  );
   expect(rendered).toContain('current   1 other packages');
+  expect(rendered).not.toContain('applied');
+});
+
+test('package report brackets multiple installed versions', () => {
+  const rendered = renderPackageReport(
+    [
+      {
+        token: { kind: 'formula', name: 'openssl@3' },
+        status: 'upgraded',
+        previousVersions: ['3.5.0', '3.5.1'],
+        versions: ['3.6.0'],
+      },
+    ],
+    { isTTY: false },
+  );
+
+  expect(rendered).toContain('[3.5.0, 3.5.1] -> 3.6.0');
 });
 
 test('final report summarizes outcomes and provides a retry', () => {

@@ -626,6 +626,13 @@ sandboxTest(
       respond(command, args) {
         if (command !== 'brew') return ok();
         if (args[0] === 'list') return ok('gh\n');
+        if (args[0] === 'info') {
+          return ok(
+            JSON.stringify({
+              formulae: [{ name: 'gh', installed: [{ version: '2.80.0' }] }],
+            }),
+          );
+        }
         return ok();
       },
     });

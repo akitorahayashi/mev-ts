@@ -140,11 +140,21 @@ function packageOutcome(report: InstallReport): ResourceOutcome {
   switch (report.status) {
     case 'installed':
       return { label, status: 'changed', details: ['installed'] };
-    case 'upgrade-applied':
+    case 'upgraded':
       return {
         label,
-        status: 'applied',
-        details: ['upgrade completed; version change not probed'],
+        status: 'changed',
+        details: [
+          `${formatInstalledVersions(report.previousVersions)} -> ${formatInstalledVersions(report.versions)}`,
+        ],
+      };
+    case 'upgrade-current':
+      return {
+        label,
+        status: 'unchanged',
+        details: [
+          `already current (${formatInstalledVersions(report.versions)})`,
+        ],
       };
     case 'present':
       return { label, status: 'unchanged', details: ['already installed'] };
@@ -152,9 +162,15 @@ function packageOutcome(report: InstallReport): ResourceOutcome {
       return {
         label,
         status: 'failed',
-        error: report.error ?? 'Unknown error.',
+        error: report.error,
       };
   }
+}
+
+function formatInstalledVersions(versions: readonly string[]): string {
+  return versions.length === 1
+    ? (versions[0] ?? '')
+    : `[${versions.join(', ')}]`;
 }
 
 export function renderPackageReport(
@@ -162,11 +178,16 @@ export function renderPackageReport(
   options: RenderOptions,
 ): string | null {
   if (reports.length === 0) return null;
-  const outcomes = reports.map(packageOutcome);
-  const unchanged = outcomes.filter(
-    (outcome) => outcome.status === 'unchanged',
-  );
-  const visible = outcomes.filter((outcome) => outcome.status !== 'unchanged');
+  const entries = reports.map((report) => ({
+    report,
+    outcome: packageOutcome(report),
+  }));
+  const unchanged = entries
+    .filter(({ report }) => report.status === 'present')
+    .map(({ outcome }) => outcome);
+  const visible = entries
+    .filter(({ report }) => report.status !== 'present')
+    .map(({ outcome }) => outcome);
   const lines = [
     'Homebrew',
     ...visible.map((outcome) => outcomeLine(outcome, options)),

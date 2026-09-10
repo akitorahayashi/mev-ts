@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { loadInventory } from '../../src/brew/inventory';
+import { loadInstalledVersions, loadInventory } from '../../src/brew/inventory';
 import { packages } from '../../src/brew/package';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 
@@ -135,4 +135,123 @@ test('a throwing runner is carried as a per-kind error', async () => {
   const inventory = await loadInventory(packages({ taps: ['a/b'] }), context);
 
   expect(inventory.tap).toEqual({ loaded: false, error: 'runner failed' });
+});
+
+test('reads and normalizes formula and cask versions from JSON v2', async () => {
+  const { context, calls } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond(_command, args) {
+      return args.includes('--formula')
+        ? listed(
+            JSON.stringify({
+              formulae: [
+                {
+                  name: 'git',
+                  installed: [
+                    { version: '2.51.0' },
+                    { version: '2.50.0' },
+                    { version: '2.51.0' },
+                  ],
+                  ignored: true,
+                },
+              ],
+            }),
+          )
+        : listed(
+            JSON.stringify({
+              casks: [{ token: 'zed', installed: '1.17.2', ignored: true }],
+            }),
+          );
+    },
+  });
+
+  const inventory = await loadInstalledVersions(
+    packages({ formulae: ['git'], casks: ['zed'] }),
+    context,
+  );
+
+  expect(argsOf(calls)).toEqual([
+    ['info', '--json=v2', '--formula', 'git'],
+    ['info', '--json=v2', '--cask', 'zed'],
+  ]);
+  expect(inventory.formula).toEqual({
+    loaded: true,
+    versions: new Map([['git', ['2.50.0', '2.51.0']]]),
+    errors: new Map(),
+  });
+  expect(inventory.cask).toEqual({
+    loaded: true,
+    versions: new Map([['zed', ['1.17.2']]]),
+    errors: new Map(),
+  });
+});
+
+test('does not probe versions for empty kinds', async () => {
+  const { context, calls } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+  });
+
+  const inventory = await loadInstalledVersions(packages(), context);
+
+  expect(calls).toEqual([]);
+  expect(inventory.formula).toEqual({
+    loaded: true,
+    versions: new Map(),
+    errors: new Map(),
+  });
+  expect(inventory.cask).toEqual({
+    loaded: true,
+    versions: new Map(),
+    errors: new Map(),
+  });
+});
+
+test('isolates a malformed named entry from valid package versions', async () => {
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () =>
+      listed(
+        JSON.stringify({
+          formulae: [
+            { name: 'git' },
+            { name: 'gh', installed: [{ version: '2.80.0' }] },
+          ],
+        }),
+      ),
+  });
+
+  const inventory = await loadInstalledVersions(
+    packages({ formulae: ['git', 'gh'] }),
+    context,
+  );
+
+  expect(inventory.formula.loaded).toBe(true);
+  if (inventory.formula.loaded) {
+    expect(inventory.formula.versions).toEqual(new Map([['gh', ['2.80.0']]]));
+    expect(inventory.formula.errors.get('git')).toContain(
+      "installed versions for formula 'git' must be an array",
+    );
+  }
+});
+
+test('carries an invalid collection as a per-kind error', async () => {
+  const { context } = recordingContext({
+    home: '/sandbox',
+    assets: emptyAssets,
+    respond: () => listed(JSON.stringify({ formulae: {} })),
+  });
+
+  const inventory = await loadInstalledVersions(
+    packages({ formulae: ['git'] }),
+    context,
+  );
+
+  expect(inventory.formula).toEqual({
+    loaded: false,
+    error:
+      'Invalid brew info --json=v2 --formula output: formulae must be an array.',
+  });
 });
