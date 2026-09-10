@@ -1,7 +1,14 @@
 import { asset } from '../../assets/ref';
 import { home } from '../../host/path';
 import { OVERRIDES_PREFIX } from '../../zed/paths';
-import { link, zedSettings } from '../activation';
+import {
+  brewPath,
+  brewPrefixCapture,
+  link,
+  runCommand,
+  versionCheckStep,
+  zedSettings,
+} from '../activation';
 import { target } from '../target';
 
 export const zedTarget = target('zed', {
@@ -16,5 +23,12 @@ export const zedTarget = target('zed', {
       home('.config/zed/settings.json'),
     ),
     link(asset('zed/keymap.json'), home('.config/zed/keymap.json')),
+    runCommand({
+      label: 'Zed CLI',
+      steps: [
+        brewPrefixCapture(),
+        versionCheckStep('zed --version', 'zed', brewPath()),
+      ],
+    }),
   ],
 });

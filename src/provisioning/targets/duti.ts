@@ -5,6 +5,6 @@ export const dutiTarget = target('duti', {
   description: 'macOS file association defaults via duti',
   aliases: ['du'],
   role: 'duti',
-  packages: { formulae: ['duti'], casks: ['zed'] },
+  packages: { formulae: ['duti'] },
   activations: [applyDuti('duti/default_apps.yml')],
 });
