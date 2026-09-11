@@ -15,6 +15,9 @@ marketplaces:
   - repo: akitorahayashi/charles-traffic
     clients: [claude, codex]
     plugins: [charles-traffic]
+  - repo: akitorahayashi/code-incident-resolution
+    clients: [claude, codex]
+    plugins: [code-incident-resolution]
   - repo: akitorahayashi/comment-review
     clients: [claude, codex]
     plugins: [comment-review]
