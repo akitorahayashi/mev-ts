@@ -53,6 +53,7 @@ export interface InstallOptions {
   onStart?(total: number): void;
   /** Fires only for tokens that actually reach an install or upgrade step. */
   onTokenStart?(token: PackageToken, action: InstallAction): void;
+  /** Fires after each token's individual work; successful upgrades are version-verified later in a batch. */
   onTick?(token: PackageToken): void;
 }
 
@@ -192,8 +193,7 @@ function sameVersions(
  * lookups. Missing tokens spawn `brew bundle install`; explicit upgrade mode
  * also runs `brew upgrade` for installed formulae and casks. Tokens run in
  * taps→formulae→casks order, so a missing tap is installed before the formulae
- * that resolve through it. The hooks drive live progress labels and count
- * completed tokens.
+ * that resolve through it. The hooks drive live progress labels.
  */
 export async function installPackages(
   req: PackageRequirement,
