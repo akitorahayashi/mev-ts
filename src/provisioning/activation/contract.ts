@@ -92,7 +92,7 @@ export type Activation =
     }
   | {
       readonly kind: 'remoteInstaller';
-      readonly label: string;
+      readonly subject: string;
       readonly url: string;
       readonly integrity: RemoteInstallerIntegrity;
       readonly interpreter: 'bash' | 'sh' | 'direct';
@@ -242,7 +242,6 @@ export interface RemoteInstallerUpgrade {
   readonly label: string;
   readonly argv: readonly CommandArg[];
   readonly env?: Readonly<Record<string, CommandEnvValue>>;
-  readonly report?: Extract<CommandStepReport, { readonly kind: 'reconcile' }>;
   /** Local version command used before and after to classify and verify the self-update. */
   readonly versionProbe: readonly CommandArg[];
   /** Maps a known updater safety precondition to a blocked activation. */
@@ -250,15 +249,24 @@ export interface RemoteInstallerUpgrade {
 }
 
 /**
- * Per-run execution intent threaded from the CLI into the runners that consume
- * it. `upgrade` re-resolves latest for installed latest-assumed items (the
+ * Per-run execution options threaded from the CLI into the runners that consume
+ * them. `upgrade` re-resolves latest for installed latest-assumed items (the
  * explicit `--upgrade` flag); it never alters declared intent, so target
- * signatures and sync staleness are unaffected.
+ * signatures and sync staleness are unaffected. Activity reports actual runner
+ * decisions after their probes rather than inferring them from upgrade intent.
  */
 export interface ActivationRunOptions {
   readonly upgrade: boolean;
   readonly sourceChanges?: readonly RoleAssetChange[];
   readonly preserved?: boolean;
+  readonly onActivity?: (activity: ActivationActivity) => void;
+}
+
+export type ActivationAction = 'check' | 'install' | 'update' | 'verify';
+
+export interface ActivationActivity {
+  readonly subject: string;
+  readonly action: ActivationAction;
 }
 
 export interface ActivationReport {

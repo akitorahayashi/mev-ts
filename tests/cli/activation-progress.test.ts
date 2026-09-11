@@ -19,6 +19,10 @@ test('the TTY activation progress renders the in-flight line and a completion li
     targetName: 'git',
     activation: { subject: '~/.gitconfig' },
   });
+  progress.updateActivation({
+    targetName: 'git',
+    activity: { subject: 'Git configuration', action: 'update' },
+  });
   progress.completeTarget({
     targetName: 'git',
     blockers: [],
@@ -43,6 +47,7 @@ test('the TTY activation progress renders the in-flight line and a completion li
   // reset bytes in transient-line does not break this behavioral assertion.
   const terminal = stream.output();
   expect(terminal).toContain('git  ~/.gitconfig');
+  expect(terminal).toContain('git  updating Git configuration');
   expect(terminal).toMatch(/\[[0-9;]*[JK]/);
   expect(out).toContain('Applying resources');
   const plainOut = Bun.stripANSI(out);
@@ -62,6 +67,14 @@ test('the non-TTY activation progress writes plain lines only to out', () => {
   });
 
   progress.start();
+  progress.startActivation({
+    targetName: 'git',
+    activation: { subject: '~/.gitconfig' },
+  });
+  progress.updateActivation({
+    targetName: 'git',
+    activity: { subject: 'Git configuration', action: 'update' },
+  });
   progress.completeTarget({
     targetName: 'git',
     blockers: [],

@@ -5,6 +5,7 @@ import type { Context } from '../host/context';
 import { resolveHostPath } from '../host/path';
 import { materializeSymlink } from '../host/symlink';
 import {
+  type ActivationActivity,
   type ActivationDescription,
   type ActivationReport,
   blockedReport,
@@ -71,6 +72,11 @@ export type MakeEvent =
       readonly type: 'activation-start';
       readonly targetName: string;
       readonly activation: ActivationDescription;
+    }
+  | {
+      readonly type: 'activation-progress';
+      readonly targetName: string;
+      readonly activity: ActivationActivity;
     }
   | {
       readonly type: 'target-complete';
@@ -292,6 +298,12 @@ export async function runMake(
         upgrade,
         sourceChanges: changesByRole.get(group.role) ?? [],
         preserved: preparation.preserved.has(activation),
+        onActivity: (activity) =>
+          request.onEvent?.({
+            type: 'activation-progress',
+            targetName: group.name,
+            activity,
+          }),
       });
       reports.push(report);
       activationBlocked =

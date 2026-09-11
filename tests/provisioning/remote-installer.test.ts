@@ -41,6 +41,7 @@ async function createInstalledBinary(path: string): Promise<void> {
 sandboxTest(
   'downloads with HTTPS-only curl and runs the temp installer',
   async (dir) => {
+    const activities: string[] = [];
     const { context, calls } = installerContext(dir, async (command, args) => {
       if (command === 'curl') {
         const output = args[args.indexOf('-o') + 1] as string;
@@ -54,7 +55,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install.sh',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -66,9 +67,16 @@ sandboxTest(
         pathPrefix: [home('.local/bin')],
       }),
       context,
+      {
+        upgrade: false,
+        onActivity: ({ action, subject }) =>
+          activities.push(`${action} ${subject}`),
+      },
     );
 
     expect(report.status).toBe('changed');
+    expect(report.outcomes[0]?.label).toBe('Demo');
+    expect(activities).toEqual(['check Demo', 'install Demo', 'verify Demo']);
     const curl = calls.find((call) => call.command === 'curl');
     const args = curl?.args ?? [];
     // Load-bearing transport contract: HTTPS-only on request and redirect, a TLS
@@ -103,7 +111,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install.sh',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -135,7 +143,7 @@ sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
 
   const report = await runActivation(
     remoteInstaller({
-      label: 'install demo',
+      subject: 'Demo',
       url: 'https://example.test/install.sh',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
@@ -168,7 +176,7 @@ sandboxTest('reinstalls when creates is a dangling symlink', async (dir) => {
 
   const report = await runActivation(
     remoteInstaller({
-      label: 'install demo',
+      subject: 'Demo',
       url: 'https://example.test/install.sh',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
@@ -185,6 +193,7 @@ sandboxTest('reinstalls when creates is a dangling symlink', async (dir) => {
 sandboxTest(
   'fails when the installer exits zero without satisfying creates',
   async (dir) => {
+    const activities: string[] = [];
     const { context } = installerContext(dir, async (command, args) => {
       if (command === 'curl') {
         await writeFile(args[args.indexOf('-o') + 1] as string, 'installer');
@@ -194,7 +203,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install.sh',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -202,12 +211,18 @@ sandboxTest(
         creates: home('.local/bin/demo'),
       }),
       context,
+      {
+        upgrade: false,
+        onActivity: ({ action, subject }) =>
+          activities.push(`${action} ${subject}`),
+      },
     );
 
     expect(report.status).toBe('failed');
     expect(report.error).toContain(
-      'install demo completed without satisfying ~/.local/bin/demo',
+      'Demo installer completed without satisfying ~/.local/bin/demo',
     );
+    expect(activities).toEqual(['check Demo', 'install Demo', 'verify Demo']);
     expect(await leakedWorkspaces(dir)).toEqual([]);
   },
 );
@@ -238,7 +253,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/rustup-init',
         integrity: { checksumUrl: 'https://example.test/rustup-init.sha256' },
         interpreter: 'direct',
@@ -285,7 +300,7 @@ sandboxTest('fails when checksum does not match', async (dir) => {
 
   const report = await runActivation(
     remoteInstaller({
-      label: 'install demo',
+      subject: 'Demo',
       url: 'https://example.test/install',
       integrity: { checksumUrl: 'https://example.test/install.sha256' },
       interpreter: 'direct',
@@ -310,7 +325,7 @@ sandboxTest(
       },
     };
     const activation = remoteInstaller({
-      label: 'install demo',
+      subject: 'Demo',
       url: 'https://example.test/install',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
@@ -374,7 +389,7 @@ sandboxTest(
     await mkdir(`${dir}/.local/bin`, { recursive: true });
     await writeFile(binary, 'installed');
     const activation = remoteInstaller({
-      label: 'install demo',
+      subject: 'Demo',
       url: 'https://example.test/install',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
@@ -396,19 +411,33 @@ sandboxTest(
         : ok('already up to date\n');
     });
 
-    const routine = await runActivation(activation, context);
+    const routineActivities: string[] = [];
+    const upgradeActivities: string[] = [];
+    const routine = await runActivation(activation, context, {
+      upgrade: false,
+      onActivity: ({ action, subject }) =>
+        routineActivities.push(`${action} ${subject}`),
+    });
     const upgraded = await runActivation(activation, context, {
       upgrade: true,
+      onActivity: ({ action, subject }) =>
+        upgradeActivities.push(`${action} ${subject}`),
     });
 
     expect(routine.status).toBe('unchanged');
     expect(upgraded.status).toBe('unchanged');
     expect(upgraded.entries).toEqual([
       {
-        key: 'demo update',
+        key: 'Demo',
         value: 'already latest (demo 1.0.0)',
         status: 'unchanged',
       },
+    ]);
+    expect(routineActivities).toEqual(['check Demo']);
+    expect(upgradeActivities).toEqual([
+      'check Demo',
+      'update Demo',
+      'verify Demo',
     ]);
     expect(calls.map((call) => [call.command, ...call.args])).toEqual([
       [binary, '--version'],
@@ -433,7 +462,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -452,7 +481,7 @@ sandboxTest(
     expect(report.status).toBe('changed');
     expect(report.entries).toEqual([
       {
-        key: 'demo update',
+        key: 'Demo',
         value: 'demo 1.0.0 -> demo 1.1.0',
         status: 'changed',
       },
@@ -466,6 +495,7 @@ sandboxTest(
     const binary = `${dir}/.local/bin/demo`;
     await createInstalledBinary(binary);
     let probes = 0;
+    const activities: string[] = [];
     const { context } = installerContext(dir, (command, args) => {
       if (command !== binary || args[0] === 'update') return ok('updated\n');
       probes += 1;
@@ -474,7 +504,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -487,15 +517,20 @@ sandboxTest(
         },
       }),
       context,
-      { upgrade: true },
+      {
+        upgrade: true,
+        onActivity: ({ action, subject }) =>
+          activities.push(`${action} ${subject}`),
+      },
     );
 
     expect(report.status).toBe('failed');
     expect(report.entries?.[0]).toMatchObject({
-      key: 'demo update',
+      key: 'Demo',
       status: 'failed',
       error: 'demo update version probe failed with code 1: binary broken',
     });
+    expect(activities).toEqual(['check Demo', 'update Demo', 'verify Demo']);
   },
 );
 
@@ -504,6 +539,7 @@ sandboxTest(
   async (dir) => {
     const binary = `${dir}/.local/bin/demo`;
     let installed = false;
+    const activities: string[] = [];
     const { context, calls } = installerContext(dir, async (command, args) => {
       if (command === binary) {
         return installed ? ok('demo 1.0.0\n') : fail('demo unavailable');
@@ -520,7 +556,7 @@ sandboxTest(
     });
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -533,11 +569,16 @@ sandboxTest(
         },
       }),
       context,
-      { upgrade: true },
+      {
+        upgrade: true,
+        onActivity: ({ action, subject }) =>
+          activities.push(`${action} ${subject}`),
+      },
     );
 
     expect(report.status).toBe('changed');
     expect(calls.map((call) => call.command)).toEqual([binary, 'curl', 'bash']);
+    expect(activities).toEqual(['check Demo', 'install Demo', 'verify Demo']);
   },
 );
 
@@ -548,6 +589,7 @@ sandboxTest(
     await mkdir(`${dir}/.local/bin`, { recursive: true });
     await writeFile(binary, 'installed');
     const guidance = 'detach before updating demo';
+    const activities: string[] = [];
     const { context } = installerContext(dir, (_command, args) =>
       args[0] === '--version'
         ? ok('demo 1.0.0\n')
@@ -556,7 +598,7 @@ sandboxTest(
 
     const report = await runActivation(
       remoteInstaller({
-        label: 'install demo',
+        subject: 'Demo',
         url: 'https://example.test/install',
         integrity: { acknowledgedUnverified: true },
         interpreter: 'bash',
@@ -570,7 +612,11 @@ sandboxTest(
         },
       }),
       context,
-      { upgrade: true },
+      {
+        upgrade: true,
+        onActivity: ({ action, subject }) =>
+          activities.push(`${action} ${subject}`),
+      },
     );
 
     expect(report).toMatchObject({
@@ -578,5 +624,6 @@ sandboxTest(
       error: `update failed: ${guidance}`,
     });
     expect(report.entries).toBeUndefined();
+    expect(activities).toEqual(['check Demo', 'update Demo']);
   },
 );

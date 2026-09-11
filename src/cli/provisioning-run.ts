@@ -110,6 +110,9 @@ export async function executeProvisioningRun(
           case 'activation-start':
             activation?.startActivation(event);
             break;
+          case 'activation-progress':
+            activation?.updateActivation(event);
+            break;
           case 'target-complete':
             activation?.completeTarget(event.group);
             break;
