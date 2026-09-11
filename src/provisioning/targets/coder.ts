@@ -24,6 +24,8 @@ const AGENTS_DESTS = [
 ];
 
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
+// Antigravity CLI intentionally does not receive coder skills; its skill
+// surface is outside this target's managed destinations.
 const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
 const CLAUDE_BINARY = {
@@ -130,9 +132,12 @@ export const coderTarget = target('coder', {
       'toml',
     ),
     link(asset('coder/codex/hooks.json'), home('.codex/hooks.json')),
-    link(
+    // Merged, not linked: Antigravity persists interactive settings in this
+    // file at runtime, so application-owned keys must not reach the deploy role.
+    declaredKeys(
       asset('coder/antigravity-cli/settings.json'),
       home('.gemini/antigravity-cli/settings.json'),
+      'json',
     ),
     link(
       asset('coder/antigravity-cli/statusline.sh'),
