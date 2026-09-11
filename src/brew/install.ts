@@ -277,7 +277,7 @@ export async function installPackages(
       }
     }
     reports.push(report);
-    if (report.status !== 'upgrade-pending') options.onTick?.(token);
+    options.onTick?.(token);
   }
 
   const pending = reports.filter(
@@ -323,6 +323,5 @@ export async function installPackages(
           versions,
         };
   });
-  for (const report of pending) options.onTick?.(report.token);
   return settled;
 }

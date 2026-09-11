@@ -372,36 +372,46 @@ test('a malformed package version does not prevent other upgrades in the batch',
   ).toEqual(['gh']);
 });
 
-test('ticks an upgrade only after its post-upgrade version probe settles', async (sandbox) => {
+test('ticks each upgrade when its brew command completes', async (sandbox) => {
   const events: string[] = [];
   const context = recordingContext({
     home: sandbox,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
-        return { code: 0, stdout: 'git\n', stderr: '' };
+        return { code: 0, stdout: 'git\ngh\n', stderr: '' };
       }
       if (args[0] === 'info') {
         events.push('info');
         return {
           code: 0,
           stdout: JSON.stringify({
-            formulae: [{ name: 'git', installed: [{ version: '1.0.0' }] }],
+            formulae: ['git', 'gh'].map((name) => ({
+              name,
+              installed: [{ version: '1.0.0' }],
+            })),
           }),
           stderr: '',
         };
       }
-      if (args[0] === 'upgrade') events.push('upgrade');
+      if (args[0] === 'upgrade') events.push(`upgrade ${args.at(-1)}`);
       return { code: 0, stdout: '', stderr: '' };
     },
   }).context;
 
-  await installPackages(oneFormula, context, {
+  await installPackages(packages({ formulae: ['git', 'gh'] }), context, {
     upgrade: true,
-    onTick: () => events.push('tick'),
+    onTick: (token) => events.push(`tick ${token.name}`),
   });
 
-  expect(events).toEqual(['info', 'upgrade', 'info', 'tick']);
+  expect(events).toEqual([
+    'info',
+    'upgrade git',
+    'tick git',
+    'upgrade gh',
+    'tick gh',
+    'info',
+  ]);
 });
 
 test('fails a successful upgrade when the post-upgrade version is absent', async (sandbox) => {
