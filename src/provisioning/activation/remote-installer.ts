@@ -9,6 +9,7 @@ import { runProcessStep } from '../../host/command-run';
 import type { Context } from '../../host/context';
 import { downloadOverHttps } from '../../host/https-download';
 import { resolveHostPath, symbolic } from '../../host/path';
+import { reportActivity } from './activity';
 import {
   guardMatches,
   readBindings,
@@ -223,7 +224,10 @@ export async function runRemoteInstaller(
     const bindings = await readBindings(activation.reads ?? {}, context);
     const scope = scopeFor(bindings);
     const upgrade = options.upgrade ? activation.upgrade : undefined;
-    options.onActivity?.({ subject: base.subject, action: 'check' });
+    reportActivity(options.onActivity, {
+      subject: base.subject,
+      action: 'check',
+    });
     const before = upgrade
       ? await probeUpgradeVersion(upgrade, scope, context)
       : undefined;
@@ -232,7 +236,10 @@ export async function runRemoteInstaller(
       : await installerSatisfied(activation, context, scope);
     if (satisfied) {
       if (upgrade && before?.version !== undefined) {
-        options.onActivity?.({ subject: base.subject, action: 'update' });
+        reportActivity(options.onActivity, {
+          subject: base.subject,
+          action: 'update',
+        });
         const entry = await runCommandStep(
           {
             ...upgrade,
@@ -256,7 +263,10 @@ export async function runRemoteInstaller(
         if (entry.status === 'failed') {
           return { ...base, status: 'failed', entries: [entry] };
         }
-        options.onActivity?.({ subject: base.subject, action: 'verify' });
+        reportActivity(options.onActivity, {
+          subject: base.subject,
+          action: 'verify',
+        });
         const classified = classifyUpgrade(
           entry,
           before.version,
@@ -272,7 +282,10 @@ export async function runRemoteInstaller(
         },
       ]);
     }
-    options.onActivity?.({ subject: base.subject, action: 'install' });
+    reportActivity(options.onActivity, {
+      subject: base.subject,
+      action: 'install',
+    });
     const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));
     await runWithCleanup(
       async () => {
@@ -294,7 +307,10 @@ export async function runRemoteInstaller(
       () => rm(workspace, { force: true, recursive: true }),
       `Failed to clean up remote installer workspace ${workspace}.`,
     );
-    options.onActivity?.({ subject: base.subject, action: 'verify' });
+    reportActivity(options.onActivity, {
+      subject: base.subject,
+      action: 'verify',
+    });
     if (!(await installerSatisfied(activation, context, scope))) {
       throw unsatisfiedInstallerError(activation);
     }

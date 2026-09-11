@@ -1,6 +1,7 @@
 import { errorMessage } from '../../errors';
 import { mapWithConcurrency } from '../../host/task-pool';
 import { outcomeStatus, type ResourceOutcome } from '../resource-outcome';
+import { rethrowActivityObserverError } from './activity';
 import type {
   ActivationDescription,
   ActivationReport,
@@ -96,6 +97,7 @@ export async function guarded(
       { label: description.subject, status: result.status },
     ]);
   } catch (error) {
+    rethrowActivityObserverError(error);
     const message = errorMessage(error);
     return {
       ...activationReport(description, [
@@ -134,6 +136,7 @@ async function executeStep(step: ReconcileStep): Promise<ReconcileItemResult> {
   try {
     return await step.run();
   } catch (error) {
+    rethrowActivityObserverError(error);
     return step.onError(error);
   }
 }
@@ -174,6 +177,7 @@ export async function reconcile<D>(
         : await runSeries(steps);
     return activationReport(description, entries.map(stepOutcome));
   } catch (error) {
+    rethrowActivityObserverError(error);
     const message = errorMessage(error);
     return {
       ...activationReport(description, [

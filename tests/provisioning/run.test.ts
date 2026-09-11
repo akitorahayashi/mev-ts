@@ -39,6 +39,25 @@ sandboxTest('an unknown tag is rejected', async (sandbox) => {
   ).rejects.toBeInstanceOf(CommandLineError);
 });
 
+sandboxTest(
+  'an activation progress listener failure propagates outside provisioning',
+  async (sandbox) => {
+    const listenerError = new Error('progress listener failed');
+
+    expect(
+      runMake(
+        {
+          selectors: ['bun'],
+          onEvent(event) {
+            if (event.type === 'activation-progress') throw listenerError;
+          },
+        },
+        contextFor(sandbox),
+      ),
+    ).rejects.toBe(listenerError);
+  },
+);
+
 sandboxTest('apply deploys and links the git target', async (sandbox) => {
   const report = await runMake({ selectors: ['git'] }, contextFor(sandbox));
 
