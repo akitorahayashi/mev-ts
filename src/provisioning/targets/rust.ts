@@ -25,7 +25,7 @@ export const rustTarget = target('rust', {
   role: 'rust',
   activations: [
     remoteInstaller({
-      label: 'rustup install',
+      subject: 'rustup',
       url: rustupInitUrl(),
       integrity: { checksumUrl: `${rustupInitUrl()}.sha256` },
       interpreter: 'direct',

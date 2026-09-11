@@ -19,6 +19,7 @@ resolution.
 
 | Declaration | Contract |
 |---|---|
+| `subject` | Stable resource identity shared by progress, completed outcomes, and failures. |
 | `integrity: { checksumUrl }` | Download and verify the installer checksum before execution. |
 | `integrity: { acknowledgedUnverified: true }` | Explicitly records the reviewed unverified exception; no silent bypass exists. |
 | `creates` | Default idempotency and post-install guard. A dangling symlink is absent. |
@@ -31,6 +32,10 @@ resolution.
 | Temporary installer | Run with declared arguments, then remove the temporary workspace. |
 
 Targets use remote installers only for reviewed first-party HTTPS sources.
+The runner reports `check`, `install`, `update`, and `verify` activity only when
+each operation actually begins. Upgrade intent alone never determines the
+displayed operation because a missing or unhealthy installation still takes the
+installer path under `--upgrade`.
 
 ## mev updates
 

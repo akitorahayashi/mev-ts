@@ -12,7 +12,7 @@ export const bunTarget = target('bun', {
   activations: [
     link(asset('bun/.bunfig.toml'), home('.bunfig.toml')),
     remoteInstaller({
-      label: 'install bun',
+      subject: 'Bun',
       url: 'https://bun.sh/install',
       // bun.sh publishes no checksum for its install script, so the unverified
       // posture is declared in the type rather than left implicit.

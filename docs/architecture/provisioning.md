@@ -34,6 +34,10 @@ only the active operation as a transient line; completed package and target
 results are permanent. Non-TTY clients omit transient operations and render the
 same completed results without ANSI control sequences.
 
+Activation descriptions identify stable resources. When a runner must probe
+before choosing an operation, it emits the actual activity after that decision;
+renderers do not infer install or update activity from command intent.
+
 Completed output is organized by target and user-managed resource. Changed,
 applied, failed, and blocked resources remain individual. Unchanged members of
 a declared collection are collapsed into a count, while explicit destination

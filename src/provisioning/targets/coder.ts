@@ -50,7 +50,7 @@ export const coderTarget = target('coder', {
   perMachineInputs: ['githubSshHost'],
   activations: [
     remoteInstaller({
-      label: 'install claude',
+      subject: 'Claude Code',
       url: 'https://claude.ai/install.sh',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',
@@ -61,17 +61,11 @@ export const coderTarget = target('coder', {
         label: 'claude update',
         argv: [CLAUDE_BINARY, 'update'],
         versionProbe: [CLAUDE_BINARY, '--version'],
-        report: {
-          kind: 'reconcile',
-          subject: 'Claude Code',
-          changed: 'updated',
-          unchanged: 'already latest',
-        },
       },
       pathPrefix: [home('.local/bin')],
     }),
     remoteInstaller({
-      label: 'install codex',
+      subject: 'Codex',
       url: 'https://chatgpt.com/codex/install.sh',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'sh',
@@ -82,18 +76,12 @@ export const coderTarget = target('coder', {
         label: 'codex update',
         argv: [CODEX_BINARY, 'update'],
         versionProbe: [CODEX_BINARY, '--version'],
-        report: {
-          kind: 'reconcile',
-          subject: 'Codex',
-          changed: 'updated',
-          unchanged: 'already latest',
-        },
       },
       env: { CODEX_NON_INTERACTIVE: 'true' },
       pathPrefix: [home('.local/bin')],
     }),
     remoteInstaller({
-      label: 'install antigravity cli',
+      subject: 'Antigravity CLI',
       url: 'https://antigravity.google/cli/install.sh',
       integrity: { acknowledgedUnverified: true },
       interpreter: 'bash',

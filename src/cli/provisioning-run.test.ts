@@ -80,6 +80,14 @@ function fakeRun(report: MakeReport): {
             targetName: group.targetName,
             activation: activation.description,
           });
+          request.onEvent?.({
+            type: 'activation-progress',
+            targetName: group.targetName,
+            activity: {
+              subject: activation.description.subject,
+              action: 'check',
+            },
+          });
         }
         request.onEvent?.({ type: 'target-complete', group });
       }
@@ -129,6 +137,7 @@ test('a successful run emits resource results without internal deploy checks', a
   expect(result.output).not.toContain('Deployed config');
   expect(result.output).not.toContain('Running targets');
   expect(result.output).not.toContain('CHECK');
+  expect(result.output).not.toContain('checking ~/.zshrc');
 });
 
 test('upgrade intent is forwarded', async () => {

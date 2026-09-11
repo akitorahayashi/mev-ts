@@ -420,6 +420,7 @@ sandboxTest(
     await writeFile(join(binDir, 'claude'), 'installed');
     await symlink('missing-codex', join(binDir, 'codex'));
     const started: string[] = [];
+    const activities: string[] = [];
     const { context, calls } = recordingContext({
       home: sandbox,
       assets: embeddedAssets,
@@ -440,6 +441,10 @@ sandboxTest(
         onEvent: (event) => {
           if (event.type === 'activation-start') {
             started.push(event.activation.subject);
+          } else if (event.type === 'activation-progress') {
+            activities.push(
+              `${event.activity.action} ${event.activity.subject}`,
+            );
           }
         },
       },
@@ -451,13 +456,19 @@ sandboxTest(
 
     expect(report.failed).toBe(true);
     expect(group && groupStatus(group)).toBe('failed');
-    expect(started).toEqual(['install claude', 'install codex']);
+    expect(started).toEqual(['Claude Code', 'Codex']);
+    expect(activities).toEqual([
+      'check Claude Code',
+      'check Codex',
+      'install Codex',
+      'verify Codex',
+    ]);
     expect(group?.reports[0]?.status).toBe('unchanged');
     expect(group?.reports[1]).toMatchObject({
-      description: { subject: 'install codex' },
+      description: { subject: 'Codex' },
       status: 'failed',
       error:
-        'install codex completed without satisfying its declared post-install guard.',
+        'Codex installer completed without satisfying its declared post-install guard.',
     });
     expect(
       group?.reports.slice(2).every(({ status }) => status === 'blocked'),
@@ -483,6 +494,7 @@ sandboxTest(
     await writeFile(agy, 'installed');
     let claudeVersion = '2.1.0 (Claude Code)';
     let codexVersion = 'codex-cli 0.150.0';
+    const activities: string[] = [];
     const assets: Context['assets'] = {
       read: (key) =>
         key === 'coder/plugins.yml'
@@ -516,7 +528,17 @@ sandboxTest(
     });
 
     const report = await runMake(
-      { selectors: ['coder'], upgrade: true },
+      {
+        selectors: ['coder'],
+        upgrade: true,
+        onEvent(event) {
+          if (event.type === 'activation-progress') {
+            activities.push(
+              `${event.activity.action} ${event.activity.subject}`,
+            );
+          }
+        },
+      },
       context,
     );
     const group = report.groups.find(
@@ -548,6 +570,15 @@ sandboxTest(
       value: 'codex-cli 0.150.0 -> codex-cli 0.151.0',
       status: 'changed',
     });
+    expect(activities).toEqual([
+      'check Claude Code',
+      'update Claude Code',
+      'verify Claude Code',
+      'check Codex',
+      'update Codex',
+      'verify Codex',
+      'check Antigravity CLI',
+    ]);
   },
 );
 

@@ -18,7 +18,7 @@ export const herdrTarget = target('herdr', {
   activations: [
     link(asset('herdr/config.toml'), home('.config/herdr/config.toml')),
     remoteInstaller({
-      label: 'install Herdr',
+      subject: 'Herdr',
       url: 'https://herdr.dev/install.sh',
       // Herdr publishes no checksum for the installer; the installer verifies
       // the selected release binary against the official manifest's SHA256.
@@ -30,12 +30,6 @@ export const herdrTarget = target('herdr', {
         label: 'herdr update',
         argv: [BINARY, 'update'],
         versionProbe: [BINARY, '--version'],
-        report: {
-          kind: 'reconcile',
-          subject: 'Herdr',
-          changed: 'updated',
-          unchanged: 'already latest',
-        },
         blockedWhen: {
           errorContains:
             'run `herdr update` outside herdr after detaching from the session',

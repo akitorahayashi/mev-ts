@@ -44,8 +44,12 @@ export function describeRemoteInstaller(
   activation: RemoteInstallerActivation,
 ): ActivationDescription {
   return {
-    subject: activation.label,
+    subject: activation.subject,
   };
+}
+
+function installerLabel(activation: RemoteInstallerActivation): string {
+  return `${activation.subject} installer`;
 }
 
 async function verifyChecksum(
@@ -59,22 +63,25 @@ async function verifyChecksum(
     context.commands,
     activation.integrity.checksumUrl,
     checksumPath,
-    `${activation.label} checksum`,
+    `${installerLabel(activation)} checksum`,
   );
   const expected = parseSha256Document(
     await readFile(checksumPath, 'utf8'),
-    activation.label,
+    installerLabel(activation),
   );
   const actualResult = await runProcessStep(
     context.commands,
     'shasum',
     ['-a', '256', script],
-    `shasum verification failed for ${activation.label}`,
+    `shasum verification failed for ${installerLabel(activation)}`,
   );
-  const actual = parseSha256Document(actualResult.stdout, activation.label);
+  const actual = parseSha256Document(
+    actualResult.stdout,
+    installerLabel(activation),
+  );
   if (actual !== expected) {
     throw new ProvisioningError(
-      `SHA256 mismatch for ${activation.label}: expected ${expected}, got ${actual}.`,
+      `SHA256 mismatch for ${installerLabel(activation)}: expected ${expected}, got ${actual}.`,
     );
   }
 }
@@ -92,7 +99,7 @@ async function runInstaller(
       context.commands,
       script,
       args,
-      `installer failed for ${activation.label}`,
+      `${installerLabel(activation)} failed`,
       { env: installerEnv(activation, context, scope) },
     );
     return;
@@ -101,7 +108,7 @@ async function runInstaller(
     context.commands,
     activation.interpreter,
     [script, ...args],
-    `${activation.interpreter} installer failed for ${activation.label}`,
+    `${installerLabel(activation)} failed`,
     { env: installerEnv(activation, context, scope) },
   );
 }
@@ -144,7 +151,7 @@ function unsatisfiedInstallerError(
     ? 'its declared post-install guard'
     : symbolic(activation.creates);
   return new ProvisioningError(
-    `${activation.label} completed without satisfying ${postcondition}.`,
+    `${installerLabel(activation)} completed without satisfying ${postcondition}.`,
   );
 }
 
@@ -216,6 +223,7 @@ export async function runRemoteInstaller(
     const bindings = await readBindings(activation.reads ?? {}, context);
     const scope = scopeFor(bindings);
     const upgrade = options.upgrade ? activation.upgrade : undefined;
+    options.onActivity?.({ subject: base.subject, action: 'check' });
     const before = upgrade
       ? await probeUpgradeVersion(upgrade, scope, context)
       : undefined;
@@ -224,12 +232,13 @@ export async function runRemoteInstaller(
       : await installerSatisfied(activation, context, scope);
     if (satisfied) {
       if (upgrade && before?.version !== undefined) {
+        options.onActivity?.({ subject: base.subject, action: 'update' });
         const entry = await runCommandStep(
           {
             ...upgrade,
-            report: upgrade.report ?? {
+            report: {
               kind: 'reconcile',
-              subject: upgrade.label,
+              subject: base.subject,
               changed: 'updated',
               unchanged: 'already latest',
             },
@@ -247,6 +256,7 @@ export async function runRemoteInstaller(
         if (entry.status === 'failed') {
           return { ...base, status: 'failed', entries: [entry] };
         }
+        options.onActivity?.({ subject: base.subject, action: 'verify' });
         const classified = classifyUpgrade(
           entry,
           before.version,
@@ -262,6 +272,7 @@ export async function runRemoteInstaller(
         },
       ]);
     }
+    options.onActivity?.({ subject: base.subject, action: 'install' });
     const workspace = await mkdtemp(join(context.tmpRoot, 'mev-installer-'));
     await runWithCleanup(
       async () => {
@@ -270,7 +281,7 @@ export async function runRemoteInstaller(
           context.commands,
           activation.url,
           script,
-          activation.label,
+          installerLabel(activation),
         );
         await verifyChecksum(
           activation,
@@ -283,6 +294,7 @@ export async function runRemoteInstaller(
       () => rm(workspace, { force: true, recursive: true }),
       `Failed to clean up remote installer workspace ${workspace}.`,
     );
+    options.onActivity?.({ subject: base.subject, action: 'verify' });
     if (!(await installerSatisfied(activation, context, scope))) {
       throw unsatisfiedInstallerError(activation);
     }

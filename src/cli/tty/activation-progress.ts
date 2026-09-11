@@ -17,8 +17,30 @@ type ActivationStartEvent = Omit<
   'type'
 >;
 
-function startLine(event: ActivationStartEvent): string {
-  return `${event.targetName}  ${activationLine(event.activation)}`;
+type ActivationProgressEvent = Omit<
+  Extract<MakeEvent, { readonly type: 'activation-progress' }>,
+  'type'
+>;
+
+interface ActiveActivation {
+  readonly targetName: string;
+  readonly subject: string;
+  readonly action?: ActivationProgressEvent['activity']['action'];
+}
+
+const activityLabels = {
+  check: 'checking',
+  install: 'installing',
+  update: 'updating',
+  verify: 'verifying',
+} as const satisfies Record<
+  ActivationProgressEvent['activity']['action'],
+  string
+>;
+
+function activeLine(active: ActiveActivation): string {
+  const operation = active.action ? `${activityLabels[active.action]} ` : '';
+  return `${active.targetName}  ${operation}${active.subject}`;
 }
 
 function createBanner(out: (text: string) => void): () => void {
@@ -33,6 +55,7 @@ function createBanner(out: (text: string) => void): () => void {
 export interface ActivationProgress {
   start(): void;
   startActivation(event: ActivationStartEvent): void;
+  updateActivation(event: ActivationProgressEvent): void;
   completeTarget(group: ActivationGroupReport): void;
   finish(): void;
 }
@@ -54,6 +77,7 @@ function createLineActivationProgress(
   return {
     start() {},
     startActivation() {},
+    updateActivation() {},
     completeTarget(group) {
       options.out(`${renderTargetCompletionLine(group, { isTTY: false })}\n`);
     },
@@ -64,7 +88,7 @@ function createLineActivationProgress(
 function createTTYActivationProgress(
   options: ActivationProgressOptions,
 ): ActivationProgress {
-  let active: ActivationStartEvent | undefined;
+  let active: ActiveActivation | undefined;
   let frame = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
   const line = createTransientLine(options.stream);
@@ -73,7 +97,7 @@ function createTTYActivationProgress(
     if (!active) return;
     const spinner = frames[frame % frames.length];
     frame += 1;
-    line.render(`${spinner} ${startLine(active)}`);
+    line.render(`${spinner} ${activeLine(active)}`);
   };
 
   const stopTimer = () => {
@@ -90,9 +114,20 @@ function createTTYActivationProgress(
   return {
     start: createBanner(options.out),
     startActivation(event) {
-      active = event;
+      active = {
+        targetName: event.targetName,
+        subject: activationLine(event.activation),
+      };
       renderActive();
       startTimer();
+    },
+    updateActivation(event) {
+      active = {
+        targetName: event.targetName,
+        subject: event.activity.subject,
+        action: event.activity.action,
+      };
+      renderActive();
     },
     completeTarget(group) {
       stopTimer();
