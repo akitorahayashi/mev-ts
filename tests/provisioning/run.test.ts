@@ -476,9 +476,11 @@ sandboxTest(
     const binDir = join(sandbox, '.local/bin');
     const claude = join(binDir, 'claude');
     const codex = join(binDir, 'codex');
+    const agy = join(binDir, 'agy');
     await mkdir(binDir, { recursive: true });
     await writeFile(claude, 'installed');
     await writeFile(codex, 'installed');
+    await writeFile(agy, 'installed');
     let claudeVersion = '2.1.0 (Claude Code)';
     let codexVersion = 'codex-cli 0.150.0';
     const assets: Context['assets'] = {
@@ -503,6 +505,9 @@ sandboxTest(
           codexVersion = 'codex-cli 0.151.0';
           return ok('updated\n');
         }
+        if (command === agy && args[0] === '--version') {
+          return ok('agy 1.0.0\n');
+        }
         if (command === 'brew' && args[0] === '--prefix') {
           return ok('/opt/homebrew\n');
         }
@@ -521,7 +526,10 @@ sandboxTest(
     expect(report.failed).toBe(false);
     expect(
       calls
-        .filter(({ command }) => command === claude || command === codex)
+        .filter(
+          ({ command }) =>
+            command === claude || command === codex || command === agy,
+        )
         .map(({ command, args }) => [command, ...args]),
     ).toEqual([
       [claude, '--version'],
@@ -530,6 +538,7 @@ sandboxTest(
       [codex, '--version'],
       [codex, 'update'],
       [codex, '--version'],
+      [agy, '--version'],
     ]);
     expect(group?.reports[0]?.entries?.[0]).toMatchObject({
       value: '2.1.0 (Claude Code) -> 2.2.0 (Claude Code)',

@@ -20,9 +20,12 @@ const AGENTS_DESTS = [
   home('.claude/CLAUDE.md'),
   home('.codex/AGENTS.md'),
   home('.config/zed/AGENTS.md'),
+  home('.gemini/GEMINI.md'),
 ];
 
 /** Agent tools whose skills directory receives one symlink per enabled skill. */
+// Antigravity CLI intentionally does not receive coder skills; its skill
+// surface is outside this target's managed destinations.
 const SKILLS_TARGETS = [home('.agents/skills'), home('.claude/skills')];
 
 const CLAUDE_BINARY = {
@@ -31,9 +34,12 @@ const CLAUDE_BINARY = {
 const CODEX_BINARY = {
   concat: [{ ref: 'home' }, '/.local/bin/codex'],
 } as const;
+const AGY_BINARY = {
+  concat: [{ ref: 'home' }, '/.local/bin/agy'],
+} as const;
 
 export const coderTarget = target('coder', {
-  description: 'AI coding agents (Claude Code, Codex)',
+  description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
   aliases: ['cdr'],
   role: 'coder',
   packages: { formulae: ['rtk'] },
@@ -86,10 +92,20 @@ export const coderTarget = target('coder', {
       env: { CODEX_NON_INTERACTIVE: 'true' },
       pathPrefix: [home('.local/bin')],
     }),
+    remoteInstaller({
+      label: 'install antigravity cli',
+      url: 'https://antigravity.google/cli/install.sh',
+      integrity: { acknowledgedUnverified: true },
+      interpreter: 'bash',
+      args: [],
+      creates: home('.local/bin/agy'),
+      pathPrefix: [home('.local/bin')],
+    }),
     runCommand({
-      label: 'rtk CLI',
+      label: 'coder CLIs',
       steps: [
         brewPrefixCapture(),
+        versionCheckStep('agy --version', AGY_BINARY),
         versionCheckStep(
           'rtk --version',
           'rtk',
@@ -116,6 +132,17 @@ export const coderTarget = target('coder', {
       'toml',
     ),
     link(asset('coder/codex/hooks.json'), home('.codex/hooks.json')),
+    // Merged, not linked: Antigravity persists interactive settings in this
+    // file at runtime, so application-owned keys must not reach the deploy role.
+    declaredKeys(
+      asset('coder/antigravity-cli/settings.json'),
+      home('.gemini/antigravity-cli/settings.json'),
+      'json',
+    ),
+    link(
+      asset('coder/antigravity-cli/statusline.sh'),
+      home('.gemini/antigravity-cli/statusline.sh'),
+    ),
     link(asset('coder/rtk/rewrite.sh'), mevPath('rtk/rewrite.sh')),
     link(
       asset('coder/hooks/claude/pre-tool-use.sh'),
