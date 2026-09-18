@@ -1,6 +1,6 @@
 ---
 name: review-triage
-description: `.tmp/review.md` のコードレビュー指摘を検証し、採用した修正を実装して判断結果を報告する。コードレビュー結果の適用を依頼されたときに使用する。
+description: .tmp/review.md のコードレビュー指摘を検証し、採用した修正を実装して判断結果を報告する。コードレビュー結果の適用を依頼されたときに使用する。
 disable-model-invocation: true
 ---
 
