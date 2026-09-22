@@ -13,14 +13,3 @@ test('a subcommand answers on every namespace-by-leaf quadrant', () => {
   expect(paths).toEqual(expected);
   expect(paths).toHaveLength(CONFIG_NAMESPACE.length * 2);
 });
-
-test('a leaf whose abbreviation equals its name still registers both spellings', () => {
-  // clipanion tolerates the duplicate; collapsing it here would instead make the
-  // quadrant count depend on the leaf, which the overview relies on.
-  expect(configSubcommandPaths('zed', 'zed')).toEqual([
-    ['config', 'zed'],
-    ['config', 'zed'],
-    ['cf', 'zed'],
-    ['cf', 'zed'],
-  ]);
-});

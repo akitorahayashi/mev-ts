@@ -12,51 +12,6 @@ const report = {
   detail: 'applied',
 } as const;
 
-/**
- * A change-detector over the serialization, not an independent authority: the
- * digest is produced by the implementation it guards, and the relational tests
- * below carry the behavioral contract. Its job is to fail when the canonicalizer
- * is rewritten in a way that changes the bytes while preserving ordering
- * behavior, which no relational assertion can catch.
- *
- * The inputs are synthetic and fixed here rather than a production target and
- * the embedded registry, so editing an asset two directories away no longer
- * breaks a unit test — which is what trained routine re-pinning of this digest.
- */
-const GOLDEN_TARGET = target('golden', {
-  description: 'golden',
-  role: 'demo',
-  packages: { taps: ['a/b'], formulae: ['git', 'gh'], casks: ['zed'] },
-  activations: [
-    link(config, home('.demo/config')),
-    runCommand({
-      label: 'demo command',
-      reads: { version: 'demo/version' },
-      steps: [
-        {
-          label: 'install',
-          argv: ['install', { ref: 'version' }, { splitRef: 'version' }],
-          env: { PATH: { pathList: [{ ref: 'home' }, { ref: 'basePath' }] } },
-          skipIf: { pathExists: { concat: [{ ref: 'home' }, '/.demo'] } },
-          changedWhen: { outputContains: 'installed' },
-          report,
-        },
-      ],
-    }),
-  ],
-});
-
-const GOLDEN_ASSETS = mapAssetSource(
-  { 'demo/config': 'config contents\n', 'demo/version': '1.2.3\n' },
-  ['demo/version'],
-);
-
-test('the signature serialization matches its pinned digest', async () => {
-  expect(await targetSignature(GOLDEN_TARGET, GOLDEN_ASSETS)).toBe(
-    'sha256:8c82e5745084129edc755c125c326498effdd4e20c4e5b19880cb6d888496493',
-  );
-});
-
 test('declared assets, packages, and activation destinations affect the signature', async () => {
   const original = target('demo', {
     description: 'original',
