@@ -7,3 +7,8 @@ alias sw-p="swift package"
 alias sw-b="swift build"
 alias sw-r="swift run"
 alias sw-t="swift test"
+
+alias xcs="xcodes"
+alias xcs-ls="xcodes list"
+alias xcs-i="xcodes install"
+alias xcs-ui="xcodes uninstall"
