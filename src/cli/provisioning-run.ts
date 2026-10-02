@@ -10,7 +10,11 @@ import {
   type ActivationProgress,
   createActivationProgress,
 } from './tty/activation-progress';
-import { renderMakeReport, renderPackageReport } from './tty/makelog';
+import {
+  renderMakeReport,
+  renderPackageReport,
+  renderPruneReport,
+} from './tty/makelog';
 import { resolveIsTTY } from './tty/style';
 
 export type ProvisioningRun = (request: MakeRequest) => Promise<MakeReport>;
@@ -68,6 +72,9 @@ export async function executeProvisioningRun(
               0,
               ...event.selection.targetNames.map((name) => name.length),
             );
+            break;
+          case 'prune-complete':
+            out(renderPruneReport(event.report));
             break;
           case 'deploy-complete':
             break;

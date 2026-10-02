@@ -1,4 +1,5 @@
 import type { InstallReport } from '../../brew/install';
+import type { DeployStorePruneReport } from '../../provisioning/deploy-store';
 import { groupSucceeded } from '../../provisioning/group-outcome';
 import {
   OUTCOME_STATUSES,
@@ -14,6 +15,18 @@ interface RenderOptions {
 interface ReportOptions extends RenderOptions {
   readonly durationMs?: number;
   readonly footer?: readonly string[];
+}
+
+export function renderPruneReport(report: DeployStorePruneReport): string {
+  const lines = [
+    ...report.roles.map((role) => `  Removed obsolete role state: ${role}`),
+    ...report.appliedTargets.map(
+      (target) => `  Removed obsolete applied marker: ${target}`,
+    ),
+  ];
+  return lines.length > 0
+    ? `mev: Cleaned obsolete provisioning state\n${lines.join('\n')}\n`
+    : '';
 }
 
 function displayStatus(status: ResourceOutcome['status']): string {

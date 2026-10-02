@@ -4,17 +4,33 @@
 
 ## Install
 
+Homebrew is required when provisioning targets declare Homebrew packages; `mev` does not bootstrap it. On a fresh macOS installation, Homebrew comes first:
+
+```bash
+/bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+The Homebrew installer's Next steps configure the shell's PATH. Those steps must be applied before a new terminal session can find `brew`. Opening a new terminal loads the updated shell configuration; running the recommended `eval "$(.../bin/brew shellenv)"` command in the current terminal makes Homebrew available immediately without a restart. The [Homebrew installation guide](https://docs.brew.sh/Installation#post-installation-steps) describes this setup. Once Homebrew is available:
+
+```bash
+brew --version
+```
+
 `mev` ships as a single compiled binary for macOS on Apple Silicon and Intel:
 
 ```bash
 /bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/akitorahayashi/mev-ts/main/install.sh)"
 ```
 
-The script downloads the release binary for the host architecture, verifies its SHA256 checksum, and installs it to `~/.local/bin/mev`. `MEV_INSTALL_DIR` overrides the destination and `MEV_VERSION=vX.Y.Z` pins a release instead of the latest. Ensure the install directory is on `PATH`, then verify:
+The script downloads the release binary for the host architecture, verifies its SHA256 checksum, and installs it to `~/.local/bin/mev`. It reports the installed binary's version and destination. `MEV_INSTALL_DIR` overrides the destination and `MEV_VERSION=vX.Y.Z` pins a release instead of the latest. The following commands make the default install directory available for the current terminal session and start provisioning:
 
 ```bash
+export PATH="$HOME/.local/bin:$PATH"
 mev --version
+mev create
 ```
+
+For a custom `MEV_INSTALL_DIR`, the installer prints a PATH command using that directory. Install directories containing `:` are rejected before downloading or installing because `:` separates PATH entries. The installer does not edit shell configuration files or change its parent shell's PATH. Homebrew is not required to install `mev` or inspect its version; a provisioning run that needs Homebrew checks it before changing provisioning state.
 
 Installed releases update and reconcile the environment in one command:
 
@@ -27,12 +43,6 @@ mev update --upgrade
 the installed command when needed, then runs `sync` from that exact path. The
 `--upgrade` form forwards the existing upgrade intent to `sync`.
 
-Homebrew is a prerequisite; `mev` installs packages through it but does not bootstrap it:
-
-```bash
-/bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
 ## Development
 
 From a clone, install dependencies and run from source:
@@ -41,6 +51,7 @@ From a clone, install dependencies and run from source:
 bun install
 bun e --version
 MEV_INSTALL_DIR="$HOME/.local/bin" bun run up
+export PATH="$HOME/.local/bin:$PATH"
 mev --version
 ```
 

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
-import { join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { runCliInSandbox as runCli } from '../fixtures/sandboxed-cli';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -10,6 +11,37 @@ import { sandboxedTest } from '../fixtures/temporary-directory';
 // spawn failures (code 127) rather than touching the real machine.
 
 const sandboxTest = sandboxedTest('command-wrappers-');
+
+for (const args of [['make', 'shell'], ['create'], ['sync']]) {
+  sandboxTest(
+    args.join(' ') +
+      ' reports missing Homebrew without changing provisioning state',
+    async (sandbox) => {
+      const files = [
+        ['.zprofile', 'existing shell configuration'],
+        ['.mev/roles/shell/.zprofile', 'existing deployed configuration'],
+        ['.mev/applied/shell', `sha256:${'a'.repeat(64)}\n`],
+        ['.mev/roles/retired/config', 'obsolete deployed configuration'],
+        ['.mev/applied/retired', `sha256:${'b'.repeat(64)}\n`],
+      ] as const;
+      for (const [relative, content] of files) {
+        const path = join(sandbox, relative);
+        await mkdir(dirname(path), { recursive: true });
+        await writeFile(path, content);
+      }
+
+      const result = await runCli(args, sandbox);
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('Homebrew');
+      expect(result.stderr).toContain('brew --version');
+      expect(result.stderr.match(/ProvisioningError:/g)).toHaveLength(1);
+      for (const [relative, content] of files) {
+        expect(await readFile(join(sandbox, relative), 'utf8')).toBe(content);
+      }
+    },
+  );
+}
 
 test('list routes to the target listing under both its name and alias', async () => {
   const byName = await runCli(['list']);

@@ -4,7 +4,7 @@ import { lstat, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
-import { CommandLineError } from '../../src/errors';
+import { CommandLineError, ProvisioningError } from '../../src/errors';
 import type { Context } from '../../src/host/context';
 import {
   appliedPath,
@@ -38,6 +38,44 @@ sandboxTest('an unknown tag is rejected', async (sandbox) => {
     runMake({ selectors: ['nope'] }, contextFor(sandbox)),
   ).rejects.toBeInstanceOf(CommandLineError);
 });
+
+sandboxTest(
+  'unavailable Homebrew stops before preservation, deployment, and obsolete-state cleanup',
+  async (sandbox) => {
+    const deployed = deployedPath({ key: 'zed/settings.json' }, sandbox);
+    const settings = join(sandbox, '.config/zed/settings.json');
+    const obsolete = join(sandbox, '.mev/roles/retired/config');
+    const content = '{"theme":"user-selected"}\n';
+    await mkdir(join(deployed, '..'), { recursive: true });
+    await mkdir(join(settings, '..'), { recursive: true });
+    await mkdir(join(obsolete, '..'), { recursive: true });
+    await writeFile(deployed, content);
+    await symlink(deployed, settings);
+    await writeFile(obsolete, 'obsolete content');
+    const marker = appliedPath(sandbox, 'zed');
+    const signature = `sha256:${'a'.repeat(64)}`;
+    await writeApplied(marker, signature);
+    await writeApplied(appliedPath(sandbox, 'retired'), signature);
+    const { context, calls } = recordingContext({
+      home: sandbox,
+      assets: embeddedAssets,
+      respond: () => ({ code: 127, stdout: '', stderr: 'brew unavailable' }),
+    });
+
+    await expect(
+      runMake({ selectors: ['zed'], pruneObsoleteState: true }, context),
+    ).rejects.toBeInstanceOf(ProvisioningError);
+
+    expect((await lstat(settings)).isSymbolicLink()).toBe(true);
+    expect(await readFile(deployed, 'utf8')).toBe(content);
+    expect(await readApplied(marker)).toBe(signature);
+    expect(await readFile(obsolete, 'utf8')).toBe('obsolete content');
+    expect(await readApplied(appliedPath(sandbox, 'retired'))).toBe(signature);
+    expect(calls.map(({ command, args }) => [command, ...args])).toEqual([
+      ['brew', '--version'],
+    ]);
+  },
+);
 
 sandboxTest(
   'an activation progress listener failure propagates outside provisioning',
@@ -186,7 +224,9 @@ sandboxTest(
       'previous deployed content\n',
     );
     expect(report.install).toEqual([]);
-    expect(calls.some(({ command }) => command === 'brew')).toBe(false);
+    expect(
+      calls.filter(({ command }) => command === 'brew').map(({ args }) => args),
+    ).toEqual([['--version']]);
   },
 );
 

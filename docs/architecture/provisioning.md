@@ -1,5 +1,17 @@
 # Provisioning Phases
 
+## Runtime prerequisites
+
+A selection declaring Homebrew packages requires a successful `brew --version`
+before obsolete-state cleanup, mutable-state preservation, marker invalidation,
+or deployment. An unavailable executable produces one provisioning error with
+Homebrew installation and shell-environment guidance. Other check failures retain
+the command's diagnostics. Selections without Homebrew packages skip the check.
+
+`create` and `sync` clean obsolete provisioning state after the prerequisite
+check. A `sync` with no stale targets still cleans obsolete state without
+requiring Homebrew.
+
 ## Preservation boundary
 
 Mutable host state is protected before applied markers are invalidated or roles

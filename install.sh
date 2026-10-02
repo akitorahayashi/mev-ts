@@ -21,6 +21,11 @@ x86_64 | amd64) target="darwin-x64" ;;
 	;;
 esac
 
+if [[ "$install_dir" == *:* ]]; then
+	echo "MEV_INSTALL_DIR must not contain ':' (the PATH separator). Choose a directory without ':'." >&2
+	exit 1
+fi
+
 if ! command -v curl >/dev/null 2>&1; then
 	echo "curl is required but was not found in PATH." >&2
 	exit 1
@@ -93,14 +98,15 @@ fi
 mkdir -p "$install_dir"
 install -m 755 "$tmp_file" "${install_dir}/${binary_name}"
 
-echo "Installed to ${install_dir}/${binary_name}"
+installed_version="$("${install_dir}/${binary_name}" --version)"
+echo "Installed ${binary_name} ${installed_version} to ${install_dir}/${binary_name}"
 
 case ":${PATH}:" in
 *":${install_dir}:"*) echo "Run: ${binary_name} --version" ;;
 *)
 	echo "Note: ${install_dir} is not on PATH yet."
-	echo "Run it once by full path to provision your shell:"
-	echo "  ${install_dir}/${binary_name} make shell"
-	echo "Then restart your shell and run: ${binary_name} --version"
+	echo "Run these commands in this terminal to add it to PATH for this session:"
+	printf "  export PATH=%q:\"\$PATH\"\n" "$install_dir"
+	echo "  ${binary_name} --version"
 	;;
 esac
