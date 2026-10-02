@@ -100,8 +100,8 @@ case ":${PATH}:" in
 *":${install_dir}:"*) echo "Run: ${binary_name} --version" ;;
 *)
 	echo "Note: ${install_dir} is not on PATH yet."
-	echo "Run it once by full path to provision your shell:"
-	echo "  ${install_dir}/${binary_name} make shell"
-	echo "Then restart your shell and run: ${binary_name} --version"
+	echo "Run these commands in this terminal to add it to PATH for this session:"
+	printf "  export PATH=%q:\"\$PATH\"\n" "$install_dir"
+	echo "  ${binary_name} --version"
 	;;
 esac

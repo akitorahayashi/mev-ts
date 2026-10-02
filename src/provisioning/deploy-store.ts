@@ -121,39 +121,15 @@ export async function pruneDeployStore(
   }
 }
 
-function deployStorePruneLines(
-  report: DeployStorePruneReport,
-): readonly string[] {
-  const lines: string[] = [];
-  for (const role of report.roles) {
-    lines.push(`  Removed obsolete role state: ${role}`);
-  }
-  for (const target of report.appliedTargets) {
-    lines.push(`  Removed obsolete applied marker: ${target}`);
-  }
-  return lines;
-}
-
-/**
- * Prune deploy-store state for every target no longer in the registry, writing
- * a cleanup summary through `write`. Shared by `create` and `sync`, which both
- * run it before provisioning so a removed target leaves no orphaned role or
- * applied marker behind.
- */
 export async function pruneObsoleteDeployState(
   context: Pick<Context, 'home'>,
-  write: (text: string) => void,
-): Promise<void> {
+): Promise<DeployStorePruneReport> {
   const registered = allTargets();
-  const report = await pruneDeployStore(
+  return pruneDeployStore(
     {
       roles: registered.map((target) => target.role),
       targets: registered.map((target) => target.name),
     },
     context,
   );
-  const lines = deployStorePruneLines(report);
-  if (lines.length > 0) {
-    write(`mev: Cleaned obsolete provisioning state\n${lines.join('\n')}\n`);
-  }
 }

@@ -1,8 +1,10 @@
 import { Command, Option } from 'clipanion';
+import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
 import { runMake } from '../../provisioning/run';
 import type { SyncReason } from '../../provisioning/scan';
 import { isScanError, scanTargets } from '../../provisioning/scan';
 import { executeProvisioningRun } from '../provisioning-run';
+import { renderPruneReport } from '../tty/makelog';
 import { withAliasHint } from './alias-hint';
 import { runReportingDomainErrors } from './domain-error';
 import { prepareFullSetup } from './full-setup';
@@ -37,9 +39,7 @@ export class SyncCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const { context, targets } = await prepareFullSetup((text) =>
-        this.context.stdout.write(text),
-      );
+      const { context, targets } = prepareFullSetup();
 
       const scans = await scanTargets(targets, context);
       let scanFailed = false;
@@ -60,6 +60,9 @@ export class SyncCommand extends Command {
         // environment cannot be reported as synchronized.
         if (scanFailed) return 1;
         this.context.stdout.write(
+          renderPruneReport(await pruneObsoleteDeployState(context)),
+        );
+        this.context.stdout.write(
           `No targets need reapplying.\n${targets.length} target definitions and managed assets match the last successful apply.\n`,
         );
         return 0;
@@ -79,7 +82,8 @@ export class SyncCommand extends Command {
         selectors,
         upgrade: this.upgrade,
         intro: `Reapplying ${selectors.length} stale targets\n${reasonText}`,
-        run: (request) => runMake(request, context),
+        run: (request) =>
+          runMake({ ...request, pruneObsoleteState: true }, context),
         stream: this.context.stdout,
       });
       return code === 0 && scanFailed ? 1 : code;

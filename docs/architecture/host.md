@@ -23,5 +23,9 @@ real process launches.
 | `stdout`, `stderr` | `pipe` captures output; `inherit` forwards it. |
 | Spawn failure | Resolves as exit code 127 with the failure in stderr. |
 
+Each invocation explicitly passes the current inherited environment, including
+PATH, with any declared overrides applied on top. Command lookup therefore uses
+the same environment as the child process.
+
 Callers handle missing or unspawnable executables as ordinary non-zero results;
 the runner does not turn them into an untyped rejection.

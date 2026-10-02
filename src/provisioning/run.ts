@@ -1,3 +1,4 @@
+import { assertBrewAvailable } from '../brew/availability';
 import { type InstallReport, installPackages } from '../brew/install';
 import { mergePackages, type PackageToken, tokens } from '../brew/package';
 import { errorMessage } from '../errors';
@@ -15,6 +16,10 @@ import {
 } from './activation';
 import { appliedPath, invalidateApplied, writeApplied } from './applied';
 import { type DeployResult, deployRole } from './deploy';
+import {
+  type DeployStorePruneReport,
+  pruneObsoleteDeployState,
+} from './deploy-store';
 import { groupSucceeded } from './group-outcome';
 import { type MakePlan, planMake } from './plan';
 import { outcomeStatus } from './resource-outcome';
@@ -55,6 +60,7 @@ export interface MakeReport {
 
 export type MakeEvent =
   | { readonly type: 'selection'; readonly selection: MakePlan }
+  | { readonly type: 'prune-complete'; readonly report: DeployStorePruneReport }
   | { readonly type: 'deploy-complete'; readonly result: DeployResult }
   | { readonly type: 'package-phase-start'; readonly total: number }
   | {
@@ -87,6 +93,7 @@ export interface MakeRequest {
   readonly selectors: readonly string[];
   /** Upgrade selected Homebrew packages and installed latest-assumed items. */
   readonly upgrade?: boolean;
+  readonly pruneObsoleteState?: boolean;
   readonly onEvent?: (event: MakeEvent) => void;
 }
 
@@ -231,6 +238,13 @@ export async function runMake(
   const selection = planMake(request.selectors);
   const upgrade = request.upgrade ?? false;
   request.onEvent?.({ type: 'selection', selection });
+  if (tokens(selection.packages).length > 0) {
+    await assertBrewAvailable(context);
+  }
+  if (request.pruneObsoleteState) {
+    const report = await pruneObsoleteDeployState(context);
+    request.onEvent?.({ type: 'prune-complete', report });
+  }
   const preparation = await prepareTargets(selection.groups, context);
 
   const { deploys, failedRoles } = await runDeployPhase(

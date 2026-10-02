@@ -117,9 +117,9 @@ async function runInstaller(
     cwd: process.cwd(),
     env: {
       PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
-      ...env,
       MEV_BINARY_URL: 'https://example.test/mev',
       MEV_INSTALL_DIR: join(dir, 'bin'),
+      ...env,
     },
     stderr: 'pipe',
     stdout: 'pipe',
@@ -131,6 +131,54 @@ async function runInstaller(
   ]);
   return { code, stdout, stderr };
 }
+
+// The shell executes the installer's copyable PATH command, the boundary under test.
+test.each([
+  '/bin/bash',
+  '/bin/zsh',
+])('installer PATH instructions resolve the installed binary safely in %s', async (shell) => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const installDir = join(
+        dir,
+        "bin with 'quotes' $cash `touch injected` $(touch injected)",
+      );
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: SHA256,
+        MEV_INSTALL_DIR: installDir,
+        TMPDIR: dir,
+      });
+      expect(result.code).toBe(0);
+      const pathCommand = result.stdout
+        .split('\n')
+        .find((line) => line.trimStart().startsWith('export PATH='));
+      if (!pathCommand)
+        throw new Error('installer did not provide a PATH command');
+
+      const proc = Bun.spawn(
+        [shell, '-f', '-c', `${pathCommand}\ncommand -v mev\nmev --version`],
+        {
+          cwd: dir,
+          env: { HOME: dir, PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+          stdout: 'pipe',
+          stderr: 'pipe',
+        },
+      );
+      const [stdout, stderr, code] = await Promise.all([
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+        proc.exited,
+      ]);
+      expect(code).toBe(0);
+      expect(stderr).toBe('');
+      expect(stdout).toBe(`${join(installDir, 'mev')}\n1.2.3\n`);
+      expect(await Bun.file(join(dir, 'injected')).exists()).toBe(false);
+    },
+    { prefix: 'installer-path-' },
+  );
+});
 
 test('installer downloads one binary when checksum is supplied and cleans TMPDIR with spaces', async () => {
   await withTemporaryDirectory(

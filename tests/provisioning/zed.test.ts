@@ -250,6 +250,7 @@ sandboxTest(
         if (command !== 'brew') {
           throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
         }
+        if (args[0] === '--version') return ok();
         if (args[0] === 'list') return ok('zed\n');
         if (args[0] === 'info') {
           const installed = versionProbe === 0 ? '1.18.0' : '1.18.1';

@@ -21,6 +21,13 @@ mev sync
 mev update
 ```
 
+Selected targets that declare Homebrew packages require `brew` to be available
+on PATH. A failed prerequisite check exits with code 1 before provisioning state
+changes; an unavailable executable reports Homebrew installation and shell setup
+steps. Targets without Homebrew packages and a `sync` with no stale targets do
+not require Homebrew. `create` and `sync` clean obsolete provisioning state after
+the check, including a no-op sync's cleanup.
+
 Provisioning reports user-managed resources rather than internal config-file
 checks. `changed` means a probe observed a change, `current` means the resource
 was already correct, `applied` means an action succeeded without an independent

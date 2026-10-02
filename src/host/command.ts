@@ -56,7 +56,7 @@ export const bunCommandRunner: CommandRunner = {
         stdout: stdoutMode,
         stderr: stderrMode,
         cwd: options?.cwd,
-        env: options?.env ? { ...Bun.env, ...options.env } : undefined,
+        env: { ...Bun.env, ...options?.env },
       });
       const [stdout, stderr, code] = await Promise.all([
         stdoutMode === 'pipe' && process.stdout

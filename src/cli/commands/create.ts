@@ -34,9 +34,7 @@ export class CreateCommand extends Command {
 
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
-      const { context, targets } = await prepareFullSetup((text) =>
-        this.context.stdout.write(text),
-      );
+      const { context, targets } = prepareFullSetup();
 
       const selectors = targets.map((target) => target.name);
 
@@ -45,7 +43,8 @@ export class CreateCommand extends Command {
         upgrade: this.upgrade,
         intro: 'mev: Creating environment',
         footer: (report) => (report.failed ? undefined : optionalFooter()),
-        run: (request) => runMake(request, context),
+        run: (request) =>
+          runMake({ ...request, pruneObsoleteState: true }, context),
         stream: this.context.stdout,
       });
     });
