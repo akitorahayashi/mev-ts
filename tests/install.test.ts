@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { withTemporaryDirectory } from './fixtures/temporary-directory';
 
@@ -131,6 +131,36 @@ async function runInstaller(
   ]);
   return { code, stdout, stderr };
 }
+
+test('installer rejects a colon in the install directory before downloading or creating it', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const installDir = join(dir, 'mev:bin');
+      const log = join(dir, 'calls.log');
+      const bashEnv = await fakeCommands(dir, log);
+      const tmp = join(dir, 'tmp');
+      await mkdir(tmp);
+
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: SHA256,
+        MEV_INSTALL_DIR: installDir,
+        TMPDIR: tmp,
+      });
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('MEV_INSTALL_DIR');
+      expect(result.stderr).toContain('PATH');
+      expect(result.stderr).toContain(':');
+      expect(await Bun.file(log).exists()).toBe(false);
+      await expect(access(installDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      expect(await readdir(tmp)).toEqual([]);
+    },
+    { prefix: 'installer-invalid-directory-' },
+  );
+});
 
 // The shell executes the installer's copyable PATH command, the boundary under test.
 test.each([

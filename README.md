@@ -30,7 +30,7 @@ mev --version
 mev create
 ```
 
-For a custom `MEV_INSTALL_DIR`, the installer prints a PATH command using that directory. The installer does not edit shell configuration files or change its parent shell's PATH. Homebrew is not required to install `mev` or inspect its version; a provisioning run that needs Homebrew checks it before changing provisioning state.
+For a custom `MEV_INSTALL_DIR`, the installer prints a PATH command using that directory. Install directories containing `:` are rejected before downloading or installing because `:` separates PATH entries. The installer does not edit shell configuration files or change its parent shell's PATH. Homebrew is not required to install `mev` or inspect its version; a provisioning run that needs Homebrew checks it before changing provisioning state.
 
 Installed releases update and reconcile the environment in one command:
 

@@ -21,6 +21,11 @@ x86_64 | amd64) target="darwin-x64" ;;
 	;;
 esac
 
+if [[ "$install_dir" == *:* ]]; then
+	echo "MEV_INSTALL_DIR must not contain ':' (the PATH separator). Choose a directory without ':'." >&2
+	exit 1
+fi
+
 if ! command -v curl >/dev/null 2>&1; then
 	echo "curl is required but was not found in PATH." >&2
 	exit 1
