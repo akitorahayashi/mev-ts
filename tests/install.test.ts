@@ -7,6 +7,16 @@ const SHA256 =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const MISMATCHED_SHA256 =
   'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
+const BINARY = `#!/bin/sh
+if [ "$1" != "--version" ]; then
+  exit 64
+fi
+if [ "\${MEV_FAKE_VERSION_FAIL:-}" = "1" ]; then
+  echo "version failed" >&2
+  exit 8
+fi
+printf '1.2.3\\n'
+`;
 
 async function fakeCommands(dir: string, log: string): Promise<string> {
   const bashEnv = join(dir, 'fake-commands.bash');
@@ -55,7 +65,10 @@ curl() {
   fi
   case "$out" in
     *.sha256) printf '%s  mev\\n' "${SHA256}" > "$out" ;;
-    *) printf binary > "$out" ;;
+    *)
+      cat > "$out" <<'MEV_TEST_BINARY'
+${BINARY}MEV_TEST_BINARY
+      ;;
   esac
 }
 
@@ -134,7 +147,10 @@ test('installer downloads one binary when checksum is supplied and cleans TMPDIR
       });
 
       expect(result.code).toBe(0);
-      expect(await readFile(join(dir, 'bin', 'mev'), 'utf8')).toBe('binary');
+      expect(await readFile(join(dir, 'bin', 'mev'), 'utf8')).toBe(BINARY);
+      expect(result.stdout).toContain(
+        `Installed mev 1.2.3 to ${join(dir, 'bin', 'mev')}`,
+      );
       const calls = await readFile(log, 'utf8');
       expect(calls.match(/^curl /gm)).toHaveLength(1);
       expect(calls).toContain('--proto =https --proto-redir =https --tlsv1.2');
@@ -142,6 +158,32 @@ test('installer downloads one binary when checksum is supplied and cleans TMPDIR
       expect(await readdir(tmp)).toEqual([]);
     },
     { prefix: 'installer-success-' },
+  );
+});
+
+test('installer reports the installed version when PATH contains an older mev', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const oldBin = join(dir, 'old bin');
+      await mkdir(oldBin);
+      await writeFile(join(oldBin, 'mev'), "#!/bin/sh\nprintf '0.1.0\\n'\n", {
+        mode: 0o755,
+      });
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: SHA256,
+        PATH: `${oldBin}:/usr/bin:/bin:/usr/sbin:/sbin`,
+      });
+
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain(
+        `Installed mev 1.2.3 to ${join(dir, 'bin', 'mev')}`,
+      );
+      expect(result.stdout).not.toContain('0.1.0');
+    },
+    { prefix: 'installer version-' },
   );
 });
 
@@ -257,5 +299,28 @@ test('installer cleans temporary files after install failure', async () => {
       expect(await readdir(tmp)).toEqual([]);
     },
     { prefix: 'installer-install-failure-' },
+  );
+});
+
+test('installer fails without reporting success when the installed version probe fails', async () => {
+  await withTemporaryDirectory(
+    async (dir) => {
+      const tmp = join(dir, 'tmp root');
+      await mkdir(tmp);
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: SHA256,
+        MEV_FAKE_VERSION_FAIL: '1',
+        TMPDIR: tmp,
+      });
+
+      expect(result.code).toBe(8);
+      expect(result.stderr).toContain('version failed');
+      expect(result.stdout).not.toContain('Installed mev');
+      expect(await readdir(tmp)).toEqual([]);
+    },
+    { prefix: 'installer-version-failure-' },
   );
 });

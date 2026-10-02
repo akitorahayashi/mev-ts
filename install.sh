@@ -93,7 +93,8 @@ fi
 mkdir -p "$install_dir"
 install -m 755 "$tmp_file" "${install_dir}/${binary_name}"
 
-echo "Installed to ${install_dir}/${binary_name}"
+installed_version="$("${install_dir}/${binary_name}" --version)"
+echo "Installed ${binary_name} ${installed_version} to ${install_dir}/${binary_name}"
 
 case ":${PATH}:" in
 *":${install_dir}:"*) echo "Run: ${binary_name} --version" ;;
