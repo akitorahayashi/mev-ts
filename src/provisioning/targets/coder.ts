@@ -133,11 +133,11 @@ export const coderTarget = target('coder', {
     ),
     link(asset('coder/rtk/rewrite.sh'), mevPath('rtk/rewrite.sh')),
     link(
-      asset('coder/hooks/claude/pre-tool-use.sh'),
+      asset('coder/hooks/pre-tool-use.sh'),
       mevPath('hooks/claude/pre-tool-use.sh'),
     ),
     link(
-      asset('coder/hooks/codex/pre-tool-use.sh'),
+      asset('coder/hooks/pre-tool-use.sh'),
       mevPath('hooks/codex/pre-tool-use.sh'),
     ),
     coderAgents(AGENTS_SECTIONS_PREFIX, AGENTS_DESTS),

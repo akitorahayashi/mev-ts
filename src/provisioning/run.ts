@@ -22,7 +22,7 @@ import {
 } from './deploy-store';
 import { groupSucceeded } from './group-outcome';
 import { type MakePlan, planMake } from './plan';
-import { outcomeStatus } from './resource-outcome';
+import { outcomeStatus, outcomeSucceeded } from './resource-outcome';
 import { targetSignature } from './signature';
 import type { Target } from './target';
 
@@ -320,9 +320,7 @@ export async function runMake(
           }),
       });
       reports.push(report);
-      activationBlocked =
-        outcomeStatus(report.outcomes) === 'failed' ||
-        outcomeStatus(report.outcomes) === 'blocked';
+      activationBlocked = !outcomeSucceeded(outcomeStatus(report.outcomes));
     }
     const baseReport: ActivationGroupReport = {
       targetName: group.name,

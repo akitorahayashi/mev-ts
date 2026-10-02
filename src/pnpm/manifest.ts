@@ -3,6 +3,7 @@ import {
   isRecord,
   requireExactKeys,
   requireNonEmptyString,
+  requireRecord,
   requireStringArray,
   requireUniqueBy,
 } from '../host/parse';
@@ -51,10 +52,7 @@ function requirePackageName(name: unknown, label: string): string {
 
 export function parseManifest(raw: string, path: string): PnpmEntry[] {
   const label = `pnpm global packages manifest ${path}`;
-  const parsed = loadYaml(raw, path);
-  if (!isRecord(parsed)) {
-    throw new ProvisioningError(`${label} must be a mapping.`);
-  }
+  const parsed = requireRecord(loadYaml(raw, path), label);
   requireExactKeys(parsed, ['packages', 'uninstall'], label);
   const packagesValue = parsed['packages'];
   if (!isRecord(packagesValue)) {

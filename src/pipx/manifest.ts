@@ -53,10 +53,7 @@ export function normalizedPackageName(name: string): string {
 
 export function parseManifest(raw: string, path: string): PipxEntry[] {
   const label = `Pipx config ${path}`;
-  const parsed = loadYaml(raw, path);
-  if (!isRecord(parsed)) {
-    throw new ProvisioningError(`${label} must be a mapping.`);
-  }
+  const parsed = requireRecord(loadYaml(raw, path), label);
   requireExactKeys(parsed, ['tools', 'uninstall'], label);
   const tools = parsed['tools'];
   if (!isRecord(tools)) {

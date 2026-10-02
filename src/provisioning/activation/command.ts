@@ -15,7 +15,7 @@ import type {
   ReconcileItemResult,
   StepGuard,
 } from './contract';
-import { aggregateStatus, guarded } from './reconcile';
+import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type CommandActivation = Extract<Activation, { kind: 'command' }>;
 type UnreportedCommandStep = Omit<CommandStep, 'capture' | 'report'> & {
@@ -324,6 +324,6 @@ export async function runCommandActivation(
       if (report.status === 'failed') break;
     }
 
-    return { status: aggregateStatus(entries), entries };
+    return activationReport(base, entries.map(stepOutcome));
   });
 }

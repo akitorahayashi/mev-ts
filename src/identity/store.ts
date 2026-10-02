@@ -1,6 +1,7 @@
 import { AppError, errorMessage } from '../errors';
 import { readTextIfPresent } from '../host/absence';
 import { writeFileAtomically } from '../host/atomic-file';
+import { serializeJson } from '../host/json';
 import {
   type ErrorFactory,
   isRecord,
@@ -72,7 +73,7 @@ export async function saveState(
   path: string,
   state: IdentityState,
 ): Promise<void> {
-  const content = `${JSON.stringify(serialize(state), null, 2)}\n`;
+  const content = serializeJson(serialize(state));
   try {
     await writeFileAtomically(path, content);
   } catch (error) {

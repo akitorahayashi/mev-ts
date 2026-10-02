@@ -11,7 +11,6 @@ test('the TTY activation progress renders the in-flight line and a completion li
       out += text;
     },
     stream: stream as unknown as NodeJS.WriteStream,
-    nameWidth: 5,
   });
 
   progress.start();
