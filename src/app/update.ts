@@ -208,7 +208,7 @@ async function updateMevUnchecked(
   let committed = false;
   let result: MevUpdateOutcome | undefined;
   try {
-    await runWithCleanup(
+    return await runWithCleanup(
       async () => {
         const checksumPath = join(workspace, `${asset}.sha256`);
         await downloadOverHttps(
@@ -262,7 +262,6 @@ async function updateMevUnchecked(
       () => rm(workspace, { force: true, recursive: true }),
       `Failed to clean up mev update workspace ${workspace}.`,
     );
-    return result as MevUpdateOutcome;
   } catch (error) {
     if (!committed || !result) throw error;
     return {

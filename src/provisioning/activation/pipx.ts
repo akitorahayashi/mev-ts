@@ -53,10 +53,8 @@ function pipxStep(
         await uninstall(context, options, installed.name);
         actions.push('uninstalled');
       }
-      let justInstalled = false;
       if (reinstall) {
         await install(context, options, installSpec(tool));
-        justInstalled = true;
         actions.push('installed');
       }
       let justUpgraded = false;
@@ -80,14 +78,14 @@ function pipxStep(
         }
       }
       let justInjected = false;
-      if (shouldInject(tool, installed, justInstalled)) {
+      if (shouldInject(tool, installed, reinstall)) {
         await inject(context, options, tool.package, tool.inject ?? []);
         justInjected = true;
         actions.push('injected');
       }
       if (
         tool.post_install &&
-        shouldPostInstall(tool, justInstalled, justInjected, justUpgraded)
+        shouldPostInstall(tool, reinstall, justInjected, justUpgraded)
       ) {
         await postInstall(
           context,

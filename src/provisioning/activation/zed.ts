@@ -10,7 +10,6 @@ import type {
   Activation,
   ActivationDescription,
   ActivationReport,
-  ReconcileItemResult,
 } from './contract';
 import { activationReport, guarded } from './reconcile';
 
@@ -54,13 +53,15 @@ export async function runZedSettings(
     // apply — a misconfiguration. Fail and name each one before any mutation, so
     // a failed activation never leaves partially-applied settings or a symlink.
     if (unknown.length > 0) {
-      const entries: ReconcileItemResult[] = unknown.map((name) => ({
-        key: name,
-        value: 'not in catalog',
-        status: 'failed',
-        error: `Selected Zed override is not in the catalog: ${name}`,
-      }));
-      return { ...base, status: 'failed', entries };
+      return activationReport(
+        base,
+        unknown.map((name) => ({
+          label: name,
+          details: ['not in catalog'],
+          status: 'failed',
+          error: `Selected Zed override is not in the catalog: ${name}`,
+        })),
+      );
     }
 
     const output = settingsFile(context.home);

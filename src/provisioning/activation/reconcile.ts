@@ -47,18 +47,6 @@ export function activationReport(
   };
 }
 
-export function aggregateStatus(
-  entries: readonly ReconcileItemResult[],
-): ReturnType<typeof outcomeStatus> {
-  return outcomeStatus(entries.map(stepOutcome));
-}
-
-interface GuardedResult {
-  readonly status: 'changed' | 'unchanged' | 'applied' | 'failed' | 'blocked';
-  readonly entries?: readonly ReconcileItemResult[];
-  readonly error?: string;
-}
-
 /**
  * The per-activation error boundary shared by the hand-rolled runners. Runs
  * `fn` and, if it throws, renders the failure as a `failed` report over `base`,
@@ -66,36 +54,10 @@ interface GuardedResult {
  */
 export async function guarded(
   description: ActivationDescription,
-  fn: () => Promise<ActivationReport | GuardedResult>,
+  fn: () => Promise<ActivationReport>,
 ): Promise<ActivationReport> {
   try {
-    const result = await fn();
-    if ('outcomes' in result) return result;
-    if (result.entries) {
-      return activationReport(description, result.entries.map(stepOutcome));
-    }
-    if (result.status === 'failed') {
-      const error = result.error ?? 'Unknown error.';
-      return {
-        ...activationReport(description, [
-          { label: description.subject, status: 'failed', error },
-        ]),
-        error,
-      };
-    }
-    if (result.status === 'blocked') {
-      const error = result.error ?? 'A prerequisite was not satisfied.';
-      return {
-        ...activationReport(description, [
-          { label: description.subject, status: 'blocked', reason: error },
-        ]),
-        error,
-        entries: undefined,
-      };
-    }
-    return activationReport(description, [
-      { label: description.subject, status: result.status },
-    ]);
+    return await fn();
   } catch (error) {
     rethrowActivityObserverError(error);
     const message = errorMessage(error);
@@ -165,7 +127,7 @@ export async function reconcile<D>(
   description: ActivationDescription,
   spec: ReconcileSpec<D>,
 ): Promise<ActivationReport> {
-  try {
+  return guarded(description, async () => {
     const declared = await spec.declare();
     if (declared.length === 0) {
       return activationReport(description, []);
@@ -176,14 +138,5 @@ export async function reconcile<D>(
         ? await mapWithConcurrency(steps, spec.concurrent, executeStep)
         : await runSeries(steps);
     return activationReport(description, entries.map(stepOutcome));
-  } catch (error) {
-    rethrowActivityObserverError(error);
-    const message = errorMessage(error);
-    return {
-      ...activationReport(description, [
-        { label: description.subject, status: 'failed', error: message },
-      ]),
-      error: message,
-    };
-  }
+  });
 }

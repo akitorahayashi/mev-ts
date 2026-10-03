@@ -9,8 +9,7 @@ import { embeddedAssets } from './registry';
 const EXECUTABLE_KEYS = [
   'coder/antigravity-cli/statusline.sh',
   'coder/claude/statusline.sh',
-  'coder/hooks/claude/pre-tool-use.sh',
-  'coder/hooks/codex/pre-tool-use.sh',
+  'coder/hooks/pre-tool-use.sh',
   'coder/rtk/rewrite.sh',
 ];
 

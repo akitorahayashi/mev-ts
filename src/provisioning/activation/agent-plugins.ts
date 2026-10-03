@@ -31,7 +31,7 @@ import type {
   ReconcileItemResult,
 } from './contract';
 import { readDeployedManifest } from './manifest';
-import { aggregateStatus, guarded } from './reconcile';
+import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type AgentPluginsActivation = Extract<Activation, { kind: 'agentPlugins' }>;
 
@@ -860,10 +860,6 @@ export function runAgentPlugins(
     }
 
     await verifyOutcomes(clients, clientContext, entries, declared, removals);
-    return {
-      ...base,
-      status: aggregateStatus(entries),
-      entries,
-    };
+    return activationReport(base, entries.map(stepOutcome));
   });
 }

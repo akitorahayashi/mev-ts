@@ -28,7 +28,7 @@ import type {
   ReconcileItemResult,
   RemoteInstallerUpgrade,
 } from './contract';
-import { activationReport, guarded } from './reconcile';
+import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type RemoteInstallerActivation = Extract<
   Activation,
@@ -258,10 +258,17 @@ export async function runRemoteInstaller(
           upgrade.blockedWhen &&
           entry.error?.includes(upgrade.blockedWhen.errorContains)
         ) {
-          return { ...base, status: 'blocked', error: entry.error };
+          const error = entry.error;
+          return {
+            ...activationReport(base, [
+              { label: base.subject, status: 'blocked', reason: error },
+            ]),
+            error,
+            entries: undefined,
+          };
         }
         if (entry.status === 'failed') {
-          return { ...base, status: 'failed', entries: [entry] };
+          return activationReport(base, [stepOutcome(entry)]);
         }
         reportActivity(options.onActivity, {
           subject: base.subject,
@@ -272,7 +279,7 @@ export async function runRemoteInstaller(
           before.version,
           await probeUpgradeVersion(upgrade, scope, context),
         );
-        return { ...base, status: classified.status, entries: [classified] };
+        return activationReport(base, [stepOutcome(classified)]);
       }
       return activationReport(base, [
         {

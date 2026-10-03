@@ -8,8 +8,6 @@ interface ActivationProgressOptions {
   readonly isTTY: boolean;
   readonly out: (text: string) => void;
   readonly stream: Writable;
-  /** Widest target name, so completion columns align. */
-  readonly nameWidth?: number;
 }
 
 type ActivationStartEvent = Omit<
