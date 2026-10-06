@@ -3,6 +3,7 @@ import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 import { MARKETPLACE_REF } from './catalog';
+import { MarketplaceFetchError, noninteractiveRunner } from './command';
 import { decodeInstalledPlugin, type PluginInventory } from './inventory';
 import { capturePluginJson } from './output';
 
@@ -53,6 +54,7 @@ export async function addCodexMarketplace(
     'codex',
     ['plugin', 'marketplace', 'add', url, '--ref', MARKETPLACE_REF, '--json'],
     `Codex marketplace add ${url}`,
+    (message) => new MarketplaceFetchError(message),
   );
   if (!isRecord(raw) || typeof raw['alreadyAdded'] !== 'boolean') {
     throw new ProvisioningError(
@@ -70,6 +72,7 @@ export async function upgradeCodexMarketplace(
     'codex',
     ['plugin', 'marketplace', 'upgrade', name, '--json'],
     `Codex marketplace upgrade ${name}`,
+    (message) => new MarketplaceFetchError(message),
   );
 }
 
@@ -129,7 +132,7 @@ export async function removeCodexPlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'codex',
     ['plugin', 'remove', id],
     `Codex plugin remove ${id}`,

@@ -3,6 +3,7 @@ import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import { isRecord } from '../host/parse';
 import { MARKETPLACE_REF } from './catalog';
+import { MarketplaceFetchError, noninteractiveRunner } from './command';
 import { decodeInstalledPlugin, type PluginInventory } from './inventory';
 import { capturePluginJson } from './output';
 
@@ -88,10 +89,11 @@ export async function addClaudeMarketplace(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'marketplace', 'add', `${url}#${MARKETPLACE_REF}`],
     `Claude marketplace add ${url}`,
+    { raise: (message) => new MarketplaceFetchError(message) },
   );
 }
 
@@ -100,10 +102,11 @@ export async function updateClaudeMarketplace(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'marketplace', 'update', name],
     `Claude marketplace update ${name}`,
+    { raise: (message) => new MarketplaceFetchError(message) },
   );
 }
 
@@ -112,7 +115,7 @@ export async function installClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'install', id],
     `Claude plugin install ${id}`,
@@ -127,7 +130,7 @@ export async function enableClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'enable', id, '--scope', 'user'],
     `Claude plugin enable ${id}`,
@@ -139,7 +142,7 @@ export async function updateClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'update', id],
     `Claude plugin update ${id}`,
@@ -154,7 +157,7 @@ export async function uninstallClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'uninstall', id, '--scope', 'user'],
     `Claude plugin uninstall ${id}`,
@@ -166,7 +169,7 @@ export async function removeClaudeMarketplace(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    context.commands,
+    noninteractiveRunner(context.commands),
     'claude',
     ['plugin', 'marketplace', 'remove', name, '--scope', 'user'],
     `Claude marketplace remove ${name}`,

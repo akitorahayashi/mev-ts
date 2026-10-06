@@ -78,6 +78,22 @@ Client commands run with the activation-declared binary directories prepended
 to the inherited `PATH`, so a tool installed earlier in the same target is
 available without restarting the shell.
 
+Each activation has one mutation queue per client. Registration, refresh,
+installation, enablement, upgrade, and removal share the client's settings stores
+and run serially, including the full process lifetime and multi-command source
+replacement. Different clients and read-only inventories remain independent.
+A failed operation reports its error without blocking later queued operations.
+
+Client commands use noninteractive SSH with existing host-key trust required.
+Connection and keepalive limits bound SSH waits, and a command deadline terminates
+the owned process group, including Git and SSH descendants. The transport policy
+is owned by `src/agent-plugin/command.ts`.
+
+A marketplace fetch failure blocks installations and upgrades that require it,
+while installed declarations can still be enabled locally. Source conflicts and
+unavailable ownership inventories remain blocking. Failures appear in the final
+report and produce a nonzero command exit after independent work completes.
+
 ## Sources of truth
 
 | Responsibility | Authority |

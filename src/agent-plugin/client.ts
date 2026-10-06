@@ -230,8 +230,40 @@ const codexOps: PluginClientOps = {
   },
 };
 
-export const pluginClientOps: Readonly<Record<PluginClient, PluginClientOps>> =
-  {
-    claude: claudeOps,
-    codex: codexOps,
+export type PluginClients = Readonly<Record<PluginClient, PluginClientOps>>;
+
+function serializeMutations(ops: PluginClientOps): PluginClientOps {
+  let settled = Promise.resolve();
+
+  function enqueue<Args extends unknown[], Result>(
+    operation: (...args: Args) => Promise<Result>,
+  ): (...args: Args) => Promise<Result> {
+    return (...args) => {
+      const result = settled.then(() => operation(...args));
+      // The caller receives the failure; unrelated updates can still proceed.
+      settled = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    };
+  }
+
+  // Different marketplaces still write the same client-wide settings stores.
+  return {
+    ...ops,
+    installPlugin: enqueue(ops.installPlugin),
+    enablePlugin: enqueue(ops.enablePlugin),
+    upgradePlugin: enqueue(ops.upgradePlugin),
+    uninstallPlugin: enqueue(ops.uninstallPlugin),
+    removeMarketplace: enqueue(ops.removeMarketplace),
+    ensureMarketplace: enqueue(ops.ensureMarketplace),
   };
+}
+
+export function createPluginClients(): PluginClients {
+  return {
+    claude: serializeMutations(claudeOps),
+    codex: serializeMutations(codexOps),
+  };
+}
