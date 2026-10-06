@@ -43,7 +43,7 @@
 
 # Keeps windows open when quitting an application.
 - key: NSQuitAlwaysKeepsWindows
-  domain: com.apple.systempreferences
+  domain: NSGlobalDomain
   type: bool
   value: false
 

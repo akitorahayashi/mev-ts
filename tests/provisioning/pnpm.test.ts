@@ -309,17 +309,25 @@ sandboxTest('failed when pnpm ls output is not JSON', async (dir) => {
 });
 
 sandboxTest(
-  'pnpm runs under PNPM_HOME with its global bin directory on PATH',
+  'global pnpm commands run from home with PNPM_HOME and its bin directory on PATH',
   async (dir) => {
-    await deployConfig(dir, 'packages:\n  typescript: latest\n');
+    await deployConfig(
+      dir,
+      'packages:\n  typescript: latest\nuninstall:\n  - old-cli\n',
+    );
     const { context, calls } = recordingContext({
       home: dir,
       basePath: '/usr/bin',
-      respond: baseResponder([lsJson({})]),
+      respond: baseResponder([lsJson({ 'old-cli': '1.0.0' }), lsJson({})]),
     });
 
-    await runActivation(applyPnpm(CONFIG_KEY), context);
+    const report = await runActivation(applyPnpm(CONFIG_KEY), context);
 
+    expect(report.status).toBe('changed');
+    expect(packageOps(calls)).toEqual([
+      ['remove', '-g', 'old-cli'],
+      ['add', '-g', 'typescript@latest'],
+    ]);
     const add = calls.find((c) => pnpmArgs(c)?.[0] === 'add');
     expect(add?.args.slice(0, 4)).toEqual([
       'exec',
@@ -328,11 +336,13 @@ sandboxTest(
       PNPM_BIN,
     ]);
     const pnpmHome = join(dir, 'Library/pnpm');
-    expect(add?.options?.env).toEqual({
-      PNPM_HOME: pnpmHome,
-      // pnpm 11 rejects every global command when $PNPM_HOME/bin is off PATH.
-      PATH: `${PREFIX}/bin:${pnpmHome}/bin:${pnpmHome}:/usr/bin`,
-    });
+    for (const call of calls.filter((call) => pnpmArgs(call) !== null)) {
+      expect(call.options?.cwd).toBe(dir);
+      expect(call.options?.env).toEqual({
+        PNPM_HOME: pnpmHome,
+        PATH: `${PREFIX}/bin:${pnpmHome}/bin:${pnpmHome}:/usr/bin`,
+      });
+    }
   },
 );
 

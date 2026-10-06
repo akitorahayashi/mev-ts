@@ -30,6 +30,8 @@ export async function pnpmRuntime(context: Context): Promise<PnpmRuntime> {
   }
   const pnpmHome = join(context.home, 'Library/pnpm');
   const options: CommandOptions = {
+    // Global provisioning must not load the caller's project package-manager policy.
+    cwd: context.home,
     env: {
       PNPM_HOME: pnpmHome,
       // pnpm 11 places global binaries under $PNPM_HOME/bin and refuses every
