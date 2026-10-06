@@ -78,6 +78,12 @@ Client commands run with the activation-declared binary directories prepended
 to the inherited `PATH`, so a tool installed earlier in the same target is
 available without restarting the shell.
 
+Each activation has one mutation queue per client. Registration, refresh,
+installation, enablement, upgrade, and removal share the client's settings stores
+and run serially, including the full process lifetime and multi-command source
+replacement. Different clients and read-only inventories remain independent.
+A failed operation reports its error without blocking later queued operations.
+
 ## Sources of truth
 
 | Responsibility | Authority |

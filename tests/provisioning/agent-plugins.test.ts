@@ -266,6 +266,93 @@ sandboxTest(
 );
 
 sandboxTest(
+  'enables multiple marketplaces without overlapping client mutations',
+  async (home) => {
+    await deployCatalog(home);
+    const installed = new Map([
+      [
+        'claude',
+        new Map([
+          ['agent-device@agent-device-plugin', false],
+          ['device-verification@agent-device-plugin', false],
+          ['comment-review@comment-review', false],
+          ['xlsx@xlsx', false],
+        ]),
+      ],
+      ['codex', new Map([['xlsx@xlsx', false]])],
+    ]);
+    const active = new Map<string, number>();
+    const peaks = new Map<string, number>();
+    let totalActive = 0;
+    let totalPeak = 0;
+    const { context } = recordingContext({
+      home,
+      respond: async (command, args) => {
+        const plugins = installed.get(command);
+        if (!plugins) return fail(`unexpected ${command}`);
+        if (args[1] === 'list') {
+          const entries = [...plugins].map(([id, enabled]) => ({
+            id,
+            enabled,
+          }));
+          return ok(
+            command === 'claude'
+              ? claudeInventory(entries)
+              : codexInventory(entries),
+          );
+        }
+        if (args[1] === 'marketplace' && args[2] === 'list') {
+          if (command === 'codex') return ok(CODEX_XLSX_MARKETPLACES);
+          return ok(
+            JSON.stringify(
+              ['agent-device-plugin', 'comment-review', 'xlsx'].map((name) => ({
+                name,
+                source: 'git',
+                url: `git@github.com:akitorahayashi/${name}.git`,
+                ref: 'main',
+              })),
+            ),
+          );
+        }
+        if (args[1] !== 'enable' && args[1] !== 'add') {
+          return fail(`unexpected ${command} ${args.join(' ')}`);
+        }
+        const running = (active.get(command) ?? 0) + 1;
+        active.set(command, running);
+        peaks.set(command, Math.max(peaks.get(command) ?? 0, running));
+        totalActive += 1;
+        totalPeak = Math.max(totalPeak, totalActive);
+        try {
+          await new Promise<void>((resolve) => setImmediate(resolve));
+          plugins.set(args[2] as string, true);
+          return ok('{}');
+        } finally {
+          active.set(command, (active.get(command) ?? 0) - 1);
+          totalActive -= 1;
+        }
+      },
+    });
+
+    const first = await run(context);
+    const second = await run(context);
+
+    expect(first.status).toBe('changed');
+    expect(first.entries?.every(({ status }) => status === 'changed')).toBe(
+      true,
+    );
+    expect(second.status).toBe('unchanged');
+    expect(peaks.get('claude')).toBe(1);
+    expect(peaks.get('codex')).toBe(1);
+    expect(totalPeak).toBe(2);
+    expect(
+      [...installed.values()].every((plugins) =>
+        [...plugins.values()].every(Boolean),
+      ),
+    ).toBe(true);
+  },
+);
+
+sandboxTest(
   'a failing marketplace listing fails only its own marketplaces',
   async (home) => {
     await deployCatalog(home);

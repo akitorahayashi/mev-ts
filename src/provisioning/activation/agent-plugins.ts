@@ -7,10 +7,11 @@ import {
   type RemovedMarketplace,
 } from '../../agent-plugin/catalog';
 import {
+  createPluginClients,
   DroppedPluginsError,
   type EnsureOutcome,
   type MarketplaceRemotes,
-  pluginClientOps,
+  type PluginClients,
   type RegistrationCache,
 } from '../../agent-plugin/client';
 import type {
@@ -22,7 +23,6 @@ import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
 import { readSshHost } from '../../github/ssh-host';
 import type { Context } from '../../host/context';
 import { resolveHostPath } from '../../host/path';
-import { mapWithConcurrency } from '../../host/task-pool';
 import type {
   Activation,
   ActivationDescription,
@@ -34,10 +34,6 @@ import { readDeployedManifest } from './manifest';
 import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type AgentPluginsActivation = Extract<Activation, { kind: 'agentPlugins' }>;
-
-// Same budget as RELEASE_DOWNLOAD_CONCURRENCY: marketplaces are independent
-// network round trips, not CPU-bound work.
-const AGENT_PLUGIN_CONCURRENCY = 8;
 
 interface ClientInventory {
   readonly installed?: PluginInventory;
@@ -215,8 +211,9 @@ async function ensureMarketplace(
   url: string,
   context: Context,
   registrations: MarketplaceRegistrations,
+  clientOps: PluginClients,
 ): Promise<EnsuredMarketplace> {
-  const { outcome, droppedPlugins } = await pluginClientOps[
+  const { outcome, droppedPlugins } = await clientOps[
     marketplace.client
   ].ensureMarketplace(
     marketplace.name,
@@ -242,6 +239,8 @@ async function ensureMarketplace(
  * the later ownership probe share one view of the host.
  */
 class MarketplaceRegistrations {
+  constructor(private readonly clientOps: PluginClients) {}
+
   private readonly byClient = new Map<PluginClient, MarketplaceRemotes>();
   private readonly pending = new Map<
     PluginClient,
@@ -256,7 +255,7 @@ class MarketplaceRegistrations {
     if (cached) return Promise.resolve(cached);
     let inflight = this.pending.get(client);
     if (!inflight) {
-      inflight = pluginClientOps[client]
+      inflight = this.clientOps[client]
         .listMarketplaces(context)
         .then((remotes) => {
           this.byClient.set(client, remotes);
@@ -311,10 +310,11 @@ async function uninstallInstalled(
   installed: PluginInventory,
   context: Context,
   entries: ReconcileItemResult[],
+  clientOps: PluginClients,
 ): Promise<number | null> {
   const entryIndex = entries.length;
   try {
-    await pluginClientOps[client].uninstallPlugin(id, context);
+    await clientOps[client].uninstallPlugin(id, context);
     installed.delete(id);
     entries.push({
       key: `${client}:${id}`,
@@ -364,11 +364,12 @@ async function confirmUninstalled(
   installed: PluginInventory,
   context: Context,
   entries: ReconcileItemResult[],
+  clientOps: PluginClients,
 ): Promise<boolean> {
   if (issued.length === 0) return true;
   let confirmed = true;
   try {
-    const remaining = await pluginClientOps[client].listPlugins(context);
+    const remaining = await clientOps[client].listPlugins(context);
     for (const target of issued) {
       const survivor = remaining.get(target.id);
       if (survivor === undefined) continue;
@@ -408,6 +409,7 @@ async function removeDeclaredMarketplace(
   installed: PluginInventory,
   context: Context,
   registrations: MarketplaceRegistrations,
+  clientOps: PluginClients,
 ): Promise<ReconcileItemResult[]> {
   const entries: ReconcileItemResult[] = [];
   const key = `${removed.client}:${removed.name}`;
@@ -452,6 +454,7 @@ async function removeDeclaredMarketplace(
       installed,
       context,
       entries,
+      clientOps,
     );
     if (entryIndex === null) blocked = true;
     else issued.push({ client: removed.client, id, entryIndex });
@@ -463,6 +466,7 @@ async function removeDeclaredMarketplace(
       installed,
       context,
       entries,
+      clientOps,
     ))
   ) {
     blocked = true;
@@ -485,10 +489,7 @@ async function removeDeclaredMarketplace(
     return entries;
   }
   try {
-    await pluginClientOps[removed.client].removeMarketplace(
-      removed.name,
-      context,
-    );
+    await clientOps[removed.client].removeMarketplace(removed.name, context);
     registrations.forget(removed.client, removed.name);
     entries.push({ key, value: 'marketplace removed', status: 'changed' });
   } catch (error) {
@@ -522,13 +523,14 @@ async function registrationConverged(
   url: string,
   context: Context,
   registrations: MarketplaceRegistrations,
+  clientOps: PluginClients,
 ): Promise<boolean> {
   const current = (await registrations.of(marketplace.client, context)).get(
     marketplace.name,
   );
   return (
     current !== undefined &&
-    pluginClientOps[marketplace.client].registrationMatches(current, url)
+    clientOps[marketplace.client].registrationMatches(current, url)
   );
 }
 
@@ -539,6 +541,7 @@ async function reconcileMarketplace(
   upgrade: boolean,
   context: Context,
   registrations: MarketplaceRegistrations,
+  clientOps: PluginClients,
 ): Promise<MarketplaceOutcome> {
   const entries: ReconcileItemResult[] = [];
   const declared: DeclaredTarget[] = [];
@@ -561,6 +564,7 @@ async function reconcileMarketplace(
       installed,
       context,
       entries,
+      clientOps,
     );
     if (entryIndex !== null) {
       removals.push({ client: marketplace.client, id, entryIndex });
@@ -584,13 +588,20 @@ async function reconcileMarketplace(
     if (
       upgrade ||
       desired.some((id) => !installed.has(id)) ||
-      !(await registrationConverged(marketplace, url, context, registrations))
+      !(await registrationConverged(
+        marketplace,
+        url,
+        context,
+        registrations,
+        clientOps,
+      ))
     ) {
       const ensured = await ensureMarketplace(
         marketplace,
         url,
         context,
         registrations,
+        clientOps,
       );
       // A convergence that uninstalled the marketplace's plugins invalidates the
       // pre-run inventory for its id namespace: the desired plugins below then
@@ -617,7 +628,7 @@ async function reconcileMarketplace(
     return { entries, declared, removals };
   }
 
-  const ops = pluginClientOps[marketplace.client];
+  const ops = clientOps[marketplace.client];
   for (const id of desired) {
     const key = `${marketplace.client}:${id}`;
     const current = installed.get(id);
@@ -688,6 +699,7 @@ async function verifyOutcomes(
   entries: ReconcileItemResult[],
   declared: readonly DeclaredTarget[],
   removals: readonly VerificationTarget[],
+  clientOps: PluginClients,
 ): Promise<void> {
   // Per-client verifications are independent (each writes only its own
   // targets' entry indices), so the inventory spawns run concurrently.
@@ -701,7 +713,7 @@ async function verifyOutcomes(
       );
       if (clientDeclared.length === 0 && clientRemovals.length === 0) return;
       try {
-        const installed = await pluginClientOps[client].listPlugins(context);
+        const installed = await clientOps[client].listPlugins(context);
         for (const target of clientRemovals) {
           if (!installed.has(target.id)) continue;
           entries[target.entryIndex] = verificationFailure(
@@ -771,6 +783,7 @@ export function runAgentPlugins(
   const base = describeAgentPlugins(activation);
   return guarded(base, async () => {
     const clientContext = withClientPath(activation, context);
+    const clientOps = createPluginClients();
     const catalog = await readDeployedManifest(
       activation.configKey,
       context.home,
@@ -791,7 +804,7 @@ export function runAgentPlugins(
       clients.map(async (client) => {
         try {
           inventories.set(client, {
-            installed: await pluginClientOps[client].listPlugins(clientContext),
+            installed: await clientOps[client].listPlugins(clientContext),
           });
         } catch (error) {
           inventories.set(client, { error: errorMessage(error) });
@@ -802,11 +815,9 @@ export function runAgentPlugins(
     const entries: ReconcileItemResult[] = [];
     const declared: DeclaredTarget[] = [];
     const removals: VerificationTarget[] = [];
-    const registrations = new MarketplaceRegistrations();
-    const marketplaceOutcomes = await mapWithConcurrency(
-      catalog.marketplaces,
-      AGENT_PLUGIN_CONCURRENCY,
-      (marketplace): Promise<MarketplaceOutcome> => {
+    const registrations = new MarketplaceRegistrations(clientOps);
+    const marketplaceOutcomes = await Promise.all(
+      catalog.marketplaces.map((marketplace): Promise<MarketplaceOutcome> => {
         const inventory = inventories.get(marketplace.client);
         if (!inventory?.installed) {
           return Promise.resolve({
@@ -825,41 +836,50 @@ export function runAgentPlugins(
           options.upgrade,
           clientContext,
           registrations,
+          clientOps,
         );
-      },
+      }),
     );
     for (const outcome of marketplaceOutcomes) {
       mergeOutcome(entries, declared, removals, outcome);
     }
 
-    const removalOutcomes = await mapWithConcurrency(
-      catalog.removedMarketplaces,
-      AGENT_PLUGIN_CONCURRENCY,
-      (removed): Promise<ReconcileItemResult[]> => {
-        const inventory = inventories.get(removed.client);
-        if (!inventory?.installed) {
-          return Promise.resolve([
-            {
-              key: `${removed.client}:${removed.name}`,
-              value: 'inventory failed',
-              status: 'failed',
-              error: inventory?.error ?? 'Plugin inventory is unavailable.',
-            },
-          ]);
-        }
-        return removeDeclaredMarketplace(
-          removed,
-          inventory.installed,
-          clientContext,
-          registrations,
-        );
-      },
+    const removalOutcomes = await Promise.all(
+      catalog.removedMarketplaces.map(
+        (removed): Promise<ReconcileItemResult[]> => {
+          const inventory = inventories.get(removed.client);
+          if (!inventory?.installed) {
+            return Promise.resolve([
+              {
+                key: `${removed.client}:${removed.name}`,
+                value: 'inventory failed',
+                status: 'failed',
+                error: inventory?.error ?? 'Plugin inventory is unavailable.',
+              },
+            ]);
+          }
+          return removeDeclaredMarketplace(
+            removed,
+            inventory.installed,
+            clientContext,
+            registrations,
+            clientOps,
+          );
+        },
+      ),
     );
     for (const removedEntries of removalOutcomes) {
       entries.push(...removedEntries);
     }
 
-    await verifyOutcomes(clients, clientContext, entries, declared, removals);
+    await verifyOutcomes(
+      clients,
+      clientContext,
+      entries,
+      declared,
+      removals,
+      clientOps,
+    );
     return activationReport(base, entries.map(stepOutcome));
   });
 }
