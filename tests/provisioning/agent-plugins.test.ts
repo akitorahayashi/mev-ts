@@ -1,6 +1,7 @@
 import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import { home as hostHome } from '../../src/host/path';
 import {
@@ -640,6 +641,113 @@ marketplaces:
   },
 );
 
+for (const failure of [
+  { code: 128, stdout: '', stderr: 'Permission denied (publickey).' },
+  { code: 124, stdout: '', stderr: 'Command timed out.' },
+] satisfies CommandResult[]) {
+  for (const upgrade of [false, true]) {
+    sandboxTest(
+      `marketplace failure ${failure.code} preserves local enablement and independent work with upgrade=${upgrade}`,
+      async (home) => {
+        await deployCatalog(home);
+        const claudeInstalled = new Map([
+          ['agent-device@agent-device-plugin', false],
+          ['comment-review@comment-review', true],
+          ['xlsx@xlsx', false],
+        ]);
+        const codexInstalled = new Set<string>();
+        const { context, calls } = recordingContext({
+          home,
+          respond: (command, args) => {
+            if (command === 'claude' && args[1] === 'list') {
+              return ok(
+                claudeInventory(
+                  [...claudeInstalled].map(([id, enabled]) => ({
+                    id,
+                    enabled,
+                  })),
+                ),
+              );
+            }
+            if (
+              command === 'claude' &&
+              args[1] === 'marketplace' &&
+              args[2] === 'list'
+            ) {
+              return ok(
+                JSON.stringify(
+                  ['agent-device-plugin', 'comment-review', 'xlsx'].map(
+                    (name) => ({
+                      name,
+                      source: 'git',
+                      url: `git@github.com:akitorahayashi/${name}.git`,
+                      ref: 'main',
+                    }),
+                  ),
+                ),
+              );
+            }
+            if (command === 'claude' && args[1] === 'marketplace')
+              return failure;
+            if (command === 'claude' && args[1] === 'enable') {
+              claudeInstalled.set(args[2] as string, true);
+              return ok();
+            }
+            if (command === 'codex' && args[1] === 'list')
+              return ok(codexInventory([...codexInstalled]));
+            if (
+              command === 'codex' &&
+              args[1] === 'marketplace' &&
+              args[2] === 'list'
+            )
+              return ok(CODEX_XLSX_MARKETPLACES);
+            if (command === 'codex' && args[1] === 'marketplace')
+              return ok('{}');
+            if (command === 'codex' && args[1] === 'add') {
+              codexInstalled.add(args[2] as string);
+              return ok('{}');
+            }
+            return fail(`unexpected ${command} ${args.join(' ')}`);
+          },
+        });
+
+        const report = await run(context, { upgrade });
+
+        expect(report.status).toBe('failed');
+        expect(claudeInstalled.get('agent-device@agent-device-plugin')).toBe(
+          true,
+        );
+        expect(claudeInstalled.get('xlsx@xlsx')).toBe(true);
+        expect(
+          report.entries?.find(
+            ({ key }) =>
+              key === 'claude:device-verification@agent-device-plugin',
+          ),
+        ).toMatchObject({ status: 'failed', value: 'install blocked' });
+        expect(
+          report.entries?.find(
+            ({ key }) => key === 'claude:agent-device@agent-device-plugin',
+          )?.status,
+        ).toBe(upgrade ? 'failed' : 'changed');
+        expect(
+          report.entries?.find(
+            ({ key }) => key === 'claude:agent-device-plugin',
+          )?.error,
+        ).toContain(failure.stderr);
+        expect(
+          report.entries?.find(({ key }) => key === 'codex:xlsx@xlsx')?.status,
+        ).toBe('changed');
+        expect(
+          calls.some(
+            ({ command, args }) =>
+              command === 'claude' && args[1] === 'install',
+          ),
+        ).toBe(false);
+      },
+    );
+  }
+}
+
 sandboxTest(
   'ignores installed plugins outside the Claude user scope',
   async (home) => {
@@ -690,6 +798,89 @@ marketplaces:
     expect(report.status).toBe('changed');
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(true);
     expect(userInstalled).toEqual(new Set(['xlsx@xlsx']));
+  },
+);
+
+sandboxTest(
+  'a failed Codex refresh still enables an installed plugin and reports the blocked upgrade',
+  async (home) => {
+    await deployCatalog(home, UPGRADE_CATALOG);
+    let enabled = false;
+    const { context } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command === 'claude' && args[1] === 'list')
+          return ok(claudeInventory(['xlsx@xlsx']));
+        if (
+          command === 'claude' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'list'
+        )
+          return ok(CLAUDE_XLSX_MARKETPLACES);
+        if (command === 'claude') return ok();
+        if (command === 'codex' && args[1] === 'list')
+          return ok(codexInventory([{ id: 'xlsx@xlsx', enabled }]));
+        if (
+          command === 'codex' &&
+          args[1] === 'marketplace' &&
+          args[2] === 'list'
+        )
+          return ok(CODEX_XLSX_MARKETPLACES);
+        if (command === 'codex' && args[1] === 'marketplace')
+          return fail('Permission denied (publickey).');
+        if (command === 'codex' && args[1] === 'add') {
+          enabled = true;
+          return ok('{}');
+        }
+        return fail(`unexpected ${command} ${args.join(' ')}`);
+      },
+    });
+
+    const report = await run(context, { upgrade: true });
+
+    expect(enabled).toBe(true);
+    expect(report.status).toBe('failed');
+    expect(
+      report.entries?.find(({ key }) => key === 'codex:xlsx@xlsx'),
+    ).toMatchObject({ status: 'failed', value: 'enabled; upgrade blocked' });
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.status,
+    ).toBe('changed');
+  },
+);
+
+sandboxTest(
+  'a foreign marketplace remains blocking even for an installed disabled declaration',
+  async (home) => {
+    await deployCatalog(home, DISABLED_CATALOG);
+    const { context, calls } = recordingContext({
+      home,
+      respond: (_command, args) => {
+        if (args[1] === 'list')
+          return ok(claudeInventory([{ id: 'xlsx@xlsx', enabled: false }]));
+        if (args[1] === 'marketplace' && args[2] === 'list') {
+          return ok(
+            JSON.stringify([
+              {
+                name: 'xlsx',
+                source: 'git',
+                url: 'git@github.com:another-owner/xlsx.git',
+                ref: 'main',
+              },
+            ]),
+          );
+        }
+        return fail(`unexpected ${args.join(' ')}`);
+      },
+    });
+
+    const report = await run(context);
+
+    expect(report.status).toBe('failed');
+    expect(
+      report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx'),
+    ).toMatchObject({ status: 'failed', value: 'enable blocked' });
+    expect(calls.some(({ args }) => args[1] === 'enable')).toBe(false);
   },
 );
 

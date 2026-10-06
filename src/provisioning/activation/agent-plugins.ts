@@ -14,6 +14,7 @@ import {
   type PluginClients,
   type RegistrationCache,
 } from '../../agent-plugin/client';
+import { MarketplaceFetchError } from '../../agent-plugin/command';
 import type {
   InstalledPlugin,
   PluginInventory,
@@ -161,7 +162,7 @@ function marketplaceFailureEntries(
   installed: PluginInventory,
   error: unknown,
   upgrade: boolean,
-): ReconcileItemResult[] {
+): [ReconcileItemResult, ...ReconcileItemResult[]] {
   const detail = errorMessage(error);
   return [
     {
@@ -584,6 +585,7 @@ async function reconcileMarketplace(
   // The registration probe sits inside the same boundary as the ensure: a
   // failing or malformed marketplace listing is this marketplace's failure, not
   // the whole activation's, so its siblings and the removal pass still run.
+  let marketplaceError: string | undefined;
   try {
     if (
       upgrade ||
@@ -622,10 +624,18 @@ async function reconcileMarketplace(
     if (error instanceof DroppedPluginsError) {
       invalidateNamespacePlugins(installed, marketplace.name);
     }
-    entries.push(
-      ...marketplaceFailureEntries(marketplace, installed, error, upgrade),
+    const [failure, ...blocked] = marketplaceFailureEntries(
+      marketplace,
+      installed,
+      error,
+      upgrade,
     );
-    return { entries, declared, removals };
+    entries.push(failure);
+    if (!(error instanceof MarketplaceFetchError)) {
+      entries.push(...blocked);
+      return { entries, declared, removals };
+    }
+    marketplaceError = errorMessage(error);
   }
 
   const ops = clientOps[marketplace.client];
@@ -635,6 +645,19 @@ async function reconcileMarketplace(
     let action = pendingAction(current, upgrade);
     if (action === null) {
       entries.push({ key, value: 'already installed', status: 'unchanged' });
+      continue;
+    }
+    const upgradeBlocked = marketplaceError !== undefined && upgrade;
+    if (
+      marketplaceError !== undefined &&
+      (current === undefined || (upgrade && current.enabled))
+    ) {
+      entries.push({
+        key,
+        value: `${action} blocked`,
+        status: 'failed',
+        error: marketplaceError,
+      });
       continue;
     }
     const entryIndex = entries.length;
@@ -647,7 +670,7 @@ async function reconcileMarketplace(
         // post-run inventory is what settles the outcome.
         installed.set(id, { version: undefined, enabled: true });
       } else {
-        if (action === 'upgrade') {
+        if (action === 'upgrade' && !upgradeBlocked) {
           await ops.upgradePlugin(id, context);
           actions.push('upgraded');
         }
@@ -656,7 +679,7 @@ async function reconcileMarketplace(
         // command on a client whose upgrade verb already enables.
         if (!current.enabled) {
           action = 'enable';
-          if (!(upgrade && ops.upgradeEnables)) {
+          if (!(actions.includes('upgraded') && ops.upgradeEnables)) {
             await ops.enablePlugin(id, context);
           }
           actions.push('enabled');
@@ -673,7 +696,12 @@ async function reconcileMarketplace(
     }
     // Provisional: the post-run inventory confirms presence and enablement, and
     // refines a pure upgrade to changed or unchanged by version diff.
-    entries.push({ key, value: actions.join(' and '), status: 'changed' });
+    entries.push({
+      key,
+      value: `${actions.join(' and ')}${upgradeBlocked ? '; upgrade blocked' : ''}`,
+      status: upgradeBlocked ? 'failed' : 'changed',
+      ...(upgradeBlocked ? { error: marketplaceError } : {}),
+    });
     declared.push({
       client: marketplace.client,
       id,

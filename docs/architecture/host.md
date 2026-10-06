@@ -21,6 +21,7 @@ real process launches.
 | `env` | Overlays the inherited environment. |
 | `cwd` | Sets the subprocess working directory. |
 | `stdout`, `stderr` | `pipe` captures output; `inherit` forwards it. |
+| `timeoutMs` | Optional positive millisecond deadline covering process exit and output completion; expiration terminates the owned process group and returns code 124 with a timeout diagnostic. |
 | Spawn failure | Resolves as exit code 127 with the failure in stderr. |
 
 Each invocation explicitly passes the current inherited environment, including

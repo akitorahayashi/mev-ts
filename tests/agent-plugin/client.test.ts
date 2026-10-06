@@ -22,7 +22,17 @@ for (const [client, ops] of Object.entries(createPluginClients())) {
       let interleaved = false;
       const { context } = recordingContext({
         home,
-        respond: async (_command, args) => {
+        respond: async (_command, args, options) => {
+          expect(options?.timeoutMs).toBeGreaterThan(0);
+          expect(options?.env?.['GIT_TERMINAL_PROMPT']).toBe('0');
+          expect(options?.env?.['GIT_SSH_COMMAND']).toContain('BatchMode=yes');
+          expect(options?.env?.['GIT_SSH_COMMAND']).toContain(
+            'StrictHostKeyChecking=yes',
+          );
+          expect(options?.env?.['GIT_SSH_COMMAND']).toMatch(
+            /ConnectTimeout=[1-9]\d*/,
+          );
+          expect(options?.env?.['SSH_ASKPASS_REQUIRE']).toBe('never');
           if (
             args[1] === 'marketplace' &&
             args[2] === 'remove' &&
