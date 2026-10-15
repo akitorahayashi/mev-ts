@@ -10,5 +10,6 @@ alias sw-t="swift test"
 
 alias xcs="xcodes"
 alias xcs-ls="xcodes list"
+alias xcs-sl="xcodes select"
 alias xcs-i="xcodes install"
 alias xcs-ui="xcodes uninstall"
