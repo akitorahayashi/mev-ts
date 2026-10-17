@@ -79,3 +79,22 @@ test('rejects more than one path', async () => {
     CommandLineError,
   );
 });
+
+for (const path of [
+  '-f',
+  'vendor/*',
+  'vendor/?',
+  'vendor/[a]',
+  ':(glob)vendor/**',
+]) {
+  test(`rejects option or pattern input before Git: ${path}`, async () => {
+    const run: CommandRunner = {
+      async run() {
+        throw new Error('Git must not run');
+      },
+    };
+    await expect(deleteSubmodule(run, [path])).rejects.toBeInstanceOf(
+      CommandLineError,
+    );
+  });
+}
