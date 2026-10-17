@@ -1,5 +1,6 @@
 import { requireSshHost, writeSshHost } from '../github/ssh-host';
 import { invalidateInput } from './invalidate-input';
+import { withHomeMutation } from './mutation';
 
 /**
  * Store the per-machine SSH host alias, first marking every target that bakes it
@@ -12,6 +13,8 @@ export async function configureSshHost(
   sshHost: string,
 ): Promise<string> {
   const host = requireSshHost(sshHost.trim());
-  await invalidateInput(home, 'githubSshHost');
-  return writeSshHost(home, host);
+  return withHomeMutation(home, 'config ssh-host', async () => {
+    await invalidateInput(home, 'githubSshHost');
+    return writeSshHost(home, host);
+  });
 }

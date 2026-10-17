@@ -19,6 +19,7 @@ import {
   readState,
   saveState,
 } from '../identity/store';
+import { withHomeMutation } from './mutation';
 
 export interface IdentityDeps {
   readonly run: CommandRunner;
@@ -79,10 +80,30 @@ export async function setIdentity(
   deps: { readonly home: string },
   inputs: Record<IdentityScope, IdentityInput>,
 ): Promise<{ readonly path: string; readonly state: IdentityState }> {
+  return withHomeMutation(deps.home, 'user set', () =>
+    persistIdentities(deps.home, inputs),
+  );
+}
+
+export async function configureIdentities(
+  home: string,
+  collect: (
+    existing: IdentityState,
+  ) => Promise<Record<IdentityScope, IdentityInput>>,
+): Promise<{ readonly path: string; readonly state: IdentityState }> {
+  return withHomeMutation(home, 'user set', async () =>
+    persistIdentities(home, await collect(await loadIdentities({ home }))),
+  );
+}
+
+async function persistIdentities(
+  home: string,
+  inputs: Record<IdentityScope, IdentityInput>,
+): Promise<{ readonly path: string; readonly state: IdentityState }> {
   const state = Object.fromEntries(
     allScopes().map((scope) => [scope, resolveInput(scope, inputs[scope])]),
   ) as IdentityState;
-  const path = identityFilePath(deps.home);
+  const path = identityFilePath(home);
   await saveState(path, state);
   return { path, state };
 }
@@ -97,34 +118,38 @@ export async function switchIdentity(
   deps: IdentityDeps,
   scope: IdentityScope,
 ): Promise<SwitchResult> {
-  const identity = await resolveStoredIdentity(deps.home, scope);
-  // The pin probe runs before the overlay write: it can fail on a broken
-  // repository (e.g. dubious ownership), and failing after the write would
-  // report an error for a switch that already happened.
-  const locallyPinned = await hasLocalPin(deps);
-  const overlay = identityOverlayPath(deps.home);
-  await configSetFileValues(deps.run, overlay, [
-    ['user.name', identity.name],
-    ['user.email', identity.email],
-  ]);
-  return { identity, locallyPinned };
+  return withHomeMutation(deps.home, 'switch identity', async () => {
+    const identity = await resolveStoredIdentity(deps.home, scope);
+    // The pin probe runs before the overlay write: it can fail on a broken
+    // repository (e.g. dubious ownership), and failing after the write would
+    // report an error for a switch that already happened.
+    const locallyPinned = await hasLocalPin(deps);
+    const overlay = identityOverlayPath(deps.home);
+    await configSetFileValues(deps.run, overlay, [
+      ['user.name', identity.name],
+      ['user.email', identity.email],
+    ]);
+    return { identity, locallyPinned };
+  });
 }
 
 export async function pinIdentity(
   deps: IdentityDeps,
   scope: IdentityScope,
 ): Promise<Identity> {
-  if (!(await isInsideGitRepository(deps.run, deps.cwd))) {
-    throw new AppError(
-      "Not inside a git repository. Run 'mev switch <scope>' without --write to switch globally, or run this inside a repository.",
-    );
-  }
-  const identity = await resolveStoredIdentity(deps.home, scope);
-  await configSetLocalValues(deps.run, deps.cwd, [
-    ['user.name', identity.name],
-    ['user.email', identity.email],
-  ]);
-  return identity;
+  return withHomeMutation(deps.home, 'pin identity', async () => {
+    if (!(await isInsideGitRepository(deps.run, deps.cwd))) {
+      throw new AppError(
+        "Not inside a git repository. Run 'mev switch <scope>' without --write to switch globally, or run this inside a repository.",
+      );
+    }
+    const identity = await resolveStoredIdentity(deps.home, scope);
+    await configSetLocalValues(deps.run, deps.cwd, [
+      ['user.name', identity.name],
+      ['user.email', identity.email],
+    ]);
+    return identity;
+  });
 }
 
 export interface UnpinResult {
@@ -133,18 +158,24 @@ export interface UnpinResult {
 }
 
 export async function unpinIdentity(deps: IdentityDeps): Promise<UnpinResult> {
-  if (!(await isInsideGitRepository(deps.run, deps.cwd))) {
-    throw new AppError(
-      'Not inside a git repository. --unset removes the pin of the repository you run it in.',
+  return withHomeMutation(deps.home, 'unpin identity', async () => {
+    if (!(await isInsideGitRepository(deps.run, deps.cwd))) {
+      throw new AppError(
+        'Not inside a git repository. --unset removes the pin of the repository you run it in.',
+      );
+    }
+    const removedName = await configUnsetLocal(deps.run, deps.cwd, 'user.name');
+    const removedEmail = await configUnsetLocal(
+      deps.run,
+      deps.cwd,
+      'user.email',
     );
-  }
-  const removedName = await configUnsetLocal(deps.run, deps.cwd, 'user.name');
-  const removedEmail = await configUnsetLocal(deps.run, deps.cwd, 'user.email');
-  const state = await loadIdentities(deps);
-  return {
-    kind: removedName || removedEmail ? 'unpinned' : 'already-global',
-    effective: await readCurrent(deps, state),
-  };
+    const state = await loadIdentities(deps);
+    return {
+      kind: removedName || removedEmail ? 'unpinned' : 'already-global',
+      effective: await readCurrent(deps, state),
+    };
+  });
 }
 
 async function resolveStoredIdentity(

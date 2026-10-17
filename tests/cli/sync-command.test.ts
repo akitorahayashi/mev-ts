@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { embeddedAssets } from '../../src/assets/registry';
+import { acquireMutationLease } from '../../src/host/mutation-lease';
 import { appliedPath, writeApplied } from '../../src/provisioning/applied';
 import { deployRole } from '../../src/provisioning/deploy';
 import { fullSetupTargets } from '../../src/provisioning/registry';
@@ -111,5 +112,31 @@ sandboxTest(
     expect(scan && !isScanError(scan) ? scan.reasons : null).toContain(
       'signature',
     );
+  },
+);
+
+sandboxTest(
+  'a conflicting lease prevents both sync scanning and current-environment pruning',
+  async (sandbox) => {
+    await seedCurrentEnvironment(sandbox);
+    const obsolete = join(sandbox, '.mev/roles/obsolete/config');
+    await mkdir(join(obsolete, '..'), { recursive: true });
+    await writeFile(obsolete, 'retained until ownership is available');
+    const lease = await acquireMutationLease(sandbox, 'another sync');
+    try {
+      const result = await runSync(sandbox);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('another sync');
+      expect(result.stdout).not.toContain('No targets need reapplying');
+      expect(await Bun.file(obsolete).text()).toBe(
+        'retained until ownership is available',
+      );
+    } finally {
+      await lease.release();
+    }
+    const result = await runSync(sandbox);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('No targets need reapplying');
+    expect(await Bun.file(obsolete).exists()).toBe(false);
   },
 );

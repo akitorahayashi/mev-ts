@@ -14,6 +14,7 @@ import {
   configSelectManifest,
   type SelectEntries,
 } from './config-toggle';
+import { withHomeMutation } from './mutation';
 
 type CoderSelectable = 'agents' | 'skills';
 
@@ -64,12 +65,16 @@ export async function configSelect(
   warn: (message: string) => void,
   select: SelectEntries,
 ): Promise<void> {
-  await configSelectManifest(await coderSelection(kind, home), warn, select);
+  await withHomeMutation(home, `config ${kind}`, async () =>
+    configSelectManifest(await coderSelection(kind, home), warn, select),
+  );
 }
 
 export async function configSelectClear(
   kind: CoderSelectable,
   home: string,
 ): Promise<void> {
-  await configClearManifest(await coderSelection(kind, home));
+  await withHomeMutation(home, `config ${kind} --clear`, async () =>
+    configClearManifest(await coderSelection(kind, home)),
+  );
 }

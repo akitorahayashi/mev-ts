@@ -15,6 +15,7 @@ import {
   updateMev,
 } from '../../src/app/update';
 import { UpdateError } from '../../src/errors';
+import { acquireMutationLease } from '../../src/host/mutation-lease';
 import { ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { stagingSiblings } from '../fixtures/path-probe';
@@ -110,6 +111,36 @@ sandboxTest('installs a newer verified release atomically', async (home) => {
     ),
   ).toBe(true);
 });
+
+sandboxTest(
+  'self-update releases ownership before launching child sync',
+  async (home) => {
+    const executablePath = await installed(home);
+    const { context } = updateContext(home);
+    const outcome = await updateMev({
+      currentVersion: '0.1.0',
+      executablePath,
+      context,
+    });
+    let launched = false;
+    const code = await runUpdatedSync(
+      {
+        async run(command, args) {
+          expect(command).toBe(outcome.executablePath);
+          expect(args).toEqual(['sync']);
+          const lease = await acquireMutationLease(home, 'child sync');
+          launched = true;
+          await lease.release();
+          return ok();
+        },
+      },
+      outcome.executablePath,
+      false,
+    );
+    expect(code).toBe(0);
+    expect(launched).toBe(true);
+  },
+);
 
 sandboxTest(
   'same version and checksum skips the binary download',
