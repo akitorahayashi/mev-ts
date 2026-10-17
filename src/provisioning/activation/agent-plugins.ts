@@ -24,6 +24,7 @@ import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
 import { readSshHost } from '../../github/ssh-host';
 import type { Context } from '../../host/context';
 import { resolveHostPath } from '../../host/path';
+import { drainAll } from '../../host/task-pool';
 import { propagateActivityObserverError, reportActivity } from './activity';
 import type {
   Activation,
@@ -738,7 +739,7 @@ async function verifyOutcomes(
 ): Promise<void> {
   // Per-client verifications are independent (each writes only its own
   // targets' entry indices), so the inventory spawns run concurrently.
-  await Promise.all(
+  await drainAll(
     clients.map(async (client) => {
       const clientDeclared = declared.filter(
         (target) => target.client === client,
@@ -849,7 +850,7 @@ export function runAgentPlugins(
     const inventories = new Map<PluginClient, ClientInventory>();
     // Each inventory boots the client's full CLI, so the independent per-client
     // listings run concurrently rather than paying each boot in sequence.
-    await Promise.all(
+    await drainAll(
       clients.map(async (client) => {
         try {
           inventories.set(client, {
@@ -866,7 +867,7 @@ export function runAgentPlugins(
     const declared: DeclaredTarget[] = [];
     const removals: VerificationTarget[] = [];
     const registrations = new MarketplaceRegistrations(clientOps);
-    const marketplaceOutcomes = await Promise.all(
+    const marketplaceOutcomes = await drainAll(
       catalog.marketplaces.map((marketplace): Promise<MarketplaceOutcome> => {
         const inventory = inventories.get(marketplace.client);
         if (!inventory?.installed) {
@@ -894,7 +895,7 @@ export function runAgentPlugins(
       mergeOutcome(entries, declared, removals, outcome);
     }
 
-    const removalOutcomes = await Promise.all(
+    const removalOutcomes = await drainAll(
       catalog.removedMarketplaces.map(
         (removed): Promise<ReconcileItemResult[]> => {
           const inventory = inventories.get(removed.client);

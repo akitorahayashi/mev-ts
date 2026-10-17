@@ -111,6 +111,91 @@ const CODEX_XLSX_MARKETPLACES = JSON.stringify({
   ],
 });
 
+for (const phase of ['check', 'install', 'verify', 'remove'] as const) {
+  sandboxTest(
+    `observer failure during ${phase} drains another client's started work`,
+    async (home) => {
+      await deployCatalog(
+        home,
+        phase === 'remove'
+          ? `marketplaces: []\nremoved_marketplaces:\n  - clients: [claude, codex]\n    repo: akitorahayashi/xlsx\n`
+          : UPGRADE_CATALOG,
+      );
+      const entered = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const failure = new Error(`observer ${phase} failed`);
+      const counts = new Map<string, number>();
+      const effects: string[] = [];
+      const { context } = recordingContext({
+        home,
+        respond: async (command, args) => {
+          const inventory = args.join(' ') === 'plugin list --json';
+          const count = (counts.get(command) ?? 0) + (inventory ? 1 : 0);
+          counts.set(command, count);
+          if (
+            command === 'codex' &&
+            ((phase === 'check' && inventory && count === 1) ||
+              (phase === 'verify' && inventory && count > 1) ||
+              (phase === 'install' && args[1] === 'add') ||
+              (phase === 'remove' && args.includes('remove')))
+          ) {
+            entered.resolve();
+            await release.promise;
+            effects.push(`completed ${phase}`);
+          }
+          if (inventory) {
+            const plugins =
+              count > 1 && phase !== 'remove' ? ['xlsx@xlsx'] : [];
+            return ok(
+              command === 'claude'
+                ? claudeInventory(plugins)
+                : codexInventory(plugins),
+            );
+          }
+          if (args.join(' ') === 'plugin marketplace list --json') {
+            return ok(
+              command === 'claude'
+                ? CLAUDE_XLSX_MARKETPLACES
+                : CODEX_XLSX_MARKETPLACES,
+            );
+          }
+          return ok('{}');
+        },
+      });
+      let settled = false;
+      const running = run(context, {
+        upgrade: false,
+        onActivity(activity) {
+          if (
+            activity.operation?.group === 'claude' &&
+            activity.operation.state === 'started' &&
+            activity.action === phase
+          )
+            throw failure;
+        },
+      }).then(
+        () => {
+          settled = true;
+          return undefined;
+        },
+        (error: unknown) => {
+          settled = true;
+          return error;
+        },
+      );
+      try {
+        await entered.promise;
+        await Bun.sleep(0);
+        expect(settled).toBe(false);
+      } finally {
+        release.resolve();
+      }
+      expect(await running).toBe(failure);
+      expect(effects).toEqual([`completed ${phase}`]);
+    },
+  );
+}
+
 sandboxTest(
   'holds marketplaces still when plugins are installed and registrations match',
   async (home) => {

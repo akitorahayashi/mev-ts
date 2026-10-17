@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import type { CommandOptions } from '../../src/host/command';
 import {
   type ActivationActivity,
   releaseBinaries,
@@ -103,6 +104,74 @@ async function install(
 
 const PINNED = manifest(['kpv', 'akitorahayashi/kpv', 'v0.6.0']);
 const LATEST = manifest(['kpv', 'akitorahayashi/kpv', 'latest']);
+
+sandboxTest(
+  'observer failure drains an already-started sibling release before settlement',
+  async (home) => {
+    await deployBinaries(
+      home,
+      manifest(
+        ['first', 'owner/first', 'v1.0.0'],
+        ['second', 'owner/second', 'v1.0.0'],
+      ),
+    );
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const failed = Promise.withResolvers<void>();
+    const failure = new Error('release observer failed');
+    const original = releaseContext(home).context;
+    const context = {
+      ...original,
+      commands: {
+        async run(
+          command: string,
+          args: readonly string[],
+          options?: CommandOptions,
+        ) {
+          if (command === join(home, '.cargo/bin/second')) {
+            entered.resolve();
+            await release.promise;
+          }
+          return original.commands.run(command, args, options);
+        },
+      },
+    };
+    let settled = false;
+    const running = runActivation(releaseBinaries(CONFIG_KEY), context, {
+      upgrade: false,
+      onActivity(activity) {
+        if (
+          activity.operation?.group === 'first' &&
+          activity.action === 'download'
+        ) {
+          failed.resolve();
+          throw failure;
+        }
+      },
+    }).then(
+      () => {
+        settled = true;
+        return undefined;
+      },
+      (error: unknown) => {
+        settled = true;
+        return error;
+      },
+    );
+    try {
+      await entered.promise;
+      await failed.promise;
+      await Bun.sleep(0);
+      expect(settled).toBe(false);
+    } finally {
+      release.resolve();
+    }
+    expect(await running).toBe(failure);
+    expect(await readFile(join(home, '.cargo/bin/second'), 'utf8')).toBe(
+      '1.0.0',
+    );
+  },
+);
 
 for (const scenario of [
   {
