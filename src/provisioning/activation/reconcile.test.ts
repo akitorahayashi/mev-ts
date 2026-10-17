@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { errorMessage, ProvisioningError } from '../../errors';
+import { reportActivity } from './activity';
 import type { ActivationDescription, ReconcileItemResult } from './contract';
 import { type ReconcileStep, reconcile } from './reconcile';
 
@@ -21,6 +22,36 @@ function throwingStep(key: string, error: unknown): ReconcileStep {
       error: errorMessage(error),
     }),
   };
+}
+
+for (const concurrent of [undefined, 2]) {
+  test(`activity observer errors escape the ${concurrent ? 'concurrent' : 'serial'} reconcile boundary unchanged`, async () => {
+    const failure = new Error('output unavailable');
+    let itemErrorHandled = false;
+    const running = reconcile(base, {
+      declare: async () => [0],
+      concurrent,
+      steps: async () => [
+        {
+          async run() {
+            reportActivity(
+              () => {
+                throw failure;
+              },
+              { action: 'check', subject: 'binary' },
+            );
+            return { key: 'binary', value: '', status: 'unchanged' };
+          },
+          onError() {
+            itemErrorHandled = true;
+            return { key: 'binary', value: '', status: 'failed' };
+          },
+        },
+      ],
+    });
+    await expect(running).rejects.toBe(failure);
+    expect(itemErrorHandled).toBe(false);
+  });
 }
 
 test('a throwing step fails only itself; its siblings still run', async () => {

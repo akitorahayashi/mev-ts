@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { createActivationProgress } from '../../src/cli/tty/activation-progress';
+import type { ActivationAction } from '../../src/provisioning/activation/contract';
 import { fakeTtyStream } from '../fixtures/streams';
 
 test('the TTY activation progress renders the in-flight line and a completion line', () => {
@@ -200,6 +201,99 @@ test('redirected output logs plugin operation starts once without terminal contr
   expect(out.split('\n').filter(Boolean)).toHaveLength(2);
   expect(out).toContain('claude  upgrading xlsx@xlsx');
   expect(out).toContain('codex  upgrading xlsx@xlsx');
+  expect(out).toBe(Bun.stripANSI(out));
+  expect(stream.output()).toBe('');
+});
+
+test('parallel release binaries remain visible in stable order and each phase resets its clock', () => {
+  const stream = fakeTtyStream(100);
+  let now = 0;
+  const progress = createActivationProgress({
+    isTTY: true,
+    out: () => {},
+    stream: stream as never,
+    now: () => now,
+  });
+  const update = (
+    group: string,
+    action: ActivationAction,
+    subject: string,
+    state: 'started' | 'finished',
+  ) =>
+    progress.updateActivation({
+      targetName: 'rust-cli',
+      activity: {
+        action,
+        subject,
+        operation: { group, id: `${group}:${action}`, state },
+      },
+    });
+  const visible = () => stream.output().split('\x1b[0J').at(-1) ?? '';
+  try {
+    progress.startActivation({
+      targetName: 'rust-cli',
+      activation: { subject: '~/.cargo/bin release binaries' },
+    });
+    update('prf', 'resolve', 'latest', 'started');
+    now = 8000;
+    update('kpv', 'download', 'v0.7.0', 'started');
+    expect(visible()).toContain('prf  resolving latest  8s');
+    expect(visible()).toContain('kpv  downloading v0.7.0  0s');
+    expect(visible().indexOf('kpv')).toBeLessThan(visible().indexOf('prf'));
+    now = 11000;
+    update('kpv', 'download', 'v0.7.0', 'finished');
+    update('kpv', 'verify', 'v0.7.0', 'started');
+    expect(visible()).toContain('kpv  verifying v0.7.0  0s');
+    expect(visible()).toContain('prf  resolving latest  11s');
+    expect(visible()).not.toContain('downloading');
+    now = 14000;
+    update('prf', 'resolve', 'latest', 'finished');
+    expect(visible()).not.toContain('prf');
+    expect(visible()).toContain('kpv  verifying v0.7.0  3s');
+  } finally {
+    progress.finish();
+  }
+  expect(visible()).toBe('');
+});
+
+test('redirected output records release phase starts once as plain lines', () => {
+  let out = '';
+  const stream = fakeTtyStream();
+  const progress = createActivationProgress({
+    isTTY: false,
+    out: (text) => {
+      out += text;
+    },
+    stream: stream as never,
+  });
+  const phases = [
+    { action: 'check', subject: 'installed version' },
+    { action: 'resolve', subject: 'latest' },
+    { action: 'download', subject: 'v0.7.0' },
+    { action: 'verify', subject: 'v0.7.0' },
+    { action: 'apply', subject: 'v0.7.0' },
+  ] as const;
+  for (const phase of phases) {
+    for (const state of ['started', 'finished'] as const) {
+      progress.updateActivation({
+        targetName: 'rust-cli',
+        activity: {
+          ...phase,
+          operation: { group: 'kpv', id: phase.action, state },
+        },
+      });
+    }
+  }
+  expect(out).toBe(
+    [
+      'rust-cli  kpv  checking installed version',
+      'rust-cli  kpv  resolving latest',
+      'rust-cli  kpv  downloading v0.7.0',
+      'rust-cli  kpv  verifying v0.7.0',
+      'rust-cli  kpv  applying v0.7.0',
+      '',
+    ].join('\n'),
+  );
   expect(out).toBe(Bun.stripANSI(out));
   expect(stream.output()).toBe('');
 });

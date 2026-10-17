@@ -36,6 +36,9 @@ interface ActiveOperation {
 
 const activityLabels = {
   check: 'checking',
+  resolve: 'resolving',
+  download: 'downloading',
+  apply: 'applying',
   install: 'installing',
   update: 'updating',
   upgrade: 'upgrading',

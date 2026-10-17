@@ -27,6 +27,8 @@ export interface ReleaseBinary {
   readonly tag: string;
 }
 
+export type ReleaseBinaryPhase = 'download' | 'verify' | 'apply';
+
 const releaseArchitectures = ['aarch64', 'x86_64'] as const;
 export type ReleaseArch = (typeof releaseArchitectures)[number];
 
@@ -280,12 +282,15 @@ export async function fetchReleaseBinary(
   arch: ReleaseArch,
   dest: string,
   context: Context,
+  onPhase?: (phase: ReleaseBinaryPhase) => void,
 ): Promise<void> {
   const asset = releaseAssetName(binary, arch);
   const label = `${binary.name} ${tag}`;
+  onPhase?.('download');
   await replaceFileAtomically(dest, async (tmp) => {
     const url = releaseAssetDownloadUrl(binary.repo, tag, asset);
     await downloadOverHttps(context.commands, url, tmp, binary.name);
+    onPhase?.('verify');
     await chmod(tmp, 0o755);
     const reported = await reportedVersion(tmp, label, context);
     if (reported === null) {
@@ -299,5 +304,6 @@ export async function fetchReleaseBinary(
         `${label} reports version ${reported}, expected ${expected}.`,
       );
     }
+    onPhase?.('apply');
   });
 }

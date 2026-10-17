@@ -43,10 +43,11 @@ itself was already correct.
 
 `runMake()` emits one typed event stream for phase progress. TTY clients render
 active operations transiently; completed package and target results are
-permanent. Agent plugin operations carry a client, operation identity, and
-start/finish lifecycle, allowing concurrent work to remain visible with elapsed
-time per operation. Non-TTY clients write plugin operation starts as plain lines
-and render the same completed results without ANSI control sequences.
+permanent. Agent plugin and release binary operations carry a client or binary
+identity, an operation identity, and a start/finish lifecycle, allowing concurrent
+work to remain visible with elapsed time per operation. Non-TTY clients write
+these operation starts as plain lines and render the same completed results
+without ANSI control sequences.
 
 Activation descriptions identify stable resources. When a runner must probe
 before choosing an operation, it emits the actual activity after that decision;

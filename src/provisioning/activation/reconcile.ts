@@ -1,7 +1,10 @@
 import { errorMessage } from '../../errors';
 import { mapWithConcurrency } from '../../host/task-pool';
 import { outcomeStatus, type ResourceOutcome } from '../resource-outcome';
-import { rethrowActivityObserverError } from './activity';
+import {
+  propagateActivityObserverError,
+  rethrowActivityObserverError,
+} from './activity';
 import type {
   ActivationDescription,
   ActivationReport,
@@ -98,7 +101,7 @@ async function executeStep(step: ReconcileStep): Promise<ReconcileItemResult> {
   try {
     return await step.run();
   } catch (error) {
-    rethrowActivityObserverError(error);
+    propagateActivityObserverError(error);
     return step.onError(error);
   }
 }

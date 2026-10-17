@@ -264,6 +264,9 @@ export interface ActivationRunOptions {
 
 export type ActivationAction =
   | 'check'
+  | 'resolve'
+  | 'download'
+  | 'apply'
   | 'install'
   | 'update'
   | 'upgrade'

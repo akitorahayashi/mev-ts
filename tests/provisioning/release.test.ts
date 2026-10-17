@@ -1,7 +1,9 @@
 import { expect } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
+  type ActivationActivity,
   releaseBinaries,
   runActivation,
 } from '../../src/provisioning/activation';
@@ -101,6 +103,360 @@ async function install(
 
 const PINNED = manifest(['kpv', 'akitorahayashi/kpv', 'v0.6.0']);
 const LATEST = manifest(['kpv', 'akitorahayashi/kpv', 'latest']);
+
+for (const scenario of [
+  {
+    name: 'a missing pinned binary',
+    tag: 'v0.7.0',
+    version: null,
+    upgrade: false,
+    expected: [
+      'check installed version',
+      'download v0.7.0',
+      'verify v0.7.0',
+      'apply v0.7.0',
+    ],
+    status: 'changed',
+  },
+  {
+    name: 'a current pinned binary under upgrade intent',
+    tag: 'v0.7.0',
+    version: '0.7.0',
+    upgrade: true,
+    expected: ['check installed version'],
+    status: 'unchanged',
+  },
+  {
+    name: 'an installed latest binary without upgrade intent',
+    tag: 'latest',
+    version: '0.6.0',
+    upgrade: false,
+    expected: ['check installed version'],
+    status: 'unchanged',
+  },
+  {
+    name: 'a missing latest binary under upgrade intent',
+    tag: 'latest',
+    version: null,
+    upgrade: true,
+    expected: [
+      'check installed version',
+      'resolve latest',
+      'download v0.7.0',
+      'verify v0.7.0',
+      'apply v0.7.0',
+    ],
+    status: 'changed',
+  },
+  {
+    name: 'an outdated latest binary under upgrade intent',
+    tag: 'latest',
+    version: '0.6.0',
+    upgrade: true,
+    expected: [
+      'check installed version',
+      'resolve latest',
+      'download v0.7.0',
+      'verify v0.7.0',
+      'apply v0.7.0',
+    ],
+    status: 'changed',
+  },
+  {
+    name: 'a current latest binary under upgrade intent',
+    tag: 'latest',
+    version: '0.7.0',
+    upgrade: true,
+    expected: ['check installed version', 'resolve latest'],
+    status: 'unchanged',
+  },
+] as const) {
+  sandboxTest(
+    `progress reports only actual phases for ${scenario.name}`,
+    async (home) => {
+      await deployBinaries(
+        home,
+        manifest(['kpv', 'akitorahayashi/kpv', scenario.tag]),
+      );
+      if (scenario.version !== null)
+        await install(home, 'kpv', scenario.version);
+      const { context, calls } = releaseContext(home, {
+        latest: { 'akitorahayashi/kpv': 'v0.7.0' },
+      });
+      const activities: ActivationActivity[] = [];
+
+      const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
+        upgrade: scenario.upgrade,
+        onActivity: (activity) => activities.push(activity),
+      });
+
+      expect(report.status).toBe(scenario.status);
+      const starts = activities.filter(
+        (activity) => activity.operation?.state === 'started',
+      );
+      expect(
+        starts.map(({ action, subject }) => `${action} ${subject}`),
+      ).toEqual([...scenario.expected]);
+      expect(
+        starts.every((activity) => activity.operation?.group === 'kpv'),
+      ).toBe(true);
+      expect(
+        new Set(starts.map((activity) => activity.operation?.id)).size,
+      ).toBe(starts.length);
+      expect(activities).toEqual(
+        starts.flatMap((activity) => {
+          if (!activity.operation)
+            throw new Error('Missing operation identity.');
+          return [
+            activity,
+            {
+              ...activity,
+              operation: { ...activity.operation, state: 'finished' as const },
+            },
+          ];
+        }),
+      );
+      if (scenario.expected.length === 1) {
+        expect(calls.some((call) => call.command === 'curl')).toBe(false);
+      }
+    },
+  );
+}
+
+sandboxTest(
+  'phase changes precede the corresponding IO and placement follows verification',
+  async (home) => {
+    await deployBinaries(
+      home,
+      manifest(['tp', 'akitorahayashi/tmpc', 'latest']),
+    );
+    const dest = await install(home, 'tp', '0.6.0');
+    const { context } = releaseContext(home, {
+      latest: { 'akitorahayashi/tmpc': 'v0.7.0' },
+    });
+    let active: ActivationActivity | undefined;
+    const observed: string[] = [];
+    const report = await runActivation(
+      releaseBinaries(CONFIG_KEY),
+      {
+        ...context,
+        commands: {
+          async run(command, args, options) {
+            if (command === 'uname')
+              return context.commands.run(command, args, options);
+            const action =
+              command === 'curl'
+                ? args.some((arg) => arg.includes('/releases/latest'))
+                  ? 'resolve'
+                  : 'download'
+                : command === dest
+                  ? 'check'
+                  : 'verify';
+            expect(active?.action).toBe(action);
+            expect(active?.operation?.group).toBe('tp');
+            expect(await readFile(dest, 'utf8')).toBe('0.6.0');
+            observed.push(action);
+            return context.commands.run(command, args, options);
+          },
+        },
+      },
+      {
+        upgrade: true,
+        onActivity(activity) {
+          active =
+            activity.operation?.state === 'started' ? activity : undefined;
+          if (active?.action === 'apply') {
+            expect(readFileSync(dest, 'utf8')).toBe('0.6.0');
+            observed.push('apply');
+          }
+        },
+      },
+    );
+
+    expect(report.status).toBe('changed');
+    expect(observed).toEqual([
+      'check',
+      'resolve',
+      'download',
+      'verify',
+      'apply',
+    ]);
+    expect(active).toBeUndefined();
+    expect(await readFile(dest, 'utf8')).toBe('0.7.0');
+  },
+);
+
+sandboxTest(
+  'queued binaries emit no activity until a concurrency slot is available',
+  async (home) => {
+    const names = ['kpv', 'prf', 'ssv', 'tp', 'extra'];
+    await deployBinaries(
+      home,
+      manifest(
+        ...names.map(
+          (name) => [name, `akitorahayashi/${name}`, 'v0.7.0'] as const,
+        ),
+      ),
+    );
+    const { context } = releaseContext(home);
+    const gate = Promise.withResolvers<void>();
+    const ready = Promise.withResolvers<void>();
+    const activities: ActivationActivity[] = [];
+    let entered = 0;
+    const running = runActivation(
+      releaseBinaries(CONFIG_KEY),
+      {
+        ...context,
+        commands: {
+          async run(command, args, options) {
+            if (
+              names.some((name) => command === join(home, '.cargo/bin', name))
+            ) {
+              entered += 1;
+              if (entered === 4) ready.resolve();
+              await gate.promise;
+            }
+            return context.commands.run(command, args, options);
+          },
+        },
+      },
+      {
+        upgrade: false,
+        onActivity: (activity) => activities.push(activity),
+      },
+    );
+
+    try {
+      await ready.promise;
+      expect(activities.map((activity) => activity.operation?.group)).toEqual(
+        names.slice(0, 4),
+      );
+      expect(
+        activities.every(
+          (activity) =>
+            activity.action === 'check' &&
+            activity.operation?.state === 'started',
+        ),
+      ).toBe(true);
+    } finally {
+      gate.resolve();
+      await running;
+    }
+    const report = await running;
+    expect(report.entries?.map((entry) => entry.key)).toEqual(names);
+    expect(report.entries?.every((entry) => entry.status === 'changed')).toBe(
+      true,
+    );
+    expect(
+      activities.some((activity) => activity.operation?.group === 'extra'),
+    ).toBe(true);
+  },
+);
+
+for (const scenario of [
+  {
+    name: 'resolution',
+    tag: 'latest',
+    release: {},
+    phase: 'resolve latest',
+    actions: ['check', 'resolve'],
+  },
+  {
+    name: 'download',
+    tag: 'v0.7.0',
+    release: { missingAsset: ['akitorahayashi/kpv'] },
+    phase: 'download v0.7.0',
+    actions: ['check', 'download'],
+  },
+  {
+    name: 'version verification',
+    tag: 'v0.7.0',
+    release: { installs: { 'akitorahayashi/kpv': '0.5.0' } },
+    phase: 'verify v0.7.0',
+    actions: ['check', 'download', 'verify'],
+  },
+] as const) {
+  sandboxTest(
+    `a ${scenario.name} failure closes its active phase and identifies it`,
+    async (home) => {
+      await deployBinaries(
+        home,
+        manifest(['kpv', 'akitorahayashi/kpv', scenario.tag]),
+      );
+      const dest = await install(home, 'kpv', '0.4.0');
+      const { context } = releaseContext(home, scenario.release);
+      const activities: ActivationActivity[] = [];
+      const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
+        upgrade: true,
+        onActivity: (activity) => activities.push(activity),
+      });
+      expect(report.status).toBe('failed');
+      expect(report.outcomes[0]?.label).toBe('kpv');
+      expect(report.entries?.[0]?.error).toStartWith(`${scenario.phase}: `);
+      expect(
+        activities
+          .filter((activity) => activity.operation?.state === 'started')
+          .map((activity) => activity.action),
+      ).toEqual([...scenario.actions]);
+      expect(
+        activities
+          .filter((activity) => activity.operation?.state === 'finished')
+          .map((activity) => activity.operation?.id),
+      ).toEqual(
+        activities
+          .filter((activity) => activity.operation?.state === 'started')
+          .map((activity) => activity.operation?.id),
+      );
+      expect(await readFile(dest, 'utf8')).toBe('0.4.0');
+    },
+  );
+}
+
+sandboxTest(
+  'a placement failure is not reported as a successful installation',
+  async (home) => {
+    await deployBinaries(home, PINNED);
+    const dest = join(home, '.cargo/bin/kpv');
+    await mkdir(dest, { recursive: true });
+    const { context } = releaseContext(home);
+    const activities: ActivationActivity[] = [];
+    const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
+      upgrade: false,
+      onActivity: (activity) => activities.push(activity),
+    });
+    expect(report.status).toBe('failed');
+    expect(report.entries?.[0]?.error).toStartWith('apply v0.6.0: ');
+    expect(activities.at(-1)).toMatchObject({
+      action: 'apply',
+      operation: { state: 'finished' },
+    });
+    expect((await stat(dest)).isDirectory()).toBe(true);
+  },
+);
+
+for (const phase of ['check', 'verify', 'apply'] as const) {
+  sandboxTest(
+    `an observer failure during ${phase} propagates without replacing the installed binary`,
+    async (home) => {
+      await deployBinaries(home, PINNED);
+      const dest = await install(home, 'kpv', '0.4.0');
+      const { context } = releaseContext(home);
+      const failure = new Error('output unavailable');
+      const running = runActivation(releaseBinaries(CONFIG_KEY), context, {
+        upgrade: false,
+        onActivity(activity) {
+          if (
+            activity.action === phase &&
+            activity.operation?.state === 'started'
+          )
+            throw failure;
+        },
+      });
+      await expect(running).rejects.toBe(failure);
+      expect(await readFile(dest, 'utf8')).toBe('0.4.0');
+    },
+  );
+}
 
 sandboxTest('a pinned binary that is absent is fetched', async (home) => {
   await deployBinaries(home, PINNED);

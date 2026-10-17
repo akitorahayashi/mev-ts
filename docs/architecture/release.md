@@ -15,6 +15,16 @@ Changing a repository without changing the version-bearing declaration cannot be
 detected by a version-only probe; changing the tag or removing the binary forces
 resolution.
 
+Each executing binary reports its installed-version check, latest-tag resolution
+when required, download, staged version verification, and atomic placement as
+separate progress operations. Queued binaries report no activity until a worker
+starts them. TTY output shows concurrent binaries with elapsed time per phase;
+non-TTY output records phase starts as plain lines. A finished phase does not
+assert success: changed outcomes require successful verification and placement.
+Failures identify the binary, the failed phase, and the underlying cause while
+independent binaries continue. Verification here checks the reported version,
+not a checksum.
+
 ## Remote installers
 
 | Declaration | Contract |
