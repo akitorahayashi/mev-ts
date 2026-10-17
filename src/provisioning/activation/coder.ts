@@ -87,7 +87,7 @@ async function fanoutFile(
           status: 'unchanged',
         });
       } else {
-        await placeSymlink(link, target);
+        await placeSymlink(link, target, context);
         entries.push({
           key: symbolic(dest),
           value: 'managed link updated',
@@ -130,6 +130,7 @@ async function fanoutSkills(
         root,
         [`${intermediate}/`],
         desired,
+        context,
       );
       entries.push({
         key: symbolic(dir),
@@ -231,7 +232,12 @@ export function runCoderSkills(
     read: readSkills,
     async apply(sourceDir, enabled) {
       const intermediate = skillsDir(context.home);
-      const built = await buildSkills(sourceDir, enabled, intermediate);
+      const built = await buildSkills(
+        sourceDir,
+        enabled,
+        intermediate,
+        context,
+      );
       const fanout = await fanoutSkills(
         activation.targetDirs,
         intermediate,

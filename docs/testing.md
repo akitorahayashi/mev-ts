@@ -33,7 +33,7 @@ is the boundary under test:
 | Script tests | The script interpreter (`zsh` or `bash`) |
 | `bunCommandRunner` | A real subprocess, because it is the spawn boundary |
 | Git output formats | Git in a sandbox repository, when a fake would only restate the parser |
-| Mutation ownership | Bun processes in sandbox homes, because contention and process death establish lease ownership and stale-owner recovery |
+| Mutation ownership and recovery | Bun processes in sandbox homes, because contention, process death, and interruption between persisted renames establish lease and restart-recovery behavior |
 
 Every carve-out names its reason in the test. Other tests inject a fake through
 the shared fixtures.

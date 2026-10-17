@@ -16,7 +16,7 @@ export interface DeployResult {
 /**
  * Materialize every embedded asset under a role into the deploy store. Desired
  * state is staged first; an equivalent role remains in place, while drift is
- * replaced with best-effort rollback for in-process failures.
+ * replaced with rollback and home-scoped recovery for interrupted publication.
  */
 export async function deployRole(
   role: string,
@@ -29,22 +29,26 @@ export async function deployRole(
     return { role, changes };
   }
 
-  await replaceDirectoryAfterBuild(destDir, async (tmp) => {
-    const createdDirs = new Set<string>();
-    for (const intent of intents) {
-      const relative = intent.key.slice(`${role}/`.length);
-      const dest = join(tmp, relative);
-      const destParent = dirname(dest);
-      if (!createdDirs.has(destParent)) {
-        await mkdir(destParent, { recursive: true });
-        createdDirs.add(destParent);
+  await replaceDirectoryAfterBuild(
+    destDir,
+    async (tmp) => {
+      const createdDirs = new Set<string>();
+      for (const intent of intents) {
+        const relative = intent.key.slice(`${role}/`.length);
+        const dest = join(tmp, relative);
+        const destParent = dirname(dest);
+        if (!createdDirs.has(destParent)) {
+          await mkdir(destParent, { recursive: true });
+          createdDirs.add(destParent);
+        }
+        await writeFile(dest, intent.content);
+        if (intent.executable) {
+          await chmod(dest, 0o755);
+        }
       }
-      await writeFile(dest, intent.content);
-      if (intent.executable) {
-        await chmod(dest, 0o755);
-      }
-    }
-  });
+    },
+    context,
+  );
 
   return { role, changes };
 }

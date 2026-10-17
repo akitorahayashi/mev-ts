@@ -1,6 +1,8 @@
 import { expect } from 'bun:test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { configSelect } from '../../src/app/coder';
+import { deployedDir } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { acquireMutationLease } from '../../src/host/mutation-lease';
 import { appliedPath, writeApplied } from '../../src/provisioning/applied';
@@ -9,10 +11,74 @@ import { fullSetupTargets } from '../../src/provisioning/registry';
 import { isScanError, scanTargets } from '../../src/provisioning/scan';
 import { targetSignature } from '../../src/provisioning/signature';
 import { recordingContext } from '../fixtures/fake-context';
+import { interruptSwap } from '../fixtures/interrupted-swap';
 import { type CliResult, runCliInSandbox } from '../fixtures/sandboxed-cli';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('sync-command-');
+
+sandboxTest(
+  'sync recovers missing deployed state before scanning and pruning',
+  async (sandbox) => {
+    await seedCurrentEnvironment(sandbox);
+    const role = deployedDir('git', sandbox);
+    await interruptSwap(sandbox, 'backed-up', 'copy', role);
+    expect(await Bun.file(join(role, '.gitconfig')).exists()).toBe(false);
+    await mkdir(join(sandbox, '.mev/roles/obsolete'), { recursive: true });
+    await writeFile(join(sandbox, '.mev/roles/obsolete/file'), 'obsolete');
+    const result = await runSync(sandbox);
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('No targets need reapplying');
+    expect(await Bun.file(join(role, '.gitconfig')).exists()).toBe(true);
+    expect(
+      await Bun.file(join(sandbox, '.mev/roles/obsolete/file')).exists(),
+    ).toBe(false);
+  },
+);
+
+sandboxTest(
+  'configuration catalog reads follow recovery of the interrupted role',
+  async (sandbox) => {
+    await seedCurrentEnvironment(sandbox);
+    await interruptSwap(
+      sandbox,
+      'backed-up',
+      'copy',
+      deployedDir('coder', sandbox),
+    );
+    let prompted = false;
+    await configSelect(
+      'agents',
+      sandbox,
+      () => {},
+      async (_message, catalog) => {
+        prompted = true;
+        expect(catalog.length).toBeGreaterThan(0);
+        return null;
+      },
+    );
+    expect(prompted).toBe(true);
+  },
+);
+
+sandboxTest(
+  'legacy backups stop sync before obsolete-role pruning',
+  async (sandbox) => {
+    await seedCurrentEnvironment(sandbox);
+    const legacy = join(
+      sandbox,
+      '.mev/roles/obsolete/.resource.abcdef/backup/keep',
+    );
+    await mkdir(join(legacy, '..'), { recursive: true });
+    await writeFile(legacy, 'previous contents');
+    const result = await runSync(sandbox);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('Unrecorded transaction artifact');
+    expect(await Bun.file(legacy).text()).toBe('previous contents');
+    expect(result.stdout).not.toContain('No targets need reapplying');
+  },
+);
 
 async function seedCurrentEnvironment(sandbox: string): Promise<void> {
   const context = recordingContext({

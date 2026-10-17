@@ -85,9 +85,8 @@ sandboxTest(
         directory,
       );
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain(
-        'ProvisioningError: Failed to read Skills source directory',
-      );
+      expect(result.stderr).toContain('ProvisioningError:');
+      expect(result.stderr).toContain('EACCES');
       expect(result.stderr).toContain(path);
       expect(result.stdout).toBe('');
     } finally {

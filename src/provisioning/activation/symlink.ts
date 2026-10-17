@@ -67,7 +67,10 @@ function treeEntries(
   }));
 }
 
-async function ensureTreeRoot(root: string): Promise<boolean> {
+async function ensureTreeRoot(
+  root: string,
+  context: Context,
+): Promise<boolean> {
   const stats = await lstatIfPresent(root);
   if (!stats) {
     await mkdir(root, { recursive: true });
@@ -76,7 +79,7 @@ async function ensureTreeRoot(root: string): Promise<boolean> {
   if (stats.isDirectory()) {
     return false;
   }
-  return replaceDirectoryAfterBuild(root, async () => {});
+  return replaceDirectoryAfterBuild(root, async () => {}, context);
 }
 
 export async function runFile(
@@ -90,7 +93,7 @@ export async function runFile(
     const target = deployedPath(activation.source, context.home);
     const linkCurrent = await isSymlinkTo(link, target);
     if (!linkCurrent) {
-      await placeSymlink(link, target);
+      await placeSymlink(link, target, context);
     }
     const contentChanged = options.sourceChanges?.some(
       (change) => change.key === activation.source.key,
@@ -126,11 +129,12 @@ export async function runTree(
     const managedRoots = [deployedDir(activation.prefix, context.home)];
     const entries = treeEntries(refs, activation.prefix, root, context.home);
 
-    const rootChanged = await ensureTreeRoot(root);
+    const rootChanged = await ensureTreeRoot(root, context);
     const links = await reconcileManagedLinks(
       root,
       managedRoots,
       entries.map((entry) => ({ path: entry.link, target: entry.target })),
+      context,
     );
 
     const changedKeys = new Set(

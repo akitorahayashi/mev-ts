@@ -34,6 +34,32 @@ Low-level provisioning and filesystem functions consume the caller's ownership;
 they do not reacquire it. The lease coordinates mev invocations, not independently
 running agent clients or editors.
 
+## Interrupted replacements
+
+Swap transactions carry an explicit home identifying the recovery store under
+`~/.mev/transactions`. A durable record precedes any destination rename. It binds
+the exact destination, staged entry, backup, directory identity, previous and
+replacement snapshots, and publication state to a stage-side ownership digest.
+Entry identity, kind, mode, file content, timestamps, and symlink targets establish
+ownership without following links into unrelated data.
+
+Recovery runs under the mutation lease before application decision-making reads,
+including sync scanning and pruning. Actual filesystem identities reconcile gaps
+between a rename and its journal update:
+
+| Proven state | Recovery result |
+|---|---|
+| Not published | Restore the previous entry, or preserve absence when there was no previous entry. |
+| Published | Keep the replacement. |
+| Partly cleaned | Continue removal only for unchanged recorded descendants; additions and edits fail. |
+| Unknown ownership, external changes, malformed metadata, or unrecorded legacy artifacts | Preserve remaining state and fail with locations for inspection. |
+
+Cleanup checkpoints make repeated recovery idempotent. Applied signatures are
+not manufactured and later activations are not resumed blindly. The interrupted
+operation is reevaluated normally after recovery. Legacy checks cover mev-owned
+state and registered host surfaces; standalone replacement boundaries also refuse
+unfinished siblings. There is no recovery command or opt-in flag.
+
 ## CommandRunner
 
 | Option | Contract |

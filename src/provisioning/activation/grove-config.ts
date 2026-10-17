@@ -47,6 +47,7 @@ export async function runGroveConfig(
       dest,
       Buffer.from(rendered),
       sourceStats.mode & 0o7777,
+      context,
     );
     return activationReport(base, [
       {

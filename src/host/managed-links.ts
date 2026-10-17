@@ -2,6 +2,7 @@ import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readDirentsIfPresent, readlinkIfPresent } from './absence';
 import { isSymlinkTo, placeSymlink } from './symlink';
+import type { TransactionOptions } from './transaction';
 
 /** A symlink mev wants to exist: `path` -> `target`, both absolute. */
 export interface DesiredLink {
@@ -32,6 +33,7 @@ export async function reconcileManagedLinks(
   root: string,
   managedPrefixes: readonly string[],
   desired: readonly DesiredLink[],
+  options: TransactionOptions,
 ): Promise<ManagedLinksResult> {
   const prefixes = managedPrefixes.map((prefix) =>
     prefix.endsWith('/') ? prefix : `${prefix}/`,
@@ -46,7 +48,7 @@ export async function reconcileManagedLinks(
       unchanged.push(link);
       continue;
     }
-    await placeSymlink(link.path, link.target);
+    await placeSymlink(link.path, link.target, options);
     placed.push(link);
   }
 
