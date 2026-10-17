@@ -5,6 +5,7 @@ import type { CommandResult } from '../../src/host/command';
 import type { Context } from '../../src/host/context';
 import { home as hostHome } from '../../src/host/path';
 import {
+  type ActivationActivity,
   type ActivationRunOptions,
   installAgentPlugins,
   runActivation,
@@ -890,6 +891,7 @@ sandboxTest(
     await deployCatalog(home, UPGRADE_CATALOG);
     let claudeVersion = '1.0.0';
     let codexVersion = '0.1.0';
+    const activities: ActivationActivity[] = [];
     const { context, calls } = recordingContext({
       home,
       respond: (command, args) => {
@@ -942,8 +944,33 @@ sandboxTest(
       },
     });
 
-    const report = await run(context, { upgrade: true });
+    const report = await run(context, {
+      upgrade: true,
+      onActivity: (activity) => activities.push(activity),
+    });
 
+    for (const client of ['claude', 'codex']) {
+      const clientActivities = activities.filter(
+        ({ operation }) => operation?.group === client,
+      );
+      const starts = clientActivities.filter(
+        ({ operation }) => operation?.state === 'started',
+      );
+      expect(
+        starts.map(({ action, subject }) => `${action} ${subject}`),
+      ).toEqual([
+        'check installed plugins',
+        'check marketplaces',
+        'refresh marketplace xlsx',
+        'upgrade xlsx@xlsx',
+        'verify installed plugins',
+      ]);
+      expect(
+        clientActivities
+          .filter(({ operation }) => operation?.state === 'finished')
+          .map(({ operation }) => operation?.id),
+      ).toEqual(starts.map(({ operation }) => operation?.id));
+    }
     expect(report.status).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,

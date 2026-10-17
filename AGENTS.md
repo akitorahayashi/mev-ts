@@ -18,7 +18,7 @@ src/
   cli/
     commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
       config/    Config toggle commands built by defineConfigCommand plus GitHub SSH host configuration (aliased `cf`)
-    tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), transient-line.ts (animated-progress line over an injected stream), and the interactive toggle prompt
+    tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), transient-block.ts (animated progress over an injected stream), and the interactive toggle prompt
   config-selection/ Shared config-selection manifest parser/resolver
   defaults/      macOS defaults manifest parser and protocol helpers
   duti/          duti file-association state probes and apply operations

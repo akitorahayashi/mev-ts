@@ -24,6 +24,7 @@ import { remoteMatchesRepository, sshRemoteUrl } from '../../github/repository';
 import { readSshHost } from '../../github/ssh-host';
 import type { Context } from '../../host/context';
 import { resolveHostPath } from '../../host/path';
+import { propagateActivityObserverError, reportActivity } from './activity';
 import type {
   Activation,
   ActivationDescription,
@@ -324,6 +325,7 @@ async function uninstallInstalled(
     });
     return entryIndex;
   } catch (error) {
+    propagateActivityObserverError(error);
     entries.push({
       key: `${client}:${id}`,
       value: 'uninstall failed',
@@ -370,7 +372,7 @@ async function confirmUninstalled(
   if (issued.length === 0) return true;
   let confirmed = true;
   try {
-    const remaining = await clientOps[client].listPlugins(context);
+    const remaining = await clientOps[client].listPlugins(context, 'verify');
     for (const target of issued) {
       const survivor = remaining.get(target.id);
       if (survivor === undefined) continue;
@@ -383,6 +385,7 @@ async function confirmUninstalled(
       confirmed = false;
     }
   } catch (error) {
+    propagateActivityObserverError(error);
     for (const target of issued) {
       entries[target.entryIndex] = verificationFailure(
         client,
@@ -422,6 +425,7 @@ async function removeDeclaredMarketplace(
       registrations,
     );
   } catch (error) {
+    propagateActivityObserverError(error);
     entries.push({
       key,
       value: 'marketplace remove failed',
@@ -494,6 +498,7 @@ async function removeDeclaredMarketplace(
     registrations.forget(removed.client, removed.name);
     entries.push({ key, value: 'marketplace removed', status: 'changed' });
   } catch (error) {
+    propagateActivityObserverError(error);
     entries.push({
       key,
       value: 'marketplace remove failed',
@@ -619,6 +624,7 @@ async function reconcileMarketplace(
       }
     }
   } catch (error) {
+    propagateActivityObserverError(error);
     // A typed drop means the failure already destroyed the namespace on the
     // host, so its plugins must report as blocked rather than as installed.
     if (error instanceof DroppedPluginsError) {
@@ -686,6 +692,7 @@ async function reconcileMarketplace(
         }
       }
     } catch (error) {
+      propagateActivityObserverError(error);
       entries.push({
         key,
         value: `${action} failed`,
@@ -741,7 +748,10 @@ async function verifyOutcomes(
       );
       if (clientDeclared.length === 0 && clientRemovals.length === 0) return;
       try {
-        const installed = await clientOps[client].listPlugins(context);
+        const installed = await clientOps[client].listPlugins(
+          context,
+          'verify',
+        );
         for (const target of clientRemovals) {
           if (!installed.has(target.id)) continue;
           entries[target.entryIndex] = verificationFailure(
@@ -791,6 +801,7 @@ async function verifyOutcomes(
                 };
         }
       } catch (error) {
+        propagateActivityObserverError(error);
         for (const target of [...clientDeclared, ...clientRemovals]) {
           entries[target.entryIndex] = verificationFailure(
             client,
@@ -811,7 +822,17 @@ export function runAgentPlugins(
   const base = describeAgentPlugins(activation);
   return guarded(base, async () => {
     const clientContext = withClientPath(activation, context);
-    const clientOps = createPluginClients();
+    const clientOps = createPluginClients((activity) => {
+      reportActivity(options.onActivity, {
+        subject: activity.subject,
+        action: activity.action,
+        operation: {
+          id: activity.id,
+          group: activity.client,
+          state: activity.state,
+        },
+      });
+    });
     const catalog = await readDeployedManifest(
       activation.configKey,
       context.home,
@@ -835,6 +856,7 @@ export function runAgentPlugins(
             installed: await clientOps[client].listPlugins(clientContext),
           });
         } catch (error) {
+          propagateActivityObserverError(error);
           inventories.set(client, { error: errorMessage(error) });
         }
       }),

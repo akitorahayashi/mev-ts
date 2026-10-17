@@ -20,3 +20,7 @@ export function reportActivity(
 export function rethrowActivityObserverError(error: unknown): void {
   if (error instanceof ActivityObserverError) throw error.original;
 }
+
+export function propagateActivityObserverError(error: unknown): void {
+  if (error instanceof ActivityObserverError) throw error;
+}

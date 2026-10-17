@@ -2,6 +2,7 @@ import { errorMessage, ProvisioningError } from '../errors';
 import type { Repository } from '../github/repository';
 import { remoteMatchesRepository } from '../github/repository';
 import type { Context } from '../host/context';
+import { createPluginActivity, type PluginActivity } from './activity';
 import { MARKETPLACE_REF, type PluginClient } from './catalog';
 import {
   addClaudeMarketplace,
@@ -70,7 +71,10 @@ export class DroppedPluginsError extends ProvisioningError {}
  * dispatch site.
  */
 export interface PluginClientOps {
-  listPlugins(context: Context): Promise<PluginInventory>;
+  listPlugins(
+    context: Context,
+    action?: 'check' | 'verify',
+  ): Promise<PluginInventory>;
   installPlugin(id: string, context: Context): Promise<void>;
   /**
    * Enable an installed-but-disabled plugin. Issued only for a plugin the
@@ -232,8 +236,13 @@ const codexOps: PluginClientOps = {
 
 export type PluginClients = Readonly<Record<PluginClient, PluginClientOps>>;
 
-function serializeMutations(ops: PluginClientOps): PluginClientOps {
+function serializeMutations(
+  client: PluginClient,
+  ops: PluginClientOps,
+  observer?: (activity: PluginActivity) => void,
+): PluginClientOps {
   let settled = Promise.resolve();
+  const observe = createPluginActivity(client, observer);
 
   function enqueue<Args extends unknown[], Result>(
     operation: (...args: Args) => Promise<Result>,
@@ -252,18 +261,48 @@ function serializeMutations(ops: PluginClientOps): PluginClientOps {
   // Different marketplaces still write the same client-wide settings stores.
   return {
     ...ops,
-    installPlugin: enqueue(ops.installPlugin),
-    enablePlugin: enqueue(ops.enablePlugin),
-    upgradePlugin: enqueue(ops.upgradePlugin),
-    uninstallPlugin: enqueue(ops.uninstallPlugin),
-    removeMarketplace: enqueue(ops.removeMarketplace),
-    ensureMarketplace: enqueue(ops.ensureMarketplace),
+    listPlugins: (context, action = 'check') =>
+      observe(action, 'installed plugins', () => ops.listPlugins(context)),
+    listMarketplaces: (context) =>
+      observe('check', 'marketplaces', () => ops.listMarketplaces(context)),
+    installPlugin: enqueue((id, context) =>
+      observe('install', id, () => ops.installPlugin(id, context)),
+    ),
+    enablePlugin: enqueue((id, context) =>
+      observe('enable', id, () => ops.enablePlugin(id, context)),
+    ),
+    upgradePlugin: enqueue((id, context) =>
+      observe('upgrade', id, () => ops.upgradePlugin(id, context)),
+    ),
+    uninstallPlugin: enqueue((id, context) =>
+      observe('uninstall', id, () => ops.uninstallPlugin(id, context)),
+    ),
+    removeMarketplace: enqueue((name, context) =>
+      observe('remove', `marketplace ${name}`, () =>
+        ops.removeMarketplace(name, context),
+      ),
+    ),
+    ensureMarketplace: enqueue(async (name, repo, url, context, cache) => {
+      const current = (await cache.current()).get(name);
+      const action = !current
+        ? 'register'
+        : !remoteMatchesRepository(current.url, repo)
+          ? 'check'
+          : ops.registrationMatches(current, url)
+            ? 'refresh'
+            : 'update';
+      return observe(action, `marketplace ${name}`, () =>
+        ops.ensureMarketplace(name, repo, url, context, cache),
+      );
+    }),
   };
 }
 
-export function createPluginClients(): PluginClients {
+export function createPluginClients(
+  observer?: (activity: PluginActivity) => void,
+): PluginClients {
   return {
-    claude: serializeMutations(claudeOps),
-    codex: serializeMutations(codexOps),
+    claude: serializeMutations('claude', claudeOps, observer),
+    codex: serializeMutations('codex', codexOps, observer),
   };
 }

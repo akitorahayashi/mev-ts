@@ -1,4 +1,5 @@
 import { expect } from 'bun:test';
+import type { PluginActivity } from '../../src/agent-plugin/activity';
 import {
   createPluginClients,
   type MarketplaceRemotes,
@@ -11,6 +12,66 @@ import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('plugin-client-');
+
+for (const client of ['claude', 'codex'] as const) {
+  sandboxTest(
+    `${client} reports running operations rather than queued mutations, including failures`,
+    async (home) => {
+      const started = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<void>();
+      const activities: PluginActivity[] = [];
+      const { context } = recordingContext({
+        home,
+        respond: async (_command, args) => {
+          if (args.includes('first@example')) {
+            started.resolve();
+            await release.promise;
+            return fail('upgrade refused');
+          }
+          return ok('{}');
+        },
+      });
+      const ops = createPluginClients((activity) => activities.push(activity))[
+        client
+      ];
+      const results = Promise.allSettled([
+        ops.upgradePlugin('first@example', context),
+        ops.enablePlugin('second@example', context),
+      ]);
+      try {
+        await started.promise;
+        expect(activities).toHaveLength(1);
+        expect(activities[0]).toMatchObject({
+          client,
+          action: 'upgrade',
+          subject: 'first@example',
+          state: 'started',
+        });
+      } finally {
+        release.resolve();
+      }
+      expect((await results).map(({ status }) => status)).toEqual([
+        'rejected',
+        'fulfilled',
+      ]);
+      expect(
+        activities.map(({ action, state, subject }) => ({
+          action,
+          state,
+          subject,
+        })),
+      ).toEqual([
+        { action: 'upgrade', state: 'started', subject: 'first@example' },
+        { action: 'upgrade', state: 'finished', subject: 'first@example' },
+        { action: 'enable', state: 'started', subject: 'second@example' },
+        { action: 'enable', state: 'finished', subject: 'second@example' },
+      ]);
+      expect(activities[0]?.id).toBe(activities[1]?.id);
+      expect(activities[2]?.id).toBe(activities[3]?.id);
+      expect(activities[0]?.id).not.toBe(activities[2]?.id);
+    },
+  );
+}
 
 for (const [client, ops] of Object.entries(createPluginClients())) {
   sandboxTest(
