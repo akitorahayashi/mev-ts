@@ -1,6 +1,5 @@
 import { requireSshHost, writeSshHost } from '../github/ssh-host';
-import { appliedPath, invalidateApplied } from '../provisioning/applied';
-import { allTargets } from '../provisioning/registry';
+import { invalidateInput } from './invalidate-input';
 
 /**
  * Store the per-machine SSH host alias, first marking every target that bakes it
@@ -13,11 +12,6 @@ export async function configureSshHost(
   sshHost: string,
 ): Promise<string> {
   const host = requireSshHost(sshHost.trim());
-  const stale = allTargets().filter((target) =>
-    target.perMachineInputs.includes('githubSshHost'),
-  );
-  await Promise.all(
-    stale.map((target) => invalidateApplied(appliedPath(home, target.name))),
-  );
+  await invalidateInput(home, 'githubSshHost');
   return writeSshHost(home, host);
 }

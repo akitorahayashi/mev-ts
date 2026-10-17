@@ -7,6 +7,7 @@ import {
   SKILLS_PREFIX,
   skillsManifest,
 } from '../coder/paths';
+import type { SelectionInput } from '../provisioning/target';
 import {
   type ConfigToggleSurface,
   configClearManifest,
@@ -17,6 +18,7 @@ import {
 type CoderSelectable = 'agents' | 'skills';
 
 interface CoderDescriptor {
+  readonly input: SelectionInput;
   readonly read: (sourceDir: string) => Promise<string[]>;
   readonly manifest: (home: string) => string;
   readonly prefix: string;
@@ -26,12 +28,14 @@ interface CoderDescriptor {
 /** One record per selectable, replacing the parallel per-field ternaries. */
 const DESCRIPTORS: Record<CoderSelectable, CoderDescriptor> = {
   agents: {
+    input: 'coderAgents',
     read: readSections,
     manifest: agentsManifest,
     prefix: AGENTS_SECTIONS_PREFIX,
     message: 'Select enabled AGENTS.md sections',
   },
   skills: {
+    input: 'coderSkills',
     read: readSkills,
     manifest: skillsManifest,
     prefix: SKILLS_PREFIX,
@@ -45,6 +49,8 @@ async function coderSelection(
 ): Promise<ConfigToggleSurface> {
   const descriptor = DESCRIPTORS[kind];
   return {
+    home,
+    input: descriptor.input,
     catalog: await descriptor.read(deployedDir(descriptor.prefix, home)),
     manifestPath: descriptor.manifest(home),
     message: descriptor.message,

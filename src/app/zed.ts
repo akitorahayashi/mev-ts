@@ -11,6 +11,8 @@ import {
 
 async function zedSelection(home: string): Promise<ConfigToggleSurface> {
   return {
+    home,
+    input: 'zedOverrides',
     catalog: await readOverrides(deployedDir(OVERRIDES_PREFIX, home)),
     manifestPath: overridesManifest(home),
     message: 'Select enabled Zed setting overrides',

@@ -1,4 +1,6 @@
 import type { SelectionPolicy } from '../config-selection/selection';
+import type { SelectionInput } from '../provisioning/target';
+import { invalidateInput } from './invalidate-input';
 
 /**
  * Present a catalog for interactive multi-select and return the names to keep
@@ -12,6 +14,8 @@ export type SelectEntries = (
 ) => Promise<string[] | null>;
 
 export interface ConfigToggleSurface {
+  readonly home: string;
+  readonly input: SelectionInput;
   readonly catalog: readonly string[];
   readonly manifestPath: string;
   readonly message: string;
@@ -39,10 +43,7 @@ export async function configSelectManifest(
   const chosen = await select(selection.message, selection.catalog, enabled);
   if (chosen === null) return;
 
-  await selection.policy.write(
-    selection.manifestPath,
-    persistedList(selection.catalog, chosen, selection.policy.mode),
-  );
+  await saveSelection(selection, enabled, chosen);
 }
 
 /**
@@ -53,9 +54,27 @@ export async function configSelectManifest(
 export async function configClearManifest(
   selection: ConfigToggleSurface,
 ): Promise<void> {
+  const { enabled } = await selection.policy.resolve(
+    selection.catalog,
+    selection.manifestPath,
+  );
+  await saveSelection(selection, enabled, []);
+}
+
+async function saveSelection(
+  selection: ConfigToggleSurface,
+  enabled: readonly string[],
+  chosen: readonly string[],
+): Promise<void> {
+  if (
+    enabled.length !== chosen.length ||
+    enabled.some((name) => !chosen.includes(name))
+  ) {
+    await invalidateInput(selection.home, selection.input);
+  }
   await selection.policy.write(
     selection.manifestPath,
-    selection.policy.mode === 'opt-out' ? [...selection.catalog] : [],
+    persistedList(selection.catalog, chosen, selection.policy.mode),
   );
 }
 
