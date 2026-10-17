@@ -37,8 +37,10 @@ collections such as macOS settings are summarized by count. Explicit paths stay
 visible individually.
 
 TTY progress is transient. Completed target results and the final counts remain
-in the log; redirected output contains the same results without animation or
-ANSI control sequences. A no-op `sync` reports that no targets need reapplying
+in the log. Agent plugin progress identifies each active client's operation,
+plugin or marketplace, and elapsed time. Redirected output records plugin
+operation starts and the same results without animation or ANSI control
+sequences. A no-op `sync` reports that no targets need reapplying
 and how many target definitions and managed assets match the last successful
 apply. App-owned configuration files enforce declared keys while keeping
 application-written keys. See [provisioning.md](architecture/provisioning.md)

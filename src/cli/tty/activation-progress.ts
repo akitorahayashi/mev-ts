@@ -2,12 +2,13 @@ import type { Writable } from 'node:stream';
 import { activationLine } from '../../provisioning/group-outcome';
 import type { ActivationGroupReport, MakeEvent } from '../../provisioning/run';
 import { renderTargetCompletionLine } from './makelog';
-import { createTransientLine } from './transient-line';
+import { createTransientBlock } from './transient-block';
 
 interface ActivationProgressOptions {
   readonly isTTY: boolean;
   readonly out: (text: string) => void;
-  readonly stream: Writable;
+  readonly stream: Writable & { readonly columns?: number };
+  readonly now?: () => number;
 }
 
 type ActivationStartEvent = Omit<
@@ -26,10 +27,23 @@ interface ActiveActivation {
   readonly action?: ActivationProgressEvent['activity']['action'];
 }
 
+interface ActiveOperation {
+  readonly group: string;
+  readonly subject: string;
+  readonly action: ActivationProgressEvent['activity']['action'];
+  readonly startedAt: number;
+}
+
 const activityLabels = {
   check: 'checking',
   install: 'installing',
   update: 'updating',
+  upgrade: 'upgrading',
+  enable: 'enabling',
+  uninstall: 'uninstalling',
+  register: 'registering',
+  refresh: 'refreshing',
+  remove: 'removing',
   verify: 'verifying',
 } as const satisfies Record<
   ActivationProgressEvent['activity']['action'],
@@ -75,7 +89,12 @@ function createLineActivationProgress(
   return {
     start() {},
     startActivation() {},
-    updateActivation() {},
+    updateActivation(event) {
+      if (event.activity.operation?.state !== 'started') return;
+      options.out(
+        `${event.targetName}  ${event.activity.operation.group}  ${activityLabels[event.activity.action]} ${event.activity.subject}\n`,
+      );
+    },
     completeTarget(group) {
       options.out(`${renderTargetCompletionLine(group, { isTTY: false })}\n`);
     },
@@ -89,13 +108,36 @@ function createTTYActivationProgress(
   let active: ActiveActivation | undefined;
   let frame = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
-  const line = createTransientLine(options.stream);
+  const block = createTransientBlock(options.stream);
+  const now = options.now ?? Date.now;
+  const operations = new Map<string, ActiveOperation>();
 
   const renderActive = () => {
     if (!active) return;
     const spinner = frames[frame % frames.length];
     frame += 1;
-    line.render(`${spinner} ${activeLine(active)}`);
+    if (operations.size === 0) {
+      block.render([`${spinner} ${activeLine(active)}`]);
+      return;
+    }
+    const lines = [...operations.values()]
+      .sort((a, b) => a.group.localeCompare(b.group))
+      .map(({ group, action, subject, startedAt }) => {
+        const seconds = Math.max(0, Math.floor((now() - startedAt) / 1000));
+        const prefix = `  ${spinner} ${group}  ${activityLabels[action]} `;
+        const suffix = `  ${seconds}s`;
+        const columns = options.stream.columns;
+        const available =
+          columns === undefined
+            ? undefined
+            : Math.max(1, columns - prefix.length - suffix.length - 1);
+        const label =
+          available !== undefined && subject.length > available
+            ? `${subject.slice(0, available - 1)}…`
+            : subject;
+        return `${prefix}${label}${suffix}`;
+      });
+    block.render([activeLine(active), ...lines]);
   };
 
   const stopTimer = () => {
@@ -112,6 +154,7 @@ function createTTYActivationProgress(
   return {
     start: createBanner(options.out),
     startActivation(event) {
+      operations.clear();
       active = {
         targetName: event.targetName,
         subject: activationLine(event.activation),
@@ -120,6 +163,21 @@ function createTTYActivationProgress(
       startTimer();
     },
     updateActivation(event) {
+      const operation = event.activity.operation;
+      if (operation) {
+        if (operation.state === 'started') {
+          operations.set(operation.id, {
+            group: operation.group,
+            subject: event.activity.subject,
+            action: event.activity.action,
+            startedAt: now(),
+          });
+        } else {
+          operations.delete(operation.id);
+        }
+        renderActive();
+        return;
+      }
       active = {
         targetName: event.targetName,
         subject: event.activity.subject,
@@ -130,9 +188,10 @@ function createTTYActivationProgress(
     completeTarget(group) {
       stopTimer();
       if (active) {
-        line.clear();
+        block.clear();
         active = undefined;
       }
+      operations.clear();
       options.out(
         `${renderTargetCompletionLine(group, {
           isTTY: true,
@@ -142,8 +201,9 @@ function createTTYActivationProgress(
     finish() {
       stopTimer();
       if (!active) return;
-      line.clear();
+      block.clear();
       active = undefined;
+      operations.clear();
     },
   };
 }

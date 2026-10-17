@@ -40,10 +40,6 @@ test('the TTY activation progress renders the in-flight line and a completion li
   });
   progress.finish();
 
-  // The spinner renders the in-flight activation line to the TTY stream and
-  // clears it before the completion line is emitted. Match any CSI erase body
-  // (`[<params>J|K`) rather than a specific clear code, so tightening the exact
-  // reset bytes in transient-line does not break this behavioral assertion.
   const terminal = stream.output();
   expect(terminal).toContain('git  ~/.gitconfig');
   expect(terminal).toContain('git  updating Git configuration');
@@ -94,4 +90,116 @@ test('the non-TTY activation progress writes plain lines only to out', () => {
 
   expect(stream.output()).toBe('');
   expect(out).toContain('changed   ~/.gitconfig');
+});
+
+test('concurrent plugin operations retain their own clocks and clear on completion', () => {
+  const stream = fakeTtyStream(100);
+  let now = 0;
+  const progress = createActivationProgress({
+    isTTY: true,
+    out: () => {},
+    stream: stream as never,
+    now: () => now,
+  });
+  const update = (group: string, state: 'started' | 'finished') =>
+    progress.updateActivation({
+      targetName: 'coder',
+      activity: {
+        subject: `${group}-plugin@marketplace`,
+        action: 'upgrade',
+        operation: { group, id: group, state },
+      },
+    });
+  const visible = () => stream.output().split('\x1b[0J').at(-1) ?? '';
+
+  try {
+    progress.startActivation({
+      targetName: 'coder',
+      activation: { subject: 'agent plugins' },
+    });
+    update('claude', 'started');
+    now = 8000;
+    update('codex', 'started');
+    expect(visible()).toContain(
+      'claude  upgrading claude-plugin@marketplace  8s',
+    );
+    expect(visible()).toContain(
+      'codex  upgrading codex-plugin@marketplace  0s',
+    );
+
+    now = 11000;
+    update('claude', 'finished');
+    expect(visible()).not.toContain('claude-plugin');
+    expect(visible()).toContain(
+      'codex  upgrading codex-plugin@marketplace  3s',
+    );
+
+    progress.startActivation({
+      targetName: 'coder',
+      activation: { subject: 'next resource' },
+    });
+    expect(visible()).not.toContain('codex-plugin');
+    expect(visible()).toContain('next resource');
+  } finally {
+    progress.finish();
+  }
+  expect(visible()).toBe('');
+});
+
+test('long plugin names keep the operation and elapsed time visible', () => {
+  const stream = fakeTtyStream(60);
+  const progress = createActivationProgress({
+    isTTY: true,
+    out: () => {},
+    stream: stream as never,
+  });
+  try {
+    progress.startActivation({
+      targetName: 'coder',
+      activation: { subject: 'agent plugins' },
+    });
+    progress.updateActivation({
+      targetName: 'coder',
+      activity: {
+        subject: 'code-incident-resolution@code-incident-resolution',
+        action: 'upgrade',
+        operation: { group: 'codex', id: 'long', state: 'started' },
+      },
+    });
+    const visible = stream.output().split('\x1b[0J').at(-1) ?? '';
+    expect(visible).toContain('codex  upgrading code-incident-');
+    expect(visible).toContain('…  0s');
+    expect(visible.split('\n\r').every((row) => row.length < 60)).toBe(true);
+  } finally {
+    progress.finish();
+  }
+});
+
+test('redirected output logs plugin operation starts once without terminal controls', () => {
+  let out = '';
+  const stream = fakeTtyStream();
+  const progress = createActivationProgress({
+    isTTY: false,
+    out: (text) => {
+      out += text;
+    },
+    stream: stream as never,
+  });
+  for (const group of ['claude', 'codex']) {
+    for (const state of ['started', 'finished'] as const) {
+      progress.updateActivation({
+        targetName: 'coder',
+        activity: {
+          subject: 'xlsx@xlsx',
+          action: 'upgrade',
+          operation: { group, id: group, state },
+        },
+      });
+    }
+  }
+  expect(out.split('\n').filter(Boolean)).toHaveLength(2);
+  expect(out).toContain('claude  upgrading xlsx@xlsx');
+  expect(out).toContain('codex  upgrading xlsx@xlsx');
+  expect(out).toBe(Bun.stripANSI(out));
+  expect(stream.output()).toBe('');
 });

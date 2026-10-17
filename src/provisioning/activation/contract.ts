@@ -262,11 +262,26 @@ export interface ActivationRunOptions {
   readonly onActivity?: (activity: ActivationActivity) => void;
 }
 
-export type ActivationAction = 'check' | 'install' | 'update' | 'verify';
+export type ActivationAction =
+  | 'check'
+  | 'install'
+  | 'update'
+  | 'upgrade'
+  | 'enable'
+  | 'uninstall'
+  | 'register'
+  | 'refresh'
+  | 'remove'
+  | 'verify';
 
 export interface ActivationActivity {
   readonly subject: string;
   readonly action: ActivationAction;
+  readonly operation?: {
+    readonly id: string;
+    readonly group: string;
+    readonly state: 'started' | 'finished';
+  };
 }
 
 export interface ActivationReport {

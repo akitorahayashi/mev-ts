@@ -84,6 +84,12 @@ and run serially, including the full process lifetime and multi-command source
 replacement. Different clients and read-only inventories remain independent.
 A failed operation reports its error without blocking later queued operations.
 
+Progress identifies the client, plugin or marketplace, and operation. Mutation
+starts are emitted when the client queue executes them. Local inventories and
+post-run verification have their own activity; a finished operation is not a
+verified resource outcome. TTY output shows concurrent operations and their
+elapsed times, while redirected output records operation starts as plain lines.
+
 Client commands use noninteractive SSH with existing host-key trust required.
 Connection and keepalive limits bound SSH waits, and a command deadline terminates
 the owned process group, including Git and SSH descendants. The transport policy
