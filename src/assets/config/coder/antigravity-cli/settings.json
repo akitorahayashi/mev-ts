@@ -1,5 +1,5 @@
 {
-  "colorScheme": "light",
+  "colorScheme": "terminal",
   "enableTelemetry": false,
   "enableTerminalSandbox": false,
   "toolPermission": "always-proceed",
