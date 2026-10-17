@@ -8,6 +8,7 @@ import {
   releaseBinaries,
   runActivation,
 } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import {
   emptyAssets,
@@ -17,9 +18,7 @@ import {
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('release-');
-
 const CONFIG_KEY = 'rust-cli/binaries.yml';
-
 interface FakeRelease {
   /** The tag `releases/latest` resolves to, per repository. */
   readonly latest?: Readonly<Record<string, string>>;
@@ -28,14 +27,11 @@ interface FakeRelease {
   /** Repositories whose asset download fails. */
   readonly missingAsset?: readonly string[];
 }
-
 const LATEST_URL = /github\.com\/([^/]+\/[^/]+)\/releases\/latest$/;
 const ASSET_URL = /github\.com\/([^/]+\/[^/]+)\/releases\/download\/([^/]+)\//;
-
 function tagVersion(tag: string): string {
   return tag.startsWith('v') ? tag.slice(1) : tag;
 }
-
 /**
  * A host where a release binary's bytes are the version it reports, so the
  * `--version` probe the runner relies on is answered from what a download
@@ -73,13 +69,11 @@ function releaseContext(home: string, release: FakeRelease = {}) {
   };
   return recordingContext({ home, assets: emptyAssets, respond });
 }
-
 async function deployBinaries(home: string, yaml: string): Promise<void> {
   const roleDir = join(home, '.mev', 'roles', 'rust-cli');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'binaries.yml'), yaml);
 }
-
 function manifest(...entries: readonly (readonly [string, string, string])[]) {
   return `binaries:\n${entries
     .map(
@@ -88,7 +82,6 @@ function manifest(...entries: readonly (readonly [string, string, string])[]) {
     )
     .join('')}`;
 }
-
 async function install(
   home: string,
   name: string,
@@ -101,10 +94,8 @@ async function install(
   await writeFile(path, version, { mode });
   return path;
 }
-
 const PINNED = manifest(['kpv', 'akitorahayashi/kpv', 'v0.6.0']);
 const LATEST = manifest(['kpv', 'akitorahayashi/kpv', 'latest']);
-
 sandboxTest(
   'observer failure drains an already-started sibling release before settlement',
   async (home) => {
@@ -172,7 +163,6 @@ sandboxTest(
     );
   },
 );
-
 for (const scenario of [
   {
     name: 'a missing pinned binary',
@@ -253,13 +243,11 @@ for (const scenario of [
         latest: { 'akitorahayashi/kpv': 'v0.7.0' },
       });
       const activities: ActivationActivity[] = [];
-
       const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
         upgrade: scenario.upgrade,
         onActivity: (activity) => activities.push(activity),
       });
-
-      expect(report.status).toBe(scenario.status);
+      expect(outcomeStatus(report.outcomes)).toBe(scenario.status);
       const starts = activities.filter(
         (activity) => activity.operation?.state === 'started',
       );
@@ -291,7 +279,6 @@ for (const scenario of [
     },
   );
 }
-
 sandboxTest(
   'phase changes precede the corresponding IO and placement follows verification',
   async (home) => {
@@ -341,8 +328,7 @@ sandboxTest(
         },
       },
     );
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(observed).toEqual([
       'check',
       'resolve',
@@ -354,7 +340,6 @@ sandboxTest(
     expect(await readFile(dest, 'utf8')).toBe('0.7.0');
   },
 );
-
 sandboxTest(
   'queued binaries emit no activity until a concurrency slot is available',
   async (home) => {
@@ -394,7 +379,6 @@ sandboxTest(
         onActivity: (activity) => activities.push(activity),
       },
     );
-
     try {
       await ready.promise;
       expect(activities.map((activity) => activity.operation?.group)).toEqual(
@@ -412,8 +396,8 @@ sandboxTest(
       await running;
     }
     const report = await running;
-    expect(report.entries?.map((entry) => entry.key)).toEqual(names);
-    expect(report.entries?.every((entry) => entry.status === 'changed')).toBe(
+    expect(report.outcomes.map((entry) => entry?.label)).toEqual(names);
+    expect(report.outcomes.every((entry) => entry.status === 'changed')).toBe(
       true,
     );
     expect(
@@ -421,7 +405,6 @@ sandboxTest(
     ).toBe(true);
   },
 );
-
 for (const scenario of [
   {
     name: 'resolution',
@@ -459,9 +442,13 @@ for (const scenario of [
         upgrade: true,
         onActivity: (activity) => activities.push(activity),
       });
-      expect(report.status).toBe('failed');
+      expect(outcomeStatus(report.outcomes)).toBe('failed');
       expect(report.outcomes[0]?.label).toBe('kpv');
-      expect(report.entries?.[0]?.error).toStartWith(`${scenario.phase}: `);
+      expect(
+        report.outcomes[0]?.status === 'failed'
+          ? report.outcomes[0]?.error
+          : undefined,
+      ).toStartWith(`${scenario.phase}: `);
       expect(
         activities
           .filter((activity) => activity.operation?.state === 'started')
@@ -480,7 +467,6 @@ for (const scenario of [
     },
   );
 }
-
 sandboxTest(
   'a placement failure is not reported as a successful installation',
   async (home) => {
@@ -493,8 +479,12 @@ sandboxTest(
       upgrade: false,
       onActivity: (activity) => activities.push(activity),
     });
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.error).toStartWith('apply v0.6.0: ');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes[0]?.status === 'failed'
+        ? report.outcomes[0]?.error
+        : undefined,
+    ).toStartWith('apply v0.6.0: ');
     expect(activities.at(-1)).toMatchObject({
       action: 'apply',
       operation: { state: 'finished' },
@@ -502,7 +492,6 @@ sandboxTest(
     expect((await stat(dest)).isDirectory()).toBe(true);
   },
 );
-
 for (const phase of ['check', 'verify', 'apply'] as const) {
   sandboxTest(
     `an observer failure during ${phase} propagates without replacing the installed binary`,
@@ -526,17 +515,14 @@ for (const phase of ['check', 'verify', 'apply'] as const) {
     },
   );
 }
-
 sandboxTest('a pinned binary that is absent is fetched', async (home) => {
   await deployBinaries(home, PINNED);
   const { context, calls } = releaseContext(home);
-
   const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-  expect(report.status).toBe('changed');
-  expect(report.entries?.[0]).toMatchObject({
-    key: 'kpv',
-    value: 'installed v0.6.0',
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
+  expect(report.outcomes[0]).toMatchObject({
+    label: 'kpv',
+    details: ['installed v0.6.0'],
     status: 'changed',
   });
   expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
@@ -566,39 +552,32 @@ sandboxTest('a pinned binary that is absent is fetched', async (home) => {
     '30',
   ]);
 });
-
 sandboxTest(
   'a pinned binary already reporting its tag is left alone without network',
   async (home) => {
     await deployBinaries(home, PINNED);
     await install(home, 'kpv', '0.6.0');
     const { context, calls } = releaseContext(home);
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('unchanged');
-    expect(report.entries?.[0]?.value).toBe('up to date');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
+    expect(report.outcomes[0]).toMatchObject({ details: ['up to date'] });
     expect(calls.some((call) => call.command === 'curl')).toBe(false);
   },
 );
-
 sandboxTest(
   'a pinned binary reporting another version is replaced',
   async (home) => {
     await deployBinaries(home, PINNED);
     await install(home, 'kpv', '0.5.0');
     const { context } = releaseContext(home);
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.entries?.[0]).toMatchObject({
-      value: 'upgraded to v0.6.0',
+    expect(report.outcomes[0]).toMatchObject({
+      details: ['upgraded to v0.6.0'],
       status: 'changed',
     });
     expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
   },
 );
-
 sandboxTest(
   'a latest binary that is absent resolves its tag and installs',
   async (home) => {
@@ -606,17 +585,14 @@ sandboxTest(
     const { context } = releaseContext(home, {
       latest: { 'akitorahayashi/kpv': 'v0.7.0' },
     });
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.entries?.[0]).toMatchObject({
-      value: 'installed v0.7.0',
+    expect(report.outcomes[0]).toMatchObject({
+      details: ['installed v0.7.0'],
       status: 'changed',
     });
     expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.7.0');
   },
 );
-
 sandboxTest(
   'an installed latest binary holds still without upgrade mode',
   async (home) => {
@@ -625,15 +601,12 @@ sandboxTest(
     const { context, calls } = releaseContext(home, {
       latest: { 'akitorahayashi/kpv': 'v0.7.0' },
     });
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     expect(calls.some((call) => call.command === 'curl')).toBe(false);
     expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.6.0');
   },
 );
-
 sandboxTest(
   'upgrade mode re-resolves latest and installs the newer release',
   async (home) => {
@@ -642,19 +615,16 @@ sandboxTest(
     const { context } = releaseContext(home, {
       latest: { 'akitorahayashi/kpv': 'v0.7.0' },
     });
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
       upgrade: true,
     });
-
-    expect(report.entries?.[0]).toMatchObject({
-      value: 'upgraded to v0.7.0',
+    expect(report.outcomes[0]).toMatchObject({
+      details: ['upgraded to v0.7.0'],
       status: 'changed',
     });
     expect(await readFile(join(home, '.cargo/bin/kpv'), 'utf8')).toBe('0.7.0');
   },
 );
-
 sandboxTest(
   'upgrade mode resolves but does not download when latest is already installed',
   async (home) => {
@@ -663,12 +633,10 @@ sandboxTest(
     const { context, calls } = releaseContext(home, {
       latest: { 'akitorahayashi/kpv': 'v0.7.0' },
     });
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context, {
       upgrade: true,
     });
-
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     const downloads = calls.filter(
       (call) =>
         call.command === 'curl' &&
@@ -677,7 +645,6 @@ sandboxTest(
     expect(downloads).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'a release whose asset disagrees with its tag leaves the previous binary in place',
   async (home) => {
@@ -686,17 +653,15 @@ sandboxTest(
     const { context } = releaseContext(home, {
       installs: { 'akitorahayashi/kpv': '0.5.0' },
     });
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.error).toContain(
-      'reports version 0.5.0, expected 0.6.0',
-    );
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('reports version 0.5.0, expected 0.6.0'),
+    });
     expect(await readFile(path, 'utf8')).toBe('0.4.0');
   },
 );
-
 sandboxTest(
   'a rejected latest asset is not left to pass as up to date on the next run',
   async (home) => {
@@ -706,43 +671,42 @@ sandboxTest(
       installs: { 'akitorahayashi/kpv': '0.5.0' },
     });
     const activation = releaseBinaries(CONFIG_KEY);
-
-    expect((await runActivation(activation, context)).status).toBe('failed');
-
+    expect(
+      outcomeStatus((await runActivation(activation, context)).outcomes),
+    ).toBe('failed');
     // Nothing landed, so the shortcut that holds an installed latest binary
     // still has no binary to hold and the failure repeats rather than healing.
     const second = await runActivation(activation, context);
-    expect(second.status).toBe('failed');
-    expect(second.entries?.[0]?.error).toContain('expected 0.7.0');
+    expect(outcomeStatus(second.outcomes)).toBe('failed');
+    expect(second.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('expected 0.7.0'),
+    });
   },
 );
-
 sandboxTest(
   'a binary whose --version is not <name> <version> fails loudly',
   async (home) => {
     await deployBinaries(home, PINNED);
     await install(home, 'kpv', 'unparseable version banner');
     const { context } = releaseContext(home);
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.error).toContain("is not '<name> <version>'");
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining("is not '<name> <version>'"),
+    });
   },
 );
-
 sandboxTest('a stripped execute bit is repaired in place', async (home) => {
   await deployBinaries(home, PINNED);
   const path = await install(home, 'kpv', '0.6.0', 0o644);
   const { context, calls } = releaseContext(home);
-
   const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-  expect(report.status).toBe('unchanged');
+  expect(outcomeStatus(report.outcomes)).toBe('unchanged');
   expect((await stat(path)).mode & 0o111).not.toBe(0);
   expect(calls.some((call) => call.command === 'curl')).toBe(false);
 });
-
 sandboxTest('one binary failing still processes its siblings', async (home) => {
   await deployBinaries(
     home,
@@ -754,42 +718,43 @@ sandboxTest('one binary failing still processes its siblings', async (home) => {
   const { context } = releaseContext(home, {
     missingAsset: ['akitorahayashi/mx'],
   });
-
   const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-  expect(report.status).toBe('failed');
-  expect(report.entries?.find((e) => e.key === 'kpv')?.status).toBe('changed');
-  const mx = report.entries?.find((e) => e.key === 'mx');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(report.outcomes.find((e) => e?.label === 'kpv')?.status).toBe(
+    'changed',
+  );
+  const mx = report.outcomes.find((e) => e?.label === 'mx');
   expect(mx?.status).toBe('failed');
-  expect(mx?.error).toContain('404 not found');
+  expect(mx).toMatchObject({
+    status: 'failed',
+    error: expect.stringContaining('404 not found'),
+  });
 });
-
 sandboxTest(
   'a missing manifest fails the activation with deploy-first guidance',
   async (home) => {
     const { context, calls } = releaseContext(home);
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('Release binaries manifest');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('Release binaries manifest');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'a repository with no latest release fails with its HTTP status',
   async (home) => {
     await deployBinaries(home, LATEST);
     const { context } = releaseContext(home);
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.error).toContain('HTTP 404');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('HTTP 404'),
+    });
   },
 );
-
 sandboxTest(
   'a latest-release redirect outside the repository fails as a typed error',
   async (home) => {
@@ -806,14 +771,14 @@ sandboxTest(
         return fail('not installed');
       },
     });
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.error).toContain('redirected to unusable');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('redirected to unusable'),
+    });
   },
 );
-
 sandboxTest(
   'duplicate release names fail before architecture probing',
   async (home) => {
@@ -825,11 +790,11 @@ sandboxTest(
       ),
     );
     const { context, calls } = releaseContext(home);
-
     const report = await runActivation(releaseBinaries(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('duplicate');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('duplicate');
     expect(calls).toHaveLength(0);
   },
 );

@@ -7,12 +7,12 @@ import {
   remoteInstaller,
   runActivation,
 } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('remote-installer-');
-
 // Confine installer scratch to the sandbox so the assertion never reads the
 // real system temp directory (no cross-run or concurrency coupling).
 function installerContext(
@@ -26,18 +26,15 @@ function installerContext(
     respond,
   });
 }
-
 async function leakedWorkspaces(dir: string): Promise<string[]> {
   return (await readdir(dir))
     .filter((name) => name.startsWith('mev-installer-'))
     .sort();
 }
-
 async function createInstalledBinary(path: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, 'installed');
 }
-
 sandboxTest(
   'downloads with HTTPS-only curl and runs the temp installer',
   async (dir) => {
@@ -52,7 +49,6 @@ sandboxTest(
       }
       return { code: 0, stdout: '', stderr: '' };
     });
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -73,8 +69,7 @@ sandboxTest(
           activities.push(`${action} ${subject}`),
       },
     );
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(report.outcomes[0]?.label).toBe('Demo');
     expect(activities).toEqual(['check Demo', 'install Demo', 'verify Demo']);
     const curl = calls.find((call) => call.command === 'curl');
@@ -99,7 +94,6 @@ sandboxTest(
     expect(await leakedWorkspaces(dir)).toEqual([]);
   },
 );
-
 sandboxTest(
   'cleans the temporary installer after download failure',
   async (dir) => {
@@ -108,7 +102,6 @@ sandboxTest(
         ? { code: 1, stdout: '', stderr: 'network down' }
         : { code: 0, stdout: '', stderr: '' },
     );
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -120,13 +113,13 @@ sandboxTest(
       }),
       context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('network down');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('network down');
     expect(await leakedWorkspaces(dir)).toEqual([]);
   },
 );
-
 sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
   const commands: string[] = [];
   const { context } = installerContext(dir, async (command, args) => {
@@ -140,7 +133,6 @@ sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
     }
     return { code: 0, stdout: '', stderr: '' };
   });
-
   const report = await runActivation(
     remoteInstaller({
       subject: 'Demo',
@@ -152,14 +144,12 @@ sandboxTest('acknowledgedUnverified runs no integrity check', async (dir) => {
     }),
     context,
   );
-
-  expect(report.status).toBe('changed');
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
   // The unverified branch downloads only the installer (one curl) and never
   // runs a checksum download or shasum.
   expect(commands.filter((command) => command === 'curl')).toHaveLength(1);
   expect(commands).not.toContain('shasum');
 });
-
 sandboxTest('reinstalls when creates is a dangling symlink', async (dir) => {
   const binDir = join(dir, '.local/bin');
   await mkdir(binDir, { recursive: true });
@@ -173,7 +163,6 @@ sandboxTest('reinstalls when creates is a dangling symlink', async (dir) => {
     }
     return ok();
   });
-
   const report = await runActivation(
     remoteInstaller({
       subject: 'Demo',
@@ -185,11 +174,9 @@ sandboxTest('reinstalls when creates is a dangling symlink', async (dir) => {
     }),
     context,
   );
-
-  expect(report.status).toBe('changed');
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
   expect(calls.map((call) => call.command)).toEqual(['curl', 'bash']);
 });
-
 sandboxTest(
   'fails when the installer exits zero without satisfying creates',
   async (dir) => {
@@ -200,7 +187,6 @@ sandboxTest(
       }
       return ok();
     });
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -217,16 +203,16 @@ sandboxTest(
           activities.push(`${action} ${subject}`),
       },
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain(
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain(
       'Demo installer completed without satisfying ~/.local/bin/demo',
     );
     expect(activities).toEqual(['check Demo', 'install Demo', 'verify Demo']);
     expect(await leakedWorkspaces(dir)).toEqual([]);
   },
 );
-
 sandboxTest(
   'verifies checksum and runs a direct installer as executable',
   async (dir) => {
@@ -250,7 +236,6 @@ sandboxTest(
       }
       return { code: 0, stdout: '', stderr: '' };
     });
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -262,8 +247,7 @@ sandboxTest(
       }),
       context,
     );
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     // Order matters: fetch installer, fetch checksum, verify, then run. The
     // execute bit is set through the filesystem, so it is not a subprocess.
     expect(calls.slice(0, 3).map((call) => call.command)).toEqual([
@@ -275,7 +259,6 @@ sandboxTest(
     expect(calls[3]?.args).toEqual(['-y']);
   },
 );
-
 sandboxTest('fails when checksum does not match', async (dir) => {
   const { context } = installerContext(dir, async (command, args) => {
     if (command === 'curl') {
@@ -297,7 +280,6 @@ sandboxTest('fails when checksum does not match', async (dir) => {
     }
     return { code: 0, stdout: '', stderr: '' };
   });
-
   const report = await runActivation(
     remoteInstaller({
       subject: 'Demo',
@@ -309,11 +291,11 @@ sandboxTest('fails when checksum does not match', async (dir) => {
     }),
     context,
   );
-
-  expect(report.status).toBe('failed');
-  expect(report.error).toContain('SHA256 mismatch');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(
+    report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+  ).toContain('SHA256 mismatch');
 });
-
 sandboxTest(
   'a versioned installer resolves its args from reads and re-runs on a version change',
   async (dir) => {
@@ -339,7 +321,6 @@ sandboxTest(
         },
       },
     });
-
     let installedVersion = '1.0.0';
     const stale = recordingContext({
       home: dir,
@@ -357,31 +338,28 @@ sandboxTest(
         return command.endsWith('/demo') ? ok(`${installedVersion}\n`) : ok();
       },
     });
-
     const report = await runActivation(activation, stale.context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const bash = stale.calls.find((call) => call.command === 'bash');
     // The version reaches the installer as a resolved argument, not as text
     // concatenated into a shell string.
     expect(bash?.args.slice(1)).toEqual(['demo-v1.2.3']);
-
     const current = recordingContext({
       home: dir,
       tmpRoot: dir,
       assets,
       respond: (command) => (command.endsWith('/demo') ? ok('1.2.3\n') : ok()),
     });
-
-    expect((await runActivation(activation, current.context)).status).toBe(
-      'unchanged',
-    );
+    expect(
+      outcomeStatus(
+        (await runActivation(activation, current.context)).outcomes,
+      ),
+    ).toBe('unchanged');
     expect(current.calls.map((call) => call.command)).toEqual([
       `${dir}/.demo/bin/demo`,
     ]);
   },
 );
-
 sandboxTest(
   'upgrade mode runs the declared updater only for an existing installation',
   async (dir) => {
@@ -410,7 +388,6 @@ sandboxTest(
         ? ok('demo 1.0.0\n')
         : ok('already up to date\n');
     });
-
     const routineActivities: string[] = [];
     const upgradeActivities: string[] = [];
     const routine = await runActivation(activation, context, {
@@ -423,13 +400,12 @@ sandboxTest(
       onActivity: ({ action, subject }) =>
         upgradeActivities.push(`${action} ${subject}`),
     });
-
-    expect(routine.status).toBe('unchanged');
-    expect(upgraded.status).toBe('unchanged');
-    expect(upgraded.entries).toEqual([
+    expect(outcomeStatus(routine.outcomes)).toBe('unchanged');
+    expect(outcomeStatus(upgraded.outcomes)).toBe('unchanged');
+    expect(upgraded.outcomes).toEqual([
       {
-        key: 'Demo',
-        value: 'already latest (demo 1.0.0)',
+        label: 'Demo',
+        details: ['already latest (demo 1.0.0)'],
         status: 'unchanged',
       },
     ]);
@@ -446,7 +422,6 @@ sandboxTest(
     ]);
   },
 );
-
 sandboxTest(
   'upgrade mode reports a version change from independent probes',
   async (dir) => {
@@ -459,7 +434,6 @@ sandboxTest(
       version = 'demo 1.1.0';
       return ok('updated\n');
     });
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -477,18 +451,16 @@ sandboxTest(
       context,
       { upgrade: true },
     );
-
-    expect(report.status).toBe('changed');
-    expect(report.entries).toEqual([
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
+    expect(report.outcomes).toEqual([
       {
-        key: 'Demo',
-        value: 'demo 1.0.0 -> demo 1.1.0',
+        label: 'Demo',
+        details: ['demo 1.0.0 -> demo 1.1.0'],
         status: 'changed',
       },
     ]);
   },
 );
-
 sandboxTest(
   'upgrade mode fails when the updated binary does not pass its version probe',
   async (dir) => {
@@ -501,7 +473,6 @@ sandboxTest(
       probes += 1;
       return probes === 1 ? ok('demo 1.0.0\n') : fail('binary broken');
     });
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -523,17 +494,15 @@ sandboxTest(
           activities.push(`${action} ${subject}`),
       },
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]).toMatchObject({
-      key: 'Demo',
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes[0]).toMatchObject({
+      label: 'Demo',
       status: 'failed',
       error: 'demo update version probe failed with code 1: binary broken',
     });
     expect(activities).toEqual(['check Demo', 'update Demo', 'verify Demo']);
   },
 );
-
 sandboxTest(
   'upgrade mode installs a missing tool without running its updater',
   async (dir) => {
@@ -575,13 +544,11 @@ sandboxTest(
           activities.push(`${action} ${subject}`),
       },
     );
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(calls.map((call) => call.command)).toEqual([binary, 'curl', 'bash']);
     expect(activities).toEqual(['check Demo', 'install Demo', 'verify Demo']);
   },
 );
-
 sandboxTest(
   'a declared updater safety precondition blocks with its guidance',
   async (dir) => {
@@ -595,7 +562,6 @@ sandboxTest(
         ? ok('demo 1.0.0\n')
         : fail(`update failed: ${guidance}`),
     );
-
     const report = await runActivation(
       remoteInstaller({
         subject: 'Demo',
@@ -618,12 +584,13 @@ sandboxTest(
           activities.push(`${action} ${subject}`),
       },
     );
-
-    expect(report).toMatchObject({
-      status: 'blocked',
-      error: `update failed: ${guidance}`,
-    });
-    expect(report.entries).toBeUndefined();
+    expect(report.outcomes).toEqual([
+      {
+        label: 'Demo',
+        status: 'blocked',
+        reason: `update failed: ${guidance}`,
+      },
+    ]);
     expect(activities).toEqual(['check Demo', 'update Demo']);
   },
 );

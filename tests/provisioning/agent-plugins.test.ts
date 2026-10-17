@@ -10,6 +10,7 @@ import {
   installAgentPlugins,
   runActivation,
 } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
@@ -27,16 +28,13 @@ marketplaces:
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
-
 const sandboxTest = sandboxedTest('agent-plugins-');
-
 const run = (context: Context, options?: ActivationRunOptions) =>
   runActivation(
     installAgentPlugins(CONFIG_KEY, [hostHome('.local/bin')]),
     context,
     options,
   );
-
 async function deployCatalog(
   home: string,
   catalog = FULL_CATALOG,
@@ -45,7 +43,6 @@ async function deployCatalog(
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, 'plugins.yml'), catalog);
 }
-
 // One builder per client over entries. A bare string is an enabled, unversioned
 // plugin — what a normally-installed one looks like, and the state a
 // declaration converges on; version and enabled are opted into per entry.
@@ -56,11 +53,9 @@ type InventoryEntry =
       readonly version?: string;
       readonly enabled?: boolean;
     };
-
 function inventoryEntry(spec: InventoryEntry) {
   return typeof spec === 'string' ? { id: spec } : spec;
 }
-
 function claudeInventory(specs: readonly InventoryEntry[]): string {
   return JSON.stringify(
     specs.map(inventoryEntry).map(({ id, version, enabled }) => ({
@@ -71,7 +66,6 @@ function claudeInventory(specs: readonly InventoryEntry[]): string {
     })),
   );
 }
-
 function codexInventory(specs: readonly InventoryEntry[]): string {
   return JSON.stringify({
     installed: specs.map(inventoryEntry).map(({ id, version, enabled }) => ({
@@ -82,14 +76,12 @@ function codexInventory(specs: readonly InventoryEntry[]): string {
     available: [],
   });
 }
-
 const UPGRADE_CATALOG = `
 marketplaces:
   - clients: [claude, codex]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
-
 const CLAUDE_XLSX_MARKETPLACES = JSON.stringify([
   {
     name: 'xlsx',
@@ -98,7 +90,6 @@ const CLAUDE_XLSX_MARKETPLACES = JSON.stringify([
     ref: 'main',
   },
 ]);
-
 const CODEX_XLSX_MARKETPLACES = JSON.stringify({
   marketplaces: [
     {
@@ -110,7 +101,6 @@ const CODEX_XLSX_MARKETPLACES = JSON.stringify({
     },
   ],
 });
-
 for (const phase of ['check', 'install', 'verify', 'remove'] as const) {
   sandboxTest(
     `observer failure during ${phase} drains another client's started work`,
@@ -195,7 +185,6 @@ for (const phase of ['check', 'install', 'verify', 'remove'] as const) {
     },
   );
 }
-
 sandboxTest(
   'holds marketplaces still when plugins are installed and registrations match',
   async (home) => {
@@ -253,12 +242,10 @@ sandboxTest(
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
     // Local reads only — the inventory and one registration listing per
     // client — and no mutation or network fetch of any kind.
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     expect(
       calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
     ).toEqual([
@@ -275,18 +262,20 @@ sandboxTest(
       ),
     ).toBe(true);
     expect(
-      report.entries?.every(({ value }) => value === 'already installed'),
+      report.outcomes.every(
+        (outcome) =>
+          outcome.status === 'unchanged' &&
+          outcome.details?.[0] === 'already installed',
+      ),
     ).toBe(true);
   },
 );
-
 const DISABLED_CATALOG = `
 marketplaces:
   - clients: [claude]
     repo: akitorahayashi/xlsx
     plugins: [xlsx]
 `;
-
 /**
  * A claude whose declared plugin is installed but disabled, with the marketplace
  * registered at the declared source and DISABLED_CATALOG already deployed.
@@ -321,18 +310,15 @@ async function disabledClaude(
     },
   });
 }
-
 sandboxTest(
   'enables a declared plugin that is installed but disabled',
   async (home) => {
     const { context, calls } = await disabledClaude(home, 'enables');
-
     const first = await run(context);
     const second = await run(context);
-
-    expect(first.status).toBe('changed');
-    expect(first.entries).toEqual([
-      { key: 'claude:xlsx@xlsx', value: 'enabled', status: 'changed' },
+    expect(outcomeStatus(first.outcomes)).toBe('changed');
+    expect(first.outcomes).toEqual([
+      { label: 'claude:xlsx@xlsx', details: ['enabled'], status: 'changed' },
     ]);
     expect(
       calls.some(
@@ -341,17 +327,16 @@ sandboxTest(
     ).toBe(true);
     // Presence alone never satisfied the declaration, and once enabled the run
     // holds still: no reinstall, no second enable.
-    expect(second.status).toBe('unchanged');
-    expect(second.entries).toEqual([
+    expect(outcomeStatus(second.outcomes)).toBe('unchanged');
+    expect(second.outcomes).toEqual([
       {
-        key: 'claude:xlsx@xlsx',
-        value: 'already installed',
+        label: 'claude:xlsx@xlsx',
+        details: ['already installed'],
         status: 'unchanged',
       },
     ]);
   },
 );
-
 sandboxTest(
   'enables multiple marketplaces without overlapping client mutations',
   async (home) => {
@@ -419,15 +404,13 @@ sandboxTest(
         }
       },
     });
-
     const first = await run(context);
     const second = await run(context);
-
-    expect(first.status).toBe('changed');
-    expect(first.entries?.every(({ status }) => status === 'changed')).toBe(
+    expect(outcomeStatus(first.outcomes)).toBe('changed');
+    expect(first.outcomes.every(({ status }) => status === 'changed')).toBe(
       true,
     );
-    expect(second.status).toBe('unchanged');
+    expect(outcomeStatus(second.outcomes)).toBe('unchanged');
     expect(peaks.get('claude')).toBe(1);
     expect(peaks.get('codex')).toBe(1);
     expect(totalPeak).toBe(2);
@@ -438,7 +421,6 @@ sandboxTest(
     ).toBe(true);
   },
 );
-
 sandboxTest(
   'a failing marketplace listing fails only its own marketplaces',
   async (home) => {
@@ -472,30 +454,27 @@ sandboxTest(
         return fail(`unexpected ${command} ${line}`);
       },
     });
-
     const report = await run(context);
-
     // Each of the three claude marketplaces reports unavailable, while the
     // codex marketplace still converges and reports its plugin unchanged.
-    expect(report.status).toBe('failed');
-    expect(report.error).toBeUndefined();
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(
-      report.entries?.filter(({ value }) => value === 'marketplace unavailable')
-        .length,
+      report.outcomes.filter(
+        (outcome) =>
+          outcome.status === 'failed' &&
+          outcome.details?.[0] === 'marketplace unavailable',
+      ).length,
     ).toBe(3);
-    expect(report.entries).toContainEqual({
-      key: 'codex:xlsx@xlsx',
-      value: 'already installed',
+    expect(report.outcomes).toContainEqual({
+      label: 'codex:xlsx@xlsx',
+      details: ['already installed'],
       status: 'unchanged',
     });
   },
 );
-
 sandboxTest('enabling a plugin stays off the network', async (home) => {
   const { context, calls } = await disabledClaude(home, 'enables');
-
   await run(context);
-
   // Nothing is missing and the registration matches, so the marketplace is
   // neither refreshed nor re-registered: a local boolean does not earn a fetch.
   expect(calls.map(({ args }) => args.join(' '))).toEqual([
@@ -505,29 +484,27 @@ sandboxTest('enabling a plugin stays off the network', async (home) => {
     'plugin list --json',
   ]);
 });
-
 sandboxTest('a failing enable is reported as failed', async (home) => {
   const { context } = await disabledClaude(home, 'fails');
-
   const report = await run(context);
-
-  expect(report.status).toBe('failed');
-  expect(report.entries?.[0]?.value).toBe('enable failed');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(report.outcomes[0]).toMatchObject({ details: ['enable failed'] });
 });
-
 sandboxTest(
   'an enable that reports success but leaves the plugin disabled fails verification',
   async (home) => {
     const { context } = await disabledClaude(home, 'reports-success-only');
-
     const report = await run(context);
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.[0]?.value).toBe('verification failed');
-    expect(report.entries?.[0]?.error).toContain('still disabled');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes[0]).toMatchObject({
+      details: ['verification failed'],
+    });
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('still disabled'),
+    });
   },
 );
-
 sandboxTest(
   'a disabled plugin outside the catalog is left alone',
   async (home) => {
@@ -550,16 +527,13 @@ sandboxTest(
         return fail(`unexpected ${command} ${line}`);
       },
     });
-
     const report = await run(context);
-
     // Nothing is derived from inventory diffs: enablement is converged only for
     // the ids the catalog declares.
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     expect(calls.some(({ args }) => args[1] === 'enable')).toBe(false);
   },
 );
-
 sandboxTest(
   'adds SSH marketplaces and installs only missing plugins',
   async (home) => {
@@ -606,10 +580,8 @@ sandboxTest(
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(claudeInstalled).toEqual(
       new Set([
         'agent-device@agent-device-plugin',
@@ -636,7 +608,6 @@ sandboxTest(
     ).toBe(false);
   },
 );
-
 sandboxTest(
   'refreshes existing main marketplaces only when plugins are missing',
   async (home) => {
@@ -708,10 +679,8 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,
     );
@@ -726,7 +695,6 @@ marketplaces:
     );
   },
 );
-
 for (const failure of [
   { code: 128, stdout: '', stderr: 'Permission denied (publickey).' },
   { code: 124, stdout: '', stderr: 'Command timed out.' },
@@ -796,32 +764,35 @@ for (const failure of [
             return fail(`unexpected ${command} ${args.join(' ')}`);
           },
         });
-
         const report = await run(context, { upgrade });
-
-        expect(report.status).toBe('failed');
+        expect(outcomeStatus(report.outcomes)).toBe('failed');
         expect(claudeInstalled.get('agent-device@agent-device-plugin')).toBe(
           true,
         );
         expect(claudeInstalled.get('xlsx@xlsx')).toBe(true);
         expect(
-          report.entries?.find(
-            ({ key }) =>
+          report.outcomes.find(
+            ({ label: key }) =>
               key === 'claude:device-verification@agent-device-plugin',
           ),
-        ).toMatchObject({ status: 'failed', value: 'install blocked' });
+        ).toMatchObject({ status: 'failed', details: ['install blocked'] });
         expect(
-          report.entries?.find(
-            ({ key }) => key === 'claude:agent-device@agent-device-plugin',
+          report.outcomes.find(
+            ({ label: key }) =>
+              key === 'claude:agent-device@agent-device-plugin',
           )?.status,
         ).toBe(upgrade ? 'failed' : 'changed');
         expect(
-          report.entries?.find(
-            ({ key }) => key === 'claude:agent-device-plugin',
-          )?.error,
-        ).toContain(failure.stderr);
+          report.outcomes.find(
+            ({ label: key }) => key === 'claude:agent-device-plugin',
+          ),
+        ).toMatchObject({
+          status: 'failed',
+          error: expect.stringContaining(failure.stderr),
+        });
         expect(
-          report.entries?.find(({ key }) => key === 'codex:xlsx@xlsx')?.status,
+          report.outcomes.find(({ label: key }) => key === 'codex:xlsx@xlsx')
+            ?.status,
         ).toBe('changed');
         expect(
           calls.some(
@@ -833,7 +804,6 @@ for (const failure of [
     );
   }
 }
-
 sandboxTest(
   'ignores installed plugins outside the Claude user scope',
   async (home) => {
@@ -876,17 +846,14 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
     // The project-scope installation does not satisfy the declaration: mev
     // owns the user scope, so the plugin is installed there.
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(true);
     expect(userInstalled).toEqual(new Set(['xlsx@xlsx']));
   },
 );
-
 sandboxTest(
   'a failed Codex refresh still enables an installed plugin and reports the blocked upgrade',
   async (home) => {
@@ -921,20 +888,21 @@ sandboxTest(
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context, { upgrade: true });
-
     expect(enabled).toBe(true);
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(
-      report.entries?.find(({ key }) => key === 'codex:xlsx@xlsx'),
-    ).toMatchObject({ status: 'failed', value: 'enabled; upgrade blocked' });
+      report.outcomes.find(({ label: key }) => key === 'codex:xlsx@xlsx'),
+    ).toMatchObject({
+      status: 'failed',
+      details: ['enabled; upgrade blocked'],
+    });
     expect(
-      report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.status,
+      report.outcomes.find(({ label: key }) => key === 'claude:xlsx@xlsx')
+        ?.status,
     ).toBe('changed');
   },
 );
-
 sandboxTest(
   'a foreign marketplace remains blocking even for an installed disabled declaration',
   async (home) => {
@@ -959,17 +927,14 @@ sandboxTest(
         return fail(`unexpected ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(
-      report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx'),
-    ).toMatchObject({ status: 'failed', value: 'enable blocked' });
+      report.outcomes.find(({ label: key }) => key === 'claude:xlsx@xlsx'),
+    ).toMatchObject({ status: 'failed', details: ['enable blocked'] });
     expect(calls.some(({ args }) => args[1] === 'enable')).toBe(false);
   },
 );
-
 sandboxTest(
   'upgrade mode refreshes marketplaces and upgrades installed plugins',
   async (home) => {
@@ -1028,12 +993,10 @@ sandboxTest(
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context, {
       upgrade: true,
       onActivity: (activity) => activities.push(activity),
     });
-
     for (const client of ['claude', 'codex']) {
       const clientActivities = activities.filter(
         ({ operation }) => operation?.group === client,
@@ -1056,7 +1019,7 @@ sandboxTest(
           .map(({ operation }) => operation?.id),
       ).toEqual(starts.map(({ operation }) => operation?.id));
     }
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,
     );
@@ -1067,23 +1030,24 @@ sandboxTest(
     );
     expect(invocations).toContain('codex plugin add xlsx@xlsx --json');
     // The refresh of an existing marketplace is a probe: no entry of its own.
-    expect(report.entries?.some(({ key }) => key === 'claude:xlsx')).toBe(
+    expect(
+      report.outcomes.some(({ label: key }) => key === 'claude:xlsx'),
+    ).toBe(false);
+    expect(report.outcomes.some(({ label: key }) => key === 'codex:xlsx')).toBe(
       false,
     );
-    expect(report.entries?.some(({ key }) => key === 'codex:xlsx')).toBe(false);
-    const claudeEntry = report.entries?.find(
-      ({ key }) => key === 'claude:xlsx@xlsx',
+    const claudeEntry = report.outcomes.find(
+      ({ label: key }) => key === 'claude:xlsx@xlsx',
     );
     expect(claudeEntry?.status).toBe('changed');
-    expect(claudeEntry?.value).toBe('upgraded to 1.1.0');
-    const codexEntry = report.entries?.find(
-      ({ key }) => key === 'codex:xlsx@xlsx',
+    expect(claudeEntry).toMatchObject({ details: ['upgraded to 1.1.0'] });
+    const codexEntry = report.outcomes.find(
+      ({ label: key }) => key === 'codex:xlsx@xlsx',
     );
     expect(codexEntry?.status).toBe('changed');
-    expect(codexEntry?.value).toBe('upgraded to 0.2.0');
+    expect(codexEntry).toMatchObject({ details: ['upgraded to 0.2.0'] });
   },
 );
-
 sandboxTest(
   'upgrade mode reports plugins already at the marketplace version as unchanged',
   async (home) => {
@@ -1129,25 +1093,22 @@ sandboxTest(
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context, { upgrade: true });
-
     // With refreshes reported as probes, a run that moved nothing is fully
     // idempotent: the activation itself reports unchanged.
-    expect(report.status).toBe('unchanged');
-    const claudeEntry = report.entries?.find(
-      ({ key }) => key === 'claude:xlsx@xlsx',
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
+    const claudeEntry = report.outcomes.find(
+      ({ label: key }) => key === 'claude:xlsx@xlsx',
     );
     expect(claudeEntry?.status).toBe('unchanged');
-    expect(claudeEntry?.value).toBe('already latest (1.0.0)');
-    const codexEntry = report.entries?.find(
-      ({ key }) => key === 'codex:xlsx@xlsx',
+    expect(claudeEntry).toMatchObject({ details: ['already latest (1.0.0)'] });
+    const codexEntry = report.outcomes.find(
+      ({ label: key }) => key === 'codex:xlsx@xlsx',
     );
     expect(codexEntry?.status).toBe('unchanged');
-    expect(codexEntry?.value).toBe('already latest (0.1.0)');
+    expect(codexEntry).toMatchObject({ details: ['already latest (0.1.0)'] });
   },
 );
-
 sandboxTest(
   'upgrade mode keeps an upgrade as changed when the client reports no versions',
   async (home) => {
@@ -1175,15 +1136,14 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context, { upgrade: true });
-
-    const entry = report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx');
+    const entry = report.outcomes.find(
+      ({ label: key }) => key === 'claude:xlsx@xlsx',
+    );
     expect(entry?.status).toBe('changed');
-    expect(entry?.value).toBe('upgraded');
+    expect(entry).toMatchObject({ details: ['upgraded'] });
   },
 );
-
 sandboxTest(
   'upgrade mode fails installed plugins when the marketplace refresh fails',
   async (home) => {
@@ -1212,17 +1172,16 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context, { upgrade: true });
-
-    expect(report.status).toBe('failed');
-    const entry = report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    const entry = report.outcomes.find(
+      ({ label: key }) => key === 'claude:xlsx@xlsx',
+    );
     expect(entry?.status).toBe('failed');
-    expect(entry?.value).toBe('upgrade blocked');
+    expect(entry).toMatchObject({ details: ['upgrade blocked'] });
     expect(calls.some(({ args }) => args[1] === 'update')).toBe(false);
   },
 );
-
 sandboxTest(
   'fails a missing plugin when the Claude marketplace source differs',
   async (home) => {
@@ -1252,19 +1211,18 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(
-      report.entries?.some(({ error }) =>
-        error?.includes('different repository'),
+      report.outcomes.some(
+        (outcome) =>
+          outcome.status === 'failed' &&
+          outcome.error.includes('different repository'),
       ),
     ).toBe(true);
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(false);
   },
 );
-
 const UNINSTALL_CATALOG = `
 marketplaces:
   - clients: [claude]
@@ -1276,7 +1234,6 @@ marketplaces:
     plugins: [xlsx]
     uninstall: [legacy]
 `;
-
 sandboxTest(
   'uninstalls only the listed plugins and converges to already absent',
   async (home) => {
@@ -1319,10 +1276,8 @@ sandboxTest(
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const first = await run(context);
-
-    expect(first.status).toBe('changed');
+    expect(outcomeStatus(first.outcomes)).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,
     );
@@ -1334,21 +1289,18 @@ sandboxTest(
     expect(claudeInstalled).toEqual(new Set(['xlsx@xlsx', 'manual@elsewhere']));
     expect(codexInstalled).toEqual(new Set(['xlsx@xlsx']));
     expect(
-      first.entries?.find(({ key }) => key === 'claude:old-tool@xlsx')?.value,
-    ).toBe('uninstalled');
+      first.outcomes.find(({ label: key }) => key === 'claude:old-tool@xlsx'),
+    ).toMatchObject({ details: ['uninstalled'] });
     expect(
-      first.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.value,
-    ).toBe('already installed');
-
+      first.outcomes.find(({ label: key }) => key === 'claude:xlsx@xlsx'),
+    ).toMatchObject({ details: ['already installed'] });
     const second = await run(context);
-
-    expect(second.status).toBe('unchanged');
+    expect(outcomeStatus(second.outcomes)).toBe('unchanged');
     expect(
-      second.entries?.find(({ key }) => key === 'claude:old-tool@xlsx')?.value,
-    ).toBe('already absent');
+      second.outcomes.find(({ label: key }) => key === 'claude:old-tool@xlsx'),
+    ).toMatchObject({ details: ['already absent'] });
   },
 );
-
 sandboxTest(
   'removes a declared marketplace after uninstalling its namespace',
   async (home) => {
@@ -1441,10 +1393,8 @@ removed_marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const first = await run(context);
-
-    expect(first.status).toBe('changed');
+    expect(outcomeStatus(first.outcomes)).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,
     );
@@ -1468,21 +1418,18 @@ removed_marketplaces:
     );
     expect(claudeInstalled).toEqual(new Set(['xlsx@xlsx']));
     expect(
-      first.entries?.find(({ key }) => key === 'claude:retired')?.value,
-    ).toBe('marketplace removed');
+      first.outcomes.find(({ label: key }) => key === 'claude:retired'),
+    ).toMatchObject({ details: ['marketplace removed'] });
     expect(
-      first.entries?.find(({ key }) => key === 'codex:retired')?.value,
-    ).toBe('marketplace removed');
-
+      first.outcomes.find(({ label: key }) => key === 'codex:retired'),
+    ).toMatchObject({ details: ['marketplace removed'] });
     const second = await run(context);
-
-    expect(second.status).toBe('unchanged');
+    expect(outcomeStatus(second.outcomes)).toBe('unchanged');
     expect(
-      second.entries?.find(({ key }) => key === 'claude:retired')?.value,
-    ).toBe('marketplace already absent');
+      second.outcomes.find(({ label: key }) => key === 'claude:retired'),
+    ).toMatchObject({ details: ['marketplace already absent'] });
   },
 );
-
 sandboxTest(
   'removes a marketplace registered under a previous SSH host alias',
   async (home) => {
@@ -1529,19 +1476,16 @@ removed_marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(
       calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
     ).toContain('claude plugin marketplace remove retired --scope user');
     expect(
-      report.entries?.find(({ key }) => key === 'claude:retired')?.value,
-    ).toBe('marketplace removed');
+      report.outcomes.find(({ label: key }) => key === 'claude:retired'),
+    ).toMatchObject({ details: ['marketplace removed'] });
   },
 );
-
 sandboxTest(
   're-registers a marketplace registered under a previous SSH host alias',
   async (home) => {
@@ -1582,14 +1526,12 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
     // The alias is transport, not identity: the same repository under a stale
     // alias is still mev's registration, so it converges to the declared
     // source by re-registration rather than failing as a conflict or fetching
     // through the stale alias forever.
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,
     );
@@ -1606,12 +1548,11 @@ marketplaces:
       ),
     ).toBe(false);
     expect(
-      report.entries?.find(({ key }) => key === 'claude:xlsx')?.value,
-    ).toBe('marketplace re-registered from main');
+      report.outcomes.find(({ label: key }) => key === 'claude:xlsx'),
+    ).toMatchObject({ details: ['marketplace re-registered from main'] });
     expect(installed).toEqual(new Set(['xlsx@xlsx']));
   },
 );
-
 sandboxTest(
   're-registers a marketplace recorded without the ref pin and keeps its plugins',
   async (home) => {
@@ -1659,27 +1600,23 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(
-      report.entries?.find(({ key }) => key === 'claude:comment-review')?.value,
-    ).toBe('marketplace re-registered from main');
+      report.outcomes.find(({ label: key }) => key === 'claude:comment-review'),
+    ).toMatchObject({ details: ['marketplace re-registered from main'] });
     // The plugin survives the in-place rewrite, so nothing is reinstalled.
     expect(
-      report.entries?.find(
-        ({ key }) => key === 'claude:comment-review@comment-review',
+      report.outcomes.find(
+        ({ label: key }) => key === 'claude:comment-review@comment-review',
       ),
-    ).toMatchObject({ value: 'already installed', status: 'unchanged' });
+    ).toMatchObject({ details: ['already installed'], status: 'unchanged' });
     expect(calls.some(({ args }) => args[1] === 'install')).toBe(false);
-
     // Converged: the pinned registration now matches and the run holds still.
     const second = await run(context);
-    expect(second.status).toBe('unchanged');
+    expect(outcomeStatus(second.outcomes)).toBe('unchanged');
   },
 );
-
 sandboxTest(
   're-registers a codex marketplace whose recorded source drifted',
   async (home) => {
@@ -1746,29 +1683,26 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const invocations = calls.map(
       ({ command, args }) => `${command} ${args.join(' ')}`,
     );
     expect(invocations).toContain(
       'codex plugin marketplace remove xlsx --json',
     );
-    expect(report.entries?.find(({ key }) => key === 'codex:xlsx')?.value).toBe(
-      'marketplace re-registered from main',
-    );
+    expect(
+      report.outcomes.find(({ label: key }) => key === 'codex:xlsx'),
+    ).toMatchObject({ details: ['marketplace re-registered from main'] });
     expect(source).toBe('git@github.com:akitorahayashi/xlsx.git');
     // The removal took the plugin with it, so it is reinstalled from the
     // re-registered source rather than left missing.
     expect(
-      report.entries?.find(({ key }) => key === 'codex:xlsx@xlsx'),
-    ).toMatchObject({ value: 'installed', status: 'changed' });
+      report.outcomes.find(({ label: key }) => key === 'codex:xlsx@xlsx'),
+    ).toMatchObject({ details: ['installed'], status: 'changed' });
     expect(installed).toEqual(new Set(['xlsx@xlsx']));
   },
 );
-
 sandboxTest(
   'a codex re-registration whose add fails reports the dropped plugins as blocked',
   async (home) => {
@@ -1832,31 +1766,30 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const first = await run(context);
-
     // The removal destroyed the namespace before the add failed, so the
     // plugin must not surface as 'already installed' off the pre-run
     // inventory: it is gone from the host and blocked by the failure.
-    expect(first.status).toBe('failed');
+    expect(outcomeStatus(first.outcomes)).toBe('failed');
     expect(
-      first.entries?.find(({ key }) => key === 'codex:xlsx@xlsx'),
-    ).toMatchObject({ value: 'install blocked', status: 'failed' });
+      first.outcomes.find(({ label: key }) => key === 'codex:xlsx@xlsx'),
+    ).toMatchObject({ details: ['install blocked'], status: 'failed' });
     expect(
-      first.entries?.find(({ key }) => key === 'codex:xlsx')?.error,
-    ).toContain('uninstalling its plugins');
+      first.outcomes.find(({ label: key }) => key === 'codex:xlsx'),
+    ).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('uninstalling its plugins'),
+    });
     expect(installed.size).toBe(0);
-
     // A later run finds no registration, adds the declared source, and
     // reinstalls: the destructive partial failure heals.
     addFails = false;
     const second = await run(context);
-    expect(second.status).toBe('changed');
+    expect(outcomeStatus(second.outcomes)).toBe('changed');
     expect(installed).toEqual(new Set(['xlsx@xlsx']));
     expect(source).toBe('git@github.com:akitorahayashi/xlsx.git');
   },
 );
-
 sandboxTest(
   'refuses to remove a same-named marketplace from another source',
   async (home) => {
@@ -1906,28 +1839,30 @@ removed_marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
     // Nothing in a foreign marketplace's namespace is touched.
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(calls.some(({ args }) => args[1] === 'uninstall')).toBe(false);
     expect(
       calls.some(
         ({ args }) => args[1] === 'marketplace' && args[2] === 'remove',
       ),
     ).toBe(false);
-    const claudeEntry = report.entries?.find(
-      ({ key }) => key === 'claude:retired',
+    const claudeEntry = report.outcomes.find(
+      ({ label: key }) => key === 'claude:retired',
     );
-    expect(claudeEntry?.value).toBe('marketplace removal refused');
-    expect(claudeEntry?.error).toContain('different source');
+    expect(claudeEntry).toMatchObject({
+      details: ['marketplace removal refused'],
+    });
+    expect(claudeEntry).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('different source'),
+    });
     expect(
-      report.entries?.find(({ key }) => key === 'codex:openai-curated')?.value,
-    ).toBe('marketplace removal refused');
+      report.outcomes.find(({ label: key }) => key === 'codex:openai-curated'),
+    ).toMatchObject({ details: ['marketplace removal refused'] });
   },
 );
-
 sandboxTest(
   'fails an uninstall whose plugin survives the post-run inventory',
   async (home) => {
@@ -1956,18 +1891,18 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('failed');
-    const entry = report.entries?.find(
-      ({ key }) => key === 'claude:old-tool@xlsx',
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    const entry = report.outcomes.find(
+      ({ label: key }) => key === 'claude:old-tool@xlsx',
     );
-    expect(entry?.value).toBe('verification failed');
-    expect(entry?.error).toContain('still present');
+    expect(entry).toMatchObject({ details: ['verification failed'] });
+    expect(entry).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('still present'),
+    });
   },
 );
-
 sandboxTest(
   'uninstalls listed plugins even when the marketplace is unreachable',
   async (home) => {
@@ -1999,22 +1934,19 @@ marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
     // The install of the missing declared plugin fails offline, but the
     // local-only uninstall still converges.
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(calls.map(({ args }) => args[1])).toContain('uninstall');
     expect(
-      report.entries?.find(({ key }) => key === 'claude:old-tool@xlsx')?.value,
-    ).toBe('uninstalled');
+      report.outcomes.find(({ label: key }) => key === 'claude:old-tool@xlsx'),
+    ).toMatchObject({ details: ['uninstalled'] });
     expect(
-      report.entries?.find(({ key }) => key === 'claude:xlsx@xlsx')?.value,
-    ).toBe('install blocked');
+      report.outcomes.find(({ label: key }) => key === 'claude:xlsx@xlsx'),
+    ).toMatchObject({ details: ['install blocked'] });
   },
 );
-
 sandboxTest(
   'keeps a marketplace registered when its plugins survive a clean uninstall',
   async (home) => {
@@ -2051,20 +1983,18 @@ removed_marketplaces:
         return fail(`unexpected ${command} ${args.join(' ')}`);
       },
     });
-
     const report = await run(context);
-
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(
       calls.some(
         ({ args }) => args[1] === 'marketplace' && args[2] === 'remove',
       ),
     ).toBe(false);
     expect(
-      report.entries?.find(({ key }) => key === 'claude:tool-a@retired')?.value,
-    ).toBe('verification failed');
+      report.outcomes.find(({ label: key }) => key === 'claude:tool-a@retired'),
+    ).toMatchObject({ details: ['verification failed'] });
     expect(
-      report.entries?.find(({ key }) => key === 'claude:retired')?.value,
-    ).toBe('marketplace removal blocked');
+      report.outcomes.find(({ label: key }) => key === 'claude:retired'),
+    ).toMatchObject({ details: ['marketplace removal blocked'] });
   },
 );

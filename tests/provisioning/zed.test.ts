@@ -5,6 +5,7 @@ import { asset } from '../../src/assets/ref';
 import { embeddedAssets } from '../../src/assets/registry';
 import { home } from '../../src/host/path';
 import { runActivation, zedSettings } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { runMake } from '../../src/provisioning/run';
 import { OVERRIDES_PREFIX } from '../../src/zed/paths';
 import { ok } from '../fixtures/fake-command-runner';
@@ -12,7 +13,6 @@ import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('zed-');
-
 async function pathPresent(path: string): Promise<boolean> {
   try {
     await lstat(path);
@@ -21,15 +21,12 @@ async function pathPresent(path: string): Promise<boolean> {
     return false;
   }
 }
-
 const BASE_KEY = 'zed/settings.json';
 const BASE_ASSET = asset(BASE_KEY);
 const DEST = home('.config/zed/settings.json');
-
 function rolesDir(homeDir: string, key: string): string {
   return join(homeDir, '.mev', 'roles', key);
 }
-
 async function deployBase(
   homeDir: string,
   settings: Record<string, unknown>,
@@ -38,7 +35,6 @@ async function deployBase(
   await mkdir(join(path, '..'), { recursive: true });
   await writeFile(path, JSON.stringify(settings));
 }
-
 async function deployOverrides(
   homeDir: string,
   overrides: Record<string, Record<string, unknown>>,
@@ -49,7 +45,6 @@ async function deployOverrides(
     await writeFile(join(dir, `${name}.json`), JSON.stringify(settings));
   }
 }
-
 sandboxTest(
   'zedSettings merges enabled overrides onto the base and symlinks the result',
   async (dir) => {
@@ -63,13 +58,11 @@ sandboxTest(
       join(manifestDir, 'overrides-selection.yml'),
       'enabled:\n  - no-format\n',
     );
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const built = join(manifestDir, 'settings.json');
     expect(JSON.parse(await readFile(built, 'utf8'))).toEqual({
       format_on_save: 'off',
@@ -79,7 +72,6 @@ sandboxTest(
     expect(await readlink(link)).toBe(built);
   },
 );
-
 sandboxTest(
   'zedSettings fails and names an enabled override missing from the catalog',
   async (dir) => {
@@ -91,14 +83,12 @@ sandboxTest(
       join(manifestDir, 'overrides-selection.yml'),
       'enabled:\n  - ghost\n',
     );
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.entries?.some((e) => e.key === 'ghost')).toBe(true);
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(report.outcomes.some((e) => e?.label === 'ghost')).toBe(true);
     // Validation precedes mutation: a failed activation leaves no built
     // settings.json and no symlink behind.
     expect(await pathPresent(join(manifestDir, 'settings.json'))).toBe(false);
@@ -107,37 +97,30 @@ sandboxTest(
     ).toBe(false);
   },
 );
-
 sandboxTest(
   'zedSettings leaves the base untouched when no override is enabled',
   async (dir) => {
     await deployBase(dir, { format_on_save: 'on' });
     await deployOverrides(dir, { 'no-format': { format_on_save: 'off' } });
-
     await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
     const built = join(dir, '.mev', 'zed', 'settings.json');
     expect(JSON.parse(await readFile(built, 'utf8'))).toEqual({
       format_on_save: 'on',
     });
   },
 );
-
 sandboxTest('zedSettings reports unchanged on a second run', async (dir) => {
   await deployBase(dir, { format_on_save: 'on' });
   await deployOverrides(dir, {});
   const activation = zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST);
   const context = recordingContext({ home: dir }).context;
-
   await runActivation(activation, context);
   const second = await runActivation(activation, context);
-
-  expect(second.status).toBe('unchanged');
+  expect(outcomeStatus(second.outcomes)).toBe('unchanged');
 });
-
 sandboxTest(
   'zedSettings fails loudly when two enabled overrides collide on the same key',
   async (dir) => {
@@ -152,47 +135,44 @@ sandboxTest(
       join(manifestDir, 'overrides-selection.yml'),
       'enabled:\n  - loose\n  - strict\n',
     );
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toMatch(/loose.*strict.*format_on_save/);
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toMatch(/loose.*strict.*format_on_save/);
   },
 );
-
 sandboxTest(
   'zedSettings surfaces missing base settings as a provisioning error',
   async (dir) => {
     await deployOverrides(dir, {});
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('Zed base settings not found');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('Zed base settings not found');
   },
 );
-
 sandboxTest(
   'zedSettings surfaces a missing overrides source directory',
   async (dir) => {
     await deployBase(dir, { format_on_save: 'on' });
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('Zed overrides source directory not found');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('Zed overrides source directory not found');
   },
 );
-
 sandboxTest(
   'zedSettings names the file when the base settings contain malformed JSON',
   async (dir) => {
@@ -200,18 +180,19 @@ sandboxTest(
     await mkdir(join(path, '..'), { recursive: true });
     await writeFile(path, '{ not valid json');
     await deployOverrides(dir, {});
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('Zed base settings at');
-    expect(report.error).toContain('is not valid JSON');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('Zed base settings at');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('is not valid JSON');
   },
 );
-
 sandboxTest(
   'zedSettings names the override when an enabled override contains malformed JSON',
   async (dir) => {
@@ -225,18 +206,19 @@ sandboxTest(
       join(manifestDir, 'overrides-selection.yml'),
       'enabled:\n  - broken\n',
     );
-
     const report = await runActivation(
       zedSettings(BASE_ASSET, OVERRIDES_PREFIX, DEST),
       recordingContext({ home: dir }).context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain("Zed override 'broken' at");
-    expect(report.error).toContain('is not valid JSON');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain("Zed override 'broken' at");
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('is not valid JSON');
   },
 );
-
 sandboxTest(
   'the zed target upgrades through Homebrew and reports the running CLI version',
   async (dir) => {
@@ -262,12 +244,10 @@ sandboxTest(
         throw new Error(`Unexpected brew command: ${args.join(' ')}`);
       },
     });
-
     const report = await runMake(
       { selectors: ['zed'], upgrade: true },
       context,
     );
-
     expect(report.failed).toBe(false);
     expect(report.install).toEqual([
       {
@@ -295,9 +275,9 @@ sandboxTest(
     const zedReport = report.groups
       .find((group) => group.targetName === 'zed')
       ?.reports.find((entry) => entry.description.subject === 'Zed CLI');
-    expect(zedReport?.entries).toContainEqual({
-      key: 'zed --version',
-      value: 'current: Zed 1.18.1',
+    expect(zedReport?.outcomes).toContainEqual({
+      label: 'zed --version',
+      details: ['current: Zed 1.18.1'],
       status: 'unchanged',
     });
   },
