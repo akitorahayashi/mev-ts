@@ -42,6 +42,8 @@ the exact destination, staged entry, backup, directory identity, previous and
 replacement snapshots, and publication state to a stage-side ownership digest.
 Entry identity, kind, mode, file content, timestamps, and symlink targets establish
 ownership without following links into unrelated data.
+Special entries are identified from filesystem metadata and never opened as
+regular content, so named pipes cannot block reconciliation.
 
 Recovery runs under the mutation lease before application decision-making reads,
 including sync scanning and pruning. Actual filesystem identities reconcile gaps

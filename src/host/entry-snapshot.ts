@@ -35,6 +35,12 @@ export type EntrySnapshot = EntryAttributes &
         readonly mtimeNs: string;
         readonly target: string;
       }
+    | {
+        readonly kind: 'special';
+        readonly mtimeNs: string;
+        readonly nodeType: number;
+        readonly device: string;
+      }
   );
 
 export async function entryIdentity(
@@ -110,9 +116,18 @@ export async function snapshotEntry(
     }
     return { ...attributes, kind: 'directory', children };
   }
-  throw new ProvisioningError(
-    `Unsupported transaction entry at ${path}; retained state requires inspection.`,
-  );
+  const nodeType = Number(stats.mode & 0o170000n);
+  if (nodeType === 0)
+    throw new ProvisioningError(
+      `Unknown transaction entry kind at ${path}; retained state requires inspection.`,
+    );
+  return {
+    ...attributes,
+    kind: 'special',
+    mtimeNs: String(stats.mtimeNs),
+    nodeType,
+    device: String(stats.rdev),
+  };
 }
 
 export function matchesSnapshot(
@@ -135,6 +150,12 @@ export function matchesSnapshot(
   if (actual.kind === 'symlink' && expected.kind === 'symlink')
     return (
       actual.mtimeNs === expected.mtimeNs && actual.target === expected.target
+    );
+  if (actual.kind === 'special' && expected.kind === 'special')
+    return (
+      actual.mtimeNs === expected.mtimeNs &&
+      actual.nodeType === expected.nodeType &&
+      actual.device === expected.device
     );
   if (actual.kind !== 'directory' || expected.kind !== 'directory')
     return false;
@@ -180,6 +201,17 @@ export function isEntrySnapshot(
   )
     return false;
   const keys = Object.keys(value).sort().join(',');
+  if (value['kind'] === 'special')
+    return (
+      keys === 'device,identity,kind,mode,mtimeNs,nodeType' &&
+      Number.isInteger(value['nodeType']) &&
+      Number(value['nodeType']) > 0 &&
+      (Number(value['nodeType']) & 0o170000) === value['nodeType'] &&
+      typeof value['device'] === 'string' &&
+      /^\d+$/.test(value['device']) &&
+      typeof value['mtimeNs'] === 'string' &&
+      /^\d+$/.test(value['mtimeNs'])
+    );
   if (value['kind'] === 'file')
     return (
       keys === 'digest,identity,kind,mode,mtimeNs' &&

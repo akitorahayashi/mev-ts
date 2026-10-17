@@ -28,6 +28,13 @@ non-optional selection; all three use the same provisioning phases.
 | Deployed role | Select when paths, contents, or executable attributes drift. |
 | Upgrade mode | Applies only after selection; never changes signatures or selection. |
 
+One authoritative role comparison supplies semantic drift and exact deployment
+equivalence. Under mutation ownership, an already-equivalent deployment skips
+staging and a second tree comparison; no cache is involved. Sync keeps its
+executability-as-a-boolean policy, while explicit deployment normalizes the full
+executable-bit mask. Entry kinds and extra directories participate in equivalence;
+an absent assetless role remains absent.
+
 Command activation declarations contribute their data to the signature; the
 command vocabulary is defined in [command-pipeline.md](command-pipeline.md).
 Only `CommandStep.report` presentation metadata is excluded because it does not

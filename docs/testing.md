@@ -33,6 +33,7 @@ is the boundary under test:
 | Script tests | The script interpreter (`zsh` or `bash`) |
 | `bunCommandRunner` | A real subprocess, because it is the spawn boundary |
 | Git output formats | Git in a sandbox repository, when a fake would only restate the parser |
+| Filesystem entry kinds | `mkfifo` creates an actual named pipe in a sandbox, because regular-file fakes cannot establish nonblocking handling of special entries |
 | Mutation ownership and recovery | Bun processes in sandbox homes, because contention, process death, and interruption between persisted renames establish lease and restart-recovery behavior |
 
 Every carve-out names its reason in the test. Other tests inject a fake through

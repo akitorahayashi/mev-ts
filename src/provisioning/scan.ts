@@ -2,7 +2,7 @@ import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
 import { mapWithConcurrency } from '../host/task-pool';
 import { appliedPath, readApplied } from './applied';
-import { roleAssetChanges } from './role-state';
+import { compareRole } from './role-state';
 import { readAssetIntents, signatureOf } from './signature';
 import type { Target } from './target';
 
@@ -33,14 +33,14 @@ async function scanTarget(
   try {
     const intents = await readAssetIntents(target.role, context.assets);
     const signature = signatureOf(target, intents);
-    const [applied, changes] = await Promise.all([
+    const [applied, comparison] = await Promise.all([
       readApplied(appliedPath(context.home, target.name)),
-      roleAssetChanges(target.role, intents, context.home),
+      compareRole(target.role, intents, context.home),
     ]);
     const reasons: SyncReason[] = [];
     if (applied === null) reasons.push('unapplied');
     else if (applied !== signature) reasons.push('signature');
-    if (changes.length > 0) reasons.push('drift');
+    if (comparison.changes.length > 0) reasons.push('drift');
     return { target, reasons };
   } catch (error) {
     return { target, error: errorMessage(error) };

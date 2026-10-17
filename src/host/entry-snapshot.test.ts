@@ -50,6 +50,23 @@ test('equal content on a different inode or with changed metadata does not prove
   expect(matchesSnapshot({ ...file, mtimeNs: '5' }, file)).toBe(false);
 });
 
+test('special entries are described by filesystem identity and node kind rather than read as files', () => {
+  const special: EntrySnapshot = {
+    identity,
+    mode: 0o600,
+    kind: 'special',
+    mtimeNs: '4',
+    nodeType: 0o010000,
+    device: '0',
+  };
+  expect(isEntrySnapshot(special)).toBe(true);
+  expect(matchesSnapshot(special, special)).toBe(true);
+  expect(matchesSnapshot({ ...special, nodeType: 0o140000 }, special)).toBe(
+    false,
+  );
+  expect(isEntrySnapshot({ ...special, nodeType: 0 })).toBe(false);
+});
+
 test('cleanup accepts only deletion of recorded descendants, never additions or edits', () => {
   if (directory.kind !== 'directory') throw new Error('directory required');
   const partial = { ...directory, children: directory.children.slice(0, 1) };

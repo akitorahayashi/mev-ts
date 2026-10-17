@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { chmod, mkdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
 import type { Context } from '../../src/host/context';
@@ -66,6 +66,27 @@ sandboxTest('matching applied and deployed state is current', async (home) => {
 
   expect(scanned(scan).reasons).toEqual([]);
 });
+
+sandboxTest(
+  'partial executable masks retain the existing sync executability policy while explicit deploy normalizes them',
+  async (home) => {
+    const source = mapAssetSource({ 'demo/script': '#!/bin/sh\n' }, [
+      'demo/script',
+    ]);
+    const context = contextFor(home, source);
+    await deployRole('demo', context);
+    await writeApplied(
+      appliedPath(home, demoTarget.name),
+      await targetSignature(demoTarget, source),
+    );
+    const path = join(home, '.mev/roles/demo/script');
+    await chmod(path, 0o700);
+    const [scan] = await scanTargets([demoTarget], context);
+    expect(scanned(scan).reasons).toEqual([]);
+    await deployRole('demo', context);
+    expect((await stat(path)).mode & 0o111).toBe(0o111);
+  },
+);
 
 sandboxTest(
   'content, executable, and extra-path drift is detected',

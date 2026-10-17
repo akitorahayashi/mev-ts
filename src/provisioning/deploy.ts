@@ -1,10 +1,9 @@
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { deployedDir } from '../assets/ref';
-import { lstatIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { replaceDirectoryAfterBuild } from '../host/directory-replacement';
-import { type RoleAssetChange, roleAssetChanges } from './role-state';
+import { compareRole, type RoleAssetChange } from './role-state';
 import { readAssetIntents } from './signature';
 
 export interface DeployResult {
@@ -24,8 +23,12 @@ export async function deployRole(
 ): Promise<DeployResult> {
   const intents = await readAssetIntents(role, context.assets);
   const destDir = deployedDir(role, context.home);
-  const changes = await roleAssetChanges(role, intents, context.home);
-  if (intents.length === 0 && (await lstatIfPresent(destDir)) === null) {
+  const { changes, deploymentCurrent } = await compareRole(
+    role,
+    intents,
+    context.home,
+  );
+  if (deploymentCurrent) {
     return { role, changes };
   }
 

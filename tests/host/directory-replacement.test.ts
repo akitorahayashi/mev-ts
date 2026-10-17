@@ -5,6 +5,20 @@ import { replaceDirectoryAfterBuild } from '../../src/host/directory-replacement
 import { stagingSiblings } from '../fixtures/path-probe';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
+test('generic directory equivalence still compares the complete executable-bit mask', async () => {
+  await withTemporaryDirectory(async (home) => {
+    const dest = join(home, 'role');
+    await mkdir(dest);
+    await writeFile(join(dest, 'script'), 'same bytes', { mode: 0o755 });
+    const build = async (stage: string) => {
+      await writeFile(join(stage, 'script'), 'same bytes', { mode: 0o700 });
+    };
+    expect(await replaceDirectoryAfterBuild(dest, build, { home })).toBe(true);
+    expect((await stat(join(dest, 'script'))).mode & 0o111).toBe(0o100);
+    expect(await replaceDirectoryAfterBuild(dest, build, { home })).toBe(false);
+  });
+});
+
 test('installs a fully built directory without residual siblings', async () => {
   await withTemporaryDirectory(async (dir) => {
     const dest = join(dir, 'role');

@@ -9,13 +9,18 @@ export interface RoleAssetChange {
   readonly kind: 'added' | 'updated' | 'removed';
 }
 
+export interface RoleComparison {
+  readonly changes: readonly RoleAssetChange[];
+  readonly deploymentCurrent: boolean;
+}
+
 type RoleEntry =
   | { readonly kind: 'directory'; readonly path: string }
   | {
       readonly kind: 'file';
       readonly path: string;
       readonly content: Buffer;
-      readonly executable: boolean;
+      readonly executeMask: number;
     }
   | { readonly kind: 'other'; readonly path: string };
 
@@ -35,7 +40,7 @@ function embeddedEntries(
       kind: 'file',
       path,
       content: Buffer.from(intent.content),
-      executable: intent.executable,
+      executeMask: intent.executable ? 0o111 : 0,
     };
   });
   return [
@@ -55,19 +60,16 @@ async function walkDeployed(
   for (const child of children) {
     const path = relative === '' ? child.name : join(relative, child.name);
     const absolute = join(root, path);
-    if (child.isDirectory()) {
+    const stats = await lstat(absolute);
+    if (stats.isDirectory()) {
       entries.push({ kind: 'directory', path });
       await walkDeployed(root, path, entries);
-    } else if (child.isFile()) {
-      const [content, stats] = await Promise.all([
-        readFile(absolute),
-        lstat(absolute),
-      ]);
+    } else if (stats.isFile()) {
       entries.push({
         kind: 'file',
         path,
-        content,
-        executable: (stats.mode & 0o111) !== 0,
+        content: await readFile(absolute),
+        executeMask: stats.mode & 0o111,
       });
     } else {
       entries.push({ kind: 'other', path });
@@ -78,31 +80,33 @@ async function walkDeployed(
 async function deployedEntries(
   role: string,
   home: string,
-): Promise<RoleEntry[]> {
+): Promise<{ readonly entries: RoleEntry[]; readonly absent: boolean }> {
   const root = deployedDir(role, home);
   const stats = await lstatIfPresent(root);
-  if (stats === null) return [];
-  if (!stats.isDirectory()) return [{ kind: 'other', path: '' }];
+  if (stats === null) return { entries: [], absent: true };
+  if (!stats.isDirectory())
+    return { entries: [{ kind: 'other', path: '' }], absent: false };
   const entries: RoleEntry[] = [];
   await walkDeployed(root, '', entries);
-  return entries;
+  return { entries, absent: false };
 }
 
 function equivalent(left: RoleEntry, right: RoleEntry): boolean {
   if (left.kind !== right.kind) return false;
   if (left.kind !== 'file' || right.kind !== 'file') return true;
   return (
-    left.content.equals(right.content) && left.executable === right.executable
+    left.content.equals(right.content) &&
+    (left.executeMask !== 0) === (right.executeMask !== 0)
   );
 }
 
-export async function roleAssetChanges(
+export async function compareRole(
   role: string,
   intents: readonly AssetIntent[],
   home: string,
-): Promise<RoleAssetChange[]> {
+): Promise<RoleComparison> {
   const expected = embeddedEntries(role, intents);
-  const actual = await deployedEntries(role, home);
+  const { entries: actual, absent } = await deployedEntries(role, home);
   const expectedByPath = new Map(expected.map((entry) => [entry.path, entry]));
   const actualByPath = new Map(actual.map((entry) => [entry.path, entry]));
   const changes: RoleAssetChange[] = [];
@@ -128,5 +132,18 @@ export async function roleAssetChanges(
       kind: 'removed',
     });
   }
-  return changes.sort((left, right) => left.key.localeCompare(right.key));
+  const deploymentCurrent =
+    changes.length === 0 &&
+    (!absent || intents.length === 0) &&
+    expected.every((entry) => {
+      if (entry.kind !== 'file') return true;
+      const current = actualByPath.get(entry.path);
+      return (
+        current?.kind === 'file' && current.executeMask === entry.executeMask
+      );
+    });
+  return {
+    changes: changes.sort((left, right) => left.key.localeCompare(right.key)),
+    deploymentCurrent,
+  };
 }
