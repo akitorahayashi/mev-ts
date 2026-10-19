@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
-import { readDirentsIfPresent } from '../host/absence';
 import { readDeployedDirents, readDeployedText } from '../host/deployed-file';
 import {
   requireExactKeys,
@@ -76,14 +75,10 @@ export async function readSections(sourceDir: string): Promise<string[]> {
   const catalogPath = join(sourceDir, 'catalog.yml');
   const raw = await readDeployedText(catalogPath, 'AGENTS.md section catalog');
   const listed = parseSectionCatalog(raw, catalogPath);
-  const entries = await readDirentsIfPresent(sourceDir);
-  if (entries === null) {
-    // catalog.yml was just read from sourceDir, so the directory existed a
-    // moment ago; a null here means it vanished mid-read, not a missing deploy.
-    throw new ProvisioningError(
-      `AGENTS.md section directory disappeared while reading it: ${sourceDir}.`,
-    );
-  }
+  const entries = await readDeployedDirents(
+    sourceDir,
+    'AGENTS.md section directory',
+  );
   const presentStems = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => entry.name.slice(0, -'.md'.length));

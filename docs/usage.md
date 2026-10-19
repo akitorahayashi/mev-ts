@@ -149,6 +149,14 @@ resolves above both.
 Worktree layout, selectors, carried ignored files, and tidy safety gates are in
 [architecture/worktrees.md](architecture/worktrees.md).
 
+## Submodule deletion
+
+`git sb-d <path>` deletes exactly one registered, repository-relative submodule
+path, including its Git-owned module storage. Selection is independent of the
+current directory within the repository. Options, pathspec patterns, traversal,
+ambiguous registration, and unexpected storage fail before mutation. A partial
+failure reports completed actions and the locations of remaining state.
+
 ## Document conversion
 
 | Command | Effect |

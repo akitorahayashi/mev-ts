@@ -8,9 +8,12 @@ import {
   configSelectManifest,
   type SelectEntries,
 } from './config-toggle';
+import { withHomeMutation } from './mutation';
 
 async function zedSelection(home: string): Promise<ConfigToggleSurface> {
   return {
+    home,
+    input: 'zedOverrides',
     catalog: await readOverrides(deployedDir(OVERRIDES_PREFIX, home)),
     manifestPath: overridesManifest(home),
     message: 'Select enabled Zed setting overrides',
@@ -23,11 +26,15 @@ export async function configSelectZedOverrides(
   warn: (message: string) => void,
   select: SelectEntries,
 ): Promise<void> {
-  await configSelectManifest(await zedSelection(home), warn, select);
+  await withHomeMutation(home, 'config zed', async () =>
+    configSelectManifest(await zedSelection(home), warn, select),
+  );
 }
 
 export async function configSelectZedOverridesClear(
   home: string,
 ): Promise<void> {
-  await configClearManifest(await zedSelection(home));
+  await withHomeMutation(home, 'config zed --clear', async () =>
+    configClearManifest(await zedSelection(home)),
+  );
 }

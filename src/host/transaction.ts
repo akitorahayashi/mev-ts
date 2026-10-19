@@ -1,7 +1,14 @@
 import { mkdir, mkdtemp, realpath, rename, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
-import { lstatIfPresent } from './absence';
+import { ProvisioningError } from '../errors';
+import { readDirentsIfPresent } from './absence';
 import { runWithCleanup } from './cleanup-error';
+import {
+  finishTransaction,
+  prepareTransactionRecord,
+  publishTransaction,
+  type TransactionRecord,
+} from './transaction-record';
 
 /**
  * Create a fresh sibling staging directory for a same-parent atomic swap of
@@ -46,15 +53,16 @@ export interface SwapPaths {
  * `backup`; if that restore also fails, `onRetain` is invoked (so the caller
  * keeps the transaction for recovery) and an AggregateError naming both failures
  * is thrown. Reached through `withSwapTransaction`, so this safety-critical
- * rollback dance lives in one place. Not crash-safe: a crash between the two
- * renames leaves `dest` absent with the previous contents at `backup`.
+ * rollback dance lives in one place. The durable record supports restart recovery.
  */
 async function swapWithBackup(
   { dest, staged, backup }: SwapPaths,
   onRetain: () => void,
+  onBackup: () => Promise<void>,
 ): Promise<void> {
   await rename(dest, backup);
   try {
+    await onBackup();
     await rename(staged, dest);
   } catch (error) {
     try {
@@ -84,6 +92,14 @@ export interface SwapTransaction {
   install(): Promise<void>;
 }
 
+export interface TransactionOptions {
+  readonly home: string;
+  readonly onBoundary?: (
+    phase: 'prepared' | 'backed-up' | 'replaced' | 'published',
+    paths: SwapPaths,
+  ) => Promise<void>;
+}
+
 /**
  * Run `build` inside a staging transaction for `path` and remove the transaction
  * afterwards, unless a failed restore left the previous contents in it — those
@@ -96,39 +112,63 @@ export async function withSwapTransaction<T>(
   path: string,
   kind: string,
   build: (transaction: SwapTransaction) => Promise<T>,
+  options: TransactionOptions,
 ): Promise<T> {
+  for (const entry of (await readDirentsIfPresent(dirname(path))) ?? []) {
+    if (
+      entry.isDirectory() &&
+      isTransactionArtifact(entry.name) &&
+      entry.name.startsWith(`.${basename(path)}.`)
+    ) {
+      throw new ProvisioningError(
+        `Unrecorded or unfinished transaction at ${join(dirname(path), entry.name)}; recovery under home ownership is required before replacement.`,
+      );
+    }
+  }
   const directory = await transactionDirectory(path);
   const staged = join(directory, 'staged');
   const backup = join(directory, 'backup');
+  const dest = join(dirname(directory), basename(path));
   let retain = false;
+  let recording = false;
+  let record: TransactionRecord | undefined;
+  const paths = { dest, staged, backup };
 
   return runWithCleanup(
     () =>
       build({
         staged,
         async install() {
-          // A rename replaces the destination atomically unless a directory is
-          // involved on either side: it refuses to overwrite an existing
-          // directory, and a staged directory cannot land on an existing entry
-          // of any kind. Those cases go through the backup dance instead.
-          const [current, replacement] = await Promise.all([
-            lstatIfPresent(path),
-            lstatIfPresent(staged),
-          ]);
-          if (
-            !current ||
-            (!current.isDirectory() && !replacement?.isDirectory())
-          ) {
-            await rename(staged, path);
-            return;
-          }
-          await swapWithBackup({ dest: path, staged, backup }, () => {
-            retain = true;
-          });
+          recording = true;
+          record = await prepareTransactionRecord(
+            options.home,
+            directory,
+            dest,
+            staged,
+            backup,
+          );
+          await options.onBoundary?.('prepared', paths);
+          if (record.strategy === 'atomic') await rename(staged, dest);
+          else
+            await swapWithBackup(
+              paths,
+              () => {
+                retain = true;
+              },
+              async () => {
+                await options.onBoundary?.('backed-up', paths);
+              },
+            );
+          await options.onBoundary?.('replaced', paths);
+          record = await publishTransaction(record);
+          await options.onBoundary?.('published', paths);
         },
       }),
     async () => {
-      if (!retain) await rm(directory, { force: true, recursive: true });
+      if (retain) return;
+      if (record) await finishTransaction(record);
+      else if (!recording)
+        await rm(directory, { force: true, recursive: true });
     },
     `Failed to clean up ${kind} transaction for ${path}.`,
   );

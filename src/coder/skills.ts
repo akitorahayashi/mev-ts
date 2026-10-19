@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { reconcileManagedLinks } from '../host/managed-links';
+import type { TransactionOptions } from '../host/transaction';
 
 /**
  * Reconcile `skillsDir` to hold exactly one symlink per enabled skill, each
@@ -15,6 +16,7 @@ export async function buildSkills(
   sourceDir: string,
   enabled: readonly string[],
   skillsDir: string,
+  options: TransactionOptions,
 ): Promise<boolean> {
   await mkdir(skillsDir, { recursive: true });
   return (
@@ -25,6 +27,7 @@ export async function buildSkills(
         path: join(skillsDir, name),
         target: join(sourceDir, name),
       })),
+      options,
     )
   ).changed;
 }

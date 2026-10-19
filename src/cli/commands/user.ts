@@ -1,8 +1,7 @@
 import { Command } from 'clipanion';
 import {
+  configureIdentities,
   type IdentityInput,
-  loadIdentities,
-  setIdentity,
   showIdentity,
 } from '../../app/identity';
 import { liveCommandDeps, resolveHome } from '../../host/context';
@@ -97,25 +96,26 @@ export async function runSet(
   write: (message: string) => void,
   prompt: WithPrompter,
 ): Promise<void> {
-  const existing = await loadIdentities({ home });
-
-  const inputs = await prompt(async (prompter) => {
-    write('Configure mev Git identities\n');
-    const entries: [IdentityScope, IdentityInput][] = [];
-    for (const scope of allScopes()) {
-      write(`\n${capitalize(scope)} identity:\n`);
-      entries.push([
-        scope,
-        {
-          name: await prompter.ask('  Name', existing[scope]?.name ?? ''),
-          email: await prompter.ask('  Email', existing[scope]?.email ?? ''),
-        },
-      ]);
-    }
-    return Object.fromEntries(entries) as Record<IdentityScope, IdentityInput>;
-  });
-
-  const { path } = await setIdentity({ home }, inputs);
+  const { path } = await configureIdentities(home, (existing) =>
+    prompt(async (prompter) => {
+      write('Configure mev Git identities\n');
+      const entries: [IdentityScope, IdentityInput][] = [];
+      for (const scope of allScopes()) {
+        write(`\n${capitalize(scope)} identity:\n`);
+        entries.push([
+          scope,
+          {
+            name: await prompter.ask('  Name', existing[scope]?.name ?? ''),
+            email: await prompter.ask('  Email', existing[scope]?.email ?? ''),
+          },
+        ]);
+      }
+      return Object.fromEntries(entries) as Record<
+        IdentityScope,
+        IdentityInput
+      >;
+    }),
+  );
   write(`\nIdentity configuration saved to ${path}\n`);
 }
 

@@ -1,7 +1,7 @@
 import type { AssetRef } from '../../assets/ref';
 import type { AssetSource } from '../../assets/registry';
 import type { HostPath } from '../../host/path';
-import type { OutcomeStatus, ResourceOutcome } from '../resource-outcome';
+import type { ResourceOutcome } from '../resource-outcome';
 import type { RoleAssetChange } from '../role-state';
 
 /**
@@ -291,12 +291,6 @@ export interface ActivationReport {
   readonly description: ActivationDescription;
   readonly outcomes: readonly ResourceOutcome[];
   readonly notices?: readonly string[];
-  /** Derived from `outcomes`; never supplied independently by a runner. */
-  readonly status?: OutcomeStatus;
-  /** Low-level probe projection retained for capability-focused diagnostics. */
-  readonly entries?: readonly ReconcileItemResult[];
-  /** Whole-activation failure; item failures live on their resource outcomes. */
-  readonly error?: string;
 }
 
 export interface ActivationDescription {

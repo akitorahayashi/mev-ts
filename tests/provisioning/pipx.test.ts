@@ -3,12 +3,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult } from '../../src/host/command';
 import { applyPipx, runActivation } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const CONFIG_KEY = 'pipx/tools.yml';
-
 const YAML = `
 tools:
   yt-dlp: latest
@@ -20,17 +20,13 @@ tools:
       bin: browser-tool
       args: [setup]
 `.trimStart();
-
 const sandboxTest = sandboxedTest('pipx-');
-
 async function deployConfig(dir: string, yaml: string = YAML): Promise<void> {
   const roleDir = join(dir, '.mev', 'roles', 'pipx');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'tools.yml'), yaml);
 }
-
 const PREFIX = '/opt/homebrew';
-
 function listJson(
   venvs: Record<
     string,
@@ -57,9 +53,7 @@ function listJson(
   }
   return JSON.stringify({ venvs: out });
 }
-
 const VENVS = '/opt/pipx/venvs';
-
 function baseResponder(listOutput: string) {
   return (cmd: string, args: readonly string[]): CommandResult => {
     if (cmd === 'brew' && args[0] === '--prefix') return ok(PREFIX);
@@ -68,7 +62,6 @@ function baseResponder(listOutput: string) {
     return ok('installed package');
   };
 }
-
 sandboxTest(
   'all tools current: no install/inject/post-install runs',
   async (dir) => {
@@ -88,15 +81,12 @@ sandboxTest(
       home: dir,
       respond: baseResponder(listed),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     expect(calls.some((c) => c.args[0] === 'install')).toBe(false);
     expect(calls.some((c) => c.args[0] === 'inject')).toBe(false);
   },
 );
-
 sandboxTest(
   'fresh install runs install, inject, then post-install in order',
   async (dir) => {
@@ -105,10 +95,8 @@ sandboxTest(
       home: dir,
       respond: baseResponder(listJson({})),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const browserToolCalls = calls.filter(
       (c) =>
         c.args.some((a) => a.includes('browser-tool')) ||
@@ -125,7 +113,6 @@ sandboxTest(
     expect(post?.args).toEqual(['setup']);
   },
 );
-
 sandboxTest(
   'version mismatch triggers uninstall before install',
   async (dir) => {
@@ -145,9 +132,7 @@ sandboxTest(
       home: dir,
       respond: baseResponder(listed),
     });
-
     await runActivation(applyPipx(CONFIG_KEY), context);
-
     const browserTool = calls.filter((c) =>
       c.args.some((a) => a.includes('browser-tool')),
     );
@@ -158,7 +143,6 @@ sandboxTest(
     ]);
   },
 );
-
 sandboxTest(
   'upgrade mode upgrades latest-declared installed tools and skips pinned ones',
   async (dir) => {
@@ -186,23 +170,20 @@ sandboxTest(
         return baseResponder(currentList())(cmd, args);
       },
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context, {
       upgrade: true,
     });
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const upgrades = calls.filter((c) => c.args[0] === 'upgrade');
     expect(upgrades.map((c) => c.args)).toEqual([['upgrade', 'yt-dlp']]);
-    expect(report.entries?.find((e) => e.key === 'yt-dlp')?.value).toBe(
-      'upgraded to 2.0',
-    );
-    expect(report.entries?.find((e) => e.key === 'browser-tool')?.status).toBe(
-      'unchanged',
-    );
+    expect(report.outcomes.find((e) => e?.label === 'yt-dlp')).toMatchObject({
+      details: ['upgraded to 2.0'],
+    });
+    expect(
+      report.outcomes.find((e) => e?.label === 'browser-tool')?.status,
+    ).toBe('unchanged');
   },
 );
-
 sandboxTest(
   'upgrade mode reports tools already at latest as unchanged',
   async (dir) => {
@@ -225,19 +206,16 @@ sandboxTest(
         return baseResponder(listed)(cmd, args);
       },
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context, {
       upgrade: true,
     });
-
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     expect(calls.some((c) => c.args[0] === 'upgrade')).toBe(true);
-    expect(report.entries?.find((e) => e.key === 'yt-dlp')?.value).toBe(
-      'up to date',
-    );
+    expect(report.outcomes.find((e) => e?.label === 'yt-dlp')).toMatchObject({
+      details: ['up to date'],
+    });
   },
 );
-
 sandboxTest(
   'upgrade mode upgrades only the main package and re-runs post-install',
   async (dir) => {
@@ -276,25 +254,22 @@ sandboxTest(
         return baseResponder(currentList())(cmd, args);
       },
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context, {
       upgrade: true,
     });
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     const upgrade = calls.find((c) => c.args[0] === 'upgrade');
     // No --include-injected: only the declared main package is upgraded, so an
     // injection mev does not own is never touched.
     expect(upgrade?.args).toEqual(['upgrade', 'media-tool']);
-    expect(report.entries?.find((e) => e.key === 'media-tool')?.value).toBe(
-      'upgraded to 1.1, post-installed',
-    );
+    expect(
+      report.outcomes.find((e) => e?.label === 'media-tool'),
+    ).toMatchObject({ details: ['upgraded to 1.1, post-installed'] });
     const post = calls.find((c) => c.command.endsWith('media-tool'));
     expect(post?.command).toBe(join(VENVS, 'media-tool', 'bin', 'media-tool'));
     expect(post?.args).toEqual(['refresh']);
   },
 );
-
 sandboxTest(
   'a failed install marks the tool failed but continues others',
   async (dir) => {
@@ -309,19 +284,19 @@ sandboxTest(
         return ok('installed package');
       },
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    const ytdlp = report.entries?.find((e) => e.key === 'yt-dlp');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    const ytdlp = report.outcomes.find((e) => e?.label === 'yt-dlp');
     expect(ytdlp?.status).toBe('failed');
-    expect(ytdlp?.error).toContain('network error');
-    expect(report.entries?.find((e) => e.key === 'browser-tool')?.status).toBe(
-      'changed',
-    );
+    expect(ytdlp).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('network error'),
+    });
+    expect(
+      report.outcomes.find((e) => e?.label === 'browser-tool')?.status,
+    ).toBe('changed');
   },
 );
-
 sandboxTest(
   'failed when the pipx manifest tools value is not a mapping',
   async (dir) => {
@@ -335,17 +310,14 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain(
-      'tools must be a mapping of package names to versions',
-    );
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('tools must be a mapping of package names to versions');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'failed when the pipx manifest contains unknown fields',
   async (dir) => {
@@ -359,15 +331,14 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('unknown field');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('unknown field');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'failed when package identities normalize to the same name',
   async (dir) => {
@@ -381,15 +352,14 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('duplicate');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('duplicate');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'failed when pipx list JSON omits required package fields',
   async (dir) => {
@@ -409,14 +379,13 @@ sandboxTest(
       home: dir,
       respond: baseResponder(malformed),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('pipx list --json');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('pipx list --json');
   },
 );
-
 sandboxTest(
   'failed when pipx list JSON contains malformed venv entries',
   async (dir) => {
@@ -428,21 +397,19 @@ sandboxTest(
       home: dir,
       respond: baseResponder(malformed),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain("venv 'broken-tool' must be an object");
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain("venv 'broken-tool' must be an object");
   },
 );
-
 const UNINSTALL_YAML = `
 tools:
   yt-dlp: latest
 uninstall:
   - old-tool
 `.trimStart();
-
 sandboxTest(
   'uninstall removes a listed installed tool before installs run',
   async (dir) => {
@@ -457,13 +424,11 @@ sandboxTest(
       home: dir,
       respond: baseResponder(listed),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('changed');
-    expect(report.entries?.find((e) => e.key === 'old-tool')?.value).toBe(
-      'uninstalled',
-    );
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
+    expect(report.outcomes.find((e) => e?.label === 'old-tool')).toMatchObject({
+      details: ['uninstalled'],
+    });
     const verbs = calls
       .filter(
         (c) =>
@@ -477,7 +442,6 @@ sandboxTest(
     ]);
   },
 );
-
 sandboxTest(
   'uninstall of an already absent tool runs nothing and reports unchanged',
   async (dir) => {
@@ -492,17 +456,14 @@ sandboxTest(
       home: dir,
       respond: baseResponder(listed),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('unchanged');
-    expect(report.entries?.find((e) => e.key === 'old-tool')?.value).toBe(
-      'already absent',
-    );
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
+    expect(report.outcomes.find((e) => e?.label === 'old-tool')).toMatchObject({
+      details: ['already absent'],
+    });
     expect(calls.some((c) => c.args[0] === 'uninstall')).toBe(false);
   },
 );
-
 sandboxTest(
   'failed when a name is declared in both tools and uninstall',
   async (dir) => {
@@ -514,15 +475,14 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('duplicate');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('duplicate');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'manifest spellings resolve to installed tools across hyphen/underscore variants',
   async (dir) => {
@@ -544,14 +504,12 @@ sandboxTest(
       home: dir,
       respond: baseResponder(listed),
     });
-
     const report = await runActivation(applyPipx(CONFIG_KEY), context);
-
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     // The already-installed variant spelling is recognized, not reinstalled.
-    expect(report.entries?.find((e) => e.key === 'yt_dlp')?.value).toBe(
-      'up to date',
-    );
+    expect(report.outcomes.find((e) => e?.label === 'yt_dlp')).toMatchObject({
+      details: ['up to date'],
+    });
     expect(calls.some((c) => c.args[0] === 'install')).toBe(false);
     // The removal command receives pipx's reported spelling, not the manifest's.
     const uninstalls = calls.filter((c) => c.args[0] === 'uninstall');

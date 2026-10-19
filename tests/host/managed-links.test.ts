@@ -34,6 +34,7 @@ sandboxTest('creates each desired link', async (dir) => {
     root,
     [`${source}/`],
     [{ path: join(root, 'a'), target: join(source, 'a') }],
+    { home: dir },
   );
 
   expect(changed.changed).toBe(true);
@@ -45,8 +46,10 @@ sandboxTest('reports unchanged when already reconciled', async (dir) => {
   const { source, root } = await scaffold(dir);
   const desired = [{ path: join(root, 'a'), target: join(source, 'a') }];
 
-  await reconcileManagedLinks(root, [`${source}/`], desired);
-  const second = await reconcileManagedLinks(root, [`${source}/`], desired);
+  await reconcileManagedLinks(root, [`${source}/`], desired, { home: dir });
+  const second = await reconcileManagedLinks(root, [`${source}/`], desired, {
+    home: dir,
+  });
 
   expect(second.changed).toBe(false);
   expect(second.unchanged).toHaveLength(1);
@@ -63,6 +66,7 @@ sandboxTest(
       root,
       [`${source}/`],
       [{ path: join(root, 'a'), target: join(source, 'a') }],
+      { home: dir },
     );
 
     expect(changed.changed).toBe(true);
@@ -86,6 +90,7 @@ sandboxTest(
       root,
       [`${source}/`],
       [{ path: join(root, 'a'), target: join(source, 'a') }],
+      { home: dir },
     );
 
     expect(changed.changed).toBe(true);
@@ -109,6 +114,7 @@ sandboxTest('keeps stale managed links when a placement fails', async (dir) => {
       root,
       [`${source}/`],
       [{ path: join(root, 'blocked', 'a'), target: join(source, 'a') }],
+      { home: dir },
     ),
   ).rejects.toBeInstanceOf(Error);
 

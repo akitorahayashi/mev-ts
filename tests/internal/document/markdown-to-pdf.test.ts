@@ -1,5 +1,5 @@
 import { expect } from 'bun:test';
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CommandResult, CommandRunner } from '../../../src/host/command';
 import type {
@@ -25,13 +25,6 @@ class RecordingPrinter implements PdfPrinter {
 
 const sandboxTest = sandboxedTest('markdown-pdf-');
 
-function luaFilterPath(args: readonly string[]): string {
-  const filterArg = args.find((arg) => arg.startsWith('--lua-filter='));
-  expect(filterArg).toBeString();
-  if (filterArg === undefined) throw new Error('Missing Pandoc Lua filter.');
-  return filterArg.slice('--lua-filter='.length);
-}
-
 sandboxTest(
   'conversion enables highlighting, MathML, local resource embedding, and closes the printer',
   async (directory) => {
@@ -44,11 +37,9 @@ sandboxTest(
     ]);
 
     const invocations: Invocation[] = [];
-    let filter: string | undefined;
     const run: CommandRunner = {
       async run(command, args, options): Promise<CommandResult> {
         invocations.push({ command, args: [...args], options });
-        filter = await readFile(luaFilterPath(args), 'utf8');
         return {
           code: 0,
           stdout: '<html><pre class="mermaid">graph LR</pre></html>',
@@ -81,20 +72,17 @@ sandboxTest(
     expect(invocations[0]?.command).toBe('pandoc');
     expect(invocations[0]?.args).toContain('--syntax-highlighting=pygments');
     expect(invocations[0]?.args).toContain('--mathml');
-    expect(invocations[0]?.args).toContain('--embed-resources');
-    expect(filter).toContain('data-external');
-    expect(filter).toContain('Remote HTML resources are not supported');
+    expect(invocations[0]?.args).not.toContain('--embed-resources');
     // Load-bearing: stylesheets are applied. The exact count is incidental and
     // changes when a stylesheet is added, so assert presence, not the number.
     expect(
       invocations[0]?.args.filter((arg) => arg.startsWith('--css=')).length,
     ).toBeGreaterThan(0);
-    expect(printer.prints).toEqual([
-      {
-        html: '<html><pre class="mermaid">graph LR</pre></html>',
-        output: join(output, 'document.pdf'),
-      },
-    ]);
+    expect(printer.prints).toHaveLength(1);
+    expect(printer.prints[0]?.html).toContain(
+      '<pre class="mermaid">graph LR</pre>',
+    );
+    expect(printer.prints[0]?.output).toBe(join(output, 'document.pdf'));
     expect(printer.closed).toBe(true);
     expect(stdout.join('')).toContain('Created');
     expect(stderr).toEqual(['pandoc warning\n']);
@@ -102,7 +90,7 @@ sandboxTest(
 );
 
 sandboxTest(
-  'remote Markdown images are marked external before Pandoc embeds resources',
+  'remote Markdown images stay external without delegating resource fetching to Pandoc',
   async (directory) => {
     const input = join(directory, 'document.md');
     await writeFile(input, '![badge](https://example.com/badge.svg)');
@@ -111,13 +99,9 @@ sandboxTest(
     const run: CommandRunner = {
       async run(command, args, options): Promise<CommandResult> {
         invocations.push({ command, args: [...args], options });
-        const filter = await readFile(luaFilterPath(args), 'utf8');
-        expect(filter).toContain('function Image(image)');
-        expect(filter).toContain('data-external');
         return {
           code: 0,
-          stdout:
-            '<html><img src="https://example.com/badge.svg" data-external="1"></html>',
+          stdout: '<html><img src="https://example.com/badge.svg"></html>',
           stderr: '',
         };
       },
@@ -130,8 +114,10 @@ sandboxTest(
       { tmpRoot: directory, createPrinter: async () => printer },
     );
 
-    expect(invocations[0]?.args).toContain('--embed-resources');
-    expect(printer.prints[0]?.html).toContain('data-external="1"');
+    expect(invocations[0]?.args).not.toContain('--embed-resources');
+    expect(printer.prints[0]?.html).toContain(
+      'src="https://example.com/badge.svg"',
+    );
   },
 );
 

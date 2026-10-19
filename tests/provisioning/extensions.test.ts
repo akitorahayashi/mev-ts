@@ -5,24 +5,21 @@ import {
   installExtensions,
   runActivation,
 } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const CONFIG_KEY = 'vscode/extensions.json';
-
 const MANIFEST = JSON.stringify({
   extensions: ['publisher.alpha', 'publisher.Beta', 'publisher.gamma'],
 });
-
 const sandboxTest = sandboxedTest('extensions-');
-
 async function deployManifest(dir: string): Promise<void> {
   const roleDir = join(dir, '.mev/roles/vscode');
   await mkdir(roleDir, { recursive: true });
   await writeFile(join(roleDir, 'extensions.json'), MANIFEST);
 }
-
 sandboxTest(
   'unchanged when every desired extension is already installed',
   async (dir) => {
@@ -37,18 +34,15 @@ sandboxTest(
         return fail();
       },
     });
-
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
     );
-
-    expect(report.status).toBe('unchanged');
+    expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     expect(calls).toHaveLength(1);
-    expect(report.entries?.every((e) => e.status === 'unchanged')).toBe(true);
+    expect(report.outcomes.every((e) => e.status === 'unchanged')).toBe(true);
   },
 );
-
 sandboxTest('installs only the missing extensions', async (dir) => {
   await deployManifest(dir);
   const { context, calls } = recordingContext({
@@ -59,20 +53,17 @@ sandboxTest('installs only the missing extensions', async (dir) => {
       return fail();
     },
   });
-
   const report = await runActivation(
     installExtensions('code', CONFIG_KEY),
     context,
   );
-
-  expect(report.status).toBe('changed');
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
   const installs = calls.filter((c) => c.args[0] === '--install-extension');
   expect(installs.map((c) => c.args[1])).toEqual([
     'publisher.alpha',
     'publisher.gamma',
   ]);
 });
-
 sandboxTest('failed when an install command returns non-zero', async (dir) => {
   await deployManifest(dir);
   const { context } = recordingContext({
@@ -83,33 +74,31 @@ sandboxTest('failed when an install command returns non-zero', async (dir) => {
       return fail();
     },
   });
-
   const report = await runActivation(
     installExtensions('code', CONFIG_KEY),
     context,
   );
-
-  expect(report.status).toBe('failed');
-  expect(report.entries?.some((e) => e.error?.includes('network error'))).toBe(
-    true,
-  );
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(
+    report.outcomes.some((e) =>
+      (e?.status === 'failed' ? e?.error : undefined)?.includes(
+        'network error',
+      ),
+    ),
+  ).toBe(true);
 });
-
 sandboxTest('failed when the editor CLI is unavailable', async (dir) => {
   await deployManifest(dir);
   const { context } = recordingContext({
     home: dir,
     respond: () => fail('command not found'),
   });
-
   const report = await runActivation(
     installExtensions('code', CONFIG_KEY),
     context,
   );
-
-  expect(report.status).toBe('failed');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
 });
-
 sandboxTest(
   'failed when the extension manifest contains invalid entries',
   async (dir) => {
@@ -123,18 +112,17 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('extensions array of non-empty strings');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('extensions array of non-empty strings');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'failed when the extension manifest contains unknown fields',
   async (dir) => {
@@ -151,18 +139,17 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('unknown field');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('unknown field');
     expect(calls).toHaveLength(0);
   },
 );
-
 sandboxTest(
   'failed when the extension manifest contains case-insensitive duplicates',
   async (dir) => {
@@ -176,14 +163,14 @@ sandboxTest(
       home: dir,
       respond: () => ok(),
     });
-
     const report = await runActivation(
       installExtensions('code', CONFIG_KEY),
       context,
     );
-
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('duplicate');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(
+      report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+    ).toContain('duplicate');
     expect(calls).toHaveLength(0);
   },
 );

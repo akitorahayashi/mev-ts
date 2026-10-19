@@ -259,13 +259,9 @@ export async function runRemoteInstaller(
           entry.error?.includes(upgrade.blockedWhen.errorContains)
         ) {
           const error = entry.error;
-          return {
-            ...activationReport(base, [
-              { label: base.subject, status: 'blocked', reason: error },
-            ]),
-            error,
-            entries: undefined,
-          };
+          return activationReport(base, [
+            { label: base.subject, status: 'blocked', reason: error },
+          ]);
         }
         if (entry.status === 'failed') {
           return activationReport(base, [stepOutcome(entry)]);

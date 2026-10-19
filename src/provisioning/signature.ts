@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { AssetSource } from '../assets/registry';
 import type { PackageRequirement } from '../brew/package';
+import type { Activation, CommandStep } from './activation/contract';
 import type { Target } from './target';
 
 /** One embedded role asset as the signature sees it. */
@@ -30,17 +31,18 @@ function packageIntent(packages: PackageRequirement): PackageRequirement {
   };
 }
 
-/**
- * Canonicalize an activation (or any value reached from one) into a stable,
- * order-independent shape to hash. It recurses arrays and objects, sorts every
- * object's keys so construction order never shifts the digest, and drops
- * function-valued properties and presentation-only `report` metadata.
- * `HostPath` (`{ kind: 'home', rel }`) and `AssetRef`
- * (`{ key }`) are plain data, so their serialized form already carries their
- * identity; there is no per-kind projection. This replaces the parallel
- * re-declaration of the `Activation` contract, so a new kind or field needs no
- * mirror here.
- */
+function stepIntent({ report: _report, ...intent }: CommandStep): unknown {
+  return intent;
+}
+
+function activationIntent(activation: Activation): unknown {
+  return canonicalize(
+    activation.kind === 'command'
+      ? { ...activation, steps: activation.steps.map(stepIntent) }
+      : activation,
+  );
+}
+
 function canonicalize(value: unknown): unknown {
   if (typeof value === 'function') return undefined;
   if (value === null || typeof value !== 'object') return value;
@@ -50,7 +52,6 @@ function canonicalize(value: unknown): unknown {
   const record = value as Record<string, unknown>;
   const canonical: Record<string, unknown> = {};
   for (const key of Object.keys(record).sort()) {
-    if (key === 'report') continue;
     const entry = canonicalize(record[key]);
     if (entry !== undefined) canonical[key] = entry;
   }
@@ -85,7 +86,7 @@ export function signatureOf(
     role: target.role,
     packages: packageIntent(target.packages),
     assets,
-    activations: target.activations.map(canonicalize),
+    activations: target.activations.map(activationIntent),
   };
   const digest = createHash('sha256')
     .update(JSON.stringify(input))

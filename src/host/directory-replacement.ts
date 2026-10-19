@@ -1,7 +1,7 @@
 import { lstat, mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { lstatIfPresent } from './absence';
-import { withSwapTransaction } from './transaction';
+import { type TransactionOptions, withSwapTransaction } from './transaction';
 
 const executableBits = 0o111;
 
@@ -54,14 +54,12 @@ async function directoriesMatch(left: string, right: string): Promise<boolean> {
  * Reconciles a directory after its desired state has been fully built in a
  * sibling staging directory. An equivalent directory is left in place.
  *
- * The final swap uses rename calls with best-effort rollback for in-process
- * failures. It is not crash-safe: a process or host crash between moving the
- * old directory aside and moving the new directory into place can leave the
- * target path absent with the backup sibling still present.
+ * The caller's home identifies the recovery store for an interrupted swap.
  */
 export async function replaceDirectoryAfterBuild(
   path: string,
   buildDirectory: (tmp: string) => Promise<void>,
+  options: TransactionOptions,
 ): Promise<boolean> {
   return withSwapTransaction(
     path,
@@ -77,5 +75,6 @@ export async function replaceDirectoryAfterBuild(
       await install();
       return true;
     },
+    options,
   );
 }

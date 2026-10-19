@@ -24,7 +24,7 @@ sandbox('places a symlink at an unoccupied destination', async (dir) => {
   const target = join(dir, 'target-file');
   await writeFile(target, 'contents');
 
-  await placeSymlink(link, target);
+  await placeSymlink(link, target, { home: dir });
 
   expect(await readlink(link)).toBe(target);
   expect(await isSymlinkTo(link, target)).toBe(true);
@@ -59,7 +59,7 @@ sandbox('replaces an existing symlink that points elsewhere', async (dir) => {
   await writeFile(target, 'contents');
   await symlink(join(dir, 'stale'), link);
 
-  await placeSymlink(link, target);
+  await placeSymlink(link, target, { home: dir });
 
   expect(await isSymlinkTo(link, target)).toBe(true);
   expect(await stagingSiblings(link)).toEqual([]);
@@ -71,7 +71,7 @@ sandbox('replaces an existing regular file with the symlink', async (dir) => {
   await writeFile(target, 'contents');
   await writeFile(link, 'previous');
 
-  await placeSymlink(link, target);
+  await placeSymlink(link, target, { home: dir });
 
   expect(await isSymlinkTo(link, target)).toBe(true);
   expect(await stagingSiblings(link)).toEqual([]);
@@ -86,7 +86,7 @@ sandbox(
     await mkdir(link);
     await writeFile(join(link, 'inside.txt'), 'data');
 
-    await placeSymlink(link, target);
+    await placeSymlink(link, target, { home: dir });
 
     expect(await isSymlinkTo(link, target)).toBe(true);
     expect(await stagingSiblings(link)).toEqual([]);
@@ -104,7 +104,7 @@ sandbox(
 
     await chmod(dir, 0o500);
     try {
-      await expect(placeSymlink(link, target)).rejects.toThrow();
+      await expect(placeSymlink(link, target, { home: dir })).rejects.toThrow();
       expect(await readlink(link)).toBe(previous);
     } finally {
       await chmod(dir, 0o700);
