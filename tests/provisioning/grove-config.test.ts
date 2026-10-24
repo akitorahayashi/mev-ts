@@ -1,5 +1,12 @@
 import { expect } from 'bun:test';
-import { lstat, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { writeSshHost } from '../../src/github/ssh-host';
@@ -196,12 +203,12 @@ sandboxTest(
 );
 
 sandboxTest(
-  'adopts an existing file that already matches the rendered config',
+  'adopts an unrecorded file that already matches the rendered config',
   async (homeDir) => {
     await deployConfig(homeDir);
     const { context } = recordingContext({ home: homeDir, respond: validated });
     await runActivation(activation, context);
-    await writeFile(join(homeDir, '.mev/grove/written'), 'sha256:stale\n');
+    await unlink(join(homeDir, '.mev/grove/written'));
 
     const adopted = await runActivation(activation, context);
     await deployConfig(

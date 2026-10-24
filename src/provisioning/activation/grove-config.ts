@@ -6,7 +6,7 @@ import { readSshHost } from '../../github/ssh-host';
 import { renderConfig } from '../../grove/config';
 import { validateConfig } from '../../grove/validate';
 import { lstatIfPresent, readTextIfPresent } from '../../host/absence';
-import { writeFileAtomically } from '../../host/atomic-file';
+import { writeFileIfChanged } from '../../host/atomic-file';
 import type { Context } from '../../host/context';
 import { readDeployedText } from '../../host/deployed-file';
 import {
@@ -91,7 +91,7 @@ export async function runGroveConfig(
       contents,
       sourceStats.mode & 0o7777,
     );
-    await writeFileAtomically(recordPath, `${digest(contents)}\n`);
+    await writeFileIfChanged(recordPath, `${digest(contents)}\n`);
     return activationReport(base, [
       {
         label: base.subject,
