@@ -1,41 +1,28 @@
-version = 1
+version = 2
 
-[repos.prf]
-path = "Rust/prf"
-url = "git@github.com:akitorahayashi/prf.git"
+[groups.Rust]
+prf = "git@github.com:akitorahayashi/prf.git"
+asterism = "git@github.com:asterismhq/asterism.git"
+grove = "git@github.com:akitorahayashi/grove.git"
+tmpc = "git@github.com:akitorahayashi/tmpc.git"
 
-[repos.asterism]
-path = "Rust/asterism"
-url = "git@github.com:asterismhq/asterism.git"
+[groups.Skills]
+comment-review = "git@github.com:akitorahayashi/comment-review.git"
+xlsx = "git@github.com:akitorahayashi/xlsx.git"
+prune-comments = "git@github.com:akitorahayashi/prune-comments.git"
+agent-device = "git@github.com:akitorahayashi/agent-device.git"
+worktree-crew = "git@github.com:akitorahayashi/worktree-crew.git"
+simplify = "git@github.com:akitorahayashi/simplify.git"
+skills-plugin-bun = "git@github.com:akitorahayashi/skills-plugin-bun.git"
+skills-plugin-py = "git@github.com:akitorahayashi/skills-plugin-py.git"
+skills-plugin = "git@github.com:akitorahayashi/skills-plugin.git"
 
-[repos.grove]
-path = "Rust/grove"
-url = "git@github.com:akitorahayashi/grove.git"
+[groups.TypeScript]
+mev-ts = "git@github.com:akitorahayashi/mev-ts.git"
 
-[repos.tmpc]
-path = "Rust/tmpc"
-url = "git@github.com:akitorahayashi/tmpc.git"
+[groups.Workspace]
+note = "git@github.com:akitorahayashi/note.git"
+eval-evidence = "git@github.com:akitorahayashi/eval-evidence.git"
 
-[repos.comment-review]
-path = "Skills/comment-review"
-url = "git@github.com:akitorahayashi/comment-review.git"
-
-[repos.xlsx]
-path = "Skills/xlsx"
-url = "git@github.com:akitorahayashi/xlsx.git"
-
-[repos.prune-comments]
-path = "Skills/prune-comments"
-url = "git@github.com:akitorahayashi/prune-comments.git"
-
-[repos.agent-device-plugin]
-path = "Skills/agent-device-plugin"
-url = "git@github.com:akitorahayashi/agent-device-plugin.git"
-
-[repos.mev-ts]
-path = "TypeScript/mev-ts"
-url = "git@github.com:akitorahayashi/mev-ts.git"
-
-[repos.note]
-path = "Workspace/note"
-url = "git@github.com:akitorahayashi/note.git"
+[removed.groups.Skills]
+agent-device-plugin = { url = "git@github.com:akitorahayashi/agent-device-plugin.git", moved_to = "agent-device" }

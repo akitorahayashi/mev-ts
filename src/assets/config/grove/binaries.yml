@@ -1,4 +1,6 @@
+# Pinned rather than `latest`: the rendered grove.toml uses the `removed`
+# schema introduced in this release, and a pin reaches already-installed hosts.
 binaries:
   - name: gv
     repo: akitorahayashi/grove
-    tag: latest
+    tag: v1.1.0

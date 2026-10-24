@@ -52,7 +52,7 @@ test('embedded asset preflight rejects a Grove repository without a URL', async 
   await expect(
     validateEmbeddedAssets(
       mapAssetSource({
-        'demo/grove.toml': '[repos.invalid]\npath = "invalid"\n',
+        'demo/grove.toml': 'version = 2\n[repos.invalid]\npath = "invalid"\n',
       }),
       [demo],
     ),

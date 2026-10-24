@@ -1,10 +1,20 @@
-import { stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readFile, stat } from 'node:fs/promises';
 import { type AssetRef, deployedPath } from '../../assets/ref';
+import { ProvisioningError } from '../../errors';
 import { readSshHost } from '../../github/ssh-host';
 import { renderConfig } from '../../grove/config';
+import { validateConfig } from '../../grove/validate';
+import { lstatIfPresent, readTextIfPresent } from '../../host/absence';
+import { writeFileIfChanged } from '../../host/atomic-file';
 import type { Context } from '../../host/context';
 import { readDeployedText } from '../../host/deployed-file';
-import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
+import {
+  type HostPath,
+  mevPath,
+  resolveHostPath,
+  symbolic,
+} from '../../host/path';
 import { reconcileRegularFile } from '../../host/regular-file';
 import type {
   Activation,
@@ -14,6 +24,29 @@ import type {
 import { activationReport, guarded } from './reconcile';
 
 type GroveConfigActivation = Extract<Activation, { kind: 'groveConfig' }>;
+
+/*
+ * `gv add` edits the base file in place, so a destination that no longer
+ * matches what mev last wrote holds changes only the user can move into the
+ * asset or an override; replacing it would silently drop them.
+ */
+const writtenRecord = mevPath('grove', 'written');
+
+function digest(contents: Buffer): string {
+  return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
+}
+
+async function requireOwned(
+  existing: Buffer | null,
+  recordPath: string,
+  displayDest: string,
+): Promise<void> {
+  const record = (await readTextIfPresent(recordPath))?.trim();
+  if (existing !== null && digest(existing) === record) return;
+  throw new ProvisioningError(
+    `${displayDest} differs from what mev last wrote. Move its changes into the mev grove asset or a grove.override.toml (gv add --override), move the file aside, and run mev make grove again.`,
+  );
+}
 
 export function groveConfig(source: AssetRef, dest: HostPath): Activation {
   return { kind: 'groveConfig', source, dest };
@@ -42,12 +75,23 @@ export async function runGroveConfig(
       readSshHost(context.home),
     ]);
     const rendered = renderConfig(raw, sshHost, source);
+    const contents = Buffer.from(rendered);
     const dest = resolveHostPath(activation.dest, context.home);
+    const recordPath = resolveHostPath(writtenRecord, context.home);
+    const current = await lstatIfPresent(dest);
+    const existing = current?.isFile() ? await readFile(dest) : null;
+    if (!existing?.equals(contents)) {
+      if (current !== null) {
+        await requireOwned(existing, recordPath, base.subject);
+      }
+      await validateConfig(rendered, dest, context);
+    }
     const changed = await reconcileRegularFile(
       dest,
-      Buffer.from(rendered),
+      contents,
       sourceStats.mode & 0o7777,
     );
+    await writeFileIfChanged(recordPath, `${digest(contents)}\n`);
     return activationReport(base, [
       {
         label: base.subject,

@@ -7,6 +7,7 @@ import {
   installedVersion,
   latestTag,
   parseReleaseBinaries,
+  RELEASE_BIN_DIR,
   type ReleaseArch,
   type ReleaseBinary,
   resolveLatestTag,
@@ -27,7 +28,6 @@ import type { ReconcileStep } from './reconcile';
 
 type ReleaseActivation = Extract<Activation, { kind: 'release' }>;
 
-const BIN_DIR = '.cargo/bin';
 const RELEASE_DOWNLOAD_CONCURRENCY = 4;
 
 export function releaseBinaries(configKey: string): Activation {
@@ -140,7 +140,7 @@ export const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
   parse: parseReleaseBinaries,
   manifestLabel: 'Release binaries manifest',
   describe: () => ({
-    subject: `~/${BIN_DIR} release binaries`,
+    subject: `~/${RELEASE_BIN_DIR} release binaries`,
     unchangedCollection: 'release binaries',
   }),
   // Each binary is independent and writes to a unique path, so the network-bound
@@ -149,7 +149,7 @@ export const releaseKind = manifestKind<ReleaseActivation, ReleaseBinary>({
   concurrency: RELEASE_DOWNLOAD_CONCURRENCY,
   steps: async (binaries, _activation, context, runOptions) => {
     const arch = await detectArch(context);
-    const binDir = join(context.home, BIN_DIR);
+    const binDir = join(context.home, RELEASE_BIN_DIR);
     await mkdir(binDir, { recursive: true });
     return binaries.map((binary) =>
       releaseStep(binary, arch, binDir, context, runOptions),
