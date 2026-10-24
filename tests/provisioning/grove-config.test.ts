@@ -1,33 +1,30 @@
 import { expect } from 'bun:test';
-import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { deployedPath } from '../../src/assets/ref';
 import { writeSshHost } from '../../src/github/ssh-host';
+import type { CommandResult } from '../../src/host/command';
 import { home } from '../../src/host/path';
 import { loadToml } from '../../src/host/toml';
 import { groveConfig, runActivation } from '../../src/provisioning/activation';
-import { recordingContext } from '../fixtures/fake-context';
+import { type Responder, recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('mev-grove-config-');
 const source = { key: 'grove/grove.toml' };
 const activation = groveConfig(source, home('Desktop/grove.toml'));
 
-const CONFIG = `version = 1
+const CONFIG = `version = 2
 
-[repos.github]
-path = "TypeScript/github"
-url = "git@github.com:owner/github.git"
-
-[repos.other]
-path = "TypeScript/other"
-url = "git@gitlab.example:owner/other.git"
+[groups.TypeScript]
+github = "git@github.com:owner/github.git"
+other = "git@gitlab.example:owner/other.git"
 `;
 
-async function deployConfig(homeDir: string): Promise<void> {
+async function deployConfig(homeDir: string, config = CONFIG): Promise<void> {
   const path = deployedPath(source, homeDir);
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, CONFIG);
+  await writeFile(path, config);
 }
 
 function destination(homeDir: string): string {
@@ -39,17 +36,21 @@ async function repoUrls(homeDir: string): Promise<Record<string, string>> {
     await readFile(destination(homeDir), 'utf8'),
     'rendered grove config',
   );
-  const repos = parsed['repos'] as Record<string, { url: string }>;
-  return Object.fromEntries(
-    Object.entries(repos).map(([name, repo]) => [name, repo.url]),
-  );
+  const groups = parsed['groups'] as Record<string, Record<string, string>>;
+  return groups['TypeScript'] ?? {};
+}
+
+const validated: Responder = () => ({ code: 0, stdout: '', stderr: '' });
+
+function rejected(stderr: string): Responder {
+  return (): CommandResult => ({ code: 1, stdout: '', stderr });
 }
 
 sandboxTest(
   'uses github.com without a per-machine SSH host and is idempotent',
   async (homeDir) => {
     await deployConfig(homeDir);
-    const { context } = recordingContext({ home: homeDir });
+    const { context } = recordingContext({ home: homeDir, respond: validated });
 
     const first = await runActivation(activation, context);
     const second = await runActivation(activation, context);
@@ -69,7 +70,7 @@ sandboxTest(
   async (homeDir) => {
     await deployConfig(homeDir);
     await writeSshHost(homeDir, 'github-work');
-    const { context } = recordingContext({ home: homeDir });
+    const { context } = recordingContext({ home: homeDir, respond: validated });
 
     const report = await runActivation(activation, context);
 
@@ -81,11 +82,144 @@ sandboxTest(
   },
 );
 
+sandboxTest(
+  'validates a candidate beside the destination with the installed gv',
+  async (homeDir) => {
+    await deployConfig(homeDir);
+    let candidate: string | undefined;
+    const { context, calls } = recordingContext({
+      home: homeDir,
+      respond: async (_command, args) => {
+        candidate = args[2];
+        expect(await readFile(candidate ?? '', 'utf8')).toContain('[groups');
+        return { code: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    await runActivation(activation, context);
+
+    expect(
+      calls.map(({ command, args }) => [command, args[0], args[1]]),
+    ).toEqual([[join(homeDir, '.cargo/bin/gv'), 'validate', '--config']]);
+    expect(dirname(candidate ?? '')).toBe(dirname(destination(homeDir)));
+    expect(await readdir(dirname(destination(homeDir)))).toEqual([
+      'grove.toml',
+    ]);
+  },
+);
+
+sandboxTest(
+  'keeps the existing file when gv rejects the rendered config',
+  async (homeDir) => {
+    await deployConfig(homeDir);
+    const first = recordingContext({ home: homeDir, respond: validated });
+    await runActivation(activation, first.context);
+    const before = await readFile(destination(homeDir), 'utf8');
+    await deployConfig(
+      homeDir,
+      `${CONFIG}added = "git@github.com:owner/added.git"\n`,
+    );
+    const { context } = recordingContext({
+      home: homeDir,
+      respond: rejected('unknown field'),
+    });
+
+    const report = await runActivation(activation, context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('unknown field');
+    expect(await readFile(destination(homeDir), 'utf8')).toBe(before);
+    expect(await readdir(dirname(destination(homeDir)))).toEqual([
+      'grove.toml',
+    ]);
+  },
+);
+
+sandboxTest(
+  'replaces a file mev wrote when the asset changes',
+  async (homeDir) => {
+    await deployConfig(homeDir);
+    const { context } = recordingContext({ home: homeDir, respond: validated });
+    await runActivation(activation, context);
+    await deployConfig(
+      homeDir,
+      `${CONFIG}added = "git@github.com:owner/added.git"\n`,
+    );
+
+    const report = await runActivation(activation, context);
+
+    expect(report.status).toBe('changed');
+    expect(await repoUrls(homeDir)).toMatchObject({
+      added: 'git@github.com:owner/added.git',
+    });
+  },
+);
+
+sandboxTest(
+  'refuses to replace a file edited since mev wrote it',
+  async (homeDir) => {
+    await deployConfig(homeDir);
+    const { context, calls } = recordingContext({
+      home: homeDir,
+      respond: validated,
+    });
+    await runActivation(activation, context);
+    const edited = `${await readFile(destination(homeDir), 'utf8')}local = "git@github.com:owner/local.git"\n`;
+    await writeFile(destination(homeDir), edited);
+    await deployConfig(
+      homeDir,
+      `${CONFIG}added = "git@github.com:owner/added.git"\n`,
+    );
+
+    const report = await runActivation(activation, context);
+
+    expect(report.status).toBe('failed');
+    expect(report.error).toContain('differs from what mev last wrote');
+    expect(await readFile(destination(homeDir), 'utf8')).toBe(edited);
+    expect(calls).toHaveLength(1);
+  },
+);
+
+sandboxTest(
+  'refuses to replace an existing file mev has no record of',
+  async (homeDir) => {
+    await deployConfig(homeDir);
+    await mkdir(dirname(destination(homeDir)), { recursive: true });
+    await writeFile(destination(homeDir), 'version = 2\n');
+    const { context } = recordingContext({ home: homeDir, respond: validated });
+
+    const report = await runActivation(activation, context);
+
+    expect(report.status).toBe('failed');
+    expect(await readFile(destination(homeDir), 'utf8')).toBe('version = 2\n');
+  },
+);
+
+sandboxTest(
+  'adopts an existing file that already matches the rendered config',
+  async (homeDir) => {
+    await deployConfig(homeDir);
+    const { context } = recordingContext({ home: homeDir, respond: validated });
+    await runActivation(activation, context);
+    await writeFile(join(homeDir, '.mev/grove/written'), 'sha256:stale\n');
+
+    const adopted = await runActivation(activation, context);
+    await deployConfig(
+      homeDir,
+      `${CONFIG}added = "git@github.com:owner/added.git"\n`,
+    );
+    const replaced = await runActivation(activation, context);
+
+    expect(adopted.status).toBe('unchanged');
+    expect(replaced.status).toBe('changed');
+  },
+);
+
 sandboxTest('fails for a malformed stored SSH host', async (homeDir) => {
   await deployConfig(homeDir);
   await mkdir(join(homeDir, '.mev'), { recursive: true });
   await writeFile(join(homeDir, '.mev/ssh-host'), 'git@github.com\n');
-  const { context } = recordingContext({ home: homeDir });
+  const { context } = recordingContext({ home: homeDir, respond: validated });
 
   const report = await runActivation(activation, context);
 
