@@ -14,6 +14,8 @@ import type { CommandResult } from '../../src/host/command';
 import { home } from '../../src/host/path';
 import { loadToml } from '../../src/host/toml';
 import { groveConfig, runActivation } from '../../src/provisioning/activation';
+import type { ActivationReport } from '../../src/provisioning/activation/contract';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { type Responder, recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -53,6 +55,10 @@ function rejected(stderr: string): Responder {
   return (): CommandResult => ({ code: 1, stdout: '', stderr });
 }
 
+function failure(report: ActivationReport): string | undefined {
+  return report.outcomes.find((outcome) => outcome.status === 'failed')?.error;
+}
+
 sandboxTest(
   'uses github.com without a per-machine SSH host and is idempotent',
   async (homeDir) => {
@@ -62,8 +68,8 @@ sandboxTest(
     const first = await runActivation(activation, context);
     const second = await runActivation(activation, context);
 
-    expect(first.status).toBe('changed');
-    expect(second.status).toBe('unchanged');
+    expect(outcomeStatus(first.outcomes)).toBe('changed');
+    expect(outcomeStatus(second.outcomes)).toBe('unchanged');
     expect((await lstat(destination(homeDir))).isFile()).toBe(true);
     expect(await repoUrls(homeDir)).toEqual({
       github: 'git@github.com:owner/github.git',
@@ -81,7 +87,7 @@ sandboxTest(
 
     const report = await runActivation(activation, context);
 
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(await repoUrls(homeDir)).toEqual({
       github: 'git@github-work:owner/github.git',
       other: 'git@gitlab.example:owner/other.git',
@@ -133,8 +139,8 @@ sandboxTest(
 
     const report = await runActivation(activation, context);
 
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('unknown field');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(failure(report)).toContain('unknown field');
     expect(await readFile(destination(homeDir), 'utf8')).toBe(before);
     expect(await readdir(dirname(destination(homeDir)))).toEqual([
       'grove.toml',
@@ -155,7 +161,7 @@ sandboxTest(
 
     const report = await runActivation(activation, context);
 
-    expect(report.status).toBe('changed');
+    expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(await repoUrls(homeDir)).toMatchObject({
       added: 'git@github.com:owner/added.git',
     });
@@ -180,8 +186,8 @@ sandboxTest(
 
     const report = await runActivation(activation, context);
 
-    expect(report.status).toBe('failed');
-    expect(report.error).toContain('differs from what mev last wrote');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
+    expect(failure(report)).toContain('differs from what mev last wrote');
     expect(await readFile(destination(homeDir), 'utf8')).toBe(edited);
     expect(calls).toHaveLength(1);
   },
@@ -197,7 +203,7 @@ sandboxTest(
 
     const report = await runActivation(activation, context);
 
-    expect(report.status).toBe('failed');
+    expect(outcomeStatus(report.outcomes)).toBe('failed');
     expect(await readFile(destination(homeDir), 'utf8')).toBe('version = 2\n');
   },
 );
@@ -217,8 +223,8 @@ sandboxTest(
     );
     const replaced = await runActivation(activation, context);
 
-    expect(adopted.status).toBe('unchanged');
-    expect(replaced.status).toBe('changed');
+    expect(outcomeStatus(adopted.outcomes)).toBe('unchanged');
+    expect(outcomeStatus(replaced.outcomes)).toBe('changed');
   },
 );
 
@@ -230,8 +236,8 @@ sandboxTest('fails for a malformed stored SSH host', async (homeDir) => {
 
   const report = await runActivation(activation, context);
 
-  expect(report.status).toBe('failed');
-  expect(report.error).toContain('GitHub SSH host');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(failure(report)).toContain('GitHub SSH host');
   await expect(readFile(destination(homeDir))).rejects.toMatchObject({
     code: 'ENOENT',
   });

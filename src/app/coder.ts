@@ -7,16 +7,19 @@ import {
   SKILLS_PREFIX,
   skillsManifest,
 } from '../coder/paths';
+import type { SelectionInput } from '../provisioning/target';
 import {
   type ConfigToggleSurface,
   configClearManifest,
   configSelectManifest,
   type SelectEntries,
 } from './config-toggle';
+import { withHomeMutation } from './mutation';
 
 type CoderSelectable = 'agents' | 'skills';
 
 interface CoderDescriptor {
+  readonly input: SelectionInput;
   readonly read: (sourceDir: string) => Promise<string[]>;
   readonly manifest: (home: string) => string;
   readonly prefix: string;
@@ -26,12 +29,14 @@ interface CoderDescriptor {
 /** One record per selectable, replacing the parallel per-field ternaries. */
 const DESCRIPTORS: Record<CoderSelectable, CoderDescriptor> = {
   agents: {
+    input: 'coderAgents',
     read: readSections,
     manifest: agentsManifest,
     prefix: AGENTS_SECTIONS_PREFIX,
     message: 'Select enabled AGENTS.md sections',
   },
   skills: {
+    input: 'coderSkills',
     read: readSkills,
     manifest: skillsManifest,
     prefix: SKILLS_PREFIX,
@@ -45,6 +50,8 @@ async function coderSelection(
 ): Promise<ConfigToggleSurface> {
   const descriptor = DESCRIPTORS[kind];
   return {
+    home,
+    input: descriptor.input,
     catalog: await descriptor.read(deployedDir(descriptor.prefix, home)),
     manifestPath: descriptor.manifest(home),
     message: descriptor.message,
@@ -58,12 +65,16 @@ export async function configSelect(
   warn: (message: string) => void,
   select: SelectEntries,
 ): Promise<void> {
-  await configSelectManifest(await coderSelection(kind, home), warn, select);
+  await withHomeMutation(home, `config ${kind}`, async () =>
+    configSelectManifest(await coderSelection(kind, home), warn, select),
+  );
 }
 
 export async function configSelectClear(
   kind: CoderSelectable,
   home: string,
 ): Promise<void> {
-  await configClearManifest(await coderSelection(kind, home));
+  await withHomeMutation(home, `config ${kind} --clear`, async () =>
+    configClearManifest(await coderSelection(kind, home)),
+  );
 }

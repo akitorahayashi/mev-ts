@@ -45,9 +45,15 @@ else
 fi
 
 tmp_dir=""
+stage_dir=""
 cleanup() {
 	status=$?
 	trap - EXIT INT TERM HUP
+	if [[ -n "$stage_dir" && -d "$stage_dir" ]]; then
+		if ! rm -rf "$stage_dir"; then
+			echo "Warning: failed to remove staging directory: $stage_dir" >&2
+		fi
+	fi
 	if [[ -n "$tmp_dir" && -d "$tmp_dir" ]]; then
 		if ! rm -rf "$tmp_dir"; then
 			echo "Warning: failed to remove temporary directory: $tmp_dir" >&2
@@ -96,9 +102,21 @@ if [[ "$actual_sha256" != "$expected_sha256" ]]; then
 fi
 
 mkdir -p "$install_dir"
-install -m 755 "$tmp_file" "${install_dir}/${binary_name}"
+installed_file="${install_dir}/${binary_name}"
+validate_destination() {
+	if [[ -L "$installed_file" || (-e "$installed_file" && ! -f "$installed_file") ]]; then
+		echo "Installation destination must be absent or a regular file, not a symlink: $installed_file" >&2
+		exit 1
+	fi
+}
+validate_destination
+stage_dir="$(mktemp -d "${install_dir}/.mev-install.XXXXXX")"
+staged_file="${stage_dir}/${binary_name}"
+install -m 755 "$tmp_file" "$staged_file"
 
-installed_version="$("${install_dir}/${binary_name}" --version)"
+installed_version="$("$staged_file" --version)"
+validate_destination
+mv -f -- "$staged_file" "$installed_file"
 echo "Installed ${binary_name} ${installed_version} to ${install_dir}/${binary_name}"
 
 case ":${PATH}:" in

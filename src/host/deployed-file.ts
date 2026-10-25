@@ -1,9 +1,38 @@
 import type { Dirent } from 'node:fs';
-import { ProvisioningError } from '../errors';
+import { errorMessage, ProvisioningError } from '../errors';
 import { readDirentsIfPresent, readTextIfPresent } from './absence';
 
 function deployFirstMessage(label: string, path: string): string {
   return `${label} not found: ${path}. Run provisioning to deploy it first.`;
+}
+
+async function readResource<T>(
+  path: string,
+  label: string,
+  read: () => Promise<T | null>,
+): Promise<T> {
+  let value: T | null;
+  try {
+    value = await read();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      'syscall' in error &&
+      typeof error.syscall === 'string'
+    ) {
+      const diagnostic = new ProvisioningError(
+        `Failed to read ${label} at ${path}: ${errorMessage(error)}`,
+      );
+      diagnostic.cause = error;
+      throw diagnostic;
+    }
+    throw error;
+  }
+  if (value === null)
+    throw new ProvisioningError(deployFirstMessage(label, path));
+  return value;
 }
 
 /**
@@ -15,11 +44,7 @@ export async function readDeployedText(
   path: string,
   label: string,
 ): Promise<string> {
-  const raw = await readTextIfPresent(path);
-  if (raw === null) {
-    throw new ProvisioningError(deployFirstMessage(label, path));
-  }
-  return raw;
+  return readResource(path, label, () => readTextIfPresent(path));
 }
 
 /**
@@ -30,9 +55,5 @@ export async function readDeployedDirents(
   path: string,
   label: string,
 ): Promise<Dirent[]> {
-  const entries = await readDirentsIfPresent(path);
-  if (entries === null) {
-    throw new ProvisioningError(deployFirstMessage(label, path));
-  }
-  return entries;
+  return readResource(path, label, () => readDirentsIfPresent(path));
 }

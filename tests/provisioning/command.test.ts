@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
 import { runActivation, runCommand } from '../../src/provisioning/activation';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
@@ -13,7 +14,6 @@ const rubyAssets: AssetSource = {
     throw new Error(`unexpected asset ${key}`);
   },
 };
-
 test('command factory rejects empty step labels', () => {
   expect(() =>
     runCommand({
@@ -22,7 +22,6 @@ test('command factory rejects empty step labels', () => {
     }),
   ).toThrow('non-empty label');
 });
-
 test('reads inject asset values and captures feed later steps', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -46,13 +45,10 @@ test('reads inject asset values and captures feed later steps', async () => {
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('changed');
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
   expect(calls[1]?.args).toEqual(['3.3.3', '/opt/homebrew']);
 });
-
 test('a failed capture fails the activation and stops the pipeline', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -74,21 +70,18 @@ test('a failed capture fails the activation and stops the pipeline', async () =>
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('failed');
-  expect(report.entries).toEqual([
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(report.outcomes).toEqual([
     {
-      key: 'brew prefix',
-      value: 'brew --prefix',
+      label: 'brew prefix',
+      details: ['brew --prefix'],
       status: 'failed',
       error: 'prefix unavailable',
     },
   ]);
   expect(calls.map((call) => call.command)).toEqual(['brew']);
 });
-
 test('home and basePath resolve as reserved scope references', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -104,13 +97,10 @@ test('home and basePath resolve as reserved scope references', async () => {
       },
     ],
   });
-
   await runActivation(activation, context);
-
   expect(calls[0]?.command).toBe('/home/u/bin/tool');
   expect(calls[0]?.args).toEqual(['/usr/bin']);
 });
-
 test('splitRef expands a whitespace-separated reference into arguments', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -128,12 +118,9 @@ test('splitRef expands a whitespace-separated reference into arguments', async (
     reads: { components: 'demo/components' },
     steps: [{ label: 'add', argv: ['add', { splitRef: 'components' }] }],
   });
-
   await runActivation(activation, context);
-
   expect(calls[0]?.args).toEqual(['clippy', 'rustfmt']);
 });
-
 test('a commandOutputMatches guard skips only on the exact declared output', async () => {
   const activation = runCommand({
     label: 'demo',
@@ -151,31 +138,30 @@ test('a commandOutputMatches guard skips only on the exact declared output', asy
       },
     ],
   });
-
   const matching = recordingContext({
     home: '/home/u',
     assets: rubyAssets,
     respond: (command) => (command === 'tool' ? ok('  3.3.3\n') : ok()),
   });
-  expect((await runActivation(activation, matching.context)).status).toBe(
-    'unchanged',
-  );
+  expect(
+    outcomeStatus((await runActivation(activation, matching.context)).outcomes),
+  ).toBe('unchanged');
   expect(matching.calls.map((call) => call.command)).toEqual(['tool']);
-
   const differing = recordingContext({
     home: '/home/u',
     assets: rubyAssets,
     respond: (command) => (command === 'tool' ? ok('3.2.0\n') : ok()),
   });
-  expect((await runActivation(activation, differing.context)).status).toBe(
-    'changed',
-  );
+  expect(
+    outcomeStatus(
+      (await runActivation(activation, differing.context)).outcomes,
+    ),
+  ).toBe('changed');
   expect(differing.calls.map((call) => call.command)).toEqual([
     'tool',
     'install',
   ]);
 });
-
 test('a commandOutputMatches guard with contains accepts decorated output', async () => {
   const activation = runCommand({
     label: 'demo',
@@ -199,11 +185,11 @@ test('a commandOutputMatches guard with contains accepts decorated output', asyn
     respond: (command) =>
       command === 'tool' ? ok('3.3.3-aarch64-apple-darwin (default)\n') : ok(),
   });
-
-  expect((await runActivation(activation, context)).status).toBe('unchanged');
+  expect(
+    outcomeStatus((await runActivation(activation, context)).outcomes),
+  ).toBe('unchanged');
   expect(calls.map((call) => call.command)).toEqual(['tool']);
 });
-
 test('a failing guard command never satisfies the guard', async () => {
   const activation = runCommand({
     label: 'demo',
@@ -228,10 +214,10 @@ test('a failing guard command never satisfies the guard', async () => {
     respond: (command) =>
       command === 'tool' ? { code: 1, stdout: '3.3.3\n', stderr: '' } : ok(),
   });
-
-  expect((await runActivation(activation, context)).status).toBe('changed');
+  expect(
+    outcomeStatus((await runActivation(activation, context)).outcomes),
+  ).toBe('changed');
 });
-
 test('a pathList env value drops empty segments and joins with colon', async () => {
   const { calls, context } = recordingContext({
     home: '/home/u',
@@ -255,13 +241,10 @@ test('a pathList env value drops empty segments and joins with colon', async () 
       },
     ],
   });
-
   await runActivation(activation, context);
-
   // The empty basePath is dropped rather than leaving a trailing separator.
   expect(calls[0]?.options?.env).toEqual({ PATH: '/home/u/.local/bin' });
 });
-
 test('a read binds the trimmed asset content', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -279,12 +262,9 @@ test('a read binds the trimmed asset content', async () => {
     reads: { version: 'ruby/.ruby-version' },
     steps: [{ label: 'x', argv: ['x', { ref: 'version' }] }],
   });
-
   await runActivation(activation, context);
-
   expect(calls[0]?.args).toEqual(['3.3.3']);
 });
-
 test('a missing read asset fails the activation before any step runs', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -301,13 +281,10 @@ test('a missing read asset fails the activation before any step runs', async () 
     reads: { version: 'ruby/.ruby-version' },
     steps: [{ label: 'x', argv: ['x'] }],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('failed');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
   expect(calls).toHaveLength(0);
 });
-
 test('skipIf with a satisfied pathExists guard marks the step unchanged', async () => {
   await withTemporaryDirectory(
     async (sandbox) => {
@@ -326,17 +303,14 @@ test('skipIf with a satisfied pathExists guard marks the step unchanged', async 
           },
         ],
       });
-
       const report = await runActivation(activation, context);
-
       expect(calls).toHaveLength(0);
-      expect(report.entries?.[0]?.status).toBe('unchanged');
-      expect(report.status).toBe('unchanged');
+      expect(report.outcomes[0]?.status).toBe('unchanged');
+      expect(outcomeStatus(report.outcomes)).toBe('unchanged');
     },
     { prefix: 'cmd-' },
   );
 });
-
 test('skipIf pathExists surfaces filesystem errors instead of running', async () => {
   await withTemporaryDirectory(
     async (sandbox) => {
@@ -357,17 +331,16 @@ test('skipIf pathExists surfaces filesystem errors instead of running', async ()
           },
         ],
       });
-
       const report = await runActivation(activation, context);
-
       expect(calls).toHaveLength(0);
-      expect(report.status).toBe('failed');
-      expect(report.error).toMatch(/not a directory/i);
+      expect(outcomeStatus(report.outcomes)).toBe('failed');
+      expect(
+        report.outcomes.find((outcome) => outcome.status === 'failed')?.error,
+      ).toMatch(/not a directory/i);
     },
     { prefix: 'cmd-error-' },
   );
 });
-
 test('a non-zero step fails the activation and halts the pipeline', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -382,14 +355,14 @@ test('a non-zero step fails the activation and halts the pipeline', async () => 
       { label: 'after', argv: ['after'] },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('failed');
-  expect(report.entries?.[0]?.error).toBe('nope');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(report.outcomes[0]).toMatchObject({
+    status: 'failed',
+    error: 'nope',
+  });
   expect(calls.map((c) => c.command)).toEqual(['boom']);
 });
-
 test('a non-zero step does not copy stdout into the error field', async () => {
   const { context } = recordingContext({
     home: '/home/u',
@@ -404,14 +377,17 @@ test('a non-zero step does not copy stdout into the error field', async () => {
     label: 'demo',
     steps: [{ label: 'boom', argv: ['boom'] }],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('failed');
-  expect(report.entries?.[0]?.error).toBe('exit code 1');
-  expect(report.entries?.[0]?.error).not.toContain('secret-token');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(report.outcomes[0]).toMatchObject({
+    status: 'failed',
+    error: 'exit code 1',
+  });
+  expect(report.outcomes[0]).not.toMatchObject({
+    status: 'failed',
+    error: expect.stringContaining('secret-token'),
+  });
 });
-
 test('env value output reaches the command runner', async () => {
   const { calls, context } = recordingContext({
     home: '/home/u',
@@ -422,12 +398,9 @@ test('env value output reaches the command runner', async () => {
     label: 'demo',
     steps: [{ label: 'x', argv: ['x'], env: { FOO: 'bar' } }],
   });
-
   await runActivation(activation, context);
-
   expect(calls[0]?.options?.env).toEqual({ FOO: 'bar' });
 });
-
 test('skipIf with a satisfied commandSucceeds guard runs with step env', async () => {
   const { context, calls } = recordingContext({
     home: '/home/u',
@@ -450,15 +423,12 @@ test('skipIf with a satisfied commandSucceeds guard runs with step env', async (
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
   expect(calls).toHaveLength(1);
   expect(calls[0]?.command).toBe('check');
-  expect(report.entries?.[0]?.status).toBe('unchanged');
-  expect(report.status).toBe('unchanged');
+  expect(report.outcomes[0]?.status).toBe('unchanged');
+  expect(outcomeStatus(report.outcomes)).toBe('unchanged');
 });
-
 test('outputContains marks changed when phrase present in stderr', async () => {
   const { context } = recordingContext({
     home: '/home/u',
@@ -475,12 +445,9 @@ test('outputContains marks changed when phrase present in stderr', async () => {
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('changed');
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
 });
-
 test('outputContains marks unchanged when phrase absent from combined output', async () => {
   const { context } = recordingContext({
     home: '/home/u',
@@ -497,12 +464,9 @@ test('outputContains marks unchanged when phrase absent from combined output', a
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('unchanged');
+  expect(outcomeStatus(report.outcomes)).toBe('unchanged');
 });
-
 test('outputNotContains checks stdout+stderr and marks unchanged when phrase present', async () => {
   const { context } = recordingContext({
     home: '/home/u',
@@ -519,12 +483,9 @@ test('outputNotContains checks stdout+stderr and marks unchanged when phrase pre
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('unchanged');
+  expect(outcomeStatus(report.outcomes)).toBe('unchanged');
 });
-
 test('outputNotContains marks changed when phrase absent from combined output', async () => {
   const { context } = recordingContext({
     home: '/home/u',
@@ -541,8 +502,6 @@ test('outputNotContains marks changed when phrase absent from combined output', 
       },
     ],
   });
-
   const report = await runActivation(activation, context);
-
-  expect(report.status).toBe('changed');
+  expect(outcomeStatus(report.outcomes)).toBe('changed');
 });

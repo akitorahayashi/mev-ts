@@ -1,7 +1,7 @@
 import { readlink, symlink } from 'node:fs/promises';
 import { lstatIfPresent, readTextIfPresent } from './absence';
 import { writeFileAtomically } from './atomic-file';
-import { withSwapTransaction } from './transaction';
+import { type TransactionOptions, withSwapTransaction } from './transaction';
 
 export async function isSymlinkTo(
   link: string,
@@ -34,15 +34,20 @@ export async function materializeSymlink(path: string): Promise<boolean> {
  * one atomic rename. Directories are moved to a sibling backup first, with
  * best-effort rollback if installing the symlink fails.
  *
- * A crash during directory replacement can leave the destination absent with
- * its previous contents retained in the transaction directory.
+ * The recovery record preserves the previous directory across interruption.
  */
 export async function placeSymlink(
   link: string,
   target: string,
+  options: TransactionOptions,
 ): Promise<void> {
-  await withSwapTransaction(link, 'symlink', async ({ staged, install }) => {
-    await symlink(target, staged);
-    await install();
-  });
+  await withSwapTransaction(
+    link,
+    'symlink',
+    async ({ staged, install }) => {
+      await symlink(target, staged);
+      await install();
+    },
+    options,
+  );
 }

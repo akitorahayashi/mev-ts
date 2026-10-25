@@ -90,6 +90,7 @@ export async function runGroveConfig(
       dest,
       contents,
       sourceStats.mode & 0o7777,
+      context,
     );
     await writeFileIfChanged(recordPath, `${digest(contents)}\n`);
     return activationReport(base, [

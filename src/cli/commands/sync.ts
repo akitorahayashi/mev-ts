@@ -1,4 +1,5 @@
 import { Command, Option } from 'clipanion';
+import { withHomeMutation } from '../../app/mutation';
 import { pruneObsoleteDeployState } from '../../provisioning/deploy-store';
 import { runMake } from '../../provisioning/run';
 import type { SyncReason } from '../../provisioning/scan';
@@ -40,53 +41,54 @@ export class SyncCommand extends Command {
   async execute() {
     return runReportingDomainErrors(this.context.stderr, async () => {
       const { context, targets } = prepareFullSetup();
-
-      const scans = await scanTargets(targets, context);
-      let scanFailed = false;
-      for (const scan of scans) {
-        if (isScanError(scan)) {
-          scanFailed = true;
-          this.context.stderr.write(
-            `mev: could not scan ${scan.target.name}: ${scan.error}\n`,
-          );
+      return withHomeMutation(context.home, 'sync', async () => {
+        const scans = await scanTargets(targets, context);
+        let scanFailed = false;
+        for (const scan of scans) {
+          if (isScanError(scan)) {
+            scanFailed = true;
+            this.context.stderr.write(
+              `mev: could not scan ${scan.target.name}: ${scan.error}\n`,
+            );
+          }
         }
-      }
-      const selectors = scans
-        .filter((scan) => !isScanError(scan) && scan.reasons.length > 0)
-        .map((scan) => scan.target.name);
+        const selectors = scans
+          .filter((scan) => !isScanError(scan) && scan.reasons.length > 0)
+          .map((scan) => scan.target.name);
 
-      if (selectors.length === 0) {
-        // A scan error means at least one target's staleness is unknown, so the
-        // environment cannot be reported as synchronized.
-        if (scanFailed) return 1;
-        this.context.stdout.write(
-          renderPruneReport(await pruneObsoleteDeployState(context)),
-        );
-        this.context.stdout.write(
-          `No targets need reapplying.\n${targets.length} target definitions and managed assets match the last successful apply.\n`,
-        );
-        return 0;
-      }
+        if (selectors.length === 0) {
+          // A scan error means at least one target's staleness is unknown, so the
+          // environment cannot be reported as synchronized.
+          if (scanFailed) return 1;
+          this.context.stdout.write(
+            renderPruneReport(await pruneObsoleteDeployState(context)),
+          );
+          this.context.stdout.write(
+            `No targets need reapplying.\n${targets.length} target definitions and managed assets match the last successful apply.\n`,
+          );
+          return 0;
+        }
 
-      const reasonText = scans
-        .flatMap((scan) =>
-          isScanError(scan) || scan.reasons.length === 0 ? [] : [scan],
-        )
-        .map(
-          (scan) =>
-            `  ${scan.target.name} — ${scan.reasons.map(describeReason).join(', ')}`,
-        )
-        .join('\n');
+        const reasonText = scans
+          .flatMap((scan) =>
+            isScanError(scan) || scan.reasons.length === 0 ? [] : [scan],
+          )
+          .map(
+            (scan) =>
+              `  ${scan.target.name} — ${scan.reasons.map(describeReason).join(', ')}`,
+          )
+          .join('\n');
 
-      const code = await executeProvisioningRun({
-        selectors,
-        upgrade: this.upgrade,
-        intro: `Reapplying ${selectors.length} stale targets\n${reasonText}`,
-        run: (request) =>
-          runMake({ ...request, pruneObsoleteState: true }, context),
-        stream: this.context.stdout,
+        const code = await executeProvisioningRun({
+          selectors,
+          upgrade: this.upgrade,
+          intro: `Reapplying ${selectors.length} stale targets\n${reasonText}`,
+          run: (request) =>
+            runMake({ ...request, pruneObsoleteState: true }, context),
+          stream: this.context.stdout,
+        });
+        return code === 0 && scanFailed ? 1 : code;
       });
-      return code === 0 && scanFailed ? 1 : code;
     });
   }
 }

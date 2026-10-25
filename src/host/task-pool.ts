@@ -1,5 +1,22 @@
 import { AppError } from '../errors';
 
+export async function drainAll<T>(
+  promises: readonly Promise<T>[],
+): Promise<T[]> {
+  let failed = false;
+  let firstFailure: unknown;
+  const results = await Promise.all(
+    promises.map((promise) =>
+      promise.catch((error: unknown) => {
+        if (!failed) firstFailure = error;
+        failed = true;
+      }),
+    ),
+  );
+  if (failed) throw firstFailure;
+  return results as T[];
+}
+
 export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,
@@ -10,9 +27,6 @@ export async function mapWithConcurrency<T, R>(
   }
   const results = new Array<R>(items.length);
   let next = 0;
-  // Once one mapper rejects, `Promise.all` has already settled on that error, so
-  // continuing to dispatch would run work whose result nobody reads — and, for a
-  // mapper with host effects, would keep mutating past the failure.
   let failed = false;
 
   async function worker(): Promise<void> {
@@ -31,6 +45,6 @@ export async function mapWithConcurrency<T, R>(
   const workers = Array.from({ length: Math.min(limit, items.length) }, () =>
     worker(),
   );
-  await Promise.all(workers);
+  await drainAll(workers);
   return results;
 }

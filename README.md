@@ -24,6 +24,10 @@ brew --version
 
 The script downloads the release binary for the host architecture, verifies its SHA256 checksum, and installs it to `~/.local/bin/mev`. It reports the installed binary's version and destination. `MEV_INSTALL_DIR` overrides the destination and `MEV_VERSION=vX.Y.Z` pins a release instead of the latest. The following commands make the default install directory available for the current terminal session and start provisioning:
 
+The verified binary is staged and version-probed on the destination filesystem
+before atomic publication. Failed preparation leaves an existing command intact;
+symlink and nonregular command destinations are rejected.
+
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 mev --version

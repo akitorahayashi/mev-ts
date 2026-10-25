@@ -5,13 +5,31 @@ import { replaceDirectoryAfterBuild } from '../../src/host/directory-replacement
 import { stagingSiblings } from '../fixtures/path-probe';
 import { withTemporaryDirectory } from '../fixtures/temporary-directory';
 
+test('generic directory equivalence still compares the complete executable-bit mask', async () => {
+  await withTemporaryDirectory(async (home) => {
+    const dest = join(home, 'role');
+    await mkdir(dest);
+    await writeFile(join(dest, 'script'), 'same bytes', { mode: 0o755 });
+    const build = async (stage: string) => {
+      await writeFile(join(stage, 'script'), 'same bytes', { mode: 0o700 });
+    };
+    expect(await replaceDirectoryAfterBuild(dest, build, { home })).toBe(true);
+    expect((await stat(join(dest, 'script'))).mode & 0o111).toBe(0o100);
+    expect(await replaceDirectoryAfterBuild(dest, build, { home })).toBe(false);
+  });
+});
+
 test('installs a fully built directory without residual siblings', async () => {
   await withTemporaryDirectory(async (dir) => {
     const dest = join(dir, 'role');
 
-    await replaceDirectoryAfterBuild(dest, async (staging) => {
-      await writeFile(join(staging, 'file.txt'), 'new');
-    });
+    await replaceDirectoryAfterBuild(
+      dest,
+      async (staging) => {
+        await writeFile(join(staging, 'file.txt'), 'new');
+      },
+      { home: dir },
+    );
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('new');
     expect(await stagingSiblings(dest)).toEqual([]);
@@ -24,9 +42,13 @@ test('replaces an existing directory and removes stale contents', async () => {
     await mkdir(dest);
     await writeFile(join(dest, 'stale.txt'), 'old');
 
-    await replaceDirectoryAfterBuild(dest, async (staging) => {
-      await writeFile(join(staging, 'file.txt'), 'new');
-    });
+    await replaceDirectoryAfterBuild(
+      dest,
+      async (staging) => {
+        await writeFile(join(staging, 'file.txt'), 'new');
+      },
+      { home: dir },
+    );
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('new');
     expect(await Bun.file(join(dest, 'stale.txt')).exists()).toBe(false);
@@ -41,9 +63,13 @@ test('leaves an equivalent existing directory in place', async () => {
     await writeFile(join(dest, 'file.txt'), 'same');
     const before = await stat(dest);
 
-    const replaced = await replaceDirectoryAfterBuild(dest, async (staging) => {
-      await writeFile(join(staging, 'file.txt'), 'same');
-    });
+    const replaced = await replaceDirectoryAfterBuild(
+      dest,
+      async (staging) => {
+        await writeFile(join(staging, 'file.txt'), 'same');
+      },
+      { home: dir },
+    );
 
     expect(replaced).toBe(false);
     expect((await stat(dest)).ino).toBe(before.ino);
@@ -58,10 +84,14 @@ test('keeps the previous directory when staging fails', async () => {
     await writeFile(join(dest, 'file.txt'), 'old');
 
     await expect(
-      replaceDirectoryAfterBuild(dest, async (staging) => {
-        await writeFile(join(staging, 'partial.txt'), 'partial');
-        throw new Error('build failed');
-      }),
+      replaceDirectoryAfterBuild(
+        dest,
+        async (staging) => {
+          await writeFile(join(staging, 'partial.txt'), 'partial');
+          throw new Error('build failed');
+        },
+        { home: dir },
+      ),
     ).rejects.toThrow('build failed');
 
     expect(await readFile(join(dest, 'file.txt'), 'utf8')).toBe('old');
@@ -77,9 +107,13 @@ test('does not treat a build rejection without a reason as success', async () =>
     let reason: unknown = 'unset';
 
     try {
-      await replaceDirectoryAfterBuild(dest, async () => {
-        await Promise.reject();
-      });
+      await replaceDirectoryAfterBuild(
+        dest,
+        async () => {
+          await Promise.reject();
+        },
+        { home: dir },
+      );
     } catch (error) {
       rejected = true;
       reason = error;
@@ -99,10 +133,14 @@ test('preserves the build failure when cleanup also fails', async () => {
     let caught: unknown;
 
     try {
-      await replaceDirectoryAfterBuild(dest, async () => {
-        await chmod(dir, 0o500);
-        throw primary;
-      });
+      await replaceDirectoryAfterBuild(
+        dest,
+        async () => {
+          await chmod(dir, 0o500);
+          throw primary;
+        },
+        { home: dir },
+      );
     } catch (error) {
       caught = error;
     } finally {

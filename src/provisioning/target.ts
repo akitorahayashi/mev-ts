@@ -12,7 +12,8 @@ import type { Activation } from './activation';
  * into its applied output is stale the moment the fact changes, so `mev config`
  * invalidates every target declaring it.
  */
-export type PerMachineInput = 'githubSshHost';
+export type SelectionInput = 'coderAgents' | 'coderSkills' | 'zedOverrides';
+export type PerMachineInput = 'githubSshHost' | SelectionInput;
 
 /**
  * A named unit of provisioning. A target owns its canonical selector and

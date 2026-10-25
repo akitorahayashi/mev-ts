@@ -2,13 +2,13 @@ import { expect } from 'bun:test';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { embeddedAssets } from '../../src/assets/registry';
+import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { runMake } from '../../src/provisioning/run';
 import { fail, ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
 const sandboxTest = sandboxedTest('herdr-provisioning-');
-
 sandboxTest(
   'installs the self-updating binary and is idempotent',
   async (dir) => {
@@ -41,32 +41,24 @@ sandboxTest(
         return fail(`unexpected command: ${command}`);
       },
     });
-
     const first = await runMake({ selectors: ['herdr'] }, context);
-
     expect(first.failed).toBe(false);
     expect(first.selection.packages.formulae).toEqual([]);
     expect(calls.map((call) => call.command)).toEqual(['curl', 'sh', binary]);
-
     const firstCallCount = calls.length;
     const second = await runMake({ selectors: ['herdr'] }, context);
-
     expect(second.failed).toBe(false);
     expect(calls.slice(firstCallCount).map((call) => call.command)).toEqual([
       binary,
     ]);
-    expect(second.groups[0]?.reports.map((report) => report.status)).toEqual([
-      'unchanged',
-      'unchanged',
-      'unchanged',
-    ]);
-
+    expect(
+      second.groups[0]?.reports.map((report) => outcomeStatus(report.outcomes)),
+    ).toEqual(['unchanged', 'unchanged', 'unchanged']);
     const upgradeCallCount = calls.length;
     const upgraded = await runMake(
       { selectors: ['herdr'], upgrade: true },
       context,
     );
-
     expect(upgraded.failed).toBe(false);
     expect(calls.slice(upgradeCallCount).map((call) => call.command)).toEqual([
       binary,
@@ -80,14 +72,13 @@ sandboxTest(
       ['--version'],
       ['--version'],
     ]);
-    expect(upgraded.groups[0]?.reports.map((report) => report.status)).toEqual([
-      'unchanged',
-      'changed',
-      'unchanged',
-    ]);
+    expect(
+      upgraded.groups[0]?.reports.map((report) =>
+        outcomeStatus(report.outcomes),
+      ),
+    ).toEqual(['unchanged', 'changed', 'unchanged']);
   },
 );
-
 sandboxTest('reports a direct installer failure', async (dir) => {
   const binary = join(dir, '.local/bin/herdr');
   const { context, calls } = recordingContext({
@@ -103,14 +94,13 @@ sandboxTest('reports a direct installer failure', async (dir) => {
       return fail(`unexpected command: ${command}`);
     },
   });
-
   const report = await runMake({ selectors: ['herdr'] }, context);
-
   expect(report.failed).toBe(true);
   expect(calls.map((call) => call.command)).toEqual(['curl', 'sh']);
-  expect(report.groups[0]?.reports[2]?.status).toBe('blocked');
+  expect(report.groups[0]?.reports[2]?.outcomes).toContainEqual(
+    expect.objectContaining({ status: 'blocked' }),
+  );
 });
-
 sandboxTest('blocks self-update from inside a Herdr pane', async (dir) => {
   const binary = join(dir, '.local/bin/herdr');
   await mkdir(join(dir, '.local/bin'), { recursive: true });
@@ -128,20 +118,23 @@ sandboxTest('blocks self-update from inside a Herdr pane', async (dir) => {
       return fail(`unexpected command: ${command}`);
     },
   });
-
   const report = await runMake(
     { selectors: ['herdr'], upgrade: true },
     context,
   );
-
   expect(report.failed).toBe(true);
   expect(calls.map((call) => [call.command, ...call.args])).toEqual([
     [binary, '--version'],
     [binary, 'update'],
   ]);
-  expect(report.groups[0]?.reports[1]).toMatchObject({
-    status: 'blocked',
-    error: `update failed: ${guidance}`,
-  });
-  expect(report.groups[0]?.reports[2]?.status).toBe('blocked');
+  expect(report.groups[0]?.reports[1]?.outcomes).toEqual([
+    {
+      label: 'Herdr',
+      status: 'blocked',
+      reason: `update failed: ${guidance}`,
+    },
+  ]);
+  expect(report.groups[0]?.reports[2]?.outcomes).toContainEqual(
+    expect.objectContaining({ status: 'blocked' }),
+  );
 });

@@ -25,8 +25,6 @@ updated_input="$(jq -c --arg cmd "$rewritten" '.tool_input.command = $cmd | .too
 jq -cn --argjson updated_input "$updated_input" '{
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "permissionDecision": "allow",
-    "permissionDecisionReason": "RTK auto-rewrite",
     "updatedInput": $updated_input
   }
 }'

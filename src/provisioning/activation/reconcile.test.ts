@@ -1,15 +1,14 @@
 import { expect, test } from 'bun:test';
 import { errorMessage, ProvisioningError } from '../../errors';
+import { outcomeStatus } from '../resource-outcome';
 import { reportActivity } from './activity';
 import type { ActivationDescription, ReconcileItemResult } from './contract';
-import { type ReconcileStep, reconcile } from './reconcile';
+import { activationReport, type ReconcileStep, reconcile } from './reconcile';
 
 const base: ActivationDescription = { subject: 'dst' };
-
 function step(report: ReconcileItemResult): ReconcileStep {
   return { run: async () => report, onError: () => report };
 }
-
 function throwingStep(key: string, error: unknown): ReconcileStep {
   return {
     run: async () => {
@@ -23,7 +22,6 @@ function throwingStep(key: string, error: unknown): ReconcileStep {
     }),
   };
 }
-
 for (const concurrent of [undefined, 2]) {
   test(`activity observer errors escape the ${concurrent ? 'concurrent' : 'serial'} reconcile boundary unchanged`, async () => {
     const failure = new Error('output unavailable');
@@ -53,7 +51,6 @@ for (const concurrent of [undefined, 2]) {
     expect(itemErrorHandled).toBe(false);
   });
 }
-
 test('a throwing step fails only itself; its siblings still run', async () => {
   const report = await reconcile(base, {
     declare: async () => [0, 1, 2],
@@ -63,16 +60,17 @@ test('a throwing step fails only itself; its siblings still run', async () => {
       step({ key: 'c', value: 'c', status: 'unchanged' }),
     ],
   });
-
-  expect(report.status).toBe('failed');
-  expect(report.entries?.map((e) => e.status)).toEqual([
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
+  expect(report.outcomes.map((e) => e.status)).toEqual([
     'changed',
     'failed',
     'unchanged',
   ]);
-  expect(report.entries?.[1]?.error).toBe('spawn ENOENT');
+  expect(report.outcomes[1]).toMatchObject({
+    status: 'failed',
+    error: 'spawn ENOENT',
+  });
 });
-
 test('concurrent runs report in declaration order, not completion order', async () => {
   const slowFirst: ReconcileStep = {
     run: async () => {
@@ -86,16 +84,13 @@ test('concurrent runs report in declaration order, not completion order', async 
     value: 'second',
     status: 'unchanged',
   });
-
   const report = await reconcile(base, {
     declare: async () => [0, 1],
     concurrent: 2,
     steps: async () => [slowFirst, fastSecond],
   });
-
-  expect(report.entries?.map((e) => e.key)).toEqual(['first', 'second']);
+  expect(report.outcomes.map((e) => e?.label)).toEqual(['first', 'second']);
 });
-
 test('failed outranks changed in the aggregated status', async () => {
   const report = await reconcile(base, {
     declare: async () => [0, 1],
@@ -104,9 +99,8 @@ test('failed outranks changed in the aggregated status', async () => {
       step({ key: 'b', value: 'b', status: 'failed', error: 'x' }),
     ],
   });
-  expect(report.status).toBe('failed');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
 });
-
 test('a failure from declare is a whole-activation error', async () => {
   const report = await reconcile(base, {
     declare: async () => {
@@ -114,14 +108,11 @@ test('a failure from declare is a whole-activation error', async () => {
     },
     steps: async () => [],
   });
-
-  expect(report.status).toBe('failed');
-  expect(report.error).toBe('manifest missing');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
   expect(report.outcomes).toEqual([
     { label: 'dst', status: 'failed', error: 'manifest missing' },
   ]);
 });
-
 test('a shared-probe failure raised in steps is a whole-activation error', async () => {
   const report = await reconcile(base, {
     declare: async () => [0, 1],
@@ -129,20 +120,41 @@ test('a shared-probe failure raised in steps is a whole-activation error', async
       throw new ProvisioningError('probe failed');
     },
   });
-
-  expect(report.status).toBe('failed');
-  expect(report.error).toBe('probe failed');
+  expect(outcomeStatus(report.outcomes)).toBe('failed');
   expect(report.outcomes).toEqual([
     { label: 'dst', status: 'failed', error: 'probe failed' },
   ]);
 });
-
-test('an empty declaration reports unchanged with no entries', async () => {
+test('an empty declaration reports unchanged with no resource outcomes', async () => {
   const report = await reconcile(base, {
     declare: async () => [],
     steps: async () => [],
   });
+  expect(outcomeStatus(report.outcomes)).toBe('unchanged');
+  expect(report.outcomes).toEqual([]);
+});
 
-  expect(report.status).toBe('unchanged');
-  expect(report.entries).toEqual([]);
+test('blocked resources and activation notices remain available in the canonical result', () => {
+  const report = activationReport(
+    base,
+    [
+      { label: 'first', status: 'changed', details: ['configured'] },
+      {
+        label: 'second',
+        status: 'blocked',
+        reason: 'required input unavailable',
+      },
+    ],
+    ['stale selection ignored'],
+  );
+  expect(report.outcomes).toEqual([
+    { label: 'first', status: 'changed', details: ['configured'] },
+    {
+      label: 'second',
+      status: 'blocked',
+      reason: 'required input unavailable',
+    },
+  ]);
+  expect(outcomeStatus(report.outcomes)).toBe('blocked');
+  expect(report.notices).toEqual(['stale selection ignored']);
 });

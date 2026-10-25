@@ -51,6 +51,10 @@ An activation returns an `ActivationDescription` and `ResourceOutcome[]`.
 Descriptions name the user-facing subject and optionally identify a collection
 whose unchanged members may be aggregated. Each outcome names the affected
 path, setting, package, association, runtime, plugin, or other managed resource.
+The report carries only this outcome collection, its description, and optional
+notices. Whole-activation failures use a failed outcome naming the activation;
+blocked resources retain their reason in the same collection. Intermediate
+per-step probe results remain internal to reconciliation.
 
 | Status | Meaning |
 |---|---|

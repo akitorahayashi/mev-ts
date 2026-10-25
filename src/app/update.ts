@@ -17,6 +17,7 @@ import { type CommandRunner, formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 import { downloadOverHttps } from '../host/https-download';
 import { isSemanticVersion } from '../semantic-version.js';
+import { withHomeMutation } from './mutation';
 
 export type MevBuildKind = 'standalone' | 'bundle';
 
@@ -280,7 +281,9 @@ export async function updateMev(
   options: UpdateOptions,
 ): Promise<MevUpdateOutcome> {
   try {
-    return await updateMevUnchecked(options);
+    return await withHomeMutation(options.context.home, 'update mev', () =>
+      updateMevUnchecked(options),
+    );
   } catch (error) {
     if (error instanceof UpdateError) throw error;
     throw new UpdateError(errorMessage(error));

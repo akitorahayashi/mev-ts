@@ -36,6 +36,11 @@ disabled:
 The resolver derives the stored key from the surface policy, so an opt-out list
 cannot be interpreted as an opt-in list.
 
+A changed selection invalidates its owning targets' applied markers before the
+manifest is saved, so the next `sync` regenerates the selected output. Cancellation
+and unchanged enabled entries retain the markers. Invalidation failure leaves the
+manifest untouched; a later write failure can leave the target safely stale.
+
 ## Zed settings merge
 
 The deployed `settings.json` is the base asset plus enabled overrides in catalog

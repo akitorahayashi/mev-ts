@@ -4,6 +4,12 @@
 The catalog format is owned by [docs/config.md](../config.md); this document
 defines the lifecycle and ownership contract.
 
+The activation coordinator sequences inventory, convergence, removal, and
+verification. Provisioning-owned components keep registration state, desired-state
+decisions, deletion gates, and post-run verification separate from client
+protocols. Verification identifies provisional results by client/plugin identity,
+independently of their position in the displayed result collection.
+
 ## Desired state
 
 | Declaration | Required state |

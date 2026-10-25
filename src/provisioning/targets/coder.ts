@@ -47,7 +47,7 @@ export const coderTarget = target('coder', {
   // config, so a host change leaves materialized state behind; invalidating
   // here lets `sync` reselect the target, whose registration probe then
   // re-registers the drifted marketplaces.
-  perMachineInputs: ['githubSshHost'],
+  perMachineInputs: ['githubSshHost', 'coderAgents', 'coderSkills'],
   activations: [
     remoteInstaller({
       subject: 'Claude Code',

@@ -70,7 +70,7 @@ export async function runZedSettings(
     const link = resolveHostPath(activation.dest, context.home);
     let linked = false;
     if (!(await isSymlinkTo(link, output))) {
-      await placeSymlink(link, output);
+      await placeSymlink(link, output, context);
       linked = true;
     }
 

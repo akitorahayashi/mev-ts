@@ -1,10 +1,19 @@
 import { expect } from 'bun:test';
-import { chmod, lstat, mkdir, stat, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir, deployedPath } from '../../src/assets/ref';
 import type { AssetSource } from '../../src/assets/registry';
 import type { Context } from '../../src/host/context';
 import { deployRole } from '../../src/provisioning/deploy';
+import { mapAssetSource } from '../fixtures/asset-source';
 import { recordingContext } from '../fixtures/fake-context';
 import { sandboxedTest } from '../fixtures/temporary-directory';
 
@@ -27,8 +36,117 @@ const assets: AssetSource = {
 
 const sandboxTest = sandboxedTest('deploy-');
 
+sandboxTest(
+  'unexpected named pipes are replaced without opening or waiting on them',
+  async (sandbox) => {
+    const root = deployedDir('demo', sandbox);
+    await mkdir(root, { recursive: true });
+    const pipe = join(root, 'config');
+    // mkfifo supplies the actual filesystem kind; a fake regular file cannot prove nonblocking behavior.
+    const created = Bun.spawn(['/usr/bin/mkfifo', pipe], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    expect(await created.exited).toBe(0);
+    const { context } = recordingContext({
+      home: sandbox,
+      assets: mapAssetSource({ 'demo/config': 'regular content' }),
+    });
+    expect((await deployRole('demo', context)).changes).toEqual([
+      { key: 'demo/config', kind: 'updated' },
+    ]);
+    expect((await lstat(pipe)).isFile()).toBe(true);
+    expect(await readFile(pipe, 'utf8')).toBe('regular content');
+  },
+);
+
 const contextFor = (homeDir: string): Context =>
   recordingContext({ home: homeDir, assets }).context;
+
+for (const mode of [0o700, 0o710, 0o701, 0o744]) {
+  sandboxTest(
+    `explicit deployment repairs partial executable mask ${mode.toString(8)}`,
+    async (sandbox) => {
+      const context = contextFor(sandbox);
+      await deployRole('git', context);
+      const path = deployedPath({ key: EXECUTABLE_KEY }, sandbox);
+      await chmod(path, mode);
+      const result = await deployRole('git', context);
+      expect(result.changes).toEqual([]);
+      expect((await lstat(path)).mode & 0o111).toBe(0o111);
+      expect(await readFile(path, 'utf8')).toBe(
+        `content of ${EXECUTABLE_KEY}\n`,
+      );
+    },
+  );
+}
+
+sandboxTest(
+  'extra empty directories still count as deployment drift',
+  async (sandbox) => {
+    const context = contextFor(sandbox);
+    await deployRole('git', context);
+    const extra = join(deployedDir('git', sandbox), 'extra/nested');
+    await mkdir(extra, { recursive: true });
+    const result = await deployRole('git', context);
+    expect(result.changes).toContainEqual({
+      key: 'git/extra/nested/',
+      kind: 'removed',
+    });
+    await expect(lstat(extra)).rejects.toHaveProperty('code', 'ENOENT');
+  },
+);
+
+sandboxTest(
+  'a matching symlink is replaced by a regular deployed file without touching its target',
+  async (sandbox) => {
+    const target = join(sandbox, 'personal');
+    await writeFile(target, 'content');
+    const source = mapAssetSource({ 'demo/config': 'content' });
+    const { context } = recordingContext({ home: sandbox, assets: source });
+    const root = deployedDir('demo', sandbox);
+    await mkdir(root, { recursive: true });
+    await symlink(target, join(root, 'config'));
+    expect((await deployRole('demo', context)).changes).toEqual([
+      { key: 'demo/config', kind: 'updated' },
+    ]);
+    expect((await lstat(join(root, 'config'))).isFile()).toBe(true);
+    expect(await readFile(target, 'utf8')).toBe('content');
+  },
+);
+
+for (const kind of ['file', 'symlink'] as const) {
+  sandboxTest(
+    `a ${kind} role root does not satisfy the deployed-directory contract`,
+    async (sandbox) => {
+      const root = deployedDir('demo', sandbox);
+      await mkdir(join(root, '..'), { recursive: true });
+      if (kind === 'file') await writeFile(root, 'wrong root type');
+      else await symlink(join(sandbox, 'unrelated'), root);
+      const { context } = recordingContext({
+        home: sandbox,
+        assets: mapAssetSource({ 'demo/config': 'desired' }),
+      });
+      await deployRole('demo', context);
+      expect((await lstat(root)).isDirectory()).toBe(true);
+      expect(await readFile(join(root, 'config'), 'utf8')).toBe('desired');
+    },
+  );
+}
+
+sandboxTest(
+  'an already-empty assetless role remains in place',
+  async (sandbox) => {
+    const root = deployedDir('assetless', sandbox);
+    await mkdir(root, { recursive: true });
+    const before = await lstat(root);
+    expect(await deployRole('assetless', contextFor(sandbox))).toEqual({
+      role: 'assetless',
+      changes: [],
+    });
+    expect((await lstat(root)).ino).toBe(before.ino);
+  },
+);
 
 sandboxTest(
   'deployRole materializes every asset under the role',

@@ -1,5 +1,6 @@
 import type { Writable } from 'node:stream';
 import { createProgressBar } from 'tty-prog';
+import { withHomeMutation } from '../app/mutation';
 import { createContext } from '../host/context';
 import {
   type MakeReport,
@@ -46,7 +47,12 @@ export async function executeProvisioningRun(
   const startedAt = Date.now();
   const run =
     options.run ??
-    ((request: MakeRequest) => runMake(request, createContext()));
+    ((request: MakeRequest) => {
+      const context = createContext();
+      return withHomeMutation(context.home, 'make', () =>
+        runMake(request, context),
+      );
+    });
 
   if (options.intro) {
     out(`${options.intro}\n`);

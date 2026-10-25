@@ -1,5 +1,15 @@
 import { expect, test } from 'bun:test';
-import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import {
+  access,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  readlink,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { withTemporaryDirectory } from './fixtures/temporary-directory';
 
@@ -102,7 +112,18 @@ install() {
   mkdir -p "\${dest%/*}"
   cp "$src" "$dest"
   chmod 755 "$dest"
+  if [ "\${MEV_FAKE_INSTALL_SIGNAL:-}" = "1" ]; then
+    kill -TERM "$$"
+  fi
   printf 'install %s\\n' "$dest" >> "${log}"
+}
+
+mv() {
+  if [ "\${MEV_FAKE_PUBLISH_FAIL:-}" = "1" ]; then
+    echo "publication failed" >&2
+    return 11
+  fi
+  command mv "$@"
 }
 `,
   );
@@ -402,3 +423,99 @@ test('installer fails without reporting success when the installed version probe
     { prefix: 'installer-version-failure-' },
   );
 });
+
+const publicationFailures: readonly {
+  name: string;
+  env: Record<string, string>;
+  code: number;
+}[] = [
+  { name: 'download', env: { MEV_FAKE_CURL_FAIL: '1' }, code: 7 },
+  { name: 'checksum', env: { MEV_BINARY_SHA256: MISMATCHED_SHA256 }, code: 1 },
+  { name: 'copy', env: { MEV_FAKE_INSTALL_FAIL: '1' }, code: 9 },
+  { name: 'version probe', env: { MEV_FAKE_VERSION_FAIL: '1' }, code: 8 },
+  { name: 'publication', env: { MEV_FAKE_PUBLISH_FAIL: '1' }, code: 11 },
+  { name: 'termination', env: { MEV_FAKE_INSTALL_SIGNAL: '1' }, code: 143 },
+];
+for (const failure of publicationFailures) {
+  test(`installer preserves the previous executable after ${failure.name} failure`, async () => {
+    await withTemporaryDirectory(async (dir) => {
+      const bin = join(dir, 'bin with spaces');
+      const tmp = join(dir, 'tmp');
+      await mkdir(bin);
+      await mkdir(tmp);
+      const installed = join(bin, 'mev');
+      const previous = '#!/bin/sh\nprintf "previous version\\n"\n';
+      await writeFile(installed, previous, { mode: 0o755 });
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: SHA256,
+        TMPDIR: tmp,
+        MEV_INSTALL_DIR: bin,
+        ...failure.env,
+      });
+      expect(result.code).toBe(failure.code);
+      expect(result.stdout).not.toContain('Installed mev');
+      expect(await readFile(installed, 'utf8')).toBe(previous);
+      expect((await stat(installed)).mode & 0o777).toBe(0o755);
+      expect(await readdir(bin)).toEqual(['mev']);
+      expect(await readdir(tmp)).toEqual([]);
+    });
+  });
+}
+
+test('successful installer replaces a previous command only after the staged version probe', async () => {
+  await withTemporaryDirectory(async (dir) => {
+    const bin = join(dir, 'bin');
+    await mkdir(bin);
+    await writeFile(join(bin, 'mev'), 'old command', { mode: 0o700 });
+    const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+    const result = await runInstaller(dir, {
+      BASH_ENV: bashEnv,
+      MEV_BINARY_SHA256: SHA256,
+      TMPDIR: dir,
+    });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Installed mev 1.2.3');
+    expect(await readFile(join(bin, 'mev'), 'utf8')).toBe(BINARY);
+    expect((await stat(join(bin, 'mev'))).mode & 0o777).toBe(0o755);
+    expect(await readdir(bin)).toEqual(['mev']);
+  });
+});
+
+for (const type of ['directory', 'symlink', 'broken symlink'] as const) {
+  test(`installer refuses a ${type} destination without writing through it`, async () => {
+    await withTemporaryDirectory(async (dir) => {
+      const bin = join(dir, 'bin');
+      const installed = join(bin, 'mev');
+      const original = join(dir, 'original');
+      await mkdir(bin);
+      if (type === 'directory') {
+        await mkdir(installed);
+        await writeFile(join(installed, 'keep'), 'preserved');
+      } else {
+        if (type === 'symlink') await writeFile(original, 'preserved');
+        await symlink(original, installed);
+      }
+      const bashEnv = await fakeCommands(dir, join(dir, 'calls.log'));
+      const result = await runInstaller(dir, {
+        BASH_ENV: bashEnv,
+        MEV_BINARY_SHA256: SHA256,
+        TMPDIR: dir,
+      });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('regular file');
+      expect(await readdir(bin)).toEqual(['mev']);
+      if (type === 'directory')
+        expect(await readFile(join(installed, 'keep'), 'utf8')).toBe(
+          'preserved',
+        );
+      else {
+        expect((await lstat(installed)).isSymbolicLink()).toBe(true);
+        expect(await readlink(installed)).toBe(original);
+        if (type === 'symlink')
+          expect(await readFile(original, 'utf8')).toBe('preserved');
+      }
+    });
+  });
+}

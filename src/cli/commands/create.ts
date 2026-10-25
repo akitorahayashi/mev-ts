@@ -1,4 +1,5 @@
 import { Command, Option } from 'clipanion';
+import { withHomeMutation } from '../../app/mutation';
 import { allTargets } from '../../provisioning/registry';
 import { runMake } from '../../provisioning/run';
 import type { Target } from '../../provisioning/target';
@@ -38,15 +39,17 @@ export class CreateCommand extends Command {
 
       const selectors = targets.map((target) => target.name);
 
-      return executeProvisioningRun({
-        selectors,
-        upgrade: this.upgrade,
-        intro: 'mev: Creating environment',
-        footer: (report) => (report.failed ? undefined : optionalFooter()),
-        run: (request) =>
-          runMake({ ...request, pruneObsoleteState: true }, context),
-        stream: this.context.stdout,
-      });
+      return withHomeMutation(context.home, 'create', () =>
+        executeProvisioningRun({
+          selectors,
+          upgrade: this.upgrade,
+          intro: 'mev: Creating environment',
+          footer: (report) => (report.failed ? undefined : optionalFooter()),
+          run: (request) =>
+            runMake({ ...request, pruneObsoleteState: true }, context),
+          stream: this.context.stdout,
+        }),
+      );
     });
   }
 }

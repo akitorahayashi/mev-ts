@@ -1,6 +1,6 @@
 import { errorMessage } from '../../errors';
 import { mapWithConcurrency } from '../../host/task-pool';
-import { outcomeStatus, type ResourceOutcome } from '../resource-outcome';
+import type { ResourceOutcome } from '../resource-outcome';
 import {
   propagateActivityObserverError,
   rethrowActivityObserverError,
@@ -29,24 +29,10 @@ export function activationReport(
   outcomes: readonly ResourceOutcome[],
   notices?: readonly string[],
 ): ActivationReport {
-  const status = outcomeStatus(outcomes);
-  const entries: ReconcileItemResult[] = outcomes.flatMap((outcome) => {
-    if (outcome.status === 'blocked') return [];
-    return [
-      {
-        key: outcome.label,
-        value: outcome.details?.join(', ') ?? '',
-        status: outcome.status,
-        ...(outcome.status === 'failed' ? { error: outcome.error } : {}),
-      },
-    ];
-  });
   return {
     description,
     outcomes,
     ...(notices && notices.length > 0 ? { notices } : {}),
-    status,
-    entries,
   };
 }
 
@@ -64,12 +50,9 @@ export async function guarded(
   } catch (error) {
     rethrowActivityObserverError(error);
     const message = errorMessage(error);
-    return {
-      ...activationReport(description, [
-        { label: description.subject, status: 'failed', error: message },
-      ]),
-      error: message,
-    };
+    return activationReport(description, [
+      { label: description.subject, status: 'failed', error: message },
+    ]);
   }
 }
 

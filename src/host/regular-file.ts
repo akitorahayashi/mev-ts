@@ -1,6 +1,6 @@
 import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { lstatIfPresent } from './absence';
-import { withSwapTransaction } from './transaction';
+import { type TransactionOptions, withSwapTransaction } from './transaction';
 
 async function matchesRegularFile(
   path: string,
@@ -18,6 +18,7 @@ export async function reconcileRegularFile(
   path: string,
   contents: Buffer,
   mode: number,
+  options: TransactionOptions,
 ): Promise<boolean> {
   if (await matchesRegularFile(path, contents, mode)) return false;
 
@@ -29,6 +30,7 @@ export async function reconcileRegularFile(
       await chmod(staged, mode);
       await install();
     },
+    options,
   );
 
   return true;

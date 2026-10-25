@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { mapAssetSource } from '../../tests/fixtures/asset-source';
 import { home } from '../host/path';
-import { link, runCommand } from './activation';
+import { type Activation, link, runCommand } from './activation';
 import { targetSignature } from './signature';
 import { target } from './target';
 
@@ -258,5 +258,65 @@ test('display report metadata does not affect the command signature', async () =
   const assets = mapAssetSource({});
   expect(await targetSignature(commandTarget('old'), assets)).toBe(
     await targetSignature(commandTarget('new'), assets),
+  );
+});
+
+test('dictionary keys named report remain semantic command inputs', async () => {
+  const signature = (value: string, dictionary: 'env' | 'reads') =>
+    targetSignature(
+      target('demo', {
+        description: 'demo',
+        role: 'demo',
+        activations: [
+          runCommand({
+            label: 'demo',
+            ...(dictionary === 'reads' ? { reads: { report: value } } : {}),
+            steps: [
+              {
+                label: 'demo',
+                argv: ['demo'],
+                report,
+                ...(dictionary === 'env' ? { env: { report: value } } : {}),
+              },
+            ],
+          }),
+        ],
+      }),
+      mapAssetSource({}),
+    );
+
+  for (const dictionary of ['env', 'reads'] as const) {
+    expect(await signature('first', dictionary)).not.toBe(
+      await signature('second', dictionary),
+    );
+  }
+});
+
+test('object construction order is ignored while argv and activation order remain semantic', async () => {
+  const command = (
+    env: Record<string, string>,
+    argv = ['demo', 'first', 'second'],
+  ) =>
+    runCommand({
+      label: 'demo',
+      steps: [{ label: 'demo', argv, env, report }],
+    });
+  const signature = (activations: readonly Activation[]) =>
+    targetSignature(
+      target('demo', { description: 'demo', role: 'demo', activations }),
+      mapAssetSource({}),
+    );
+  const original = command({ alpha: 'a', report: 'semantic' });
+  expect(await signature([original])).toBe(
+    await signature([command({ report: 'semantic', alpha: 'a' })]),
+  );
+  expect(await signature([original])).not.toBe(
+    await signature([
+      command({ alpha: 'a', report: 'semantic' }, ['demo', 'second', 'first']),
+    ]),
+  );
+  const other = link(config, home('.demo'));
+  expect(await signature([original, other])).not.toBe(
+    await signature([other, original]),
   );
 });
