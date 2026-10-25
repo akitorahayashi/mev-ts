@@ -1,21 +1,21 @@
-## Goal
+## 目標
 
-<desired outcome>
+<目指す成果>
 
-## Current State
+## 現状
 
-<what currently exists and why it is insufficient>
-- `<relevant file/module/component>`: <current responsibility and problem>
+<現在何が存在し、なぜそれでは不十分か>
+- `<関連するファイル/モジュール/コンポーネント>`: <現在の責務と問題>
 
-## Plan
+## 計画
 
-1. <step>
-2. <step>
+1. <手順>
+2. <手順>
 
-## Constraints
+## 制約
 
-- <constraint or assumption>
+- <制約または前提>
 
-## Acceptance Criteria
+## 受け入れ基準
 
-- <externally observable completion condition>
+- <外部から観測できる完了条件>

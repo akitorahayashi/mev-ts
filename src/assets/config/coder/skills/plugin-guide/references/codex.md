@@ -1,15 +1,15 @@
-# Codex and ChatGPT
+# CodexとChatGPT
 
-## Authority
+## 典拠
 
 - [Plugins](https://developers.openai.com/codex/plugins)
 - [Skills and plugins](https://developers.openai.com/codex/skills-and-plugins)
 - [Package your plugin](https://developers.openai.com/plugins/build/plugins)
 - [Build skills](https://developers.openai.com/codex/build-skills)
 
-OpenAI plugins are installable bundles shared by supported ChatGPT and Codex surfaces. They can include skills, portable agents, connectors, MCP servers, hooks, scheduled task templates, browser extensions, and assets. Codex CLI supports browsing and installing plugins from configured marketplaces; installed bundled skills and tools are available in new sessions.
+OpenAIプラグインは、サポートされるChatGPTとCodexの面で共有される、インストール可能なバンドルである。スキル、ポータブルなエージェント、コネクタ、MCPサーバー、フック、スケジュールされたタスクのテンプレート、ブラウザー拡張、アセットを含められる。Codex CLIは、設定済みのマーケットプレイスからのプラグインの閲覧とインストールをサポートする。インストール済みの同梱スキルとツールは、新しいセッションで利用できる。
 
-## Standard Layout
+## 標準のレイアウト
 
 ```text
 <plugin-root>/
@@ -26,32 +26,32 @@ OpenAI plugins are installable bundles shared by supported ChatGPT and Codex sur
 └── assets/
 ```
 
-Every OpenAI plugin has `.codex-plugin/plugin.json`. Only `plugin.json` belongs in `.codex-plugin/`. Skills, hooks, assets, `.mcp.json`, and `.app.json` remain at the plugin root.
+すべてのOpenAIプラグインは`.codex-plugin/plugin.json`を持つ。`.codex-plugin/`の中に置くのは`plugin.json`のみである。スキル、フック、アセット、`.mcp.json`、`.app.json`は、プラグインルートに置いたままにする。
 
-## Components
+## コンポーネント
 
-| component | default location | behavior |
+| コンポーネント | 既定の場所 | 挙動 |
 | --- | --- | --- |
-| skills | `skills/<name>/SKILL.md` | reusable workflows loaded by ChatGPT or Codex |
-| agents | `agents/<name>.md` | portable packaged agents loaded on host surfaces that support them |
-| hooks | `hooks/hooks.json` | lifecycle hooks loaded when the plugin is enabled and trusted |
-| MCP servers | `.mcp.json` | bundled server configuration for tools and context |
-| app mappings | `.app.json` | registered MCP server connections used by connector-style plugins |
-| assets | `assets/` | icons, logos, screenshots, and presentation materials |
+| スキル | `skills/<name>/SKILL.md` | ChatGPTまたはCodexが読み込む、再利用可能なワークフロー |
+| エージェント | `agents/<name>.md` | サポートするホストの面で読み込まれる、ポータブルな同梱エージェント |
+| フック | `hooks/hooks.json` | プラグインが有効で信頼されているときに読み込まれるライフサイクルフック |
+| MCPサーバー | `.mcp.json` | ツールとコンテキスト用の、同梱のサーバー設定 |
+| アプリのマッピング | `.app.json` | コネクタ型のプラグインが使う、登録済みのMCPサーバー接続 |
+| アセット | `assets/` | アイコン、ロゴ、スクリーンショット、プレゼンテーション用の素材 |
 
-Connectors are backed by MCP servers and may include custom UI on supported ChatGPT surfaces. Codex can use bundled skills and MCP tools where the active surface supports plugins.
+コネクタはMCPサーバーを基盤とし、サポートされるChatGPTの面ではカスタムUIを含められる。Codexは、アクティブな面がプラグインをサポートする場合に、同梱のスキルとMCPツールを使える。
 
-OpenAI plugins can package portable Agent Plugin agents under `agents/` and declare them through the manifest's `agents` field. These packaged Markdown agents are distinct from Codex custom-agent TOML under `.codex/agents/` or `~/.codex/agents/`; custom-agent model, sandbox, and tool configuration remains host or project configuration. A bundled shared skill can delegate to a packaged agent where the active host supports it and states equivalent main-session behavior for surfaces where delegation is unavailable.
+OpenAIプラグインは、ポータブルなAgent Pluginのエージェントを`agents/`の下に同梱し、マニフェストの`agents`フィールドで宣言できる。これらの同梱されたMarkdownのエージェントは、`.codex/agents/`または`~/.codex/agents/`の下にあるCodexのカスタムエージェントのTOMLとは別物である。カスタムエージェントのモデル、サンドボックス、ツールの設定は、ホストまたはプロジェクトの設定のままとなる。同梱の共有スキルは、アクティブなホストがサポートする場合は同梱エージェントへ委譲でき、委譲が使えない面については、メインセッションでの同等の挙動を記述する。
 
-## Manifest
+## マニフェスト
 
-`<plugin-root>/.codex-plugin/plugin.json` identifies the plugin, points to bundled components, and supplies install-surface metadata.
+`<plugin-root>/.codex-plugin/plugin.json`は、プラグインを識別し、同梱のコンポーネントを指し示し、インストールの面のメタデータを提供する。
 
 ```json
 {
   "name": "my-plugin",
   "version": "0.1.0",
-  "description": "Bundle reusable skills and MCP servers.",
+  "description": "再利用可能なスキルとMCPサーバーをまとめる。",
   "skills": "./skills/",
   "agents": ["./agents/reviewer.md"],
   "mcpServers": "./.mcp.json",
@@ -59,28 +59,28 @@ OpenAI plugins can package portable Agent Plugin agents under `agents/` and decl
   "apps": "./.app.json",
   "interface": {
     "displayName": "My Plugin",
-    "shortDescription": "Reusable skills and MCP servers",
+    "shortDescription": "再利用可能なスキルとMCPサーバー",
     "category": "Productivity",
     "composerIcon": "./assets/icon.png"
   }
 }
 ```
 
-`name`, `version`, and `description` identify the plugin. `author`, `homepage`, `repository`, `license`, and `keywords` provide publisher and discovery metadata. `skills`, `agents`, `mcpServers`, `hooks`, and `apps` point to bundled components. `interface` controls display metadata such as `displayName`, descriptions, category, default prompts, icons, logos, and screenshots.
+`name`、`version`、`description`がプラグインを識別する。`author`、`homepage`、`repository`、`license`、`keywords`は、公開者と発見のためのメタデータを提供する。`skills`、`agents`、`mcpServers`、`hooks`、`apps`は、同梱のコンポーネントを指し示す。`interface`は、`displayName`、説明、カテゴリ、既定のプロンプト、アイコン、ロゴ、スクリーンショットなどの表示用メタデータを制御する。
 
-## Path Rules
+## パスのルール
 
-Manifest paths are relative to the plugin root and start with `./`. Store visual assets under `./assets/` when possible. Use `skills` for bundled skill folders, `agents` for portable packaged agent definitions, `mcpServers` for `.mcp.json`, `hooks` for lifecycle hooks, and `apps` for registered MCP server mappings in `.app.json`.
+マニフェストのパスは、プラグインルートからの相対で、`./`で始まる。可能な場合は、視覚的なアセットを`./assets/`の下に置く。同梱のスキルのフォルダには`skills`、ポータブルな同梱エージェントの定義には`agents`、`.mcp.json`には`mcpServers`、ライフサイクルフックには`hooks`、`.app.json`にある登録済みのMCPサーバーのマッピングには`apps`を使う。
 
-Bundled skills refer to their own supporting files with Markdown links relative to the skill directory. They do not use plugin-root variables or a skill-directory placeholder for those files.
+同梱のスキルは、自身の補助ファイルを、スキルのディレクトリからの相対のMarkdownリンクで参照する。それらのファイルに、プラグインルートの変数やスキルのディレクトリのプレースホルダーは使わない。
 
-Codex plugin hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for writable persistent state. Hook commands quote substituted paths when using shell forms.
+Codexのプラグインのフックは、同梱ファイル用の`${PLUGIN_ROOT}`と、書き込み可能な永続的な状態用の`${PLUGIN_DATA}`を受け取る。フックのコマンドは、シェル形式を使う場合、置換されたパスを引用符で囲む。
 
-For a bundled stdio MCP server, set `cwd` to a path relative to the plugin root, such as `"."`, and keep bundled command arguments relative to that working directory. Codex resolves a relative MCP `cwd` against the installed plugin root. MCP `command` and `args` fields do not expand `${PLUGIN_ROOT}` or `${PLUGIN_DATA}`.
+同梱のstdioのMCPサーバーでは、`cwd`を`"."`のようなプラグインルートからの相対パスに設定し、同梱のコマンド引数をその作業ディレクトリからの相対に保つ。Codexは、相対のMCPの`cwd`を、インストール済みのプラグインルートに対して解決する。MCPの`command`と`args`のフィールドでは、`${PLUGIN_ROOT}`や`${PLUGIN_DATA}`は展開されない。
 
-## Local Marketplace
+## ローカルのマーケットプレイス
 
-Repo marketplaces live at `$REPO_ROOT/.agents/plugins/marketplace.json`. Personal marketplaces live at `~/.agents/plugins/marketplace.json`. ChatGPT also reads a legacy-compatible repo marketplace at `$REPO_ROOT/.claude-plugin/marketplace.json`.
+リポジトリのマーケットプレイスは`$REPO_ROOT/.agents/plugins/marketplace.json`に置く。個人用のマーケットプレイスは`~/.agents/plugins/marketplace.json`に置く。ChatGPTは、旧来との互換性のある、`$REPO_ROOT/.claude-plugin/marketplace.json`のリポジトリマーケットプレイスも読む。
 
 ```json
 {
@@ -105,9 +105,9 @@ Repo marketplaces live at `$REPO_ROOT/.agents/plugins/marketplace.json`. Persona
 }
 ```
 
-`source.path` resolves relative to the marketplace root, not relative to `.agents/plugins/`. Keep local paths inside that marketplace root. Local sources can also use a plain string such as `"./plugins/my-plugin"`.
+`source.path`は、`.agents/plugins/`ではなく、マーケットプレイスルートからの相対で解決される。ローカルのパスは、そのマーケットプレイスルートの内側に収める。ローカルのソースには、`"./plugins/my-plugin"`のような単純な文字列も使える。
 
-Codex CLI manages marketplace sources with:
+Codex CLIは、次のコマンドでマーケットプレイスのソースを管理する。
 
 ```bash
 codex plugin marketplace add <source>
@@ -116,35 +116,35 @@ codex plugin marketplace upgrade
 codex plugin marketplace remove <marketplace-name>
 ```
 
-Marketplace sources can be local directories, GitHub shorthand, HTTP or HTTPS Git URLs, SSH Git URLs, or Git sparse checkouts.
+マーケットプレイスのソースには、ローカルのディレクトリ、GitHubの短縮形、HTTPまたはHTTPSのGit URL、SSHのGit URL、Gitのスパースチェックアウトを使える。
 
-## Source Types
+## ソースの種類
 
-| source | use |
+| source | 用途 |
 | --- | --- |
-| `local` | plugin stored under a local marketplace root |
-| `url` | plugin stored at a Git repository root |
-| `git-subdir` | plugin stored in a Git repository subdirectory |
-| `npm` | plugin distributed as a package from a JavaScript registry |
+| `local` | ローカルのマーケットプレイスルートの下に置かれたプラグイン |
+| `url` | Gitリポジトリのルートに置かれたプラグイン |
+| `git-subdir` | Gitリポジトリのサブディレクトリに置かれたプラグイン |
+| `npm` | JavaScriptレジストリのパッケージとして配布されるプラグイン |
 
-Git-backed entries use `ref` or `sha` selectors. NPM entries use `package`, optional `version`, and optional HTTPS `registry`; Codex downloads the package without running lifecycle scripts.
+Gitを基盤とするエントリは、`ref`または`sha`のセレクタを使う。NPMのエントリは、`package`、任意の`version`、任意のHTTPSの`registry`を使う。Codexは、ライフサイクルスクリプトを実行せずにパッケージをダウンロードする。
 
-## Installation and Cache
+## インストールとキャッシュ
 
-ChatGPT installs marketplace plugins into `~/.codex/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$VERSION/`. For local plugins, `$VERSION` is `local`. ChatGPT loads the installed copy from the cache path rather than directly from the marketplace entry.
+ChatGPTは、マーケットプレイスのプラグインを`~/.codex/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$VERSION/`にインストールする。ローカルのプラグインでは、`$VERSION`は`local`である。ChatGPTは、マーケットプレイスのエントリから直接ではなく、キャッシュのパスにあるインストール済みのコピーを読み込む。
 
-Plugin enabled state is stored in `~/.codex/config.toml`. After installing or enabling a plugin, start a new Codex session before expecting bundled skills or tools to be available.
+プラグインの有効状態は`~/.codex/config.toml`に保存される。プラグインをインストールまたは有効化した後は、同梱のスキルやツールが使えることを期待する前に、新しいCodexセッションを開始する。
 
-## MCP Servers and Hooks
+## MCPサーバーとフック
 
-`mcpServers` points to an `.mcp.json` file containing either a direct server map or a wrapped `mcp_servers` object. Users can enable or disable bundled MCP servers and tune plugin-scoped MCP tool approval policy under `plugins.<plugin>.mcp_servers.<server>` in Codex config.
+`mcpServers`は、サーバーマップを直接含むか、ラップされた`mcp_servers`オブジェクトを含む`.mcp.json`ファイルを指す。ユーザーは、Codexの設定にある`plugins.<plugin>.mcp_servers.<server>`の下で、同梱のMCPサーバーの有効化や無効化と、プラグインスコープのMCPツールの承認ポリシーの調整を行える。
 
-Plugin hooks are non-managed hooks. Installing or enabling a plugin does not automatically trust its hooks; Codex skips them until the user reviews and trusts the current hook definition. If `hooks` is omitted from the manifest, Codex checks the default `hooks/hooks.json`.
+プラグインのフックは、管理対象外のフックである。プラグインのインストールや有効化では、そのフックは自動的には信頼されず、ユーザーが現在のフック定義をレビューして信頼するまで、Codexはそれらをスキップする。マニフェストで`hooks`が省略された場合、Codexは既定の`hooks/hooks.json`を確認する。
 
-## Development Verification
+## 開発時の検証
 
-1. Install through a repo or personal marketplace.
-2. Restart the ChatGPT desktop app or start a new Codex CLI session.
-3. Verify the plugin appears in the supported plugin browser or marketplace list.
-4. Invoke each bundled skill and verify MCP tools or hooks in a controlled environment.
-5. Update the marketplace source and repeat installation or upgrade to verify the intended version and cached layout.
+1. リポジトリまたは個人用のマーケットプレイスからインストールする。
+2. ChatGPTのデスクトップアプリを再起動するか、新しいCodex CLIセッションを開始する。
+3. サポートされるプラグインブラウザーまたはマーケットプレイスの一覧にプラグインが表示されることを確認する。
+4. 同梱の各スキルを呼び出し、管理された環境でMCPツールやフックを検証する。
+5. マーケットプレイスのソースを更新し、インストールまたはアップグレードを繰り返して、想定するバージョンとキャッシュのレイアウトを検証する。

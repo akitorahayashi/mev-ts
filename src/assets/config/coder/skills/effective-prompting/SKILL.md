@@ -1,73 +1,74 @@
 ---
 name: effective-prompting
-description: Use this when creating, editing, or reviewing prompts, system instructions, or agent instructions for LLMs.
+description: LLM向けのプロンプト、システム指示、エージェント指示を作成・編集・レビューするときに使用する。
 ---
 
-# Effective Prompting
+# 効果的なプロンプト設計
 
-## Primary Objective
+## 目的
 
-Maximize alignment between goals and output while minimizing cognitive and maintenance overhead.
+目標と出力の整合を最大化し、認知的負荷と保守の負担を最小化する。
 
-## Design Workflow
+## 設計ワークフロー
 
-1. Define the target output and acceptance criteria (checkpoints) first.
-2. Handle deterministically resolvable decisions upstream (before passing data to the model).
-3. Describe desired behaviors rather than listing granular prohibitions.
-4. Separate universally applicable rules from context-specific logic.
-5. Apply "Constraint Discipline" principles to each candidate constraint.
-6. Apply rules regarding information density.
-7. Validate the prompt against potential failure patterns.
+1. 対象となる出力と受け入れ基準(チェックポイント)を最初に定義する。
+2. 決定論的に解決できる判断は、モデルにデータを渡す前の上流で処理する。
+3. 細かな禁止事項を列挙せず、望ましい振る舞いを記述する。
+4. 普遍的に適用できるルールと、文脈固有のロジックを分離する。
+5. 各制約の候補に「制約の規律」の原則を適用する。
+6. 情報密度に関するルールを適用する。
+7. 起こりうる失敗パターンに対してプロンプトを検証する。
 
-## Upstream Resolution Rules
+## 上流での解決ルール
 
-Resolve decisions that can be handled deterministically outside the model layer before sending the prompt.
+決定論的に処理できる判断は、プロンプトを送る前にモデル層の外で解決する。
 
-Examples of non-model layers:
+モデル層以外の例:
 
-- Schemas and output contracts
-- Runtime context injection
-- Assembly/template selection
-- Policy and routing logic
+- スキーマと出力契約
+- 実行時のコンテキスト注入
+- 組み立てとテンプレートの選択
+- ポリシーとルーティングのロジック
 
-Pass resolved context to the model, rather than meta-instructions on how to branch logic.
+分岐ロジックの扱い方を示すメタ指示ではなく、解決済みのコンテキストをモデルに渡す。
 
-## Constraint Discipline Principles
+## 制約の規律の原則
 
-A constraint is justified only if both of the following conditions are met:
+制約が正当化されるのは、次の両方の条件を満たす場合に限る。
 
-1. Without the constraint, the model is likely to violate it.
-2. The violation is not already prevented by the output format, context, or goal definition.
+1. その制約がなければ、モデルが違反する可能性が高い。
+2. その違反が、出力形式、コンテキスト、目標の定義によってすでに防がれていない。
 
-Remove the constraint if either condition is not met.
+どちらかの条件を満たさない制約は削除する。
 
-## Guidance Principles
+## ガイダンスの原則
 
-- Prioritize positive guidance (describing the "ideal state") over lists of prohibitions.
-- Reserve strong language (e.g., `MUST`, `NEVER`, `ALWAYS`) for critical boundary conditions. - Clearly state the evaluation criteria.
+- 禁止事項の列挙より、肯定的なガイダンス(「理想の状態」の記述)を優先する。
+- 強い表現(`MUST`、`NEVER`、`ALWAYS`など)は、重要な境界条件のために取っておく。
+- 評価基準を明確に述べる。
 
-## Principles of Terminology
+## 用語の原則
 
-- Use terms that are self-explanatory even to first-time readers.
-- Avoid including internal implementation terminology in the prompt text.
-- If a term requires additional explanation, replace the term itself rather than creating a glossary.
+- 初めて読む人にも自明な用語を使う。
+- 内部実装の用語をプロンプト本文に含めない。
+- 用語に補足説明が必要な場合は、用語集を作らず、用語自体を置き換える。
 
-## Information Density
+## 情報密度
 
-- State each rule only once, in the appropriate location.
-- Do not repeat the same rule across multiple sections.
-- Align additional content with the document's existing level of granularity.
-- Prioritize replacing or refining existing rules over adding new sections.
+- 各ルールは、適切な場所に1度だけ記述する。
+- 同じルールを複数のセクションで繰り返さない。
+- 追加する内容の粒度を、文書の既存の粒度に揃える。
+- 新しいセクションの追加より、既存ルールの置き換えや洗練を優先する。
 
-## Flexibility in Application
+## 適用の柔軟性
 
-- When instructed to edit or revise, apply the design rules to create or refine the prompt accordingly.
-- Even when a review is requested, offer evaluations and improvement suggestions based on design principles, and respond flexibly to the situation.
+- 編集や改訂を指示された場合は、設計ルールを適用してプロンプトを作成または洗練する。
+- レビューを依頼された場合も、設計原則に基づく評価と改善案を示し、状況に応じて柔軟に対応する。
 
-## Design Checklist
+## 設計チェックリスト
 
-- Are deterministic branches resolved upstream (at an earlier stage)?
-- Are invariant rules separated from context-dependent logic?
-- Do all constraints address specific failure modes (patterns of failure)?
-- Are there any redundant instructions?
-- Does deleting a line affect quality? If not, delete that line.
+- 決定論的な分岐は上流(より前の段階)で解決されているか。
+- 不変のルールが、文脈依存のロジックから分離されているか。
+- すべての制約が、特定の失敗モード(失敗のパターン)に対処しているか。
+- 冗長な指示はないか。
+- 1行を削除すると品質に影響するか。影響しない場合は、その行を削除する。

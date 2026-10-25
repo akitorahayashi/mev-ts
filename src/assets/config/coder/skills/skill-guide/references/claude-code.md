@@ -1,58 +1,58 @@
 # Claude Code
 
-Claude Code reads these settings from `SKILL.md` frontmatter and processes them itself, so they carry no instruction to the model. Common-specification fields it does not act on, such as `license` and `compatibility`, are ignored without error. Beyond the common-specification rules, it rejects a `name` containing the reserved word `anthropic` or `claude`.
+Claude Codeは、これらの設定を`SKILL.md`のフロントマターから読んで自身で処理するため、モデルへの指示は含まれない。`license`や`compatibility`のような、共通仕様のフィールドで、Claude Codeが処理しないものは、エラーなしに無視される。共通仕様のルールに加えて、予約語の`anthropic`または`claude`を含む`name`は拒否される。
 
-## Skill locations
+## スキルの配置場所
 
-| path | scope |
+| パス | スコープ |
 | --- | --- |
-| `.claude/skills/<skill-name>/SKILL.md` | The project containing it |
-| `~/.claude/skills/<skill-name>/SKILL.md` | Every project |
+| `.claude/skills/<skill-name>/SKILL.md` | それを含むプロジェクト |
+| `~/.claude/skills/<skill-name>/SKILL.md` | すべてのプロジェクト |
 
-## Who can invoke the skill
+## スキルを呼び出せる主体
 
-| intended callers | frontmatter |
+| 想定する呼び出し元 | フロントマター |
 | --- | --- |
-| Model and user | Neither field |
-| User only, by typing `/<skill-name>` | `disable-model-invocation: true` |
-| Model only, through the Skill tool | `user-invocable: false` |
+| モデルとユーザー | どちらのフィールドも不要 |
+| ユーザーのみ、`/<skill-name>`を入力して | `disable-model-invocation: true` |
+| モデルのみ、Skillツール経由 | `user-invocable: false` |
 
-## Where the skill runs
+## スキルが実行される場所
 
-| intent | frontmatter |
+| 意図 | フロントマター |
 | --- | --- |
-| Expand into the current conversation | Omit `context`, the default |
-| Run in a subagent that reports back as a task notification | `context: fork` |
-| Run in a subagent that blocks the turn until it returns | `context: fork` with `background: false` |
-| Choose the subagent type | `agent: Explore`, or any agent type including entries under `.claude/agents/` |
+| 現在の会話に展開する | `context`を省略する(既定) |
+| タスク通知として報告を返すサブエージェントで実行する | `context: fork` |
+| 戻るまでターンをブロックするサブエージェントで実行する | `context: fork`と`background: false` |
+| サブエージェントの種類を選ぶ | `agent: Explore`、または`.claude/agents/`下のエントリを含む任意のエージェントの種類 |
 
-`agent` and `background` apply only to `context: fork`.
+`agent`と`background`は、`context: fork`にのみ適用される。
 
-## What the skill may use
+## スキルが使えるもの
 
-| field | accepted values |
+| フィールド | 受け付ける値 |
 | --- | --- |
-| `model` | `haiku`, `sonnet`, `opus`, `fable`, a full model ID, or `inherit` for the parent conversation's model |
-| `effort` | `low`, `medium`, `high`, `xhigh`, or `max`, subject to model support |
-| `allowed-tools` | Tool patterns as a comma-separated string or YAML list, such as `Read, Grep, Bash(git log:*)` |
-| `disallowed-tools` | Same form as `allowed-tools`; the removal is cleared when the user sends the next message |
+| `model` | `haiku`、`sonnet`、`opus`、`fable`、完全なモデルID、または親の会話のモデルを使う`inherit` |
+| `effort` | `low`、`medium`、`high`、`xhigh`、`max`。モデルのサポートによる |
+| `allowed-tools` | `Read, Grep, Bash(git log:*)`のように、カンマ区切りの文字列またはYAMLリストで指定するツールのパターン |
+| `disallowed-tools` | `allowed-tools`と同じ形式。除外は、ユーザーが次のメッセージを送ると解除される |
 
-## When the skill loads, and how it appears
+## スキルが読み込まれる時期と表示のされ方
 
-| field | accepted values | effect |
+| フィールド | 受け付ける値 | 効果 |
 | --- | --- | --- |
-| `when_to_use` | Free text | Appended to the skill's Skill tool description |
-| `paths` | Glob patterns as a comma-separated string or YAML list | The skill loads only when the model touches a matching file |
-| `hooks` | Same shape as `settings.json` hooks | Hooks registered while the skill is active |
-| `argument-hint` | Free text | Placeholder shown after the slash command name |
-| `shell` | `bash`, the default on every platform, or `powershell` | Shell for `!` command blocks |
+| `when_to_use` | 自由なテキスト | スキルのSkillツールの説明に付加される |
+| `paths` | カンマ区切りの文字列またはYAMLリストのglobパターン | モデルが一致するファイルに触れたときにのみ、スキルが読み込まれる |
+| `hooks` | `settings.json`のフックと同じ形 | スキルがアクティブな間に登録されるフック |
+| `argument-hint` | 自由なテキスト | スラッシュコマンド名の後に表示されるプレースホルダー |
+| `shell` | `bash`(全プラットフォームでの既定)または`powershell` | `!`コマンドブロックのシェル |
 
-## Example
+## 例
 
 ```yaml
 ---
 name: release-audit
-description: Audits a release branch for unreleased migrations. Use when the user asks whether a branch is ready to release.
+description: リリースブランチに未リリースのマイグレーションがないか監査する。ブランチがリリース可能かどうかをユーザーが尋ねたときに使用する。
 disable-model-invocation: true
 context: fork
 agent: Explore

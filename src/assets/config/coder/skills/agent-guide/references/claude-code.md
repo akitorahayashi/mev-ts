@@ -1,92 +1,92 @@
 # Claude Code
 
-## Authority
+## 典拠
 
 - [Create custom subagents](https://code.claude.com/docs/en/sub-agents)
 - [Plugins reference](https://code.claude.com/docs/en/plugins-reference)
 
-Claude Code subagents are Markdown files with YAML frontmatter followed by the agent's system prompt.
+Claude Codeのサブエージェントは、YAMLフロントマターの後にエージェントのシステムプロンプトが続くMarkdownファイルである。
 
-## Scopes and Precedence
+## スコープと優先順位
 
-Claude Code resolves same-named definitions in this order:
+Claude Codeは、同名の定義を次の順序で解決する。
 
-| priority | source | scope |
+| 優先度 | ソース | スコープ |
 | --- | --- | --- |
-| 1 | managed settings agents | organization |
-| 2 | `--agents` JSON | current session |
-| 3 | `.claude/agents/` | project |
-| 4 | `~/.claude/agents/` | user |
-| 5 | `<plugin-root>/agents/` | enabled plugin |
+| 1 | managed settingsのエージェント | 組織 |
+| 2 | `--agents` JSON | 現在のセッション |
+| 3 | `.claude/agents/` | プロジェクト |
+| 4 | `~/.claude/agents/` | ユーザー |
+| 5 | `<plugin-root>/agents/` | 有効なプラグイン |
 
-Project and user agent directories are scanned recursively. A subdirectory does not change a standalone agent's identity; frontmatter `name` is authoritative. A plugin subdirectory contributes to the plugin-scoped identifier, such as `my-plugin:review:security`.
+プロジェクトとユーザーのエージェントディレクトリは再帰的に走査される。サブディレクトリは単独エージェントの識別に影響せず、フロントマターの`name`が正となる。プラグインのサブディレクトリは、`my-plugin:review:security`のように、プラグインスコープの識別子に寄与する。
 
-## File Format
+## ファイル形式
 
 ```markdown
 ---
 name: code-reviewer
-description: Reviews a completed code change for correctness and missing tests. Use after implementation and before integration.
+description: 完了したコード変更について、正確性とテストの不足をレビューする。実装後、統合前に使用する。
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
-Review the delegated change. Return findings ordered by severity with file references and evidence. Do not modify files.
+委譲された変更をレビューする。指摘は重大度順に、ファイル参照と根拠を添えて返す。ファイルは変更しない。
 ```
 
-Only `name` and `description` are required. `name` uses lowercase letters and hyphens and does not contain `:`, which is reserved for plugin scoping. `description` is routing metadata and states when delegation is appropriate. The Markdown body is the agent's system prompt.
+必須なのは`name`と`description`のみである。`name`は小文字とハイフンを使い、プラグインのスコープ用に予約された`:`を含まない。`description`はルーティング用メタデータであり、委譲が適切な場面を述べる。Markdown本文がエージェントのシステムプロンプトとなる。
 
-## Frontmatter
+## フロントマター
 
-| field | effect |
+| フィールド | 効果 |
 | --- | --- |
-| `name` | agent identity |
-| `description` | delegation routing |
-| `tools` | allowed tool set; omission inherits the tools available to subagents |
-| `disallowedTools` | tools removed from the inherited or declared set |
-| `model` | model alias, full model identifier, or `inherit` |
-| `effort` | reasoning effort supported by the selected model |
-| `permissionMode` | permission behavior for a standalone agent |
-| `maxTurns` | maximum agentic turns |
-| `initialPrompt` | first user turn when the agent runs as the main session agent; prepended to any user prompt |
-| `skills` | skills whose full contents are preloaded at startup |
-| `mcpServers` | configured server names or inline server definitions |
-| `hooks` | lifecycle hooks active only for this agent |
-| `memory` | persistent memory at `user`, `project`, or `local` scope |
-| `background` | forces background execution when true |
-| `isolation` | `worktree` for an isolated Git worktree |
-| `color` | display color in agent UI surfaces |
+| `name` | エージェントの識別 |
+| `description` | 委譲のルーティング |
+| `tools` | 許可するツール集合。省略するとサブエージェントが利用できるツールを継承する |
+| `disallowedTools` | 継承または宣言した集合から除外するツール |
+| `model` | モデルのエイリアス、完全なモデル識別子、または`inherit` |
+| `effort` | 選択したモデルがサポートする推論の強度 |
+| `permissionMode` | 単独エージェントの権限の挙動 |
+| `maxTurns` | エージェントとしてのターン数の上限 |
+| `initialPrompt` | エージェントがメインセッションのエージェントとして動くときの最初のユーザーターン。ユーザーのプロンプトがあれば、その前に付加される |
+| `skills` | 起動時に全内容を事前読み込みするスキル |
+| `mcpServers` | 設定済みのサーバー名またはインラインのサーバー定義 |
+| `hooks` | このエージェントでのみ有効なライフサイクルフック |
+| `memory` | `user`、`project`、`local`のスコープでの永続メモリ |
+| `background` | trueの場合にバックグラウンド実行を強制する |
+| `isolation` | 分離されたGit worktreeを使う`worktree` |
+| `color` | エージェントUIでの表示色 |
 
-Preloading `skills` injects their contents but does not prevent discovery of other skills. Remove the `Skill` tool when the agent must not invoke skills.
+`skills`を事前読み込みすると内容は注入されるが、他のスキルの発見は妨げられない。エージェントがスキルを呼び出してはならない場合は、`Skill`ツールを除外する。
 
-## Plugin Agents
+## プラグインエージェント
 
-Plugin agents support `name`, `description`, `model`, `effort`, `maxTurns`, `initialPrompt`, `tools`, `disallowedTools`, `skills`, `memory`, `background`, and `isolation`. Claude Code ignores `permissionMode`, `mcpServers`, and `hooks` in plugin-shipped agent frontmatter. Session-level settings own those capabilities for plugin agents.
+プラグインエージェントは、`name`、`description`、`model`、`effort`、`maxTurns`、`initialPrompt`、`tools`、`disallowedTools`、`skills`、`memory`、`background`、`isolation`をサポートする。Claude Codeは、プラグインが同梱するエージェントのフロントマターにある`permissionMode`、`mcpServers`、`hooks`を無視する。プラグインエージェントについては、これらの機能をセッションレベルの設定が所有する。
 
-Plugin agents are invoked under a scoped name such as `comment-review:pr-reviewer`. The scope prevents collisions with standalone and other plugin agents.
+プラグインエージェントは、`comment-review:pr-reviewer`のようなスコープ付きの名前で呼び出される。スコープにより、単独エージェントや他のプラグインのエージェントとの衝突を防ぐ。
 
-## Startup Context
+## 起動時のコンテキスト
 
-A normal subagent starts with a fresh context. It receives:
+通常のサブエージェントは、新しいコンテキストで起動する。受け取るものは次のとおりである。
 
-- its system prompt and basic environment details
-- the delegation task message
-- applicable `CLAUDE.md` files, except for built-in Explore and Plan agents
-- a Git status snapshot when available
-- the full contents of preloaded skills
+- システムプロンプトと基本的な環境情報
+- 委譲のタスクメッセージ
+- 該当する`CLAUDE.md`。組み込みのExploreとPlanのエージェントを除く
+- 利用可能な場合のGit statusのスナップショット
+- 事前読み込みしたスキルの全内容
 
-It does not inherit the parent's conversation history, files already read, invoked skills, or output style. A conversation fork is the distinct mechanism that inherits parent context.
+親の会話履歴、すでに読んだファイル、起動済みのスキル、出力スタイルは継承しない。親のコンテキストを継承する仕組みは、会話のforkという別の仕組みである。
 
-## Invocation and Continuation
+## 呼び出しと継続
 
-Natural-language delegation lets Claude decide whether to invoke the named agent. An agent `@` mention guarantees a particular agent for one task. `claude --agent <name>` runs the main session under that definition.
+自然言語での委譲では、指名したエージェントを呼び出すかどうかをClaudeが判断する。エージェントの`@`メンションは、1つのタスクに対して特定のエージェントを保証する。`claude --agent <name>`は、メインセッションをその定義の下で実行する。
 
-Completed resumable agents retain their task history when continued through the agent messaging mechanism. A follow-up message cannot change permissions or count as user approval.
+完了した再開可能なエージェントは、エージェントのメッセージ機構で継続したときに、タスク履歴を保持している。後続メッセージで権限を変更することはできず、ユーザーの承認としても扱われない。
 
-## Verification
+## 検証
 
-- Invoke the agent with a representative task and inspect the agent thread rather than inferring invocation from the prose response.
-- Confirm that unavailable tools fail and that allowed tools cover the declared job.
-- Confirm the result follows the output contract and contains no undeclared file writes.
-- Run `/doctor` when duplicate definitions or discovery are in question.
-- For plugin agents, run `claude plugin validate <plugin-root> --strict`, load with `claude --plugin-dir <plugin-root>`, and use `/reload-plugins` after definition changes.
+- 代表的なタスクでエージェントを呼び出し、呼び出しを文章の応答から推測せず、エージェントのスレッドを確認する。
+- 利用できないツールが失敗すること、許可したツールが宣言した仕事を網羅していることを確認する。
+- 結果が出力契約に従い、宣言していないファイル書き込みを含まないことを確認する。
+- 定義の重複や発見に疑いがある場合は、`/doctor`を実行する。
+- プラグインエージェントでは、`claude plugin validate <plugin-root> --strict`を実行し、`claude --plugin-dir <plugin-root>`で読み込み、定義を変更したら`/reload-plugins`を使う。
