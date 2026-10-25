@@ -46,7 +46,7 @@
 
 実験的なコンポーネントは、スキーマが変わる可能性があるため、プラグインが必須とする機能から切り離しておく。
 
-プラグインのスキルとエージェントは、`/comment-review:review-pr`や`comment-review:pr-reviewer`のように、プラグインの名前空間の下に現れる。
+プラグインのスキルとエージェントは、`/comment-review:cr-01-review`や`comment-review:pr-reviewer`のように、プラグインの名前空間の下に現れる。
 
 ## マニフェスト
 
