@@ -1,45 +1,45 @@
 ---
 name: clarifying-questions
-description: Draft only the questions research cannot answer, for the user to relay to another expert.
+description: 調査では答えられない質問だけを起草し、ユーザーが別の専門家へ伝えられるようにする。
 disable-model-invocation: true
 ---
 
-# Clarifying Questions
+# 確認質問
 
-Turn open uncertainty into a short list of questions worth another person's time: only what cannot be resolved from available material, written so the recipient answers without re-explaining what is already known.
+未解決の不確実性を、他の人の時間を使う価値がある短い質問リストにする。利用できる資料では解決できないことだけを対象とし、受け手がすでに分かっていることを改めて説明し直さずに答えられるように書く。
 
-## Ask only what is not already answered
+## すでに答えが出ているものは聞かない
 
-By the time this skill runs, the task has usually already been investigated in the conversation. Reuse what is known; do not re-investigate it. A point becomes a question only if it is not answerable from what has already been gathered (code, docs, specs, PRs, tickets, prior findings). Investigate further only to close a genuine gap none of that covers, never to repeat work already done.
+このスキルが実行される時点では、通常、会話の中でタスクの調査がすでに済んでいる。分かっていることは再利用し、再調査しない。ある論点が質問になるのは、すでに集めた情報(コード、ドキュメント、仕様、PR、チケット、これまでの調査結果)から答えられない場合に限る。追加の調査は、それらのいずれでも埋まらない本物の空白を埋めるためだけに行い、済んだ作業の繰り返しには使わない。
 
-## Triage every uncertainty
+## すべての不確実性を仕分ける
 
-Sort each open point; only the last becomes a question.
+未解決の論点を1つずつ仕分け、最後の分類だけを質問にする。
 
-- Resolvable by investigation: resolve it now. Record the fact in working notes, not in the question file.
-- Safe to assume: state it as an explicit assumption in the spec/design to confirm at review. Do not ask.
-- Genuine blocker (needs a decision, or knowledge only a person holds): ask.
+- 調査で解決できる: 今解決する。事実は質問ファイルではなく、作業メモに記録する。
+- 安全に仮定できる: 仕様・設計の中で、レビュー時に確認する明示的な仮定として書く。質問はしない。
+- 本物のブロッカー(判断、または人だけが持つ知識が必要): 質問する。
 
-## Write for the reader
+## 読み手のために書く
 
-Each question is self-contained.
+各質問は自己完結させる。
 
-- Order by what blocks the most.
-- Background: why it is asked, what was already checked (show the research so they do not repeat it), and which part of the work is blocked without the answer.
-- Ask: specific, answerable sub-points.
-- Inline the context the recipient needs. Do not reference internal working files they cannot open; external or shared references (shared repos, tickets, design files) are fine.
+- 最も多くの作業を止めるものから順に並べる。
+- 背景: なぜ聞くのか、何をすでに確認したか(相手が重複して調べないよう、調査の内容を示す)、回答がなければ作業のどの部分が止まるか。
+- 質問: 具体的で答えられる小項目。
+- 受け手が必要とするコンテキストはインラインで示す。受け手が開けない内部の作業ファイルは参照しない。外部または共有の参照(共有リポジトリ、チケット、デザインファイル)は問題ない。
 
-## Keep the file declarative
+## ファイルを宣言的に保つ
 
-The file holds only currently-open questions, describing the present set of blockers.
+ファイルには、現在未解決の質問だけを置き、現時点のブロッカーの集合を記述する。
 
-- Lead with a shared context/前提 section so questions do not repeat common background.
-- Answered question: remove it; move the resolved fact to working notes.
-- Partial lead from investigation: fold it into the background and narrow the ask.
-- No changelog or history.
-- Match the recipients' language.
-- Spell out abbreviations the recipient may not share.
+- 共通の背景を質問ごとに繰り返さないよう、冒頭に共有のコンテキスト/前提のセクションを置く。
+- 回答済みの質問: 削除し、解決した事実を作業メモへ移す。
+- 調査で部分的に手がかりが得られた場合: 背景に取り込み、質問の範囲を絞る。
+- 変更履歴や経緯は書かない。
+- 受け手の言語に合わせる。
+- 受け手が共有していないかもしれない略語は、省略せずに書く。
 
-## Template
+## テンプレート
 
-Follow the [template](assets/template.md), translating its headings and labels into the recipients' language.
+[テンプレート](assets/template.md)に従い、その見出しとラベルを受け手の言語に翻訳する。

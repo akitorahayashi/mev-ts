@@ -1,67 +1,67 @@
 # Codex
 
-Codex keeps its settings out of `SKILL.md`, in `agents/openai.yaml` inside the skill directory, and reads that file itself, so it carries no instruction to the model. The file has three sections — `interface`, `policy`, and `dependencies` — with quoted string values and unquoted keys.
+Codexは、設定を`SKILL.md`の外、スキルのディレクトリ内の`agents/openai.yaml`に置き、そのファイルを自身で読むため、モデルへの指示は含まれない。このファイルは`interface`、`policy`、`dependencies`の3つのセクションを持ち、文字列の値は引用符で囲み、キーは囲まない。
 
-## Skill locations
+## スキルの配置場所
 
-| path | scope |
+| パス | スコープ |
 | --- | --- |
-| `.agents/skills/<skill-name>/SKILL.md` | The project containing it |
-| `~/.agents/skills/<skill-name>/SKILL.md` | Every project |
+| `.agents/skills/<skill-name>/SKILL.md` | それを含むプロジェクト |
+| `~/.agents/skills/<skill-name>/SKILL.md` | すべてのプロジェクト |
 
-## Who can invoke the skill
+## スキルを呼び出せる主体
 
-| intended callers | `agents/openai.yaml` |
+| 想定する呼び出し元 | `agents/openai.yaml` |
 | --- | --- |
-| Model and user | `policy.allow_implicit_invocation: true`, the default |
-| User only, by typing `$<skill-name>` | `policy.allow_implicit_invocation: false` |
+| モデルとユーザー | `policy.allow_implicit_invocation: true`(既定) |
+| ユーザーのみ、`$<skill-name>`を入力して | `policy.allow_implicit_invocation: false` |
 
-Codex does not read Claude Code's `disable-model-invocation`, so a skill restricted to explicit invocation on both tools sets `policy.allow_implicit_invocation: false` here and keeps the Claude Code field in `SKILL.md`.
+CodexはClaude Codeの`disable-model-invocation`を読まない。そのため、両方のツールで明示的な呼び出しに限定するスキルは、ここで`policy.allow_implicit_invocation: false`を設定し、Claude Codeのフィールドを`SKILL.md`に残す。
 
-## How the skill appears
+## スキルの表示のされ方
 
-| field | accepted values |
+| フィールド | 受け付ける値 |
 | --- | --- |
-| `interface.display_name` | Title shown in skill lists and chips |
-| `interface.short_description` | 25–64 characters, for quick scanning |
-| `interface.icon_small` | Path relative to the skill directory, kept under `./assets/` |
-| `interface.icon_large` | Path relative to the skill directory, kept under `./assets/` |
+| `interface.display_name` | スキルの一覧やチップに表示されるタイトル |
+| `interface.short_description` | 素早く目を通せる25〜64文字 |
+| `interface.icon_small` | スキルのディレクトリからの相対パス。`./assets/`の下に置く |
+| `interface.icon_large` | スキルのディレクトリからの相対パス。`./assets/`の下に置く |
 | `interface.brand_color` | `#RRGGBB` |
-| `interface.default_prompt` | One sentence naming the skill as `$<skill-name>`, inserted when a user starts from the skill |
+| `interface.default_prompt` | スキルを`$<skill-name>`として名指しする1文。ユーザーがスキルから開始したときに挿入される |
 
-## What the skill requires
+## スキルが必要とするもの
 
-Each entry under `dependencies.tools[]` takes:
+`dependencies.tools[]`の各エントリは、次を取る。
 
-| field | accepted values |
+| フィールド | 受け付ける値 |
 | --- | --- |
-| `type` | `mcp`, the only supported category |
-| `value` | Server identifier, such as `github` |
-| `description` | Reason the server is required |
-| `transport` | `streamable_http`, which reads `url`; `stdio`, which reads `command` |
-| `url` | Endpoint of a `streamable_http` server |
-| `command` | Launch command of a `stdio` server |
+| `type` | `mcp`(唯一サポートされるカテゴリ) |
+| `value` | `github`などのサーバー識別子 |
+| `description` | そのサーバーが必要な理由 |
+| `transport` | `url`を読む`streamable_http`、または`command`を読む`stdio` |
+| `url` | `streamable_http`サーバーのエンドポイント |
+| `command` | `stdio`サーバーの起動コマンド |
 
-## Delegation
+## 委譲
 
-`agents/openai.yaml` does not configure subagents. Codex multi-agent tools and custom agents come from host and project configuration independently of the skill package. A shared skill describes delegation by capability and states the equivalent main-session behavior when delegation is unavailable; it does not depend on Codex tool identifiers.
+`agents/openai.yaml`は、サブエージェントを設定しない。Codexのマルチエージェントのツールとカスタムエージェントは、スキルのパッケージとは独立して、ホストとプロジェクトの設定から提供される。共有スキルは、委譲を機能で記述し、委譲が使えない場合のメインセッションでの同等の挙動を述べる。Codexのツール識別子には依存しない。
 
-## Example
+## 例
 
 ```yaml
 interface:
   display_name: "Release Audit"
-  short_description: "Check a release branch for unreleased migrations"
+  short_description: "リリースブランチの未リリースのマイグレーションを確認する"
   icon_small: "./assets/icon-small.svg"
   icon_large: "./assets/icon-large.png"
   brand_color: "#3B82F6"
-  default_prompt: "Use $release-audit to check whether the current branch is ready to release."
+  default_prompt: "$release-audit を使用して、現在のブランチがリリース可能かどうかを確認してください。"
 
 dependencies:
   tools:
     - type: "mcp"
       value: "github"
-      description: "GitHub MCP server"
+      description: "GitHub MCPサーバー"
       transport: "streamable_http"
       url: "https://api.githubcopilot.com/mcp/"
 

@@ -1,14 +1,14 @@
-# Claude Code Marketplace
+# Claude Codeマーケットプレイス
 
-## Authority
+## 典拠
 
 - [Create and distribute a plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces)
 - [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins)
 - [Plugins reference](https://code.claude.com/docs/en/plugins-reference)
 
-A marketplace is a catalog of installable plugins. Adding a marketplace registers the catalog; installing a plugin copies the selected plugin into Claude Code's cache.
+マーケットプレイスは、インストール可能なプラグインのカタログである。マーケットプレイスを追加するとカタログが登録され、プラグインをインストールすると、選択したプラグインがClaude Codeのキャッシュにコピーされる。
 
-## Root Separation
+## ルートの分離
 
 ```text
 <marketplace-root>/
@@ -21,14 +21,14 @@ A marketplace is a catalog of installable plugins. Adding a marketplace register
         └── agents/
 ```
 
-Marketplace `source` paths resolve from the marketplace root, not from `.claude-plugin/`. Plugin manifest component paths resolve from the selected plugin root. These are separate path domains.
+マーケットプレイスの`source`のパスは、`.claude-plugin/`ではなくマーケットプレイスルートから解決される。プラグインのマニフェストのコンポーネントのパスは、選択したプラグインルートから解決される。これらは別々のパスの領域である。
 
-## Minimal Catalog
+## 最小のカタログ
 
 ```json
 {
   "name": "example-tools",
-  "description": "Claude Code plugins maintained by the example team.",
+  "description": "exampleチームが保守するClaude Codeプラグイン。",
   "owner": {
     "name": "Example Team"
   },
@@ -36,51 +36,51 @@ Marketplace `source` paths resolve from the marketplace root, not from `.claude-
     {
       "name": "comment-review",
       "source": "./plugin/comment-review",
-      "description": "Review pull requests and publish approved findings."
+      "description": "プルリクエストをレビューし、承認された指摘を公開する。"
     }
   ]
 }
 ```
 
-The marketplace has a unique `name`, owner metadata, and a `plugins` array. Each plugin entry requires `name` and `source`. A relative source begins with `./`.
+マーケットプレイスは、一意の`name`、オーナーのメタデータ、`plugins`配列を持つ。各プラグインのエントリには`name`と`source`が必須である。相対のsourceは`./`で始まる。
 
-## Source Types
+## ソースの種類
 
-| source | use |
+| source | 用途 |
 | --- | --- |
-| relative path | plugin stored inside the marketplace repository |
-| `github` | GitHub repository, optionally pinned by ref or full SHA |
-| `url` | Git repository URL, optionally pinned by ref or full SHA |
-| `git-subdir` | plugin contained in a subdirectory of a Git repository |
-| `npm` | plugin distributed as an npm package and version |
+| 相対パス | マーケットプレイスのリポジトリ内に置かれたプラグイン |
+| `github` | GitHubリポジトリ。refまたは完全なSHAでの固定も可 |
+| `url` | GitリポジトリのURL。refまたは完全なSHAでの固定も可 |
+| `git-subdir` | Gitリポジトリのサブディレクトリに含まれるプラグイン |
+| `npm` | npmパッケージとバージョンで配布されるプラグイン |
 
-The marketplace source locates `marketplace.json`. Each plugin entry's source independently locates that plugin. Trust and pinning decisions apply to both layers.
+マーケットプレイスのソースは`marketplace.json`の所在を示す。各プラグインのエントリのソースは、そのプラグインの所在を独立して示す。信頼とピン留めの判断は、両方の層に適用される。
 
-## Strict Mode
+## strictモード
 
-`strict` defaults to `true`.
+`strict`の既定値は`true`である。
 
-| value | authority |
+| 値 | 権限 |
 | --- | --- |
-| `true` | the plugin's `plugin.json` owns its definition; the marketplace entry may supplement components |
-| `false` | the marketplace entry is the complete definition and the plugin does not declare conflicting components |
+| `true` | プラグインの`plugin.json`がその定義を所有する。マーケットプレイスのエントリはコンポーネントを補足できる |
+| `false` | マーケットプレイスのエントリが完全な定義となり、プラグインは競合するコンポーネントを宣言しない |
 
-Use the default for a self-owned plugin. Use `strict: false` only when a marketplace intentionally curates raw files and owns the complete exposed component set.
+自分で所有するプラグインには、既定値を使う。`strict: false`は、マーケットプレイスが意図的に生のファイルをキュレーションし、公開するコンポーネントの全体を所有する場合にのみ使う。
 
-## Version Resolution
+## バージョンの解決
 
-Claude Code resolves the installed version from the first available source:
+Claude Codeは、利用できる最初のソースから、インストール済みのバージョンを解決する。
 
-1. `version` in the plugin's `plugin.json`
-2. `version` in the marketplace plugin entry
-3. the source Git commit SHA
-4. `unknown` for sources without version or Git commit information
+1. プラグインの`plugin.json`の`version`
+2. マーケットプレイスのプラグインエントリの`version`
+3. ソースのGitコミットSHA
+4. バージョンやGitコミットの情報を持たないソースの場合は`unknown`
 
-An explicit semantic version produces an update only after that value changes. It fits reviewed release cycles. Omitting explicit versions lets a Git commit identify each update and fits continuously delivered internal plugins.
+明示的なセマンティックバージョンは、その値が変わったときにのみ更新を生む。レビュー済みのリリースサイクルに向いている。明示的なバージョンを省略すると、Gitコミットが各更新を識別し、継続的に配布される社内のプラグインに向いている。
 
-Git sources follow the owning repository's trust policy. Immutable full commit SHAs provide reproducibility for third-party sources; reviewed release or major tags may be appropriate for trusted first-party sources when the repository explicitly permits moving references.
+Gitのソースは、所有するリポジトリの信頼ポリシーに従う。不変の完全なコミットSHAは、サードパーティのソースに再現性を与える。リポジトリが移動する参照を明示的に許可している場合は、信頼できる自社のソースに、レビュー済みのリリースタグやメジャータグが適切なこともある。
 
-## Local Distribution Test
+## ローカル配布のテスト
 
 ```text
 claude plugin validate <marketplace-root> --strict
@@ -88,17 +88,17 @@ claude plugin marketplace add <marketplace-root>
 claude plugin install <plugin-name>@<marketplace-name>
 ```
 
-The test confirms:
+このテストでは、次を確認する。
 
-- the catalog parses and identifies the intended plugin root
-- source paths remain inside the copied distribution
-- the plugin manifest and marketplace entry compose under the selected strict mode
-- namespaced components appear after installation
-- the installed cache copy can run bundled scripts and find bundled assets
-- the selected version changes according to the release strategy
+- カタログが解析でき、想定するプラグインルートを特定している
+- ソースのパスが、コピーされた配布物の内側にとどまっている
+- 選択したstrictモードの下で、プラグインのマニフェストとマーケットプレイスのエントリが合成される
+- インストール後に、名前空間付きのコンポーネントが現れる
+- インストール済みのキャッシュのコピーが、同梱のスクリプトを実行し、同梱のアセットを見つけられる
+- 選択したバージョンが、リリース戦略に従って変わる
 
-After the test, update the installed plugin through the same source and verify that the intended version is discoverable. A direct `--plugin-dir` test does not replace this installation test.
+テストの後、同じソースからインストール済みのプラグインを更新し、想定するバージョンが発見できることを確認する。`--plugin-dir`による直接のテストは、このインストールのテストの代わりにならない。
 
-## Distribution Security
+## 配布のセキュリティ
 
-Marketplace and plugin sources are trusted code distribution channels. Catalog ownership, source origin, version pins, dependency installation, executable components, and requested credentials are reviewed before sharing the installation command.
+マーケットプレイスとプラグインのソースは、信頼されたコードの配布経路である。インストールのコマンドを共有する前に、カタログの所有者、ソースの出所、バージョンのピン、依存関係のインストール、実行ファイルのコンポーネント、要求される資格情報をレビューする。

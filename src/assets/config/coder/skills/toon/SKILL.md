@@ -1,41 +1,41 @@
 ---
 name: toon
-description: Use the TOON CLI whenever a task inspects JSON-compatible structured data such as JSON files, API responses, database rows, search results, and structured logs. This skill applies before that data enters agent context.
-compatibility: Requires the toon CLI, and jq for NDJSON slurping and field projection
+description: JSONファイル、APIレスポンス、データベースの行、検索結果、構造化ログなど、JSON互換の構造化データを調べるタスクでは、常にTOON CLIを使用する。このスキルは、そのデータがエージェントのコンテキストに入る前に適用する。
+compatibility: toon CLIが必要。NDJSONのslurpとフィールドの射影にはjqも必要
 ---
 
 # TOON
 
-## Purpose
+## 目的
 
-TOON is a temporary, lossless representation of the JSON data model for reducing the tokens required to read structured data.
+TOONは、構造化データの読み取りに必要なトークンを減らすための、JSONデータモデルの一時的で可逆な表現である。
 
-JSON remains the canonical file and interchange format. TOON is used only as a reading surface for inspection.
+JSONは正式なファイル形式および交換形式のままとする。TOONは、調査のための読み取り用の表面としてのみ使う。
 
-## Input Normalization
+## 入力の正規化
 
-TOON accepts one JSON value rather than newline-delimited JSON (NDJSON/JSONL), so NDJSON is slurped into an array before encoding:
+TOONは、改行区切りのJSON(NDJSON/JSONL)ではなく1つのJSON値を受け付ける。そのため、NDJSONはエンコード前に配列へslurpする。
 
 ```sh
 jq -s '.' events.ndjson | toon
 ```
 
-Inputs are reduced to the required rows and fields before encoding when the task needs only part of the data:
+タスクがデータの一部しか必要としない場合は、エンコード前に、入力を必要な行とフィールドに絞る。
 
 ```sh
 jq '{items: [.items[] | {id, name, status}]}' response.json | toon
 ```
 
-## Reading Structured Data
+## 構造化データの読み取り
 
-The workflow reads the CLI's TOON output instead of first reading the source JSON into agent context.
+ワークフローでは、元のJSONを先にエージェントのコンテキストへ読み込まず、CLIが出力するTOONを読む。
 
 ```sh
 toon large-response.json
 curl -fsSL https://api.example.com/items | toon
 ```
 
-Converted data that must persist during the task is written under a system temporary directory owned by the current command sequence:
+タスクの間、保持する必要がある変換済みデータは、現在のコマンド列が所有するシステムの一時ディレクトリの下に書く。
 
 ```sh
 scratch="$(mktemp -d -t toon.XXXXXX)"
@@ -48,17 +48,17 @@ trap cleanup EXIT
 toon large-response.json --stats -o "$scratch/large-response.toon"
 ```
 
-The complete source JSON and its TOON representation are not both read unless comparison is required by the task.
+タスクが比較を必要とする場合を除き、元のJSON全体とそのTOON表現の両方は読まない。
 
-## Validation
+## 検証
 
-The `toon` command uses strict decoding by default. Strict decoding validates array counts, indentation, headers, and escaping, so malformed TOON input from upstream tools is surfaced immediately.
+`toon`コマンドは、既定で厳格なデコードを行う。厳格なデコードは、配列の要素数、インデント、ヘッダー、エスケープを検証するため、上流のツールが出力した不正なTOONの入力はただちに表面化する。
 
-`--no-strict` is not used to accept malformed TOON. Missing CLI availability or conversion failures are surfaced instead of silently falling back.
+不正なTOONを受け入れるために`--no-strict`を使わない。CLIが利用できない場合や変換に失敗した場合は、黙ってフォールバックせず、そのまま表面化させる。
 
-## Required Syntax
+## 必須の構文
 
-Objects use `key: value`, and nesting uses two-space indentation:
+オブジェクトは`key: value`を使い、ネストは2スペースのインデントで表す。
 
 ```toon
 user:
@@ -67,13 +67,13 @@ user:
   active: true
 ```
 
-Primitive arrays declare their element count:
+プリミティブの配列は、要素数を宣言する。
 
 ```toon
 tags[3]: rust,cli,macos
 ```
 
-Uniform arrays of objects declare the row count and field order once:
+オブジェクトの一様な配列は、行数とフィールドの順序を1度だけ宣言する。
 
 ```toon
 users[2]{id,name,active}:
@@ -81,9 +81,9 @@ users[2]{id,name,active}:
   2,Bob,false
 ```
 
-`[N]` is the array element count. `{fields}` defines the field order for every following row.
+`[N]`は配列の要素数である。`{fields}`は、後続のすべての行のフィールドの順序を定義する。
 
-Quote strings that could be interpreted as another type or contain structural characters:
+別の型として解釈されうる文字列や、構造を表す文字を含む文字列は、引用符で囲む。
 
 ```toon
 version: "123"
@@ -91,4 +91,4 @@ enabled: "true"
 note: "hello, world"
 ```
 
-These rules matter when reading existing TOON output or interpreting examples. Do not introduce a TOON authoring step when the task can stay in JSON.
+これらのルールは、既存のTOON出力を読むときや、例を解釈するときに重要である。タスクがJSONのままで済む場合は、TOONの作成の工程を導入しない。

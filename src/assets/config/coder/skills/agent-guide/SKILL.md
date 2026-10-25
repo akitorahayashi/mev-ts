@@ -1,89 +1,89 @@
 ---
 name: agent-guide
-description: Creates and revises Claude Code subagents and Codex custom agents, including delegation contracts, tools, permissions, and model settings.
+description: Claude CodeのサブエージェントとCodexのカスタムエージェントを、委譲契約、ツール、権限、モデル設定を含めて作成・改訂する。
 ---
 
-# Custom Agents
+# カスタムエージェント
 
-## Scope
+## 対象範囲
 
-A custom agent is an execution role with its own instructions and context. This guide covers Claude Code subagents and Codex custom agents. It does not cover repository instruction files such as `AGENTS.md` or `CLAUDE.md`.
+カスタムエージェントは、固有の指示とコンテキストを持つ実行ロールである。このガイドはClaude CodeのサブエージェントとCodexのカスタムエージェントを対象とし、`AGENTS.md`や`CLAUDE.md`などのリポジトリ指示ファイルは対象外とする。
 
-## Choosing the Mechanism
+## 仕組みの選択
 
-Use the main conversation when the work needs frequent user interaction, shares substantial context across phases, or is a small direct task.
+作業がユーザーとの頻繁なやり取りを必要とする場合、複数フェーズで大量のコンテキストを共有する場合、または小さな直接作業である場合は、メイン会話を使う。
 
-Use a skill when reusable instructions should operate in the current conversation and do not need an isolated context, distinct model, or restricted tool surface.
+再利用可能な指示を現在の会話内で機能させればよく、分離されたコンテキスト、別のモデル、制限されたツール範囲が不要な場合は、スキルを使う。
 
-Use an agent when at least one of these properties contributes to the task:
+次のいずれかの性質がタスクに寄与する場合は、エージェントを使う。
 
-- isolated context keeps verbose investigation or tool output out of the parent
-- a specialized instruction set improves a bounded task
-- the task needs a narrower tool, permission, model, or reasoning configuration
-- independent work can run concurrently
-- a resumable worker must retain its own task history
+- コンテキストの分離により、冗長な調査やツール出力を親から切り離せる
+- 特化した指示群により、範囲の定まったタスクの質が上がる
+- タスクがより狭いツール、権限、モデル、推論の設定を必要とする
+- 独立した作業を並行して実行できる
+- 再開可能なワーカーが自身のタスク履歴を保持する必要がある
 
-An agent is not introduced only to rename a phase of a workflow.
+ワークフローのフェーズに名前を付けるだけの目的で、エージェントを導入しない。
 
-## Required Context
+## 必要なコンテキスト
 
-Determine the target host, scope, responsibility, caller, inputs, output, tool needs, write ownership, and completion condition from the request and existing configuration.
+対象ホスト、範囲、責務、呼び出し元、入力、出力、必要なツール、書き込みの所有、完了条件を、依頼と既存の設定から特定する。
 
-Existing `.claude/agents/`, `.codex/agents/`, plugin roots, and user-level agent directories identify the host and local conventions. When the host or scope remains ambiguous and the resulting formats would differ, obtain that decision from the user before writing files.
+既存の`.claude/agents/`、`.codex/agents/`、プラグインルート、ユーザーレベルのエージェントディレクトリが、ホストとローカルの規約を示す。ホストや範囲が曖昧なままで、結果の形式が異なる場合は、ファイルを書く前にユーザーから決定を得る。
 
-## Responsibility Contract
+## 責務の契約
 
-- One agent owns one specific job whose result can be evaluated independently.
-- The description states what the agent does and when a caller delegates to it.
-- The persistent agent instructions define invariant behavior. The delegation message supplies task-specific paths, identifiers, ranges, and acceptance conditions.
-- Every consumed input names how the agent receives or discovers it and what happens when it is absent.
-- The output contract defines the returned content, structure, evidence, and failure representation.
-- The caller owns orchestration, user interaction, cross-agent decisions, and final integration unless the contract explicitly assigns one of them to the agent.
-- Adjacent work that belongs to the caller or another agent remains outside the agent's responsibility.
+- 1つのエージェントは、結果を独立に評価できる1つの具体的な仕事を担う。
+- descriptionには、エージェントが何をするかと、呼び出し元がいつ委譲するかを記す。
+- 永続的なエージェント指示は不変の振る舞いを定義する。タスク固有のパス、識別子、範囲、受け入れ条件は委譲メッセージで渡す。
+- 消費する入力ごとに、エージェントがそれをどう受け取るか、または発見するかと、存在しない場合の挙動を明示する。
+- 出力契約は、返す内容、構造、根拠、失敗の表現を定義する。
+- オーケストレーション、ユーザーとの対話、エージェント間の判断、最終統合は、契約が明示的にエージェントへ割り当てない限り、呼び出し元が担う。
+- 呼び出し元や別のエージェントに属する隣接作業は、エージェントの責務の外に置く。
 
-An agent definition is understandable without the conversation that created it.
+エージェント定義は、それを作成した会話がなくても理解できる。
 
-## Context Contract
+## コンテキストの契約
 
-Assume a delegated agent does not know the parent's conversation, previously read files, invoked skills, or unstated decisions. Put durable rules in the agent definition and current task facts in the delegation message. Do not duplicate information that the host reliably injects.
+委譲されたエージェントは、親の会話、すでに読んだファイル、起動済みのスキル、明示されていない判断を知らないものとして扱う。恒久的なルールはエージェント定義に、現在のタスクの事実は委譲メッセージに置く。ホストが確実に注入する情報は重複させない。
 
-Agent results return distilled findings or requested artifacts rather than raw exploratory output. A result distinguishes completed work, unresolved questions, and failures instead of silently omitting unfinished parts.
+エージェントの結果は、生の探索出力ではなく、要約した発見事項または依頼された成果物を返す。結果は、完了した作業、未解決の問い、失敗を区別し、未完了の部分を黙って省かない。
 
-## Tools and Permissions
+## ツールと権限
 
-- Grant the smallest tool surface that completes the responsibility.
-- Analysis-only, review, and discovery agents remain read-only.
-- Write access belongs only to an agent whose contract owns a concrete output or implementation boundary.
-- Shell access is granted for named command categories the work requires, not as a substitute for missing tool design.
-- External services are exposed only through the MCP servers or credentials the responsibility needs.
-- A parent session's approval and sandbox policy remains an outer boundary; an agent definition does not promise broader authority.
+- 責務を果たせる最小のツール範囲を付与する。
+- 分析専用、レビュー、探索のエージェントは読み取り専用に保つ。
+- 書き込み権限は、具体的な出力または実装の境界を契約で所有するエージェントにのみ与える。
+- シェルへのアクセスは、作業が必要とする名前付きのコマンド分類に対して付与し、ツール設計の不足の代用にしない。
+- 外部サービスは、責務が必要とするMCPサーバーまたは資格情報を通じてのみ公開する。
+- 親セッションの承認とサンドボックスのポリシーは外側の境界として残り、エージェント定義がより広い権限を約束することはない。
 
-Model and reasoning settings follow task difficulty. Fast models fit narrow search and extraction; stronger reasoning fits ambiguous synthesis, correctness review, and multi-step diagnosis. Inheritance is preferred when specialization has no demonstrated benefit.
+モデルと推論の設定はタスクの難易度に従う。高速なモデルは狭い検索や抽出に向き、強力な推論は曖昧な統合、正確性のレビュー、複数ステップの診断に向く。特化の利点が実証されない場合は、継承を優先する。
 
-## Delegation and Concurrency
+## 委譲と並行実行
 
-- Each delegation message is self-contained and bounded.
-- Parallel agents receive independent work with no shared write ownership.
-- Work with ordering dependencies is delegated sequentially, passing only the prior result needed by the next agent.
-- The parent waits for every required result before synthesis.
-- Follow-up work on an agent-owned decision or artifact returns to that agent role with the new evidence; resume the existing invocation when its retained context is material.
-- Aggregation qualifies agent-local identifiers with a stable source identity.
-- Agent output is treated as evidence for parent review, not as an automatically accepted decision.
+- 各委譲メッセージは自己完結し、範囲が限定されている。
+- 並行するエージェントには、書き込みの所有を共有しない独立した作業を渡す。
+- 順序依存のある作業は逐次に委譲し、次のエージェントに必要な直前の結果だけを渡す。
+- 親は、統合の前に、必要なすべての結果を待つ。
+- エージェントが所有する判断や成果物に対する後続作業は、新しい根拠を添えてそのエージェントロールに戻す。保持されたコンテキストが重要な場合は、既存の呼び出しを再開する。
+- 集約では、エージェント内のローカルな識別子に、安定したソースの識別情報を付けて修飾する。
+- エージェントの出力は、自動的に受理される判断ではなく、親のレビュー対象となる根拠として扱う。
 
-## Authoring Workflow
+## 作成ワークフロー
 
-1. Select the main conversation, a skill, or an agent from the task properties.
-2. Define the agent's single responsibility and its exclusion boundary.
-3. Define inputs, missing-input behavior, output, evidence, and completion conditions.
-4. Assign tool access, permissions, model, reasoning effort, and isolation from demonstrated needs.
-5. Write routing metadata and host-specific instructions in the host's format.
-6. Invoke the agent with a representative bounded task.
-7. Verify that the correct agent ran, received sufficient context, stayed within its boundary, and returned the declared output.
+1. タスクの性質から、メイン会話、スキル、エージェントのいずれかを選ぶ。
+2. エージェントの単一の責務と、その除外境界を定義する。
+3. 入力、入力欠落時の挙動、出力、根拠、完了条件を定義する。
+4. ツールアクセス、権限、モデル、推論の強度、分離を、実証された必要性から割り当てる。
+5. ルーティング用メタデータとホスト固有の指示を、ホストの形式で書く。
+6. 代表的で範囲の限られたタスクでエージェントを呼び出す。
+7. 正しいエージェントが実行され、十分なコンテキストを受け取り、境界内にとどまり、宣言した出力を返したことを検証する。
 
-## Host Formats
+## ホスト形式
 
-Read [Claude Code](references/claude-code.md) for Markdown subagents, scope precedence, context loading, and plugin-agent restrictions.
+Markdownのサブエージェント、スコープの優先順位、コンテキストの読み込み、プラグインエージェントの制約は、[Claude Code](references/claude-code.md)を読む。
 
-Read [Codex](references/codex.md) for TOML custom agents, configuration inheritance, and subagent settings.
+TOMLのカスタムエージェント、設定の継承、サブエージェントの設定は、[Codex](references/codex.md)を読む。
 
-When a Claude Code plugin ships an agent, apply the custom-agent contract here and the plugin packaging rules from the plugin's owning guide.
+Claude Codeのプラグインがエージェントを同梱する場合は、ここにあるカスタムエージェントの契約と、そのプラグインを所有するガイドのパッケージングルールを適用する。

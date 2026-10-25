@@ -1,134 +1,134 @@
 ---
 name: skill-guide
-description: The user mentions Agent Skills or asks to organize reusable instructions, workflows, references, scripts, or templates as an agent skill.
+description: ユーザーがAgent Skillsに言及したとき、または再利用可能な指示、ワークフロー、リファレンス、スクリプト、テンプレートをエージェントスキルとして整理するよう依頼したときに使用する。
 ---
 
 ## Agent Skills
 
-Agent Skills are reusable instruction packages for AI agents. A skill must be understandable without the original conversation.
+Agent Skillsは、AIエージェント向けの再利用可能な指示パッケージである。スキルは、元の会話がなくても理解できなければならない。
 
-## What a skill carries
+## スキルが担うもの
 
-- Procedural skill: a task performed the same way each time, such as validation or conversion. It names each input and how the input is obtained, the output format, and the handling for a missing input. For persistent outputs, it also names the consumer, authoritative responsibility, and update semantics.
-- Judgment skill: criteria applied while doing something else, such as design principles or naming rules. It names the decisions it governs and the criteria for each, and defines no inputs, no deliverable format, and no invocation situation, which the conversation supplies.
+- 手続き型スキル: 検証や変換のように、毎回同じ方法で行うタスク。各入力とその入手方法、出力形式、入力が欠けている場合の扱いを明記する。永続的な出力については、その消費者、権威ある責務、更新の意味論も明記する。
+- 判断型スキル: 設計原則や命名規則のように、別の作業をしながら適用する基準。それが支配する判断と、判断ごとの基準を明記し、入力、成果物の形式、呼び出される状況は定義しない。これらは会話が与える。
 
-## Location
+## 配置場所
 
-If the user specifies a location, create the skill there and put `SKILL.md` inside the skill directory.
+ユーザーが場所を指定した場合は、そこにスキルを作成し、スキルのディレクトリの中に`SKILL.md`を置く。
 
-Otherwise the skill belongs to the current project, at the first location that applies:
+指定がない場合、スキルは現在のプロジェクトに属し、次のうち最初に該当する場所に置く。
 
-1. `.agents/skills/<skill-name>/`, when the project has `.agents/skills/`.
-2. `.claude/skills/<skill-name>/`, when the project has `.claude/`.
-3. `.agents/skills/<skill-name>/`, when neither exists.
+1. プロジェクトに`.agents/skills/`がある場合は、`.agents/skills/<skill-name>/`。
+2. プロジェクトに`.claude/`がある場合は、`.claude/skills/<skill-name>/`。
+3. どちらもない場合は、`.agents/skills/<skill-name>/`。
 
-A location under the home directory is used only when the user names one. [Claude Code](references/claude-code.md) and [Codex](references/codex.md) list the directories each tool searches.
+ホームディレクトリ以下の場所は、ユーザーが指名した場合にのみ使う。各ツールが検索するディレクトリは、[Claude Code](references/claude-code.md)と[Codex](references/codex.md)に一覧がある。
 
-## Required file
+## 必須ファイル
 
-Every skill has a `SKILL.md`:
+すべてのスキルは`SKILL.md`を持つ。
 
 ```markdown
 ---
 name: <skill-name>
-description: <What the skill does, and which requests reach for it.>
+description: <スキルが何をするかと、どの依頼で使われるか。>
 ---
 
-# <Skill Title>
+# <スキルのタイトル>
 
-<Reusable instructions, workflow, rules, or knowledge.>
+<再利用可能な指示、ワークフロー、ルール、知識。>
 ```
 
-`name` matches the skill directory name exactly, using 1–64 characters of lowercase letters, digits, and single hyphens, with no leading, trailing, or consecutive hyphen.
+`name`はスキルのディレクトリ名と完全に一致し、小文字、数字、単独のハイフンからなる1〜64文字とし、先頭、末尾、連続するハイフンを含まない。
 
-A skill name states what the skill does and carries no ordering prefix. Dependency between skills is expressed by the artifact each names as its input.
+スキル名はそのスキルが何をするかを表し、順序を示す接頭辞を持たない。スキル間の依存関係は、各スキルが入力として挙げる成果物で表現する。
 
-`description` states both what the skill does and which requests reach for it. It is the only routing information available before the skill is activated:
+`description`は、スキルが何をするかと、どの依頼で使われるかの両方を述べる。スキルが有効になる前に利用できる、唯一のルーティング情報である。
 
 ```yaml
-description: Extracts text and tables from PDF files, fills forms, and merges documents. Use when the user asks about PDF extraction, PDF conversion, forms, or document merging.
+description: PDFファイルからテキストと表を抽出し、フォームを入力し、文書を結合する。PDFの抽出、PDFの変換、フォーム、文書の結合についてユーザーが尋ねたときに使用する。
 ```
 
-A skill restricted to explicit user invocation is reached by name, so its `description` carries no routing information and states concisely, for the user choosing it, what the skill does:
+ユーザーの明示的な呼び出しに限定したスキルは名前で呼び出されるため、その`description`にはルーティング情報を含めず、選ぶユーザーに向けて、そのスキルが何をするかを簡潔に述べる。
 
 ```yaml
-description: Drafts the questions research cannot answer, for the user to relay to another expert.
+description: 調査では答えられない質問を起草し、ユーザーが別の専門家へ伝えられるようにする。
 ```
 
-`compatibility` is optional and states the environment the skill requires, such as a runtime version or network access:
+`compatibility`は任意で、ランタイムのバージョンやネットワークアクセスなど、スキルが必要とする環境を述べる。
 
 ```yaml
-compatibility: Requires Python 3.12 and network access
+compatibility: Python 3.12とネットワークアクセスが必要
 ```
 
-## Frontmatter and body
+## フロントマターと本文
 
-Frontmatter carries what the host application processes: identification, discovery, invocation policy, tool permissions, and compatibility. The Markdown body carries what the model follows: procedures, decision criteria, safety requirements, output format, and the conditions for reading supporting files, as the skill's kind requires. Whether frontmatter reaches the model is implementation-defined, so every instruction the model must follow appears in the body.
+フロントマターには、ホストアプリケーションが処理するもの(識別、発見、呼び出しポリシー、ツールの権限、互換性)を置く。Markdown本文には、モデルが従うもの(手順、判断基準、安全上の要件、出力形式、補助ファイルを読む条件)を、スキルの種類が必要とする範囲で置く。フロントマターがモデルに届くかどうかは実装依存であるため、モデルが従う必要があるすべての指示は本文に書く。
 
-Host-specific frontmatter differs by tool. Read [Claude Code](references/claude-code.md) or [Codex](references/codex.md) when the skill sets invocation policy, model selection, or tool permissions.
+ホスト固有のフロントマターは、ツールごとに異なる。スキルが呼び出しポリシー、モデルの選択、ツールの権限を設定する場合は、[Claude Code](references/claude-code.md)または[Codex](references/codex.md)を読む。
 
-A skill shared across hosts names required capabilities and outcomes rather than host-specific tool identifiers. Delegation instructions define the work partition, write ownership, result contract, continuation behavior, and the equivalent fallback when delegation is unavailable. Host-specific invocation syntax belongs in a supporting reference that the skill reads only on that host.
+複数のホストで共有するスキルは、ホスト固有のツール識別子ではなく、必要な機能と成果を名指しする。委譲の指示は、作業の分割、書き込みの所有、結果の契約、継続時の挙動、委譲が使えない場合の同等のフォールバックを定義する。ホスト固有の呼び出し構文は、そのホストでのみスキルが読む補助リファレンスに置く。
 
-## Optional supporting files
+## 任意の補助ファイル
 
-A skill may include supporting files next to `SKILL.md`:
+スキルは、`SKILL.md`の隣に補助ファイルを含められる。
 
 ```text
 <skill-name>/
 ├── SKILL.md
-├── references/  # Documents the agent may read, such as .md, .json, or .yaml
-├── scripts/     # Programs the agent may run, such as .py, .sh, or .js
-└── assets/      # Files used as input or output materials, such as templates, images, or data
+├── references/  # エージェントが読む文書。.md、.json、.yamlなど
+├── scripts/     # エージェントが実行するプログラム。.py、.sh、.jsなど
+└── assets/      # 入力または出力の素材として使うファイル。テンプレート、画像、データなど
 ```
 
-Use only what the skill needs.
+スキルが必要とするものだけを使う。
 
-- `references/`: decision- or variant-specific knowledge. Each link states the condition that causes the skill to read it. Content used on every run belongs in `SKILL.md`.
-- `scripts/`: repeatable validation, conversion, extraction, or generation logic. A script is not added for a decision that reading a file already settles. A check that the authoritative system already performs is not reimplemented in a script.
-- `assets/`: templates, images, logos, sample inputs, configs, and data. An asset contains only the material its reader or consumer needs. Skill authoring rules, generation logic, classification rules, and operational procedures belong in `SKILL.md`. A placeholder names the value it holds in the reader's own vocabulary (`<PR number>`, not `<ID>`). A template is owned by the skill that fills it in; a blank form is emitted only for a human to fill.
+- `references/`: 判断やバリエーションに固有の知識。各リンクには、スキルがそれを読む条件を明記する。毎回の実行で使う内容は`SKILL.md`に置く。
+- `scripts/`: 繰り返し行う検証、変換、抽出、生成のロジック。ファイルを読めばすでに決まる判断のために、スクリプトを追加しない。権威あるシステムがすでに行っているチェックを、スクリプトで再実装しない。
+- `assets/`: テンプレート、画像、ロゴ、サンプルの入力、設定、データ。アセットには、その読み手や消費者が必要とする素材だけを含める。スキルの作成ルール、生成ロジック、分類ルール、運用手順は`SKILL.md`に置く。プレースホルダーは、保持する値を読み手自身の語彙で名指しする(`<ID>`ではなく`<PRの番号>`)。テンプレートは、それを埋めるスキルが所有する。空の書式は、人が埋めるためにのみ出力する。
 
-## Scope discipline
+## スコープの規律
 
-- Define the skill's essential value as the single outcome or decision quality it uniquely improves. Include only the actions, criteria, outputs, failure handling, and knowledge required to deliver it.
-- A shared concept has one owning skill. Each consuming skill names that owner as its handoff, reads it when coordination is part of the task, and states its own inputs, outputs, and local actions.
-- Match additions to the skill's existing level of detail.
-- Place new rules in the nearest owning section.
-- Prefer tightening an existing rule over adding a parallel rule or section.
+- スキルの本質的な価値を、そのスキルだけが高める単一の成果または判断の質として定義する。それを届けるために必要な行動、基準、出力、失敗時の扱い、知識だけを含める。
+- 共有される概念は、所有するスキルを1つ持つ。それを消費する各スキルは、その所有者を引き継ぎ先として明記し、調整がタスクに含まれる場合にそれを読み、自身の入力、出力、ローカルな行動を述べる。
+- 追加する内容は、スキルの既存の詳細度に合わせる。
+- 新しいルールは、最も近い所有セクションに置く。
+- 並列のルールやセクションを追加するより、既存のルールを引き締めることを優先する。
 
-## Writing Guidelines
+## 記述のガイドライン
 
-- Write declaratively; avoid including transitional or process-oriented information.
-- Every sentence specifies an action, decision criterion, output or ownership contract, failure handling, or task-required knowledge.
-- A rule appears once, in the section that owns it. An overview, a step, and a checklist do not restate the same rule.
-- State desired actions, outputs, ownership, and allowed scope directly. Safety boundaries name the permitted operation and destination.
-- For each input consumed, a procedural skill specifies how it is obtained and what happens if the input is missing (such as querying the user). Some skills—such as those introducing design concepts—do not involve inputs or outputs.
+- 宣言的に書く。移行期の情報や、プロセス中心の情報は含めない。
+- すべての文が、行動、判断基準、出力または所有の契約、失敗時の扱い、タスクに必要な知識のいずれかを定める。
+- ルールは、それを所有するセクションに1度だけ現れる。概要、手順、チェックリストが同じルールを繰り返さない。
+- 望ましい行動、出力、所有、許可される範囲を直接述べる。安全上の境界は、許可される操作とその宛先を名指しする。
+- 手続き型スキルは、消費する各入力について、その入手方法と、入力が欠けている場合に何が起きるか(ユーザーへの問い合わせなど)を定める。設計概念を紹介するスキルなど一部のスキルは、入力や出力を伴わない。
 
-## Path rules
+## パスのルール
 
-In `SKILL.md`, refer to supporting files relative to the skill directory, meaning the directory that contains `SKILL.md`.
+`SKILL.md`では、補助ファイルを、スキルのディレクトリ(`SKILL.md`を含むディレクトリ)からの相対で参照する。
 
-Good:
+良い例:
 
 ```markdown
-Read [format rules](references/format-rules.md).
-Use [report template](assets/report-template.md).
-Run [validator](scripts/validate.py).
+[書式ルール](references/format-rules.md)を読む。
+[レポートのテンプレート](assets/report-template.md)を使う。
+[バリデーター](scripts/validate.py)を実行する。
 ```
 
-`references/` is flat, and `SKILL.md` links each file directly.
+`references/`はフラットにし、`SKILL.md`が各ファイルを直接リンクする。
 
-Supporting-file references use Markdown links rather than host directory variables or a `<skill-dir>` placeholder. Placeholders represent caller-provided values, not paths owned by the skill.
+補助ファイルへの参照には、ホストのディレクトリ変数や`<skill-dir>`のプレースホルダーではなく、Markdownリンクを使う。プレースホルダーは、呼び出し元が与える値を表すものであり、スキルが所有するパスではない。
 
-Do not assume the shell current working directory is the skill directory. When a bundled script must be executed, resolve its linked path relative to the skill directory before invoking the shell, and pass project files as explicit arguments.
+シェルのカレントワーキングディレクトリが、スキルのディレクトリであると仮定しない。同梱のスクリプトを実行する必要がある場合は、シェルを呼ぶ前に、リンクされたパスをスキルのディレクトリからの相対で解決し、プロジェクトのファイルは明示的な引数として渡す。
 
-## Creating or revising a skill
+## スキルの作成と改訂
 
-When creating or revising a skill:
+スキルを作成または改訂するときは、次の手順に従う。
 
-1. Define the skill's essential value as one outcome or decision quality.
-2. Choose or retain a clear `<skill-name>` that satisfies the `name` rules.
-3. Create or update the skill directory at the requested location, or at the project location resolved above.
-4. Write or revise the reusable workflow or knowledge in `SKILL.md`.
-5. Add `references/`, `scripts/`, or `assets/` only when useful.
-6. Link supporting files from `SKILL.md` using paths relative to the skill directory.
-7. Review each instruction against the essential value, consolidate shared concepts at their owner, and preserve every consuming skill's local execution contract.
+1. スキルの本質的な価値を、単一の成果または判断の質として定義する。
+2. `name`のルールを満たす、明確な`<skill-name>`を選ぶか、維持する。
+3. 依頼された場所、または上で解決したプロジェクト内の場所に、スキルのディレクトリを作成または更新する。
+4. 再利用可能なワークフローまたは知識を、`SKILL.md`に書くか、改訂する。
+5. `references/`、`scripts/`、`assets/`は、有用な場合にのみ追加する。
+6. 補助ファイルを、スキルのディレクトリからの相対パスで、`SKILL.md`からリンクする。
+7. 各指示を本質的な価値に照らして見直し、共有される概念を所有者のもとに集約し、消費する各スキルのローカルな実行契約を保持する。

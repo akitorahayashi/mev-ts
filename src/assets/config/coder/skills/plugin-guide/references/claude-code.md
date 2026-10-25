@@ -1,12 +1,12 @@
 # Claude Code
 
-## Authority
+## 典拠
 
 - [Create plugins](https://code.claude.com/docs/en/plugins)
 - [Plugins reference](https://code.claude.com/docs/en/plugins-reference)
 - [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins)
 
-## Standard Layout
+## 標準のレイアウト
 
 ```text
 <plugin-root>/
@@ -26,37 +26,37 @@
 └── .lsp.json
 ```
 
-The manifest is optional. When it is absent, Claude Code derives the plugin name from the directory and discovers components at default locations. A distributed plugin normally includes a manifest for stable identity and metadata.
+マニフェストは任意である。存在しない場合、Claude Codeはディレクトリ名からプラグイン名を導き、既定の場所にあるコンポーネントを発見する。配布するプラグインは、安定した識別とメタデータのために、通常はマニフェストを含める。
 
-Only `plugin.json` belongs inside `.claude-plugin/`. Skills, agents, hooks, scripts, servers, executables, and configuration remain at the plugin root. A plugin-root `CLAUDE.md` is not loaded as project context.
+`.claude-plugin/`の中に置くのは`plugin.json`のみである。スキル、エージェント、フック、スクリプト、サーバー、実行ファイル、設定は、プラグインルートに置いたままにする。プラグインルートの`CLAUDE.md`は、プロジェクトのコンテキストとして読み込まれない。
 
-## Components
+## コンポーネント
 
-| component | default location | behavior |
+| コンポーネント | 既定の場所 | 挙動 |
 | --- | --- | --- |
-| skills | `skills/<name>/SKILL.md` | user- or model-invoked capabilities with supporting files |
-| commands | `commands/*.md` | legacy flat skills; new plugins use `skills/` |
-| agents | `agents/*.md` | specialized delegated subagents |
-| hooks | `hooks/hooks.json` | event-triggered behavior |
-| MCP servers | `.mcp.json` | external tool and service connections |
-| LSP servers | `.lsp.json` | language-server configuration |
-| output styles | `output-styles/*.md` | response presentation definitions |
-| executables | `bin/` | commands added to the Bash tool's `PATH` while enabled |
-| settings | `settings.json` | supported plugin defaults such as the active agent |
+| スキル | `skills/<name>/SKILL.md` | 補助ファイルを持つ、ユーザーまたはモデルが呼び出す機能 |
+| コマンド | `commands/*.md` | 旧来のフラットなスキル。新しいプラグインは`skills/`を使う |
+| エージェント | `agents/*.md` | 特化した、委譲されるサブエージェント |
+| フック | `hooks/hooks.json` | イベントで起動される挙動 |
+| MCPサーバー | `.mcp.json` | 外部のツールやサービスへの接続 |
+| LSPサーバー | `.lsp.json` | 言語サーバーの設定 |
+| 出力スタイル | `output-styles/*.md` | 応答の提示方法の定義 |
+| 実行ファイル | `bin/` | 有効な間、BashツールのPATHに追加されるコマンド |
+| 設定 | `settings.json` | 有効なエージェントなど、サポートされるプラグインの既定値 |
 
-Experimental components remain isolated from a plugin's required capability because their schemas may change.
+実験的なコンポーネントは、スキーマが変わる可能性があるため、プラグインが必須とする機能から切り離しておく。
 
-Plugin skills and agents appear under a plugin namespace such as `/comment-review:review-pr` and `comment-review:pr-reviewer`.
+プラグインのスキルとエージェントは、`/comment-review:review-pr`や`comment-review:pr-reviewer`のように、プラグインの名前空間の下に現れる。
 
-## Manifest
+## マニフェスト
 
-`<plugin-root>/.claude-plugin/plugin.json` is JSON. If present, `name` is the only required field.
+`<plugin-root>/.claude-plugin/plugin.json`はJSONである。存在する場合、必須のフィールドは`name`のみである。
 
 ```json
 {
   "name": "comment-review",
   "version": "1.0.0",
-  "description": "Review pull requests and publish approved findings.",
+  "description": "プルリクエストをレビューし、承認された指摘を公開する。",
   "author": {
     "name": "Example Author"
   },
@@ -65,49 +65,49 @@ Plugin skills and agents appear under a plugin namespace such as `/comment-revie
 }
 ```
 
-`name` is a kebab-case identifier and owns component namespacing. `displayName`, `version`, `description`, `author`, `homepage`, `repository`, `license`, and `keywords` are metadata. The optional `$schema` field enables editor validation but does not replace the Claude CLI validator.
+`name`はケバブケースの識別子で、コンポーネントの名前空間を所有する。`displayName`、`version`、`description`、`author`、`homepage`、`repository`、`license`、`keywords`はメタデータである。任意の`$schema`フィールドはエディターでの検証を可能にするが、Claude CLIのバリデーターの代わりにはならない。
 
-`dependencies` declares plugin dependencies. Each entry is either a plugin name string or an object with `name`, optional `version`, and optional `marketplace`. A name-only dependency resolves from the same marketplace by default and is installed with the depending plugin. Use `version` only when the depending plugin intentionally requires a specific released dependency version.
+`dependencies`はプラグインの依存関係を宣言する。各エントリは、プラグイン名の文字列、または`name`と任意の`version`、任意の`marketplace`を持つオブジェクトである。名前だけの依存関係は、既定で同じマーケットプレイスから解決され、依存元のプラグインと一緒にインストールされる。`version`は、依存元のプラグインが特定のリリース済みの依存先バージョンを意図的に必要とする場合にのみ使う。
 
-Custom component locations use `skills`, `commands`, `agents`, `hooks`, `mcpServers`, `lspServers`, and `outputStyles`. Paths are relative to the plugin root, begin with `./`, and may be arrays where supported. Once a manifest field defines a component's paths, the manifest owns discovery for that component; default and custom layouts are not mixed implicitly.
+カスタムのコンポーネントの場所には、`skills`、`commands`、`agents`、`hooks`、`mcpServers`、`lspServers`、`outputStyles`を使う。パスはプラグインルートからの相対で、`./`で始まり、サポートされる場合は配列にできる。マニフェストのフィールドがコンポーネントのパスを定義すると、そのコンポーネントの発見はマニフェストが所有する。既定のレイアウトとカスタムのレイアウトが暗黙に混在することはない。
 
-Use default locations unless a custom layout removes real complexity.
+カスタムのレイアウトが実際の複雑さを取り除く場合を除き、既定の場所を使う。
 
-## Runtime Paths
+## 実行時のパス
 
-| variable | ownership |
+| 変数 | 所有 |
 | --- | --- |
-| `${CLAUDE_PLUGIN_ROOT}` | files bundled in the installed plugin version |
-| `${CLAUDE_PLUGIN_DATA}` | persistent generated files, dependencies, and caches |
-| `${CLAUDE_PROJECT_DIR}` | active project files |
+| `${CLAUDE_PLUGIN_ROOT}` | インストール済みのプラグインのバージョンに同梱されるファイル |
+| `${CLAUDE_PLUGIN_DATA}` | 永続的な生成ファイル、依存関係、キャッシュ |
+| `${CLAUDE_PROJECT_DIR}` | アクティブなプロジェクトのファイル |
 
-Skill and agent content can substitute these variables. Hook commands and MCP or LSP configuration support substitution in their documented command, argument, environment, URL, header, or workspace fields.
+スキルとエージェントの内容は、これらの変数を置換できる。フックのコマンドとMCPまたはLSPの設定は、文書化されたコマンド、引数、環境変数、URL、ヘッダー、ワークスペースのフィールドで置換をサポートする。
 
-A skill shared with other hosts uses skill-relative Markdown links for its own supporting files. `${CLAUDE_PLUGIN_ROOT}` remains for Claude-specific content and plugin-root files outside the skill directory.
+他のホストと共有するスキルは、自身の補助ファイルにスキル相対のMarkdownリンクを使う。`${CLAUDE_PLUGIN_ROOT}`は、Claude固有の内容と、スキルのディレクトリ外にあるプラグインルートのファイルのために残す。
 
-Prefer argument-array or exec forms where supported. Shell-form commands quote substituted paths.
+サポートされる場合は、引数の配列形式またはexec形式を優先する。シェル形式のコマンドでは、置換されたパスを引用符で囲む。
 
-## Cache Behavior
+## キャッシュの挙動
 
-Marketplace installation copies each plugin version into `~/.claude/plugins/cache`. The source checkout is not the runtime location.
+マーケットプレイスからのインストールでは、各プラグインのバージョンが`~/.claude/plugins/cache`にコピーされる。実行時の場所は、ソースのチェックアウトではない。
 
-- References that traverse outside the plugin root fail after installation.
-- Plugin code and bundled configuration remain immutable at runtime.
-- Persistent state uses `${CLAUDE_PLUGIN_DATA}` because the versioned root changes on update.
-- A dependency cache compares its bundled dependency manifest with the persistent copy so plugin updates can trigger a reviewed reinstall.
-- A mid-session update requires `/reload-plugins` for hooks and server connections to adopt the new version; some long-lived components require a new session.
+- プラグインルートの外へたどる参照は、インストール後に失敗する。
+- プラグインのコードと同梱の設定は、実行時には変更できないまま保つ。
+- 更新でバージョン付きのルートが変わるため、永続的な状態には`${CLAUDE_PLUGIN_DATA}`を使う。
+- 依存関係のキャッシュは、同梱の依存関係のマニフェストを永続コピーと比較し、プラグインの更新がレビュー済みの再インストールを起動できるようにする。
+- セッション中の更新では、フックとサーバー接続が新しいバージョンに切り替わるために`/reload-plugins`が必要である。長期間動作する一部のコンポーネントは、新しいセッションを必要とする。
 
-## Plugin-Agent Restrictions
+## プラグインエージェントの制約
 
-Plugin-shipped agents do not receive agent-local `permissionMode`, `mcpServers`, or `hooks`. Claude Code ignores those frontmatter fields for security. Session or plugin-level configuration owns these capabilities.
+プラグインが同梱するエージェントには、エージェント固有の`permissionMode`、`mcpServers`、`hooks`は渡されない。Claude Codeは、セキュリティのために、それらのフロントマターのフィールドを無視する。これらの機能は、セッションまたはプラグインレベルの設定が所有する。
 
-## Development Verification
+## 開発時の検証
 
-1. Run `claude plugin validate <plugin-root> --strict`.
-2. Load with `claude --plugin-dir <plugin-root>`.
-3. Invoke every skill and agent by its plugin-scoped name.
-4. Trigger hooks and connect each MCP or LSP server in a controlled environment.
-5. Run `/reload-plugins` after non-skill component changes.
-6. Install through a local marketplace and repeat a representative invocation from the cached copy.
+1. `claude plugin validate <plugin-root> --strict`を実行する。
+2. `claude --plugin-dir <plugin-root>`で読み込む。
+3. すべてのスキルとエージェントを、プラグインスコープの名前で呼び出す。
+4. 管理された環境で、フックを起動し、各MCPまたはLSPサーバーに接続する。
+5. スキル以外のコンポーネントを変更した後は、`/reload-plugins`を実行する。
+6. ローカルのマーケットプレイスからインストールし、キャッシュされたコピーから代表的な呼び出しを繰り返す。
 
-Only trusted plugin sources are installed. A plugin may execute arbitrary commands with the user's privileges.
+インストールするのは、信頼できるプラグインのソースのみとする。プラグインは、ユーザーの権限で任意のコマンドを実行できる。
