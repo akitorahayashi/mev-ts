@@ -1,40 +1,40 @@
 ---
 name: svo-cli-design
-description: Use when designing or extending a CLI command surface (subcommands, positional arguments, options). Prevents mandatory-option sprawl, preserves positional-required inputs, keeps hierarchies shallow.
+description: CLIのコマンド体系(サブコマンド、位置引数、オプション)を設計または拡張するときに使用する。必須オプションの乱立を防ぎ、位置引数での必須入力を維持し、階層を浅く保つ。
 ---
 
-# SVO CLI Design
+# SVO CLI設計
 
-SVO reads a CLI invocation as a sentence: the tool is the subject, the subcommand the verb, the object the target, and positional args the required complements.
+SVOは、CLIの呼び出しを1つの文として読む。ツールが主語、サブコマンドが動詞、オブジェクトが対象、位置引数が必須の補語にあたる。
 
-## Primary Objective
+## 目的
 
-Prioritize SVO structure. Use positional arguments for primary required inputs. Reserve mandatory options for the conditions listed below, where an explicit key-value form resolves an ambiguity a positional argument cannot.
+SVO構造を優先する。主要な必須入力には位置引数を使う。必須オプションは、位置引数では解消できない曖昧さを明示的なキーと値の形式が解消する、次に挙げる条件に限って使う。
 
-## Decision Order
+## 判断の順序
 
-1. Semantic sentence: `tool verb object complements`, where `object` is a subcommand noun in the command tree and `complements` are positional arguments. The `object` is omitted when it is inferable from the working context, such as a configuration file the tool already reads.
-2. Input form:
+1. 意味上の文: `tool verb object complements`。`object`はコマンドツリー内のサブコマンドの名詞で、`complements`は位置引数である。ツールがすでに読む設定ファイルなど、作業コンテキストから推測できる場合は、`object`を省略する。
+2. 入力の形式:
 
-   | input | form | condition |
+   | 入力 | 形式 | 条件 |
    | --- | --- | --- |
-   | Primary target of the verb | Subcommand noun | The vocabulary is closed and stable |
-   | Required input | Positional argument | Default for every required input |
-   | Required input | Mandatory option | Order-independence, repeated keyed input, externalized payload, or omission-is-normal |
-   | Automatically resolvable value | Optional override, such as `--flag <value>` | The value resolves from environment variables, system information, or configuration |
-   | Preference, edge case, part or numeric modifier, output mode | Option | Not needed on a daily invocation |
+   | 動詞の主要な対象 | サブコマンドの名詞 | 語彙が閉じていて安定している |
+   | 必須入力 | 位置引数 | すべての必須入力の既定 |
+   | 必須入力 | 必須オプション | 順序非依存、キー付き入力の繰り返し、ペイロードの外部化、省略が通常である |
+   | 自動で解決できる値 | `--flag <value>`のような任意の上書き | 環境変数、システム情報、設定から値が解決できる |
+   | 好み、エッジケース、部分指定や数値の修飾、出力モード | オプション | 日常の呼び出しでは不要 |
 
-   Each mandatory option names which of the four conditions justifies it. An option matching none becomes a positional argument or an optional flag.
-3. Command tree: shallow depth and a stable vocabulary.
-4. Names: each command has exactly one canonical name. Aliases are registered short forms of that name — `init` → `i`, `update` → `u`, `--output` → `-o` — added when memorable and unambiguous. Two full-length names for one operation are synonyms and are not introduced.
+   各必須オプションは、4つの条件のうちどれがそれを正当化するかを示す。どれにも当てはまらないオプションは、位置引数または任意のフラグにする。
+3. コマンドツリー: 深さを浅く、語彙を安定させる。
+4. 名前: 各コマンドの正式名はちょうど1つとする。エイリアスは、その名前の登録済みの短縮形(`init` → `i`、`update` → `u`、`--output` → `-o`)であり、覚えやすく曖昧でない場合に追加する。1つの操作に2つのフルレングスの名前を付けるとそれは同義語になるため、導入しない。
 
-## Contracts
+## 契約
 
-- `stdout` carries result data; `stderr` carries warnings, logs, and errors.
-- `--json` carries machine-readable output where a consumer exists.
-- Each command declares its preconditions and enforces them with state validation. A satisfied state runs directly; a failed precondition reports the reason and the recovery action.
+- `stdout`は結果のデータを、`stderr`は警告、ログ、エラーを運ぶ。
+- 消費者が存在する場合は、`--json`で機械可読な出力を提供する。
+- 各コマンドは前提条件を宣言し、状態の検証によってそれを強制する。条件を満たしていれば直接実行し、前提条件を満たさなければ、理由と回復手順を報告する。
 
-## Criteria
+## 基準
 
-- Each resulting invocation reads as `tool verb object complements`. An invocation that does not read as a sentence, or that needs a mandatory option to state its primary target, is redesigned.
-- The current CLI is the baseline, so the result is a set of deltas against it. A full redesign applies only when integration is impossible.
+- 結果として得られる各呼び出しは、`tool verb object complements`として読める。文として読めない呼び出しや、主要な対象を述べるために必須オプションが必要な呼び出しは、設計し直す。
+- 現行のCLIを基準とし、結果はそれに対する差分の集合とする。全面的な再設計は、統合が不可能な場合にのみ適用する。

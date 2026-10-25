@@ -1,31 +1,31 @@
 ---
 name: task-doc
-description: Converts a software implementation request into a concise task document with current state, implementation plan, constraints, and acceptance criteria.
+description: ソフトウェアの実装依頼を、現状、実装計画、制約、受け入れ基準を備えた簡潔なタスク文書に変換する。
 disable-model-invocation: true
 ---
 
-# Task Doc
+# タスク文書
 
-## Primary Objective
+## 目的
 
-Organize requirements, context, and implementation work into a concise task document.
+要件、コンテキスト、実装作業を、簡潔なタスク文書に整理する。
 
-## Output Schema
+## 出力スキーマ
 
-The task document follows [template](assets/template.md), with each placeholder replaced by the task's own content.
+タスク文書は[テンプレート](assets/template.md)に従い、各プレースホルダーをそのタスク固有の内容に置き換える。
 
-## Schema Meaning
+## スキーマの意味
 
-- `Goal`: The target outcome, not the implementation steps.
-- `Current State`: Existing behavior, structure, or context and why it fails to meet the goal. Include relevant files, modules, or components only when known from context.
-- `Plan`: Ordered implementation approach at the right abstraction level.
-- `Constraints`: Requirements, assumptions, boundaries, and non-goals that shape the work.
-- `Acceptance Criteria`: Observable conditions that prove the task is complete.
+- `目標`: 実装手順ではなく、目指す成果。
+- `現状`: 既存の挙動、構造、コンテキストと、それが目標を満たさない理由。関連するファイル、モジュール、コンポーネントは、コンテキストから分かる場合にのみ含める。
+- `計画`: 適切な抽象度で整理した、順序のある実装方針。
+- `制約`: 作業を形づくる要件、前提、境界、非目標。
+- `受け入れ基準`: タスクの完了を証明する、観測可能な条件。
 
-## Additional Context
+## 追加のコンテキスト
 
-Additional headings belong at the most appropriate position in the document only when the schema cannot cover the information cleanly, such as notable background, domain-specific requirements, domain information, implementation details, library usage, migration notes, or reviewed decisions.
+追加の見出しは、重要な背景、ドメイン固有の要件、ドメイン情報、実装の詳細、ライブラリの使い方、移行メモ、レビュー済みの判断など、スキーマでは情報を適切に収められない場合にのみ、文書内で最も適切な位置に置く。
 
-## Style
+## スタイル
 
-The entire task document remains in declarative style, including user-requested revisions.
+タスク文書全体は、ユーザーが依頼した改訂も含めて、宣言的な文体を保つ。

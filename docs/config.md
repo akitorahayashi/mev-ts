@@ -78,7 +78,7 @@ the marketplace metadata uses a different name.
 
 ```yaml
 marketplaces:
-  - repo: akitorahayashi/agent-device-plugin
+  - repo: akitorahayashi/agent-device
     clients: [claude, codex]
     plugins: [agent-device, diff-verify]
   - repo: akitorahayashi/xlsx
@@ -90,7 +90,7 @@ Removal is explicit:
 
 ```yaml
 marketplaces:
-  - repo: akitorahayashi/agent-device-plugin
+  - repo: akitorahayashi/agent-device
     clients: [claude]
     plugins: [agent-device]
     uninstall: [diff-verify]

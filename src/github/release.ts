@@ -1,4 +1,5 @@
 import { chmod } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ProvisioningError } from '../errors';
 import { statIfPresent } from '../host/absence';
 import { replaceFileAtomically } from '../host/atomic-file';
@@ -39,6 +40,13 @@ export type ReleaseArch = (typeof releaseArchitectures)[number];
  * re-resolution; every other tag is an exact pin that is never re-resolved.
  */
 export const latestTag = LATEST;
+
+/** Home-relative directory every release binary installs into. */
+export const RELEASE_BIN_DIR = '.cargo/bin';
+
+export function releaseBinaryPath(home: string, name: string): string {
+  return join(home, RELEASE_BIN_DIR, name);
+}
 
 // Release fields flow into the public download URL, and `name` also determines
 // the release asset filename. Validate the repo-owned manifest against explicit

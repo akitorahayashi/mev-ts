@@ -1,52 +1,52 @@
 # Codex
 
-## Authority
+## 典拠
 
 - [Subagents](https://developers.openai.com/codex/multi-agent)
 - [Configuration reference](https://developers.openai.com/codex/config-reference)
 
-Codex custom agents are standalone TOML configuration layers for spawned sessions.
+Codexのカスタムエージェントは、起動されるセッション向けの単独のTOML設定レイヤーである。
 
-## Locations
+## 配置場所
 
-| path | scope |
+| パス | スコープ |
 | --- | --- |
-| `.codex/agents/<agent>.toml` | current project |
-| `~/.codex/agents/<agent>.toml` | user |
+| `.codex/agents/<agent>.toml` | 現在のプロジェクト |
+| `~/.codex/agents/<agent>.toml` | ユーザー |
 
-Each file defines one agent. The `name` field is authoritative; matching the filename to it is the clearest convention.
+1つのファイルが1つのエージェントを定義する。`name`フィールドが正であり、ファイル名をそれに一致させるのが最も分かりやすい慣例である。
 
-## Required Fields
+## 必須フィールド
 
 ```toml
 name = "code_mapper"
-description = "Read-only codebase explorer for locating the execution path relevant to a delegated task."
+description = "委譲されたタスクに関係する実行経路を特定する、読み取り専用のコードベース探索エージェント。"
 sandbox_mode = "read-only"
 developer_instructions = """
-Trace the real execution path and return concise evidence with file references.
-Do not edit files or propose changes outside the delegated scope.
+実際の実行経路を追跡し、ファイル参照を添えた簡潔な根拠を返す。
+ファイルを編集せず、委譲された範囲外の変更を提案しない。
 """
 ```
 
-| field | purpose |
+| フィールド | 目的 |
 | --- | --- |
-| `name` | identity used when spawning or referring to the agent |
-| `description` | human-facing guidance for when Codex uses the agent |
-| `developer_instructions` | invariant behavior for the spawned session |
+| `name` | エージェントを起動または参照するときに使う識別 |
+| `description` | Codexがそのエージェントを使う場面についての、人間向けの案内 |
+| `developer_instructions` | 起動されるセッションの不変の振る舞い |
 
-The file may contain other supported Codex configuration keys, including `model`, `model_reasoning_effort`, `sandbox_mode`, `mcp_servers`, and `skills.config`.
+ファイルには、`model`、`model_reasoning_effort`、`sandbox_mode`、`mcp_servers`、`skills.config`を含む、Codexがサポートする他の設定キーも含められる。
 
-## Inheritance
+## 継承
 
-When the custom file defines `model` or `model_reasoning_effort`, that value takes precedence. Otherwise Codex resolves each value from an explicit spawn setting, the corresponding `[agents]` default, and then the parent session.
+カスタムファイルが`model`または`model_reasoning_effort`を定義している場合は、その値が優先される。そうでない場合、Codexは各値を、明示的な起動時の設定、対応する`[agents]`の既定値、親セッションの順に解決する。
 
-Other omitted session settings inherit from the parent. Live runtime permission and sandbox choices made for the parent turn remain an outer boundary and are reapplied when Codex spawns a child.
+省略された他のセッション設定は、親から継承する。親のターンで行われた実行時の権限とサンドボックスの選択は外側の境界として残り、Codexが子を起動するときに再適用される。
 
-An agent that needs less authority declares a narrower `sandbox_mode`. An agent definition does not rely on a broader sandbox than the active parent permits.
+より少ない権限で足りるエージェントは、より狭い`sandbox_mode`を宣言する。エージェント定義は、有効な親が許可する範囲を超えるサンドボックスに依存しない。
 
-## Global Subagent Settings
+## グローバルなサブエージェント設定
 
-Global and project Codex configuration can set:
+グローバルおよびプロジェクトのCodex設定では、次を設定できる。
 
 ```toml
 [agents]
@@ -57,25 +57,25 @@ default_subagent_reasoning_effort = "medium"
 interrupt_message = true
 ```
 
-| field | effect |
+| フィールド | 効果 |
 | --- | --- |
-| `enabled` | enables or disables multi-agent tools |
-| `max_concurrent_threads_per_session` | caps concurrently open spawned-agent threads |
-| `default_subagent_model` | default child model when no more specific setting exists |
-| `default_subagent_reasoning_effort` | default child reasoning effort |
-| `interrupt_message` | records or omits a model-visible interruption message |
+| `enabled` | マルチエージェントのツールを有効または無効にする |
+| `max_concurrent_threads_per_session` | 同時に開く、起動済みエージェントのスレッド数の上限 |
+| `default_subagent_model` | より具体的な設定がない場合の、子の既定のモデル |
+| `default_subagent_reasoning_effort` | 子の既定の推論の強度 |
+| `interrupt_message` | モデルから見える中断メッセージを記録するか省略するか |
 
-Codex includes general-purpose `default`, implementation-focused `worker`, and read-heavy `explorer` agents. A custom definition is justified when those roles do not express the required responsibility or configuration.
+Codexには、汎用の`default`、実装中心の`worker`、読み取りが主体の`explorer`のエージェントが含まれる。これらのロールで必要な責務や設定を表現できない場合に、カスタム定義が正当化される。
 
-## Delegation
+## 委譲
 
-Codex delegates after a direct request or applicable project or skill instruction. A delegation prompt states the division of work, independence assumptions, whether all agents must finish before synthesis, and the result format.
+Codexは、直接の依頼、または該当するプロジェクトやスキルの指示の後に委譲する。委譲プロンプトには、作業の分担、独立性の前提、統合の前にすべてのエージェントの完了が必要かどうか、結果の形式を記す。
 
-Read-heavy exploration, test execution, log analysis, and independent review dimensions are suitable parallel work. Concurrent edits to shared files are not.
+読み取りが主体の探索、テスト実行、ログ分析、独立したレビュー観点は、並行作業に適している。共有ファイルへの同時編集は適していない。
 
-## Verification
+## 検証
 
-- Ask Codex to spawn the agent by its declared name and inspect the resulting agent thread.
-- Use a task that exercises the declared sandbox, MCP, or skill configuration.
-- Confirm the result follows the declared output and that the parent performs final synthesis.
-- Surface TOML loading or unknown-agent errors; do not silently substitute a built-in agent.
+- 宣言した名前でエージェントを起動するようCodexに依頼し、生成されたエージェントのスレッドを確認する。
+- 宣言したサンドボックス、MCP、スキルの設定を働かせるタスクを使う。
+- 結果が宣言した出力に従い、親が最終的な統合を行うことを確認する。
+- TOMLの読み込みエラーや未知のエージェントのエラーは表面化させ、組み込みのエージェントで黙って代替しない。

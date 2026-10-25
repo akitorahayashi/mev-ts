@@ -1,13 +1,13 @@
-# <topic>
+# <トピック>
 
-## Context
+## 前提
 
-<shared context; what has already been confirmed or checked>
+<共有する背景。すでに確認または調査したこと>
 
-## Q1. <short title>
+## Q1. <短いタイトル>
 
-Background: <why asking; what was already checked; what is blocked without it>
-Questions:
+背景: <なぜ聞くのか。何をすでに確認したか。回答がなければ何が止まるか>
+質問:
 
-1. <specific point>
-2. <specific point>
+1. <具体的な小項目>
+2. <具体的な小項目>

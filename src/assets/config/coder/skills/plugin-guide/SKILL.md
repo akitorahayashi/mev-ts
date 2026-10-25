@@ -1,103 +1,105 @@
 ---
 name: plugin-guide
-description: Creates and revises agent plugins and marketplaces for Claude Code, Codex, and ChatGPT.
+description: Claude Code、Codex、ChatGPT向けのエージェントプラグインとマーケットプレイスを作成・改訂する。
 ---
 
-# Agent Plugins
+# エージェントプラグイン
 
-## Scope
+## 対象範囲
 
-An agent plugin is a self-contained distribution unit for reusable agent capabilities. It packages host-supported components such as skills, agents, hooks, MCP servers, connectors, executables, UI assets, and related configuration. This guide covers Claude Code plugins and OpenAI plugins for Codex and ChatGPT, not unrelated products that also use the term plugin.
+エージェントプラグインは、再利用可能なエージェントの機能を配布するための、自己完結した配布単位である。スキル、エージェント、フック、MCPサーバー、コネクタ、実行ファイル、UIアセット、関連する設定など、ホストがサポートするコンポーネントをまとめる。このガイドはClaude CodeのプラグインとCodexおよびChatGPT向けのOpenAIプラグインを対象とし、プラグインという語を使う無関係な製品は対象外とする。
 
-## Choosing the Distribution Unit
+## 配布単位の選択
 
-Keep configuration standalone while it is project-specific, personal, or still being shaped. Use a plugin when the same capability needs installation, namespacing, versioning, updates, or reuse across projects or users.
+設定がプロジェクト固有、個人用、またはまだ形を整えている段階の間は、設定を単独のまま保つ。同じ機能を、インストール、名前空間、バージョン管理、更新、またはプロジェクトやユーザーをまたぐ再利用の対象にする必要がある場合に、プラグインを使う。
 
-A plugin has one coherent purpose. Each host-supported component contributes directly to that purpose:
+プラグインは1つの一貫した目的を持つ。ホストがサポートする各コンポーネントは、その目的に直接寄与する。
 
-- a skill carries a user- or model-invoked capability
-- a host-supported packaged agent carries isolated delegated work
-- a hook reacts automatically to lifecycle or tool events
-- an MCP server exposes an external service or tool protocol
-- a connector exposes an authenticated external service through a supported host surface
-- an LSP server supplies language intelligence
-- `bin/` carries executables intentionally exposed to shell calls
-- assets carry icons, screenshots, templates, or other material the host or bundled components need
+- スキルは、ユーザーまたはモデルが呼び出す機能を担う
+- ホストがサポートする同梱エージェントは、分離された委譲作業を担う
+- フックは、ライフサイクルやツールのイベントに自動で反応する
+- MCPサーバーは、外部サービスやツールのプロトコルを公開する
+- コネクタは、認証が必要な外部サービスを、サポートされるホストの面を通じて公開する
+- LSPサーバーは、言語インテリジェンスを提供する
+- `bin/`は、シェルから呼ぶことを意図して公開する実行ファイルを担う
+- アセットは、アイコン、スクリーンショット、テンプレート、その他ホストや同梱コンポーネントが必要とする素材を担う
 
-Omit component types that do not improve the plugin's purpose. Packaging does not justify unrelated features.
+プラグインの目的を高めないコンポーネントの種類は含めない。パッケージ化は、無関係な機能を入れる理由にならない。
 
-## Required Context
+## 必要なコンテキスト
 
-Determine the plugin host, purpose, intended users, plugin root, required components, runtime dependencies, persistent state, installation scope, distribution source, and version strategy from the request and repository.
+プラグインのホスト、目的、想定ユーザー、プラグインルート、必要なコンポーネント、実行時の依存関係、永続的な状態、インストールのスコープ、配布元、バージョン戦略を、依頼とリポジトリから特定する。
 
-Existing `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`, component directories, and release conventions are authoritative local context. When the host, distribution, or version strategy remains materially ambiguous, obtain that decision before publishing configuration.
+既存の`.claude-plugin/plugin.json`、`.codex-plugin/plugin.json`、`.claude-plugin/marketplace.json`、`.agents/plugins/marketplace.json`、コンポーネントのディレクトリ、リリースの慣例は、ローカルの正となるコンテキストである。ホスト、配布、バージョン戦略が実質的に曖昧なままの場合は、公開用の設定を書く前にその決定を得る。
 
-## Boundaries
+## 境界
 
-- The plugin root owns every runtime file needed after installation.
-- Host metadata directories contain plugin metadata; component directories remain at the plugin root.
-- A marketplace catalogs and locates plugins. It does not become the plugin root unless its entry explicitly uses the marketplace root as the source.
-- Component-specific behavior remains in the owning skill, agent, hook, or server definition. The plugin manifest does not duplicate those instructions.
-- Cross-component workflow states each input, output, caller boundary, and persistent artifact's owner and mutation policy without making components depend on the original authoring conversation.
-- Component consolidation traces callers, consumers, artifacts, and runtime paths, then assigns responsibilities by comparing owned decisions, outputs, consumers, and lifecycles.
-- Built-in and standalone subagents are host capabilities rather than plugin components. A plugin declares packaged agents only for a host whose plugin format supports them.
+- プラグインルートは、インストール後に必要なすべての実行時ファイルを所有する。
+- ホストのメタデータディレクトリにはプラグインのメタデータを置き、コンポーネントのディレクトリはプラグインルートに置いたままにする。
+- マーケットプレイスは、プラグインをカタログ化して所在を示す。エントリがマーケットプレイスルートを明示的にソースとして使わない限り、マーケットプレイスがプラグインルートになることはない。
+- コンポーネント固有の挙動は、それを所有するスキル、エージェント、フック、サーバーの定義に残す。プラグインのマニフェストはそれらの指示を複製しない。
+- コンポーネントをまたぐワークフローでは、各入力、出力、呼び出し元の境界、永続的な成果物の所有者と変更ポリシーを明記し、コンポーネントが元の作成時の会話に依存しないようにする。
+- コンポーネントの統合では、呼び出し元、消費者、成果物、実行時のパスをたどり、所有する判断、出力、消費者、ライフサイクルを比較して責務を割り当てる。
+- 組み込みのサブエージェントと単独のサブエージェントは、ホストの機能であり、プラグインのコンポーネントではない。プラグインが同梱エージェントを宣言するのは、そのプラグイン形式がエージェントをサポートするホストに対してのみとする。
 
-## Paths and State
+## パスと状態
 
-Installed marketplace plugins may run from a copied or versioned cache rather than their source checkout. Runtime references use the path variables and cache rules of the selected host.
+マーケットプレイスからインストールされたプラグインは、ソースのチェックアウトではなく、コピーされた、またはバージョン付きのキャッシュから実行されることがある。実行時の参照には、選択したホストのパス変数とキャッシュのルールを使う。
 
-- Claude Code uses `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`.
-- Codex hooks receive `${PLUGIN_ROOT}` for bundled files and `${PLUGIN_DATA}` for persistent state. Codex resolves relative MCP `cwd` values against the plugin root.
+- Claude Codeは`${CLAUDE_PLUGIN_ROOT}`、`${CLAUDE_PLUGIN_DATA}`、`${CLAUDE_PROJECT_DIR}`を使う。
+- Codexのフックは、同梱ファイル用の`${PLUGIN_ROOT}`と、永続的な状態用の`${PLUGIN_DATA}`を受け取る。Codexは、相対的なMCPの`cwd`の値をプラグインルートに対して解決する。
 
-Bundled skills refer to their own supporting files with Markdown links relative to the skill directory. Plugin-root variables apply only where the selected host documents substitution; they do not replace skill-relative links in a shared `SKILL.md`.
+同梱のスキルは、自身の補助ファイルを、スキルのディレクトリからの相対のMarkdownリンクで参照する。プラグインルートの変数は、選択したホストが置換を文書化している箇所にのみ適用し、共有する`SKILL.md`内のスキル相対リンクの代わりにはしない。
 
-Runtime files do not use paths that escape the plugin root. Hook scripts resolve bundled files from the host's documented plugin-root variable. Bundled-file paths in Codex MCP commands and arguments are relative to a plugin-root-relative `cwd`; they do not use plugin-variable substitution. Other scripts accept project paths explicitly and do not assume the shell working directory. Writes target the host's documented persistent state location rather than immutable installed plugin files.
+実行時のファイルは、プラグインルートの外へ出るパスを使わない。フックのスクリプトは、同梱ファイルをホストが文書化したプラグインルートの変数から解決する。CodexのMCPのコマンドと引数にある同梱ファイルのパスは、プラグインルート相対の`cwd`からの相対とし、プラグイン変数の置換は使わない。その他のスクリプトは、プロジェクトのパスを明示的に受け取り、シェルの作業ディレクトリを前提にしない。書き込みは、変更できないインストール済みのプラグインファイルではなく、ホストが文書化した永続的な状態の保存先に対して行う。
 
-## Security
+## セキュリティ
 
-Plugins are trusted code that can execute with the user's operating-system privileges.
+プラグインは、ユーザーのOS権限で実行できる、信頼されたコードである。
 
-- Hooks, MCP servers, LSP servers, and executables receive only the authority needed by the plugin purpose.
-- Install-time and first-run network or package operations are explicit, reviewable, and fail visibly.
-- Secrets remain in host credential stores or environment configuration, not plugin files, logs, or marketplace metadata.
-- Persistent data has an ownership and cleanup policy.
-- User-provided paths and plugin options are validated before reaching commands.
-- Third-party sources follow the repository's supply-chain pinning policy.
+- フック、MCPサーバー、LSPサーバー、実行ファイルには、プラグインの目的に必要な権限だけを与える。
+- インストール時と初回実行時のネットワーク操作やパッケージ操作は、明示的でレビュー可能にし、失敗は可視にする。
+- シークレットは、プラグインのファイル、ログ、マーケットプレイスのメタデータではなく、ホストの資格情報ストアまたは環境設定に置く。
+- 永続的なデータには、所有者とクリーンアップのポリシーを定める。
+- ユーザーが与えたパスとプラグインのオプションは、コマンドに渡る前に検証する。
+- サードパーティのソースは、リポジトリのサプライチェーンのピン留めポリシーに従う。
 
-## Authoring Workflow
+## 作成ワークフロー
 
-1. Decide whether standalone configuration or a distributable plugin owns the capability.
-2. Establish the plugin root separately from any repository or marketplace root.
-3. Select only the component types required by the purpose.
-4. Define each component with its own responsibility and boundary contract.
-5. Add or revise the host-specific manifest for stable identity, metadata, custom paths, dependencies, options, or publication.
-6. Replace checkout-relative runtime-configuration paths with the host's documented plugin-root resolution, retain skill-relative links for skill supporting files, and separate immutable files from persistent state.
-7. Add a marketplace entry only when installation or distribution requires a catalog.
-8. Select explicit semantic versions for reviewed releases or commit-derived versions for continuous internal delivery.
-9. Validate the package, exercise every component, and test installation through its intended distribution path.
+1. 機能を所有するのが、単独の設定か、配布可能なプラグインかを決める。
+2. プラグインルートを、リポジトリやマーケットプレイスのルートとは別に確定する。
+3. 目的が必要とするコンポーネントの種類だけを選ぶ。
+4. 各コンポーネントを、それ自身の責務と境界の契約で定義する。
+5. 安定した識別、メタデータ、カスタムパス、依存関係、オプション、公開のために、ホスト固有のマニフェストを追加または改訂する。
+6. チェックアウト相対の実行時設定のパスを、ホストが文書化したプラグインルートの解決に置き換え、スキルの補助ファイルにはスキル相対のリンクを残し、変更できないファイルと永続的な状態を分離する。
+7. インストールや配布がカタログを必要とする場合にのみ、マーケットプレイスのエントリを追加する。
+8. レビュー済みのリリースには明示的なセマンティックバージョンを、継続的な社内配布にはコミット由来のバージョンを選ぶ。
+9. パッケージを検証し、すべてのコンポーネントを動かし、想定する配布経路でインストールをテストする。
 
-## Validation
+## 検証
 
-Use the selected host's validator or installation path. Claude Code provides an explicit validator:
+選択したホストのバリデーターまたはインストール経路を使う。Claude Codeは明示的なバリデーターを提供している。
 
 ```bash
 claude plugin validate <plugin-root-or-marketplace-root> --strict
 ```
 
-Load the source directly during development:
+開発中は、ソースを直接読み込む。
 
 ```bash
 claude --plugin-dir <plugin-root>
 ```
 
-For Codex and ChatGPT, test through the local marketplace flow or supported plugin browser because installation proves manifest discovery, marketplace source resolution, cache-relative paths, and enabled component behavior.
+CodexとChatGPTでは、インストールによってマニフェストの発見、マーケットプレイスのソース解決、キャッシュ相対のパス、有効化されたコンポーネントの挙動が確認できるため、ローカルのマーケットプレイスの流れまたはサポートされるプラグインブラウザーを通じてテストする。
 
-Plugin-specific scripts and servers run their own focused tests. A passing manifest validation does not prove their behavior.
+プラグイン固有のスクリプトとサーバーは、それぞれ焦点を絞ったテストを実行する。マニフェストの検証が通っても、それらの挙動が証明されるわけではない。
 
-## Reference
+## リファレンス
 
-Read [Claude Code](references/claude-code.md) for Claude Code plugin layout, manifests, components, runtime paths, and caching.
+Claude Codeのプラグインのレイアウト、マニフェスト、コンポーネント、実行時のパス、キャッシュは、[Claude Code](references/claude-code.md)を読む。
 
-Read [Codex](references/codex.md) for Codex and ChatGPT plugin layout, manifests, local marketplaces, runtime paths, MCP servers, and hooks.
+CodexとChatGPTのプラグインのレイアウト、マニフェスト、ローカルのマーケットプレイス、実行時のパス、MCPサーバー、フックは、[Codex](references/codex.md)を読む。
 
-Read [Claude Code Marketplace](references/marketplace.md) for Claude Code catalogs, source resolution, strict mode, versioning, installation, and distribution.
+Claude Codeのカタログ、ソースの解決、strictモード、バージョン管理、インストール、配布は、[Claude Codeマーケットプレイス](references/marketplace.md)を読む。
+
+複数のスキルが成果物を受け渡すワークフローの命名と順序の表し方は、[ワークフロー](references/workflow.md)を読む。

@@ -25,7 +25,7 @@ src/
   editor/        Editor extension list and install operations
   git/           Git config and command helpers shared by app/internal commands
   github/        GitHub release download and the per-machine SSH host alias store
-  grove/         Grove catalog parsing and per-machine SSH host rendering
+  grove/         Grove catalog per-machine SSH host rendering and `gv validate` checks
   host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions and labeled JSON framing, each taking the error class to raise), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), json.ts (JSON-object load/serialize), jsonc.ts (JSONC load and comment-preserving edits), declared-merge.ts (declared-keys merge and structural equality for app-owned config files), transaction.ts (atomic staging and the swap-transaction envelope), atomic-file.ts (atomic write, write-if-changed), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
   identity/      Git identity scope enum and on-disk store
   internal/

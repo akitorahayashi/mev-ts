@@ -93,6 +93,26 @@ source file or the Bun runtime cannot be mistaken for the installed command.
 Provisioning does not clone or update repositories. If Grove is unavailable, the
 interactive clone route reports how to install it and exits with status 127.
 
+The embedded `grove/grove.toml` asset is the catalog of personal repositories.
+Adding, removing, or renaming a repository is an asset edit shipped in a mev
+release; each machine picks it up with `mev update` followed by `gv sync`, and
+a rename or removal declared under `removed` moves or trashes the old checkout
+there. The asset pins the Grove release whose schema it uses, so an installed
+`gv` older than that pin is replaced in the same run.
+
+Rendering rewrites stock GitHub SSH remotes to the per-machine host and checks
+the result with `gv validate` before replacing `~/Desktop/grove.toml`; a
+rejected render leaves the existing file in place. mev also refuses to replace
+a file whose contents differ from what it last wrote, such as one extended by
+`gv add`: the target fails until those entries move into the asset or into
+`~/Desktop/grove.override.toml` (`gv add --override`) and the file is moved
+aside, after which `mev make grove` writes it again.
+
+`~/Desktop/grove.override.toml` is outside mev: mev never creates, reads, or
+writes it, and Grove merges it over the rendered base on each machine. Work
+repositories and their `removed` declarations live there, so a machine without
+an override manages only the personal catalog.
+
 ```bash
 gh auth login --hostname github.com --git-protocol ssh --web
 cd ~/Desktop

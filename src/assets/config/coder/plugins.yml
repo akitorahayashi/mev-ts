@@ -5,7 +5,7 @@
 #   - clients: any of claude | codex; the entry applies to each listed client
 #   - plugins: plugin names installed from this marketplace
 marketplaces:
-  - repo: akitorahayashi/agent-device-plugin
+  - repo: akitorahayashi/agent-device
     clients: [claude, codex]
     plugins: [agent-device, diff-verify]
     # To uninstall a plugin, move its name out of plugins into an uninstall
@@ -42,8 +42,14 @@ marketplaces:
   - repo: akitorahayashi/backlog
     clients: [claude, codex]
     plugins: [backlog]
+  - repo: akitorahayashi/qa-triage
+    clients: [claude, codex]
+    plugins: [qa-triage]
 # To remove a marketplace and uninstall the plugins it still has installed,
 # delete its entry above and move its repo and clients lines here:
 #   removed_marketplaces:
 #     - repo: akitorahayashi/comment-review
 #       clients: [claude]
+removed_marketplaces:
+  - repo: akitorahayashi/agent-device-plugin
+    clients: [claude, codex]

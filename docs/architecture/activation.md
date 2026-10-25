@@ -8,7 +8,7 @@ The runtime dispatches by `Activation['kind']` through one registry.
 | Kind | Factory | Contract |
 |---|---|---|
 | `file` | `link(source, dest)` | Reconciles one deployed asset as a symlink. |
-| `groveConfig` | `groveConfig(source, dest)` | Renders the per-machine GitHub host and materializes the catalog. |
+| `groveConfig` | `groveConfig(source, dest)` | Renders the per-machine GitHub host, validates the result with the installed `gv`, and materializes the catalog unless the destination changed since mev last wrote it. |
 | `tree` | `linkTree(prefix, dest)` | Mirrors a deployed asset prefix and removes managed stale links. |
 | `defaults` | `applyDefaults(configKey)` | Applies a declared macOS defaults manifest. |
 | `duti` | `applyDuti(configKey)` | Applies declared file associations. |
