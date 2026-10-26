@@ -149,9 +149,8 @@ export async function updateClaudePlugin(
   );
 }
 
-// mev installs only into the user scope, so removals pin --scope user: both
-// verbs default to acting on every scope (uninstall via its default, marketplace
-// remove explicitly documented as all-scope when the flag is omitted).
+// mev installs only into the user scope, so uninstall pins --scope user rather
+// than its every-scope default.
 export async function uninstallClaudePlugin(
   id: string,
   context: Context,
@@ -164,6 +163,10 @@ export async function uninstallClaudePlugin(
   );
 }
 
+// --scope removes only a settings declaration, but a marketplace can be
+// registered in known_marketplaces.json without one; `marketplace list` still
+// reports it while `--scope user` exits non-zero. The caller has already matched
+// the registered source to the tombstone, so the every-scope default is safe.
 export async function removeClaudeMarketplace(
   name: string,
   context: Context,
@@ -171,7 +174,7 @@ export async function removeClaudeMarketplace(
   await runProcessStep(
     noninteractiveRunner(context.commands),
     'claude',
-    ['plugin', 'marketplace', 'remove', name, '--scope', 'user'],
+    ['plugin', 'marketplace', 'remove', name],
     `Claude marketplace remove ${name}`,
   );
 }

@@ -33,8 +33,11 @@ the per-machine SSH host. A plugin ID includes its marketplace name.
 | Same-named foreign, non-Git, or built-in marketplace | Refused; user state is not replaced or removed. |
 | Unlisted plugin | Preserved unless a client-required namespace replacement removes it as a side effect. |
 
-Claude ownership is limited to the user scope. A same-ID plugin in another scope
-does not satisfy a declaration or fail a user-scope removal.
+Claude plugin ownership is limited to the user scope. A same-ID plugin in another
+scope does not satisfy a declaration or fail a user-scope removal. Claude
+marketplace removal is not scoped: a registration can exist without a user
+settings declaration, so a source-matched tombstone deregisters it from every
+scope.
 
 ## Lifecycle
 
