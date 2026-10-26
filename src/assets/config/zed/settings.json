@@ -136,6 +136,7 @@
   },
   "auto_install_extensions": {
     "xml": true,
+    "env": true,
     "html": true,
     "toml": true,
     "tombi": true,
