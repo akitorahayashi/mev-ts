@@ -74,7 +74,7 @@
 
     mr = merge
     rb = rebase
-    rb-o-m = rebase origin/main
+    rb-o-h = rebase origin/HEAD
     rb-c = rebase --continue
     rb-a = rebase --abort
     l = log --oneline --graph --decorate --all -n 15
@@ -82,3 +82,6 @@
 
 [pull]
     ff = only
+
+[push]
+    autoSetupRemote = true
