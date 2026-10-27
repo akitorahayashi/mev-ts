@@ -2,12 +2,13 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { ProvisioningError } from '../../../errors';
 import { runCapture } from '../../../git/run';
-import { lstatIfPresent, statIfPresent } from '../../../host/absence';
+import { lstatIfPresent } from '../../../host/absence';
 import {
   type CommandRunner,
   formatCommandFailure,
 } from '../../../host/command';
 import { runProcessCapture } from '../../../host/command-run';
+import { isSharedTmpPath } from './shared-tmp';
 
 const IGNORED_PREFIX = '!! ';
 
@@ -25,54 +26,18 @@ export function parseIgnored(stdout: string): string[] {
     .map((entry) => entry.slice(IGNORED_PREFIX.length));
 }
 
-export function parseListed(stdout: string): string[] {
-  return stdout.split('\0').filter((entry) => entry !== '');
-}
-
 /**
- * The paths to carry: ignored by the repository but not by the global list.
+ * The paths to carry: everything ignored except the shared `.tmp`, which is
+ * linked rather than copied.
  *
- * The two sets are compared by pattern match, not by which file git credits
- * for the match. A repository that also lists `.DS_Store` in its own
- * `.gitignore` would otherwise keep it out of the global set and carry it into
- * every worktree.
+ * Global ignores are carried too. The global list mixes machine-local files a
+ * worktree needs — `*.local` settings, agent permissions — with regenerable
+ * clutter like `.DS_Store`, and no pattern tells the two apart. Cloning the
+ * clutter costs metadata; leaving the local files behind breaks the worktree.
  */
-export function subtractGlobal(
-  candidates: readonly string[],
-  global: readonly string[],
-): string[] {
-  const excluded = new Set(global);
-  return candidates.filter((path) => !excluded.has(path));
-}
-
-/**
- * Git's own resolution order for the global ignore file: `core.excludesFile`
- * when set, otherwise the XDG default that mev's `git` target deploys to.
- */
-async function globalExcludesPath(run: CommandRunner): Promise<string | null> {
-  const configured = await runCapture(run, [
-    'config',
-    '--get',
-    'core.excludesFile',
-  ]);
-  const home = process.env['HOME'];
-  const value = configured.code === 0 ? configured.stdout.trim() : '';
-  if (value !== '') {
-    return value.startsWith('~/') && home !== undefined
-      ? join(home, value.slice(2))
-      : value;
-  }
-
-  const base =
-    process.env['XDG_CONFIG_HOME'] ??
-    (home === undefined ? null : join(home, '.config'));
-  return base === null ? null : join(base, 'git', 'ignore');
-}
-
 export async function readCarryPaths(
   run: CommandRunner,
   source: string,
-  warn: (message: string) => void,
 ): Promise<string[]> {
   const status = await runCapture(run, ['-C', source, ...STATUS_ARGS]);
   if (status.code !== 0) {
@@ -80,33 +45,7 @@ export async function readCarryPaths(
       formatCommandFailure('git status --ignored failed', status),
     );
   }
-  const candidates = parseIgnored(status.stdout);
-  if (candidates.length === 0) return [];
-
-  const excludes = await globalExcludesPath(run);
-  if (excludes === null || (await statIfPresent(excludes)) === null) {
-    warn(
-      `No global ignore file to filter by${excludes === null ? '' : ` (${excludes})`}; carrying every ignored path.\n`,
-    );
-    return candidates;
-  }
-
-  const global = await runCapture(run, [
-    '-C',
-    source,
-    'ls-files',
-    '-o',
-    '-i',
-    `--exclude-from=${excludes}`,
-    '--directory',
-    '-z',
-  ]);
-  if (global.code !== 0) {
-    throw new ProvisioningError(
-      formatCommandFailure('git ls-files failed', global),
-    );
-  }
-  return subtractGlobal(candidates, parseListed(global.stdout));
+  return parseIgnored(status.stdout).filter((path) => !isSharedTmpPath(path));
 }
 
 /**

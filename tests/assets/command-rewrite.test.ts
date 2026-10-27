@@ -101,3 +101,81 @@ for (const input of [
     },
   );
 }
+
+/** A main worktree and one linked worktree, created by real git. */
+async function worktrees(
+  sandbox: string,
+): Promise<{ readonly main: string; readonly linked: string }> {
+  const main = join(sandbox, 'demo');
+  const linked = join(sandbox, 'demo-feature');
+  const env = {
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_SYSTEM: '/dev/null',
+    GIT_AUTHOR_NAME: 'mev test',
+    GIT_AUTHOR_EMAIL: 'test@example.invalid',
+    GIT_COMMITTER_NAME: 'mev test',
+    GIT_COMMITTER_EMAIL: 'test@example.invalid',
+  };
+  for (const args of [
+    ['init', '--quiet', main],
+    ['-C', main, 'commit', '--quiet', '--allow-empty', '-m', 'init'],
+    ['-C', main, 'worktree', 'add', '--quiet', '-b', 'feature', linked],
+  ]) {
+    const child = Bun.spawn(['git', ...args], { env, stderr: 'pipe' });
+    if ((await child.exited) !== 0) {
+      throw new Error(
+        `git ${args.join(' ')} failed: ${await new Response(child.stderr).text()}`,
+      );
+    }
+  }
+  return { main, linked };
+}
+
+sandboxTest(
+  'a git command is not wrapped in rtk inside a linked worktree',
+  async (sandbox) => {
+    const { linked } = await worktrees(sandbox);
+
+    expect(
+      await runHook(sandbox, {
+        tool_name: 'Bash',
+        cwd: linked,
+        tool_input: { command: 'git status' },
+      }),
+    ).toBe('');
+  },
+);
+
+sandboxTest(
+  'a git command is still wrapped in the main worktree',
+  async (sandbox) => {
+    const { main } = await worktrees(sandbox);
+    const output = JSON.parse(
+      await runHook(sandbox, {
+        tool_name: 'Bash',
+        cwd: main,
+        tool_input: { command: 'git status' },
+      }),
+    );
+
+    expect(output.hookSpecificOutput.updatedInput.command).toBe(
+      'rtk git status',
+    );
+  },
+);
+
+sandboxTest(
+  'a non-git command is still wrapped inside a linked worktree',
+  async (sandbox) => {
+    const { linked } = await worktrees(sandbox);
+    const output = JSON.parse(
+      await runHook(sandbox, {
+        tool_name: 'Bash',
+        cwd: linked,
+        tool_input: { command: 'ls -la' },
+      }),
+    );
+
+    expect(output.hookSpecificOutput.updatedInput.command).toBe('rtk ls -la');
+  },
+);

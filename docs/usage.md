@@ -158,7 +158,7 @@ resolves above both.
 
 | Command | Effect |
 |---|---|
-| `git w-a <branch...>` | Add worktrees. |
+| `git w-a <branch...> [--from <ref>]` | Add worktrees. New branches start at the fetched `origin/<default>`, or at `<ref>` without fetching. |
 | `git w-ls` | List worktrees and state. |
 | `git w-mv <worktree> <suffix>` | Move a linked worktree. |
 | `git w-rm <worktree...>` | Remove linked worktrees and keep their branches. |
@@ -166,8 +166,8 @@ resolves above both.
 | `git w-p [worktree]` | Print a worktree path. |
 | `wcd [worktree]` | Change to a worktree; with no argument, return to the main worktree. |
 
-Worktree layout, selectors, carried ignored files, and tidy safety gates are in
-[architecture/worktrees.md](architecture/worktrees.md).
+Worktree layout, start points, carried ignored files, the shared `.tmp`, and tidy
+safety gates are in [architecture/worktrees.md](architecture/worktrees.md).
 
 ## Submodule deletion
 
