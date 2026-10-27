@@ -33,6 +33,9 @@ marketplaces:
   - repo: akitorahayashi/simplify
     clients: [claude, codex]
     plugins: [simplify]
+  - repo: akitorahayashi/direct-answer
+    clients: [claude, codex]
+    plugins: [direct-answer]
   - repo: akitorahayashi/xlsx
     clients: [claude, codex]
     plugins: [xlsx]
