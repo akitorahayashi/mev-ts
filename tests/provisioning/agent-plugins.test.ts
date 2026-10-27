@@ -1404,9 +1404,7 @@ removed_marketplaces:
         'claude plugin uninstall tool-a@retired --scope user',
       ),
     ).toBeLessThan(
-      invocations.indexOf(
-        'claude plugin marketplace remove retired --scope user',
-      ),
+      invocations.indexOf('claude plugin marketplace remove retired'),
     );
     expect(invocations).toContain(
       'claude plugin uninstall tool-b@retired --scope user',
@@ -1480,7 +1478,7 @@ removed_marketplaces:
     expect(outcomeStatus(report.outcomes)).toBe('changed');
     expect(
       calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
-    ).toContain('claude plugin marketplace remove retired --scope user');
+    ).toContain('claude plugin marketplace remove retired');
     expect(
       report.outcomes.find(({ label: key }) => key === 'claude:retired'),
     ).toMatchObject({ details: ['marketplace removed'] });
