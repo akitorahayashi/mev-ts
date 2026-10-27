@@ -116,11 +116,22 @@ async function realpathOrSelf(path: string): Promise<string> {
   return (await realpathIfPresent(path)) ?? path;
 }
 
+/**
+ * Where the caller stands. Git runs a shell alias from the top of the worktree
+ * and records the caller's subdirectory in `GIT_PREFIX`, so `process.cwd()`
+ * alone would resolve a relative token against the wrong directory.
+ */
+function invocationDirectory(): string {
+  return resolvePath(process.cwd(), process.env['GIT_PREFIX'] ?? '');
+}
+
 async function matchByPath(
   inventory: Inventory,
   token: string,
 ): Promise<Entry | null> {
-  const wanted = await realpathIfPresent(resolvePath(process.cwd(), token));
+  const wanted = await realpathIfPresent(
+    resolvePath(invocationDirectory(), token),
+  );
   if (wanted === null) return null;
   const resolved = await Promise.all(
     inventory.entries.map((entry) => realpathOrSelf(entry.path)),
@@ -196,7 +207,7 @@ export function lockedMessage(inventory: Inventory, entry: Entry): string {
  * leave the caller's shell in a deleted or stale directory.
  */
 export async function isCurrentDirectory(entry: Entry): Promise<boolean> {
-  const here = await realpathIfPresent(process.cwd());
+  const here = await realpathIfPresent(invocationDirectory());
   if (here === null) return false;
   const there = await realpathOrSelf(entry.path);
   return here === there || here.startsWith(`${there}/`);

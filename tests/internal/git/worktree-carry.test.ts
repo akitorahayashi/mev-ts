@@ -15,84 +15,39 @@ const sandboxTest = sandboxedTest('mev-worktree-carry-');
 
 const ok = { code: 0, stdout: '', stderr: '' };
 
-function statusArgs(source: string) {
-  return ['-C', source, 'status', '--porcelain', '--ignored', '-z'];
-}
-
-function listArgs(source: string, excludes: string) {
-  return [
-    '-C',
-    source,
-    'ls-files',
-    '-o',
-    '-i',
-    `--exclude-from=${excludes}`,
-    '--directory',
-    '-z',
-  ];
-}
-
-sandboxTest(
-  'the carried set is the repository ignores minus the global ones',
-  async (sandbox) => {
-    const excludes = join(sandbox, 'ignore');
-    await writeFile(excludes, '.DS_Store\n.tmp/\n');
-    const calls: RecordedCall[] = [];
-    const run = sequenceRunner(
-      [
-        {
-          code: 0,
-          stdout: ['!! .DS_Store', '!! .tmp/', '!! Pods/', '!! .env']
-            .map((entry) => `${entry}\0`)
-            .join(''),
-          stderr: '',
-        },
-        { code: 0, stdout: `${excludes}\n`, stderr: '' },
-        { code: 0, stdout: '.DS_Store\0.tmp/\0', stderr: '' },
-      ],
-      calls,
-    );
-
-    const paths = await readCarryPaths(run, '/work/demo', () => {});
-
-    expect(paths).toEqual(['Pods/', '.env']);
-    expect(calls.map((call) => call.args)).toEqual([
-      statusArgs('/work/demo'),
-      ['config', '--get', 'core.excludesFile'],
-      listArgs('/work/demo', excludes),
-    ]);
-  },
-);
-
-test('a repository with nothing ignored asks no further question', async () => {
+test('every ignored path is carried except the shared .tmp', async () => {
   const calls: RecordedCall[] = [];
-  const run = sequenceRunner([ok], calls);
+  const run = sequenceRunner(
+    [
+      {
+        code: 0,
+        stdout: [
+          '!! .DS_Store',
+          '!! .tmp/',
+          '!! Pods/',
+          '!! .env',
+          '!! .claude/settings.local.json',
+        ]
+          .map((entry) => `${entry}\0`)
+          .join(''),
+        stderr: '',
+      },
+    ],
+    calls,
+  );
 
-  expect(await readCarryPaths(run, '/work/demo', () => {})).toEqual([]);
-  // No point resolving the global ignore file when there is nothing to filter.
-  expect(calls).toHaveLength(1);
+  const paths = await readCarryPaths(run, '/work/demo');
+
+  expect(paths).toEqual([
+    '.DS_Store',
+    'Pods/',
+    '.env',
+    '.claude/settings.local.json',
+  ]);
+  expect(calls.map((call) => call.args)).toEqual([
+    ['-C', '/work/demo', 'status', '--porcelain', '--ignored', '-z'],
+  ]);
 });
-
-sandboxTest(
-  'a missing global ignore file is reported rather than assumed empty',
-  async (sandbox) => {
-    const warnings: string[] = [];
-    const run = sequenceRunner(
-      [
-        { code: 0, stdout: '!! .env\0', stderr: '' },
-        { code: 0, stdout: `${join(sandbox, 'absent')}\n`, stderr: '' },
-      ],
-      [],
-    );
-
-    const paths = await readCarryPaths(run, '/work/demo', (line) =>
-      warnings.push(line),
-    );
-
-    expect(paths).toEqual(['.env']);
-    expect(warnings.join('')).toContain('No global ignore file');
-  },
-);
 
 sandboxTest(
   'a clone carries file content into the destination',

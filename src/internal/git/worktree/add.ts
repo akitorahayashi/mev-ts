@@ -1,3 +1,5 @@
+import { symlink } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   CommandLineError,
   errorMessage,
@@ -23,6 +25,7 @@ import {
   pathFor,
   slug,
 } from './layout';
+import { checkSharedTmp, linkSharedTmp } from './shared-tmp';
 
 const HEADS_PREFIX = 'refs/heads/';
 const REMOTES_PREFIX = 'refs/remotes/';
@@ -34,29 +37,41 @@ const REF_ARGS = [
   REMOTES_PREFIX,
 ];
 
+const FROM = '--from';
+
+interface Request {
+  readonly branches: readonly string[];
+  /** The explicit start point for new branches, or null for the default. */
+  readonly from: string | null;
+}
+
 interface Refs {
   readonly local: ReadonlySet<string>;
   /** Branch name to the remotes carrying it. */
   readonly tracked: ReadonlyMap<string, readonly string[]>;
 }
 
-interface Plan {
+interface Placement {
   readonly branch: string;
   readonly path: string;
   readonly name: string;
+}
+
+interface Plan extends Placement {
   readonly args: readonly string[];
   readonly note: string;
   /** Whether the branch itself is being created, and so is ours to undo. */
   readonly createdBranch: boolean;
-  /** Whether the new branch starts at the invoking worktree's HEAD. */
-  readonly fromHead: boolean;
+  /** The tree the worktree will hold. */
+  readonly treeish: string;
 }
 
 /**
  * Create a worktree per branch as a sibling of the main worktree. Existing
  * branches are checked out, branches that exist only on a remote are tracked,
- * and the rest are created. The whole request is validated before any git state
- * changes, and a failure part-way through removes what was already created.
+ * and the rest are created from the freshly fetched default branch or from
+ * `--from`. The whole request is validated before any git state changes, and a
+ * failure part-way through removes what was already created.
  */
 export async function addWorktrees(
   run: CommandRunner,
@@ -64,24 +79,49 @@ export async function addWorktrees(
   write: (message: string) => void = () => {},
   warn: (message: string) => void = () => {},
 ): Promise<void> {
-  const branches = parseTokens(tokens);
+  const request = parseTokens(tokens);
   const inventory = await readInventory(run);
-  const refs = await readRefs(run);
-  const plans = await buildPlans(inventory, refs, branches);
+  const placements = await placeAll(inventory, request.branches);
 
-  // Nothing branches from HEAD when every plan checks out or tracks, and the
-  // probe below is worth no spawn in that case.
-  if (plans.some((plan) => plan.fromHead)) {
-    await warnIfBehindDefault(run, warn);
+  const remotes = await readRemotes(run);
+  let refs = await readRefs(run, remotes);
+  // Branches already local need nothing from the network, so checking them
+  // out stays possible offline.
+  if (
+    request.from === null &&
+    remotes.includes('origin') &&
+    placements.some((placement) => !refs.local.has(placement.branch))
+  ) {
+    await fetchOrigin(run, write);
+    refs = await readRefs(run, remotes);
   }
+
+  const fresh = placements
+    .filter((placement) => isFresh(refs, placement.branch))
+    .map((placement) => placement.branch);
+  const start = await resolveStart(run, request.from, fresh);
+  const plans = placements.map((placement) => planFor(refs, placement, start));
+
+  await checkSharedTmp(run, inventory.main.path, plans);
 
   const created: Plan[] = [];
   try {
+    const commonDir = await gitDirOf(
+      run,
+      inventory.main.path,
+      '--git-common-dir',
+    );
     for (const plan of plans) {
       write(`Adding ${plan.name} for '${plan.branch}' (${plan.note})...\n`);
       await runStep(run, plan.args);
       created.push(plan);
+      await populate(run, commonDir, plan.path);
     }
+    await linkSharedTmp(
+      run,
+      inventory.main.path,
+      plans.map((plan) => plan.path),
+    );
   } catch (error) {
     if (created.length === 0) throw error;
     write(`Rolling back ${created.length} worktree(s)...\n`);
@@ -118,7 +158,7 @@ async function carryIgnored(
   warn: (message: string) => void,
 ): Promise<void> {
   try {
-    const paths = await readCarryPaths(run, inventory.main.path, warn);
+    const paths = await readCarryPaths(run, inventory.main.path);
     if (paths.length === 0) return;
 
     let plain = false;
@@ -143,13 +183,37 @@ async function carryIgnored(
   }
 }
 
-function parseTokens(tokens: readonly string[]): string[] {
+function parseTokens(tokens: readonly string[]): Request {
   const branches: string[] = [];
-  for (const token of tokens) {
+  let from: string | null = null;
+  const setFrom = (value: string | undefined) => {
+    if (value === undefined || value === '' || value.startsWith('-')) {
+      throw new CommandLineError(`${FROM} requires a ref.`);
+    }
+    if (from !== null) {
+      throw new CommandLineError(`${FROM} may be given only once.`);
+    }
+    from = value;
+  };
+
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index] as string;
     if (token === '--') {
       throw new CommandLineError(
-        "'--' is not supported; every argument is a branch name.",
+        "'--' is not supported; every argument other than --from is a branch name.",
       );
+    }
+    if (token === FROM) {
+      index += 1;
+      setFrom(tokens[index]);
+      continue;
+    }
+    if (token.startsWith(`${FROM}=`)) {
+      setFrom(token.slice(FROM.length + 1));
+      continue;
+    }
+    if (token.startsWith('-')) {
+      throw new CommandLineError(`Unknown option '${token}'.`);
     }
     const problem = branchNameProblem(token);
     if (problem !== null) {
@@ -160,10 +224,31 @@ function parseTokens(tokens: readonly string[]): string[] {
   if (branches.length === 0) {
     throw new CommandLineError('At least one branch is required.');
   }
-  return branches;
+  return { branches, from };
 }
 
-async function readRefs(run: CommandRunner): Promise<Refs> {
+/**
+ * Remote names may contain a slash — `git remote add team/upstream` is
+ * accepted — so `refs/remotes/<remote>/<branch>` cannot be split at its first
+ * slash. Matching the configured names longest first is the only boundary.
+ */
+async function readRemotes(run: CommandRunner): Promise<string[]> {
+  const result = await runCapture(run, ['remote']);
+  if (result.code !== 0) {
+    throw new ProvisioningError(
+      formatCommandFailure('git remote failed', result),
+    );
+  }
+  return result.stdout
+    .split('\n')
+    .filter((line) => line !== '')
+    .sort((left, right) => right.length - left.length);
+}
+
+async function readRefs(
+  run: CommandRunner,
+  remotes: readonly string[],
+): Promise<Refs> {
   const result = await runCapture(run, REF_ARGS);
   if (result.code !== 0) {
     throw new ProvisioningError(
@@ -180,31 +265,44 @@ async function readRefs(run: CommandRunner): Promise<Refs> {
     }
     if (!ref.startsWith(REMOTES_PREFIX)) continue;
     const rest = ref.slice(REMOTES_PREFIX.length);
-    // A remote name cannot contain a slash, so the first component is the
-    // remote and everything after it is the branch.
-    const slash = rest.indexOf('/');
-    if (slash === -1) continue;
-    const name = rest.slice(slash + 1);
+    // A ref left behind by a removed remote matches no configured name.
+    const remote = remotes.find((candidate) =>
+      rest.startsWith(`${candidate}/`),
+    );
+    if (remote === undefined) continue;
+    const name = rest.slice(remote.length + 1);
     // refs/remotes/<remote>/HEAD is the remote's default-branch symref.
     if (name === 'HEAD') continue;
-    const remote = rest.slice(0, slash);
-    const remotes = tracked.get(name);
-    if (remotes) remotes.push(remote);
+    const carriers = tracked.get(name);
+    if (carriers) carriers.push(remote);
     else tracked.set(name, [remote]);
   }
   return { local, tracked };
 }
 
-async function buildPlans(
+async function fetchOrigin(
+  run: CommandRunner,
+  write: (message: string) => void,
+): Promise<void> {
+  write('Fetching origin...\n');
+  try {
+    await runStep(run, ['fetch', 'origin']);
+  } catch (error) {
+    throw new ProvisioningError(
+      `${errorMessage(error)} Pass ${FROM} <ref> to create new branches from a local ref without fetching.`,
+    );
+  }
+}
+
+async function placeAll(
   inventory: Inventory,
-  refs: Refs,
   branches: readonly string[],
-): Promise<Plan[]> {
+): Promise<Placement[]> {
   const registered = new Map(
     inventory.entries.map((entry) => [entry.path, entry]),
   );
   const claimed = new Map<string, string>();
-  const plans: Plan[] = [];
+  const placements: Placement[] = [];
 
   for (const branch of branches) {
     const suffix = slug(branch);
@@ -254,27 +352,74 @@ async function buildPlans(
       );
     }
 
-    plans.push(planFor(refs, branch, path, name));
+    placements.push({ branch, path, name });
   }
-  return plans;
+  return placements;
+}
+
+function isFresh(refs: Refs, branch: string): boolean {
+  return !refs.local.has(branch) && !refs.tracked.has(branch);
+}
+
+/**
+ * New branches start from the default branch as origin has it, never from the
+ * invoking worktree's HEAD: that HEAD is wherever the caller happened to stand,
+ * often a feature branch, and a branch cut from it silently carries that work.
+ */
+async function resolveStart(
+  run: CommandRunner,
+  from: string | null,
+  fresh: readonly string[],
+): Promise<string | null> {
+  if (fresh.length === 0) {
+    if (from !== null) {
+      throw new CommandLineError(
+        `${FROM} applies only to new branches, and every requested branch already exists.`,
+      );
+    }
+    return null;
+  }
+
+  if (from !== null) {
+    const verified = await runCapture(run, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `${from}^{commit}`,
+    ]);
+    if (verified.code !== 0) {
+      throw new CommandLineError(`'${from}' does not name a commit.`);
+    }
+    return from;
+  }
+
+  const branch = await findDefaultBranch(run);
+  if (branch === null) {
+    throw new CommandLineError(
+      `New branch(es) ${fresh.join(', ')} need a start point and origin/HEAD is not set. Pass ${FROM} <ref>, or run \`git remote set-head origin --auto\`.`,
+    );
+  }
+  return `origin/${branch}`;
 }
 
 /**
  * Passing `-b` disables git's own remote-tracking DWIM, so a branch that exists
- * only on a remote would be created empty at HEAD instead of at the remote tip
- * — leaving a push to be rejected as non-fast-forward. The three cases are
+ * only on a remote would be created empty instead of at the remote tip —
+ * leaving a push to be rejected as non-fast-forward. The three cases are
  * therefore separated here rather than left to git.
+ *
+ * Every case adds with `--no-checkout`; `populate` writes the tree once the
+ * worktree can reach what its filters need.
  */
-function planFor(refs: Refs, branch: string, path: string, name: string): Plan {
+function planFor(refs: Refs, placement: Placement, start: string | null): Plan {
+  const { branch, path } = placement;
   if (refs.local.has(branch)) {
     return {
-      branch,
-      path,
-      name,
-      args: ['worktree', 'add', path, branch],
+      ...placement,
+      args: ['worktree', 'add', '--no-checkout', path, branch],
       note: 'existing branch',
       createdBranch: false,
-      fromHead: false,
+      treeish: branch,
     };
   }
 
@@ -286,67 +431,95 @@ function planFor(refs: Refs, branch: string, path: string, name: string): Plan {
   }
   const remote = remotes[0];
   if (remote !== undefined) {
+    const upstream = `${remote}/${branch}`;
     return {
-      branch,
-      path,
-      name,
+      ...placement,
       args: [
         'worktree',
         'add',
+        '--no-checkout',
         '--track',
         '-b',
         branch,
         path,
-        `${remote}/${branch}`,
+        upstream,
       ],
-      note: `tracking ${remote}/${branch}`,
+      note: `tracking ${upstream}`,
       createdBranch: true,
-      fromHead: false,
+      treeish: upstream,
     };
   }
 
+  if (start === null) {
+    throw new ProvisioningError(
+      `No start point was resolved for new branch '${branch}'.`,
+    );
+  }
+  // `--no-track`: a branch cut from `origin/<default>` would otherwise adopt it
+  // as upstream, and `git pull` there would merge the default branch.
   return {
-    branch,
-    path,
-    name,
-    args: ['worktree', 'add', '-b', branch, path],
-    note: 'new branch',
+    ...placement,
+    args: [
+      'worktree',
+      'add',
+      '--no-checkout',
+      '--no-track',
+      '-b',
+      branch,
+      path,
+      start,
+    ],
+    note: `new branch from ${start}`,
     createdBranch: true,
-    fromHead: true,
+    treeish: start,
   };
 }
 
-/**
- * A branch created from HEAD inherits whatever HEAD is, and the main worktree
- * is routinely left behind after a pull request merges elsewhere.
- *
- * The comparison is against the local remote-tracking ref, so it only sees as
- * far as the last fetch: a machine that has not fetched in a week can be far
- * behind and still draw no warning. `add` deliberately does not fetch — a
- * network round-trip on every worktree creation is the worse trade.
- */
-async function warnIfBehindDefault(
+async function gitDirOf(
   run: CommandRunner,
-  warn: (message: string) => void,
-): Promise<void> {
-  const branch = await findDefaultBranch(run);
-  if (branch === null) return;
-
-  const args = ['rev-list', '--count', `HEAD..origin/${branch}`];
-  const result = await runCapture(run, args);
+  path: string,
+  which: '--git-dir' | '--git-common-dir',
+): Promise<string> {
+  const result = await runCapture(run, [
+    '-C',
+    path,
+    'rev-parse',
+    '--path-format=absolute',
+    which,
+  ]);
   if (result.code !== 0) {
-    // The ref is the one origin/HEAD itself names, so it exists; a failure here
-    // is not the absent-origin case findDefaultBranch already answered for.
     throw new ProvisioningError(
-      formatCommandFailure(`git ${args.join(' ')} failed`, result),
+      formatCommandFailure(`git rev-parse ${which} failed`, result),
     );
   }
+  return result.stdout.trim();
+}
 
-  const behind = Number(result.stdout.trim());
-  if (!Number.isFinite(behind) || behind === 0) return;
-  warn(
-    `HEAD is ${behind} commit(s) behind origin/${branch}; a branch created from it starts behind. Fetch and update before branching if that is not intended.\n`,
-  );
+/**
+ * git-crypt looks for its keys under `rev-parse --git-dir`, which in a linked
+ * worktree is the private `<common>/worktrees/<name>` rather than the common
+ * directory holding them. Its smudge filter is marked required, so without the
+ * link the checkout fails outright. Linking before writing the tree is why
+ * worktrees are added with `--no-checkout`.
+ */
+async function populate(
+  run: CommandRunner,
+  commonDir: string,
+  path: string,
+): Promise<void> {
+  const keys = join(commonDir, 'git-crypt');
+  if ((await lstatIfPresent(keys)) !== null) {
+    const destination = join(
+      await gitDirOf(run, path, '--git-dir'),
+      'git-crypt',
+    );
+    if ((await lstatIfPresent(destination)) === null) {
+      await symlink(keys, destination);
+    }
+  }
+  // Not `checkout -- .`: the index is empty after `--no-checkout`, so a
+  // pathspec would match nothing.
+  await runStep(run, ['-C', path, 'reset', '--hard']);
 }
 
 async function rollback(
@@ -354,9 +527,11 @@ async function rollback(
   created: readonly Plan[],
 ): Promise<void> {
   for (const plan of [...created].reverse()) {
-    await runStep(run, ['worktree', 'remove', plan.path]);
-    // The branch was created moments ago at HEAD or at a remote tip and has
-    // been checked out into an untouched worktree, so -D discards no work.
+    // A worktree that failed part-way through populate holds a partial tree
+    // that a plain remove refuses as modified.
+    await runStep(run, ['worktree', 'remove', '--force', plan.path]);
+    // The branch was created moments ago at a start point or a remote tip and
+    // has been checked out into an untouched worktree, so -D discards no work.
     if (plan.createdBranch) {
       await runStep(run, ['branch', '-D', '--', plan.branch]);
     }

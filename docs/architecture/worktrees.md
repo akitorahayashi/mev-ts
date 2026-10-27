@@ -11,7 +11,10 @@ invariants; command syntax is in [usage.md](../usage.md).
 | Location | Linked worktrees are siblings of the main worktree. |
 | Name | `<repo>-<branch with slashes replaced by dashes>`. |
 | Layout source | The main worktree determines the repository family, regardless of the caller's current worktree. |
-| Branch selection | Existing local branch is checked out; a branch on exactly one remote tracks it; otherwise the new branch starts at `HEAD`. |
+| Branch selection | Existing local branch is checked out; a branch on exactly one remote tracks it, matched against configured remote names so names containing `/` resolve; otherwise a new branch is created. |
+| Start point | New branches start at `origin/<default>` with no upstream, regardless of the invoking worktree. `--from <ref>` starts them at that ref instead. |
+| Fetch | `origin` is fetched when a requested branch is not local and `--from` is absent, so checking out local branches works offline. |
+| Checkout | The tree is written after the worktree can reach the common directory's `git-crypt` state, because git-crypt reads its keys from the per-worktree git directory and its required filter otherwise fails the checkout. `post-checkout` hooks do not run. |
 | Validation | All requested branches are validated before the first worktree is created. |
 | Partial failure | Worktrees and branches created by the request are rolled back. |
 | Bare repositories | Unsupported. |
@@ -23,14 +26,27 @@ dependencies, and generated files do not require a second bootstrap.
 
 | Rule | Result |
 |---|---|
-| Global ignore match | The path is left behind rather than copied. |
+| Repository or global ignore match | Carried. |
+| `.tmp` | Linked rather than copied; see below. |
 | Whole ignored directory | Carried as one path. |
 | Existing tracked path in the new branch | The checked-out tree wins; the carried path is not written over it. |
 | Clone unavailable | A regular copy is used and reported. |
 | Carry failure | The worktree remains usable and missing paths are named. |
 
 The carry set is read from the main worktree and applies to every new worktree;
-branch-specific ignore rules do not alter that set.
+branch-specific ignore rules do not alter that set. Global ignores are carried
+because the global list mixes machine-local files a worktree needs, such as
+`*.local` settings, with regenerable clutter such as `.DS_Store`, and no pattern
+separates the two. Clones make the clutter cost metadata only.
+
+## Shared `.tmp`
+
+| Concern | Contract |
+|---|---|
+| Link | Each new worktree's `.tmp` is an absolute symlink to the main worktree's `.tmp`, which is created when absent. |
+| Lifetime | Removing a worktree removes the link; the shared content stays in the main worktree. |
+| Refusal | A `.tmp` tracked by the main worktree or the target tree, or a main `.tmp` that is not a directory, is refused before any worktree is created. |
+| Ignore | The link must be ignored, which a `.tmp` pattern without a trailing slash satisfies. Otherwise the request is rolled back and the last matching rule is named. |
 
 ## Naming and mutation
 
@@ -40,6 +56,7 @@ branch-specific ignore rules do not alter that set.
 | Path | Prints the main worktree with no token, or resolves one existing worktree. |
 | Move | Accepts path, branch, suffix, or directory name; refuses ambiguity and moving the main worktree. |
 | Remove | Accepts the same selectors; removes worktrees but leaves their branches. The current, locked, and prunable worktrees are refused. |
+| Relative path | Resolved from the caller's directory, although git runs aliases from the worktree top. |
 | Selector failure | Names known candidates instead of guessing. |
 
 ## Tidy decisions
