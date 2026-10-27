@@ -1,6 +1,6 @@
 ---
 name: worktree
-description: Git worktree の作成、作業場所の切り替え、既定ブランチへの追従、後片付けを mev の git エイリアス（`git w-a` など）で行う。worktree を作る・使う・消す依頼や、ブランチを分けて別の作業場所で進める依頼で使用する。
+description: Git worktree の作成、worktree での作業、既定ブランチへの追従、後片付けを mev の git エイリアス（`git w-a` など）で行う。worktree を作る・使う・消す依頼や、ブランチを分けて別の作業場所で進める依頼で使用する。
 ---
 
 # worktree
@@ -32,7 +32,7 @@ worktree は main worktree の隣に `<リポジトリ名>-<ブランチ名の /
 1. ブランチ名を、リポジトリの規約（`AGENTS.md`、`CLAUDE.md`、ユーザーの指示）に従って決める。規約が無ければユーザーに問う。
 2. `git w-a <branch>` を実行する。別のブランチの上に積み上げる場合だけ `--from <ref>` を付ける。
 3. `git w-p <branch>` で絶対パスを得る。
-4. 作業場所をそのパスへ移す。セッションの作業ディレクトリを既存の worktree へ切り替える機能を持つホストではそれを使う。Claude Code では [Claude Code での切り替え](references/claude-code.md) を読む。その機能が無いホストでは、以降のコマンドをそのパスを作業ディレクトリとして実行し、ファイルは絶対パスで扱う。
+4. 以降の作業はそのパスで行う。シェルのコマンドは毎回 `cd <path> && ` で始め、ファイルは絶対パスで読み書きする。セッションの作業ディレクトリを worktree へ移す機能（Claude Code の `EnterWorktree` など）は使わない。
 
 `w-a` が止まったときの扱い:
 
@@ -58,7 +58,6 @@ worktree は main worktree の隣に `<リポジトリ名>-<ブランチ名の /
 | 作業を放棄する | `git w-rm <worktree>` を実行する。ブランチも消す場合は、ユーザーの承認を得てから main worktree で `git branch -D <branch>` を実行する |
 | 後で再開する | 何もしない。`git w-ls` と `git w-p` で戻れる |
 
-- 消す worktree をセッションの作業場所にしている場合は、先に作業場所を main worktree へ戻す。エイリアスは呼び出し元が立っている worktree の削除を拒否するが、`git -C` で別の場所から実行するとその拒否が効かない。
 - `git w-rm -f` と `git branch -D` は、未コミット変更と push していないコミットを失わせる。ユーザーの承認なしに使わない。
 - `w-td` が skip した worktree は、その理由（未コミット変更、locked、upstream が origin でないなど）をユーザーに伝え、別の手段で消さない。
 
