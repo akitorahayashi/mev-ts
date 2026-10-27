@@ -17,6 +17,7 @@ direct-answer = "git@github.com:akitorahayashi/direct-answer.git"
 skills-plugin-bun = "git@github.com:akitorahayashi/skills-plugin-bun.git"
 skills-plugin-py = "git@github.com:akitorahayashi/skills-plugin-py.git"
 skills-plugin = "git@github.com:akitorahayashi/skills-plugin.git"
+iphone-duo-playbook = "git@github.com:akitorahayashi/iphone-duo-playbook.git"
 
 [groups.TypeScript]
 mev-ts = "git@github.com:akitorahayashi/mev-ts.git"
