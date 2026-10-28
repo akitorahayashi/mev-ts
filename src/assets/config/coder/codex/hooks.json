@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.mev/hooks/codex/pre-tool-use.sh"
+            "command": "bash ~/.mev/hooks/codex/pre-tool-use.sh codex",
+            "statusMessage": "RTK command rewrite"
           }
         ]
       }
