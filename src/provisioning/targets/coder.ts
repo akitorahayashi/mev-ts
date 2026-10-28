@@ -42,7 +42,7 @@ export const coderTarget = target('coder', {
   description: 'AI coding agents (Claude Code, Codex, Antigravity CLI)',
   aliases: ['cdr'],
   role: 'coder',
-  packages: { formulae: ['rtk'] },
+  packages: { formulae: ['fd', 'ripgrep', 'rtk'] },
   // Marketplace registrations persist the SSH alias inside each client's
   // config, so a host change leaves materialized state behind; invalidating
   // here lets `sync` reselect the target, whose registration probe then

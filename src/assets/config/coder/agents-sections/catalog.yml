@@ -6,7 +6,6 @@
 sections:
   - communication
   - user-specific
-  - rtk
   - coding
   - documentation
   - testing
