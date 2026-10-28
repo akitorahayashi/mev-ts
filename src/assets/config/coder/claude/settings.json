@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.mev/hooks/claude/pre-tool-use.sh"
+            "command": "bash ~/.mev/hooks/claude/pre-tool-use.sh claude"
           }
         ]
       }
