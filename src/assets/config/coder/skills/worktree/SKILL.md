@@ -1,15 +1,15 @@
 ---
 name: worktree
-description: Git worktree の作成、worktree での作業、既定ブランチへの追従、後片付けを mev の git エイリアス（`git w-a` など）で行う。worktree を作る・使う・消す依頼や、ブランチを分けて別の作業場所で進める依頼で使用する。
+description: Git worktree の作成、worktree での作業、既定ブランチへの追従、後片付けを Git エイリアス（`git w-a` など）で行う。worktree を作る・使う・消す依頼や、ブランチを分けて別の作業場所で進める依頼で使用する。
 ---
 
 # worktree
 
-mev の worktree エイリアスは、素の `git worktree` に、作成直後からビルドできる状態、main worktree と共有する `.tmp`、git-crypt リポジトリでの checkout、片付けの安全ゲートを加える。worktree の作成と削除はこのエイリアスで行い、`git worktree add` / `remove` を直接使わない。
+worktree の作成と削除には `git w-a` / `git w-rm` を使う。作成時には main worktree の ignore 対象が持ち込まれ、`.tmp` が共有される。削除と後片付けには、未コミット変更などを保護する判定がある。
 
-## 前提
+## 配置と対象
 
-`git config --get-regexp '^alias\.w-'` が `w-a` などを返すこと。返らなければ mev の git 設定が配備されていないので、ユーザーに `mev make git` の実行を求めて止まる。bare リポジトリは対象外。
+bare リポジトリは対象外。
 
 worktree は main worktree の隣に `<リポジトリ名>-<ブランチ名の / を - にしたもの>` として作られる。どの worktree から実行しても配置と結果は同じ。
 
@@ -26,6 +26,8 @@ worktree は main worktree の隣に `<リポジトリ名>-<ブランチ名の /
 | `git rb-o-h` | 現在のブランチを `origin/HEAD`（既定ブランチ）へ rebase する |
 
 `<worktree>` はパス、ブランチ名、suffix、ディレクトリ名のどれでもよい。複数に一致すると候補を示して止まるので、パスで指定し直す。
+
+エイリアスを実行できない場合は、失敗内容をユーザーに伝えて止まる。
 
 ## 開始
 
