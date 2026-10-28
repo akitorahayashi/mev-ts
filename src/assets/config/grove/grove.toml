@@ -7,17 +7,16 @@ grove = "git@github.com:akitorahayashi/grove.git"
 tmpc = "git@github.com:akitorahayashi/tmpc.git"
 
 [groups.Skills]
-comment-review = "git@github.com:akitorahayashi/comment-review.git"
 xlsx = "git@github.com:akitorahayashi/xlsx.git"
 prune-comments = "git@github.com:akitorahayashi/prune-comments.git"
 agent-device = "git@github.com:akitorahayashi/agent-device.git"
 worktree-crew = "git@github.com:akitorahayashi/worktree-crew.git"
 simplify = "git@github.com:akitorahayashi/simplify.git"
-direct-answer = "git@github.com:akitorahayashi/direct-answer.git"
 skills-plugin-bun = "git@github.com:akitorahayashi/skills-plugin-bun.git"
 skills-plugin-py = "git@github.com:akitorahayashi/skills-plugin-py.git"
 skills-plugin = "git@github.com:akitorahayashi/skills-plugin.git"
 iphone-duo-playbook = "git@github.com:akitorahayashi/iphone-duo-playbook.git"
+work-plugins = "git@github.com:akitorahayashi/work-plugins.git"
 
 [groups.TypeScript]
 mev-ts = "git@github.com:akitorahayashi/mev-ts.git"
@@ -28,3 +27,11 @@ eval-evidence = "git@github.com:akitorahayashi/eval-evidence.git"
 
 [removed.groups.Skills]
 agent-device-plugin = { url = "git@github.com:akitorahayashi/agent-device-plugin.git", moved_to = "agent-device" }
+backlog = "git@github.com:akitorahayashi/backlog.git"
+charles-traffic = "git@github.com:akitorahayashi/charles-traffic.git"
+code-incident-resolution = "git@github.com:akitorahayashi/code-incident-resolution.git"
+comment-review = "git@github.com:akitorahayashi/comment-review.git"
+direct-answer = "git@github.com:akitorahayashi/direct-answer.git"
+issue-probe = "git@github.com:akitorahayashi/issue-probe.git"
+qa-triage = "git@github.com:akitorahayashi/qa-triage.git"
+repro-steps = "git@github.com:akitorahayashi/repro-steps.git"

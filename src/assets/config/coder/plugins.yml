@@ -12,42 +12,21 @@ marketplaces:
     # list on the same entry:
     #   plugins: [agent-device]
     #   uninstall: [diff-verify]
-  - repo: akitorahayashi/charles-traffic
+  - repo: akitorahayashi/work-plugins
     clients: [claude, codex]
-    plugins: [charles-traffic]
-  - repo: akitorahayashi/code-incident-resolution
-    clients: [claude, codex]
-    plugins: [code-incident-resolution]
-  - repo: akitorahayashi/comment-review
-    clients: [claude, codex]
-    plugins: [comment-review]
-  - repo: akitorahayashi/issue-probe
-    clients: [claude, codex]
-    plugins: [issue-probe]
+    plugins: [backlog, charles-traffic, code-incident-resolution, comment-review, direct-answer, issue-probe, qa-triage, repro-steps]
   - repo: akitorahayashi/prune-comments
     clients: [claude, codex]
     plugins: [prune-comments]
-  - repo: akitorahayashi/repro-steps
-    clients: [claude, codex]
-    plugins: [repro-steps]
   - repo: akitorahayashi/simplify
     clients: [claude, codex]
     plugins: [simplify]
-  - repo: akitorahayashi/direct-answer
-    clients: [claude, codex]
-    plugins: [direct-answer]
   - repo: akitorahayashi/xlsx
     clients: [claude, codex]
     plugins: [xlsx]
   - repo: akitorahayashi/worktree-crew
     clients: [claude, codex]
     plugins: [worktree-crew]
-  - repo: akitorahayashi/backlog
-    clients: [claude, codex]
-    plugins: [backlog]
-  - repo: akitorahayashi/qa-triage
-    clients: [claude, codex]
-    plugins: [qa-triage]
   - repo: akitorahayashi/iphone-duo-playbook
     clients: [claude, codex]
     plugins: [iphone-duo]
@@ -58,4 +37,20 @@ marketplaces:
 #       clients: [claude]
 removed_marketplaces:
   - repo: akitorahayashi/agent-device-plugin
+    clients: [claude, codex]
+  - repo: akitorahayashi/backlog
+    clients: [claude, codex]
+  - repo: akitorahayashi/charles-traffic
+    clients: [claude, codex]
+  - repo: akitorahayashi/code-incident-resolution
+    clients: [claude, codex]
+  - repo: akitorahayashi/comment-review
+    clients: [claude, codex]
+  - repo: akitorahayashi/direct-answer
+    clients: [claude, codex]
+  - repo: akitorahayashi/issue-probe
+    clients: [claude, codex]
+  - repo: akitorahayashi/qa-triage
+    clients: [claude, codex]
+  - repo: akitorahayashi/repro-steps
     clients: [claude, codex]
