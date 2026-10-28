@@ -26,3 +26,12 @@
 - When renaming, deleting, or restructuring, a comprehensive search (e.g., `rg`) for the old structure or terms must be performed at the end to ensure no remnants are left behind.
 - Do not attempt to run the `check` command without first executing available auto-fix commands (such as `fix`). Please run the fix command if applicable before running the check.
 - Avoid unnecessary actions, such as running the `test` command for changes unrelated to the implementation (e.g., modifications to Markdown files).
+
+## Tools
+
+- Text searches over files and command output use `rg` instead of `grep`.
+- File and directory lookups by name or path use `fd` instead of `find`.
+- RTK is available as the `rtk` shell command in mev-provisioned coder environments.
+- Claude Code and Codex shell hooks may rewrite supported Bash commands through `rtk rewrite` before execution.
+- Commands that already start with `rtk` remain unchanged and are not prefixed again.
+- Installation verification uses `rtk --version`; analytics and history commands are optional and are not part of provisioning checks.
