@@ -28,10 +28,12 @@
       "Bash(mkdir:*)",
       "Bash(source:*)",
       "Bash(cp:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:platform.claude.com)",
+      "WebFetch(domain:claude.com)"
     ],
     "deny": [
-      "WebFetch",
       "Bash(wget *)",
       "Bash(nc *)",
       "Bash(netcat *)",
@@ -63,6 +65,12 @@
         ]
       }
     ]
+  },
+  "disableBundledSkills": true,
+  "syncClaudeAiSkills": false,
+  "enableArtifact": false,
+  "skillOverrides": {
+    "plugin-authoring": "off"
   },
   "workflowKeywordTriggerEnabled": false,
   "remoteControlAtStartup": true,
