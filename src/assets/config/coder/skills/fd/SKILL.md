@@ -20,8 +20,8 @@ compatibility: fd が必要
 | `-maxdepth N` | `-d N` |
 | `find DIR -type f` | `fd -t f . DIR`。PATH だけを指定するときは PATTERN に `.` を書く |
 | `-not -path '*/Pods/*'`、`-path ./Pods -prune -o` | ignore 済みのディレクトリ（依存パッケージ、ビルド成果物）と `.git` などの隠しディレクトリには何も付けない。追跡されているディレクトリは `-E Generated` のように `/` を含まない名前で除外する |
-| `-exec CMD {} \;` | `-x CMD`。1 ファイルずつ実行する |
-| 後段の `xargs CMD`、`-print0` と `xargs -0` | `-X CMD`。見つかったファイルをまとめて渡す。OS のコマンドラインの長さの上限を超えると、複数回に分けて実行される（`fd -e swift -X wc -l`） |
+| `-exec CMD {} \;` | `-x CMD`。ファイルごとに 1 回ずつ、並列に実行する。実行順は保証されないため、順に実行するときや、同じファイルや状態を書き換えるときは `-j 1` を付ける |
+| `-exec CMD {} +`、後段の `xargs CMD`、`-print0` と `xargs -0` | `-X CMD`。見つかったファイルをまとめて渡す。OS のコマンドラインの長さの上限を超えると、複数回に分けて実行される（`fd -e swift -X wc -l`） |
 | `2>/dev/null` | 付けない。fd の標準エラーは、存在しないパスや PATTERN の誤りを伝える |
 
 ## 検索の組み立て
