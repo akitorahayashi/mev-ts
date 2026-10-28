@@ -1,68 +1,41 @@
-# Release Binaries and Remote Installers
+# リリースバイナリとリモートインストーラー
 
-## Release binaries
+## リリースバイナリ
 
-| Declaration or state | Contract |
+| 宣言または状態 | 契約 |
 |---|---|
-| Exact `tag` | Resolve only that tag; a matching installed version is unchanged. |
-| `tag: latest` | Resolve the current release when the binary is missing or unverifiable, or when upgrade mode requests it. |
-| Installed binary | Its reported version is the idempotency probe. A non-zero probe means unavailable or unverifiable and triggers a fetch. |
-| Downloaded asset | Probe it before the atomic swap; a mismatched version leaves the previous binary in place. |
-| Target signature | The declared tag is hashed; upgrade mode does not alter the signature. |
+| 厳密な`tag` | そのタグだけを解決する。インストール済みのバージョンが一致していれば、unchangedとなる。 |
+| `tag: latest` | バイナリが存在しない場合、検証できない場合、またはアップグレードモードが要求した場合に、現在のリリースを解決する。 |
+| インストール済みのバイナリ | 報告されるバージョンが、冪等性のprobeとなる。probeが0以外で終わった場合は、利用できない、または検証できないことを意味し、取得を引き起こす。 |
+| ダウンロードしたアセット | アトミックなスワップの前にprobeする。バージョンが一致しない場合は、以前のバイナリがそのまま残る。 |
+| ターゲットのシグネチャ | 宣言されたタグをハッシュする。アップグレードモードはシグネチャを変えない。 |
 
-Release assets are first-party and are not digest-verified by this activation.
-Changing a repository without changing the version-bearing declaration cannot be
-detected by a version-only probe; changing the tag or removing the binary forces
-resolution.
+リリースのアセットはファーストパーティのものであり、このactivationではダイジェストを検証しない。バージョンを含む宣言を変えずにリポジトリを変更しても、バージョンだけを見るprobeでは検出できない。タグを変更するか、バイナリを削除すると、解決が強制される。
 
-Each executing binary reports its installed-version check, latest-tag resolution
-when required, download, staged version verification, and atomic placement as
-separate progress operations. Queued binaries report no activity until a worker
-starts them. TTY output shows concurrent binaries with elapsed time per phase;
-non-TTY output records phase starts as plain lines. A finished phase does not
-assert success: changed outcomes require successful verification and placement.
-Failures identify the binary, the failed phase, and the underlying cause while
-independent binaries continue. Verification here checks the reported version,
-not a checksum.
+実行中の各バイナリは、インストール済みバージョンの確認、必要な場合の最新タグの解決、ダウンロード、ステージしたバージョンの検証、アトミックな配置を、それぞれ別の進捗操作として報告する。キューで待機中のバイナリは、ワーカーが開始するまで進捗を報告しない。TTYの出力は、並行して動くバイナリとフェーズごとの経過時間を表示し、非TTYの出力は、フェーズの開始をプレーンな行として記録する。フェーズが終わったことは、成功を意味しない。changedの結果には、検証と配置の成功が必要である。失敗は、バイナリ、失敗したフェーズ、根本原因を示し、独立したバイナリは処理を続ける。ここでの検証が確認するのは、報告されたバージョンであり、チェックサムではない。
 
-## Remote installers
+## リモートインストーラー
 
-| Declaration | Contract |
+| 宣言 | 契約 |
 |---|---|
-| `subject` | Stable resource identity shared by progress, completed outcomes, and failures. |
-| `integrity: { checksumUrl }` | Download and verify the installer checksum before execution. |
-| `integrity: { acknowledgedUnverified: true }` | Explicitly records the reviewed unverified exception; no silent bypass exists. |
-| `creates` | Default idempotency and post-install guard. A dangling symlink is absent. |
-| `skipIf` | Command-health or version-aware idempotency and post-install guard when path existence is insufficient. |
-| `upgrade` | Runs the declared self-update command for an already installed tool only under explicit upgrade intent. A fresh install does not run it again. |
-| `upgrade.versionProbe` | Verifies local health before and after the update; a changed version reports changed, an equal version reports unchanged, and a failed post-update probe fails the activation. |
-| `upgrade.blockedWhen` | Maps a known updater safety-precondition error to a blocked result with the upstream guidance. |
-| `env` | Resolves literal, host, and declared values with the command-pipeline vocabulary. |
-| `pathPrefix` | Prepends resolved host paths to the installer process PATH. |
-| Temporary installer | Run with declared arguments, then remove the temporary workspace. |
+| `subject` | 進捗、完了した結果、失敗で共有される、安定したリソースの識別情報。 |
+| `integrity: { checksumUrl }` | 実行の前に、インストーラーのチェックサムをダウンロードして検証する。 |
+| `integrity: { acknowledgedUnverified: true }` | レビュー済みで未検証であるという例外を、明示的に記録する。黙って迂回する経路は存在しない。 |
+| `creates` | 既定の、冪等性とインストール後のガード。壊れたsymlinkは存在しないものとして扱う。 |
+| `skipIf` | パスの存在だけでは不十分な場合に使う、コマンドの健全性またはバージョンを考慮した、冪等性とインストール後のガード。 |
+| `upgrade` | インストール済みのツールに対して、宣言されたセルフアップデートのコマンドを、明示的なアップグレードの意図がある場合にだけ実行する。新規インストールでは、それを再度実行しない。 |
+| `upgrade.versionProbe` | 更新の前後でローカルの健全性を検証する。バージョンが変わればchangedを、同じならunchangedを報告し、更新後のprobeが失敗した場合はactivationを失敗させる。 |
+| `upgrade.blockedWhen` | 既知のアップデーターの安全上の前提条件のエラーを、upstreamのガイダンスを添えたblockedの結果に対応づける。 |
+| `env` | リテラル、ホスト、宣言された値を、コマンドパイプラインの語彙で解決する。 |
+| `pathPrefix` | 解決済みのホストのパスを、インストーラープロセスのPATHの先頭に追加する。 |
+| 一時的なインストーラー | 宣言された引数で実行し、その後に一時的な作業領域を削除する。 |
 
-Targets use remote installers only for reviewed first-party HTTPS sources.
-The runner reports `check`, `install`, `update`, and `verify` activity only when
-each operation actually begins. Upgrade intent alone never determines the
-displayed operation because a missing or unhealthy installation still takes the
-installer path under `--upgrade`.
+ターゲットがリモートインストーラーを使うのは、レビュー済みのファーストパーティのHTTPSソースに限る。ランナーは、`check`、`install`、`update`、`verify`の進捗を、各操作が実際に始まったときにだけ報告する。アップグレードの意図だけで、表示される操作が決まることは決してない。`--upgrade`のもとでも、インストールが存在しない場合や健全でない場合は、インストーラーの経路を通るためである。
 
-## mev updates
+## mevの更新
 
-`package.json` is the version authority embedded into every mev build. Published
-tags are the same canonical semantic version prefixed by `v`, and release assets
-remain immutable.
+`package.json`は、すべてのmevビルドに埋め込まれるバージョンの正本である。公開されるタグは、同じ正規のセマンティックバージョンに`v`を付けたもので、リリースのアセットは不変のまま保たれる。
 
-The updater resolves the latest tag, selects the existing darwin architecture
-asset, and downloads its adjacent SHA256 document. Version ordering decides
-whether to update, hold a locally newer command, or verify an equal version's
-bytes. A replacement is staged beside the destination and must pass both digest
-verification and its own `--version` probe before the atomic rename.
+アップデーターは、最新のタグを解決し、実在するdarwinのアーキテクチャ向けのアセットを選び、隣接するSHA256のファイルをダウンロードする。バージョンの順序によって、更新するか、ローカルのほうが新しいコマンドを維持するか、同じバージョンのバイト列を検証するかが決まる。置き換え用のバイナリは、配置先の隣にステージされ、アトミックなリネームの前に、ダイジェストの検証と、自身の`--version`のprobeの両方に合格しなければならない。
 
-Standalone builds identify their executable through the running process; the
-Bun-targeted development bundle identifies its entrypoint. Unbundled source
-execution has no install destination and cannot update. After resolution or
-replacement, the updater invokes the installed absolute path with `sync` and
-forwards explicit upgrade intent. A failed update leaves the previous command
-in place and does not sync; a failed sync leaves the verified updated command in
-place for retry.
+スタンドアロンのビルドは、実行中のプロセスを通じて自身の実行ファイルを特定する。Bunを対象とする開発用バンドルは、そのエントリポイントを特定する。バンドルされていないソースの実行には、インストール先がなく、更新できない。解決または置き換えの後、アップデーターは、インストールされた絶対パスを、`sync`を引数にして呼び出し、明示的なアップグレードの意図を引き渡す。更新に失敗した場合は、以前のコマンドをそのまま残し、syncは実行しない。syncに失敗した場合は、検証済みの更新後のコマンドを、再試行のためにそのまま残す。

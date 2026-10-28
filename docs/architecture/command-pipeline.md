@@ -1,40 +1,30 @@
-# Command Pipeline
+# コマンドパイプライン
 
-`runCommand` represents host-command work as declarative data. The declaration
-is both the execution input and part of the target signature.
+`runCommand`は、ホストコマンドの作業を宣言的なデータとして表す。この宣言は、実行の入力であると同時に、ターゲットのシグネチャの一部でもある。
 
-## Scope
+## スコープ
 
-| Source | Values |
+| ソース | 値 |
 |---|---|
-| Reserved facts | `home` and `basePath` (the captured inherited `PATH`) |
-| `reads` | Trimmed content from declared embedded assets |
-| Prior captures | Trimmed stdout registered by an earlier step |
+| 予約された情報 | `home`と`basePath`（取得済みの、継承された`PATH`） |
+| `reads` | 宣言された埋め込みアセットの、前後の空白を除去した内容 |
+| 先行するキャプチャ | 前のステップが登録した、前後の空白を除去したstdout |
 
-An unresolved `ref` is a provisioning error; undefined arguments never become a
-silent empty value.
+解決できない`ref`はプロビジョニングエラーであり、未定義の引数が黙って空の値になることは決してない。
 
-## Step vocabulary
+## ステップの語彙
 
-| Field | Contract |
+| フィールド | 契約 |
 |---|---|
-| `argv` | Literal tokens, references, whitespace-split references, or concatenations |
-| `env` | Inherited environment with literal, reference, concatenated, or path-list values overlaid |
-| `skipIf` | Declarative path, command-success, or output-match guard |
-| `capture` | Stores trimmed stdout for later steps |
-| `changedWhen` | Classifies a successful run as always, never, output-contains, or output-not-contains |
-| `report` | Names the user-managed subject and supplies changed/current or applied detail text |
+| `argv` | リテラルのトークン、参照、空白で分割される参照、または連結 |
+| `env` | 継承された環境に、リテラル、参照、連結、またはパスリストの値を重ねたもの |
+| `skipIf` | パス、コマンドの成功、出力の一致のいずれかに基づく、宣言的なガード |
+| `capture` | 後続のステップのために、前後の空白を除去したstdoutを保存する |
+| `changedWhen` | 成功した実行を、always、never、output-contains、output-not-containsのいずれかに分類する |
+| `report` | ユーザーが管理する対象の名前を示し、changed/currentまたはappliedの詳細テキストを提供する |
 
-Guards use the step environment. Guard and step declarations are hashed as data,
-so changing a command's inputs or idempotency rule invalidates semantic sync.
-Report metadata is presentation-only and excluded from the signature, so wording
-changes do not reapply a target.
+ガードは、ステップの環境を使う。ガードとステップの宣言はデータとしてハッシュ化されるため、コマンドの入力や冪等性の規則を変えると、Semantic Syncで適用済みとみなされなくなる。レポートのメタデータは表示専用でシグネチャから除外されるため、文言を変えてもターゲットは再適用されない。
 
-## Outcome
+## 結果
 
-Steps run in declaration order. Capture steps are internal and do not produce
-resource outcomes. A probe reports `unchanged`, a guarded reconcile step reports
-`changed` or `unchanged`, and an apply step reports `applied`. A failed step
-reports its subject and stops the pipeline. Runtime selection commands use
-read-only output guards where available, so setting a default runtime reports a
-change only when the selected version actually differed.
+ステップは宣言順に実行される。captureステップは内部用であり、リソースの結果を生成しない。probeは`unchanged`を報告し、ガード付きの整合ステップは`changed`または`unchanged`を報告し、適用ステップは`applied`を報告する。失敗したステップは、その対象を報告してパイプラインを停止する。ランタイムを選択するコマンドは、利用できる場合は読み取り専用の出力ガードを使うため、既定のランタイムを設定しても、選択したバージョンが実際に異なっていたときにだけ変更として報告される。

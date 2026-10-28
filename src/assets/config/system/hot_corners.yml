@@ -18,7 +18,7 @@
 - key: wvous-bl-corner
   domain: com.apple.dock
   type: int
-  value: 0
+  value: 5
 
 # Configures the action for the bottom-right hot corner.
 - key: wvous-br-corner

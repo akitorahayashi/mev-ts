@@ -1,52 +1,48 @@
-# Testing Guide
+# テストガイド
 
-Tests assert the externally observable contract at the boundary that owns it.
+テストは、外部から観測できる契約を、それを所有する境界で検証する。
 
-## Test layers
+## テストの層
 
-| Layer | Location | Covers | Prohibitions |
+| 層 | 場所 | 対象範囲 | 禁止事項 |
 |---|---|---|---|
-| Unit | Colocated `src/**/*.test.ts` | Pure transformations, data contracts, and rendering | Filesystem, process, and network access |
-| Integration | `tests/**/*.test.ts` | Filesystem, CLI routing, subprocess, and network contracts | Real HTTP requests |
+| ユニット | ソースと同じ場所に置く`src/**/*.test.ts` | 純粋な変換、データの契約、レンダリング | ファイルシステム、プロセス、ネットワークへのアクセス |
+| 統合 | `tests/**/*.test.ts` | ファイルシステム、CLIのルーティング、サブプロセス、ネットワークの契約 | 実際のHTTPリクエスト |
 
-Run `bun run test:unit`, `bun run test:integration`, or `bun run test`. Each
-pre-hook regenerates the embedded asset registry.
+`bun run test:unit`、`bun run test:integration`、`bun run test`のいずれかを実行する。いずれの場合も、事前フックが埋め込みアセットのレジストリを再生成する。
 
-## Fixtures and boundaries
+## フィクスチャと境界
 
-| Concern | Fixture or rule |
+| 項目 | フィクスチャまたは規則 |
 |---|---|
-| Temporary files | `withTemporaryDirectory` and `sandboxedTest` create and clean per-test sandboxes. |
-| Command execution | `recordingContext`, `respondByCommand`, `sequenceRunner`, and `presetRunner` provide injected responders. |
-| CLI streams | `captureStreams` and `fakeTtyStream` drive output and progress rendering. |
-| Scratch paths | Inject `Context.tmpRoot`; never use the real temporary root. |
-| Host primitives | Atomic and symlink boundaries have direct integration tests under `tests/host/`. |
-| Cleanup | Restore environment variables, process flags, spies, and streams after each test. |
+| 一時ファイル | `withTemporaryDirectory`と`sandboxedTest`が、テストごとのサンドボックスを作成して後片付けする。 |
+| コマンドの実行 | `recordingContext`、`respondByCommand`、`sequenceRunner`、`presetRunner`が、注入されるレスポンダーを提供する。 |
+| CLIのストリーム | `captureStreams`と`fakeTtyStream`が、出力と進捗のレンダリングを駆動する。 |
+| 作業用パス | `Context.tmpRoot`を注入する。実際の一時ルートは決して使わない。 |
+| ホストのプリミティブ | アトミックな処理とsymlinkの境界には、`tests/host/`の下に直接の統合テストがある。 |
+| 後始末 | 各テストの後に、環境変数、プロセスのフラグ、スパイ、ストリームを元に戻す。 |
 
-## Real process carve-outs
+## 実プロセスの例外
 
-Real external processes are allowed only when the process or its output format
-is the boundary under test:
+実際の外部プロセスを使ってよいのは、そのプロセスまたはその出力形式がテスト対象の境界である場合に限る:
 
-| Subject | Process |
+| 対象 | プロセス |
 |---|---|
-| Script tests | The script interpreter (`zsh` or `bash`) |
-| `bunCommandRunner` | A real subprocess, because it is the spawn boundary |
-| Git output formats | Git in a sandbox repository, when a fake would only restate the parser |
-| Filesystem entry kinds | `mkfifo` creates an actual named pipe in a sandbox, because regular-file fakes cannot establish nonblocking handling of special entries |
-| Mutation ownership and recovery | Bun processes in sandbox homes, because contention, process death, and interruption between persisted renames establish lease and restart-recovery behavior |
+| スクリプトのテスト | スクリプトのインタープリター（`zsh`または`bash`） |
+| `bunCommandRunner` | 実際のサブプロセス（spawnの境界であるため） |
+| Gitの出力形式 | サンドボックスのリポジトリ内のGit（フェイクではパーサーをなぞるだけになる場合） |
+| ファイルシステムのエントリの種類 | サンドボックス内で`mkfifo`が実際の名前付きパイプを作る（通常ファイルのフェイクでは、特殊なエントリのノンブロッキングな扱いを確かめられないため） |
+| 変更の所有権と復旧 | サンドボックスのホーム内のBunプロセス（競合、プロセスの異常終了、永続化されたリネームの合間の中断が、leaseと再起動後の復旧の挙動を決めるため） |
 
-Every carve-out names its reason in the test. Other tests inject a fake through
-the shared fixtures.
+すべての例外は、テスト内でその理由を明記する。それ以外のテストは、共有のフィクスチャを通じてフェイクを注入する。
 
-Interactive prompt and browser-print boundaries are reached through injected
-seams rather than direct tests.
+対話的なプロンプトとブラウザーの印刷の境界には、直接のテストではなく、注入したseamを通じて到達する。
 
 ## CI
 
-| Workflow | Responsibility |
+| ワークフロー | 責務 |
 |---|---|
-| `run-tests.yml` | Unit and integration suites in parallel macOS matrix jobs |
-| `run-static-checks.yml` | `bun run check` and shellcheck on Ubuntu |
-| `run-build.yml` | Binary compilation and smoke test |
-| Platform policy | Product-facing jobs use `macos-15`; platform-independent checks use Ubuntu. |
+| `run-tests.yml` | 並列のmacOSマトリクスジョブによる、ユニットテストと統合テストのスイート |
+| `run-static-checks.yml` | Ubuntuでの`bun run check`とshellcheck |
+| `run-build.yml` | バイナリのコンパイルとスモークテスト |
+| プラットフォームの方針 | 製品向けのジョブは`macos-15`を使い、プラットフォームに依存しないチェックはUbuntuを使う。 |

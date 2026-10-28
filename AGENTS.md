@@ -1,115 +1,105 @@
 # mev-ts
 
-## Project Overview
+## プロジェクト概要
 
-`mev` is Local IaC for macOS, built with Bun and TypeScript. It treats this repository's config as the source of truth for personal machine setup, deploys role-based configuration assets (dotfiles, tool configs) to a deploy store, installs required Homebrew packages, and activates declared outputs by replacing them with symlinks or by running idempotent host-command pipelines. Release installs distribute a single compiled binary; `bun run up` from a clone installs a Bun-targeted single-file JavaScript bundle as `mev`.
+`mev`はmacOS向けのLocal IaCで、BunとTypeScriptで構築されている。このリポジトリの設定を、個人マシンのセットアップの正本として扱う。ロール単位の設定アセット（dotfiles、ツール設定）をdeploy storeへデプロイし、必要なHomebrewパッケージをインストールし、宣言された出力に対するactivationを、symlinkへの置き換えか冪等なホストコマンドのパイプラインの実行によって適用する。リリース版のインストールではコンパイル済みの単一バイナリを配布し、cloneからの`bun run up`ではBun向けの単一ファイルのJavaScriptバンドルを`mev`としてインストールする。
 
-## Directory Structure
+## ディレクトリ構成
 
 ```
 src/
-  main.ts        CLI entry point
-  errors.ts      Typed error hierarchy
-  app/           Use-case orchestration (identity, SSH host changes, release self-update, and config-toggle.ts over config-selection/)
-  agent-plugin/  Claude Code/Codex marketplace catalogs, installed-plugin inventories, and install/enable operations
-  assets/        Embedded config assets and asset registry (codegen: registry.generated.ts)
-  brew/          Homebrew batch install via Brewfile
-  coder/         Coder section/skill catalogs, manifests, and renderers
+  main.ts        CLIのエントリポイント
+  errors.ts      型付きのエラー階層
+  app/           ユースケースのオーケストレーション（identity、SSH hostの変更、リリースの自己更新、config-selection/上のconfig-toggle.ts）
+  agent-plugin/  Claude Code/Codexのマーケットプレイスカタログ、インストール済みプラグインのインベントリ、インストールと有効化の操作
+  assets/        埋め込みの設定アセットとアセットレジストリ（コード生成: registry.generated.ts）
+  brew/          BrewfileによるHomebrewの一括インストール
+  coder/         Coderのセクション/スキルのカタログ、マニフェスト、レンダラー
   cli/
-    commands/    One class per command, enumerated in registry.ts; internal commands (hidden) share runInternalCommand
-      config/    Config toggle commands built by defineConfigCommand plus GitHub SSH host configuration (aliased `cf`)
-    tty/         ANSI styling, string renderers (incl. table.ts, namespace-overview.ts), transient-block.ts (animated progress over an injected stream), and the interactive toggle prompt
-  config-selection/ Shared config-selection manifest parser/resolver
-  defaults/      macOS defaults manifest parser and protocol helpers
-  duti/          duti file-association state probes and apply operations
-  editor/        Editor extension list and install operations
-  git/           Git config and command helpers shared by app/internal commands
-  github/        GitHub release download and the per-machine SSH host alias store
-  grove/         Grove catalog per-machine SSH host rendering and `gv validate` checks
-  host/          CommandRunner, Context, HostPath; parse.ts (parsed-unknown assertions and labeled JSON framing, each taking the error class to raise), yaml.ts (YAML load/serialize), toml.ts (TOML load/serialize), json.ts (JSON-object load/serialize), jsonc.ts (JSONC load and comment-preserving edits), declared-merge.ts (declared-keys merge and structural equality for app-owned config files), transaction.ts (atomic staging and the swap-transaction envelope), atomic-file.ts (atomic write, write-if-changed), regular-file.ts (regular-file reconciliation), command-run.ts (subprocess step/capture, LC_ALL-pinned), https-download.ts (hardened curl download), managed-links.ts (shared symlink reconciler), deployed-file.ts (deploy-first read), task-pool.ts (bounded concurrency), cleanup-error.ts (cleanup-error composition)
-  identity/      Git identity scope enum and on-disk store
+    commands/    コマンドごとに1クラス。registry.tsに列挙される。内部コマンド（hidden）はrunInternalCommandを共有する
+      config/    defineConfigCommandで作る設定トグルのコマンドと、GitHub SSH hostの設定（エイリアスは`cf`）
+    tty/         ANSIスタイル、文字列レンダラー（table.ts、namespace-overview.tsを含む）、transient-block.ts（注入されたストリーム上のアニメーション付きの進捗）、対話的なトグルのプロンプト
+  config-selection/ 共有のconfig-selectionマニフェストのパーサー/リゾルバー
+  defaults/      macOS defaultsマニフェストのパーサーとプロトコルのヘルパー
+  duti/          dutiのファイル関連付けの状態のprobeと、適用の操作
+  editor/        エディター拡張のリストとインストールの操作
+  git/           app/internalのコマンドが共有するGitの設定とコマンドのヘルパー
+  github/        GitHubリリースのダウンロードと、マシンごとのSSH hostエイリアスのストア
+  grove/         マシンごとのSSH hostによるGroveカタログのレンダリングと、`gv validate`の検査
+  host/          CommandRunner、Context、HostPath。parse.ts（parsed-unknownのアサーションと、ラベル付きJSONのframing。どちらも送出するエラークラスを受け取る）、yaml.ts（YAMLの読み込みとシリアライズ）、toml.ts（TOMLの読み込みとシリアライズ）、json.ts（JSONオブジェクトの読み込みとシリアライズ）、jsonc.ts（JSONCの読み込みと、コメントを保つ編集）、declared-merge.ts（アプリが所有する設定ファイル向けの、declared-keysのマージと構造的等価性）、transaction.ts（アトミックなステージングとswap-transactionのenvelope）、atomic-file.ts（アトミックな書き込み、変更時のみの書き込み）、regular-file.ts（通常ファイルの整合処理）、command-run.ts（サブプロセスのstep/capture、LC_ALL固定）、https-download.ts（堅牢化したcurlによるダウンロード）、managed-links.ts（共有のsymlink整合処理）、deployed-file.ts（デプロイ済み優先の読み取り）、task-pool.ts（上限付きの並行実行）、cleanup-error.ts（クリーンアップエラーの合成）
+  identity/      Git identityのスコープの列挙型と、ディスク上のストア
   internal/
-    document/    Pandoc/Poppler conversion and browser PDF rendering
-    gh/          GitHub CLI wrappers
-    git/         Git wrappers (branches, clone, submodule, worktree)
-  pipx/          pipx install, inject, and post-install operations
-  pnpm/          pnpm global package install and remove through the fnm runtime
+    document/    Pandoc/Popplerによる変換と、ブラウザーによるPDFのレンダリング
+    gh/          GitHub CLIのラッパー
+    git/         Gitのラッパー（ブランチ、clone、submodule、worktree）
+  pipx/          pipxのinstall、inject、post-installの操作
+  pnpm/          fnmのランタイム経由でのpnpmグローバルパッケージのインストールと削除
   provisioning/
-    activation/  Activation DSL vocabulary, the per-kind registry (kinds.ts), per-kind runners, reconcile envelope, manifest loader
-    targets/     One file per provisioning target
-    signature.ts Semantic target signature derived from packages, activation intent, and embedded assets
-    applied.ts   Atomic `~/.mev/applied/{target}` successful-signature store
-    role-state.ts Shared asset-level embedded/deployed role comparison
-    resource-outcome.ts User-managed resource statuses and reducers
-    scan.ts      Concurrent signature and role-state drift classification
-  version-pin.ts The `latest`-versus-pin policy shared by pipx, pnpm, and release binaries
-  zed/           Zed override catalog, selection manifest, and settings renderer
+    activation/  Activation DSLの語彙、kindごとのレジストリ（kinds.ts）、kindごとのランナー、reconcile envelope、マニフェストのローダー
+    targets/     プロビジョニングのターゲットごとに1ファイル
+    signature.ts パッケージ、activationの意図、埋め込みアセットから導出する、ターゲットのセマンティックなシグネチャ
+    applied.ts   成功したシグネチャを`~/.mev/applied/{target}`へアトミックに保存するストア
+    role-state.ts アセット単位で、埋め込み版とデプロイ済み版のロールを比較する共有処理
+    resource-outcome.ts ユーザーが管理するリソースのステータスとリデューサー
+    scan.ts      シグネチャとロール状態のドリフトの並行分類
+  version-pin.ts pipx、pnpm、リリースバイナリが共有する、`latest`か固定かの方針
+  zed/           Zedのオーバーライドカタログ、選択マニフェスト、設定レンダラー
 scripts/
-  generate-assets.ts  Asset codegen: walks src/assets/config/, emits registry.generated.ts
-tests/                Integration tests for CLI, filesystem, subprocess, and network behavior
+  generate-assets.ts  アセットのコード生成: src/assets/config/を走査し、registry.generated.tsを出力する
+tests/                CLI、ファイルシステム、サブプロセス、ネットワークの挙動の統合テスト
 ```
 
-A module is promoted from `app/` into its own `src/<domain>/` directory only when a second use case needs it, or when it wraps an external dependency (a tool's protocol, wire format, or persisted file format) — see `identity/`, `pipx/`, `duti/`, `editor/`, `github/` for the latter.
+モジュールが`app/`から独自の`src/<domain>/`ディレクトリへ昇格するのは、2つ目のユースケースがそれを必要とするとき、または外部依存（ツールのプロトコル、ワイヤフォーマット、永続化されたファイル形式）をラップするときに限る。後者については`identity/`、`pipx/`、`duti/`、`editor/`、`github/`を参照。
 
-Supply-chain references distinguish trusted first-party sources from third-party
-sources. GitHub Actions and Git-hosted dependencies owned by `akitorahayashi`
-use reviewed major or release tags for convenient trusted maintenance updates.
-First-party agent plugin marketplaces are the exception: their SSH sources
-track `main` for missing-plugin installation, while installed plugins are
-upgraded only by an explicit `--upgrade` run, never implicitly, and removed
-only when the catalog explicitly lists them for uninstall. Enablement is not an
-upgrade concern: a declared plugin converges on installed and enabled on every
-run, since an installed-but-disabled plugin contributes nothing.
-Third-party GitHub Actions use full commit SHAs with version comments, and
-third-party Git-hosted dependencies use immutable full commits.
+サプライチェーンの参照では、信頼できるファーストパーティのソースを、サードパーティのソースと区別する。`akitorahayashi`が所有するGitHub ActionsとGitでホストされる依存は、信頼できるメンテナンス更新を手軽に行えるよう、レビュー済みのメジャータグまたはリリースタグを使う。ファーストパーティのエージェントプラグインのマーケットプレイスは例外で、そのSSHソースは、不足しているプラグインをインストールするために`main`を追跡する。一方、インストール済みのプラグインは、明示的な`--upgrade`の実行でのみアップグレードされ、暗黙にはアップグレードされない。また、カタログがアンインストール対象として明示的に列挙した場合に限って削除される。有効化はアップグレードの関心事ではない。宣言されたプラグインは実行のたびに、インストール済みかつ有効な状態へ収束する。インストール済みでも無効なプラグインは何も寄与しないためである。サードパーティのGitHub Actionsはバージョンコメント付きの完全なコミットSHAを使い、サードパーティのGitでホストされる依存は不変の完全なコミットを使う。
 
-## Testing
+## テスト
 
-Unit tests are colocated as `*.test.ts` files next to source under `src/`; they verify pure logic with no filesystem, process, or network access. Integration tests live under `tests/`; they verify filesystem, CLI routing, subprocess, or network behavior. Sandbox conventions, fake-injection rules, and CI layout are in docs/testing.md.
+ユニットテストは、`src/`配下のソースの隣に`*.test.ts`ファイルとして置かれ、ファイルシステム、プロセス、ネットワークへのアクセスを伴わない純粋なロジックを検証する。統合テストは`tests/`配下にあり、ファイルシステム、CLIのルーティング、サブプロセス、ネットワークの挙動を検証する。サンドボックスの規約、フェイクの注入規則、CIの構成はdocs/testing.mdにある。
 
-## Core Concepts
+## 中核概念
 
-### 3-Phase Provisioning
+### 3フェーズのプロビジョニング
 
-`runMake()` protects target-declared mutable host state, then drives three sequential phases — `deployRole()`, `installPackages()`, `runActivation()` — in declaration order. See docs/architecture/provisioning.md for the phase mechanics and the preservation boundary.
+`runMake()`は、ターゲットが宣言したホストの可変状態を保護したうえで、3つの逐次フェーズ（`deployRole()`、`installPackages()`、`runActivation()`）を宣言順に実行する。フェーズの仕組みと保全の境界はdocs/architecture/provisioning.mdを参照。
 
 ### Activation DSL
 
-`activation/` is the internal DSL for provisioning work. Targets import factories from `activation/index.ts`; `kinds.ts` maps each `Activation` kind to its handler, and dispatch, build-time asset validation, and the registry test are all lookups into it. Capability modules under `src/<tool>/` (`pipx/`, `pnpm/`, `duti/`, `editor/`, `agent-plugin/`, `github/`, `grove/`) own each external tool's protocol and accept a `Context`; activations may import capabilities, never the reverse.
+`activation/`はプロビジョニング作業のための内部DSLである。ターゲットは`activation/index.ts`からファクトリをimportし、`kinds.ts`は各`Activation`のkindをそのハンドラーへ対応付ける。ディスパッチ、ビルド時のアセット検証、レジストリのテストは、いずれもこの対応のルックアップである。`src/<tool>/`配下のcapabilityモジュール（`pipx/`、`pnpm/`、`duti/`、`editor/`、`agent-plugin/`、`github/`、`grove/`）は、各外部ツールのプロトコルを所有し、`Context`を受け取る。activationはcapabilityをimportしてよいが、その逆は決して許されない。
 
-See docs/architecture/activation.md for the per-kind table and the reconcile/manifest mechanics.
+kindごとの表と、整合処理およびマニフェストの仕組みはdocs/architecture/activation.mdを参照。
 
-### Provisioning Targets
+### プロビジョニングのターゲット
 
-Each target is a file in `provisioning/targets/` registered in `provisioning/registry.ts`. The registry test (`src/provisioning/registry.test.ts`) validates asset existence and selector uniqueness for every registered target, so adding a target needs no new test file. See docs/architecture/targets.md for the target shape and how `make`/`create`/`sync` derive their selections from the registry.
+各ターゲットは`provisioning/targets/`内のファイルで、`provisioning/registry.ts`に登録される。レジストリのテスト（`src/provisioning/registry.test.ts`）が、登録済みのすべてのターゲットについてアセットの存在とセレクターの一意性を検証するため、ターゲットを追加しても新しいテストファイルは要らない。ターゲットの構造と、`make`/`create`/`sync`がレジストリから選択を導出する方法はdocs/architecture/targets.mdを参照。
 
 ### Semantic Sync
 
-`sync` scans `fullSetupTargets()` and passes only stale targets to one `runMake()` call. Staleness is a signature mismatch or drift between embedded and deployed role assets. See docs/architecture/targets.md for the signature hashing mechanics and how command activations contribute their declarative intent to it.
+`sync`は`fullSetupTargets()`をスキャンし、古くなったターゲットだけを1回の`runMake()`呼び出しに渡す。古くなったと判定されるのは、シグネチャの不一致、または埋め込みロールとデプロイ済みロールのアセット間にドリフトがある場合である。シグネチャのハッシュ化の仕組みと、コマンドactivationが自身の宣言的な意図をそこへ反映する方法はdocs/architecture/targets.mdを参照。
 
 ### CLI
 
-`main.ts` registers the commands enumerated in `cli/commands/registry.ts` (see Directory Structure above). Command dispatch, the `CommandLineError`/`AppError`/`ProvisioningError` exit-code mapping, and the error taxonomy are in docs/architecture/cli.md and `src/errors.ts`.
+`main.ts`は、`cli/commands/registry.ts`に列挙されたコマンドを登録する（上の「ディレクトリ構成」を参照）。コマンドのディスパッチ、`CommandLineError`/`AppError`/`ProvisioningError`の終了コードの対応付け、エラーの分類はdocs/architecture/cli.mdと`src/errors.ts`にある。
 
-### Key Types
+### 主要な型
 
-- `Context` — `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`, injected through every provisioning call and assembled by `createContext()`; tests supply hand-built fakes via `tests/fixtures/` rather than calling it. See docs/architecture/host.md for the `basePath`/`tmpRoot`/env-read mechanics and `CommandRunner.run`'s contract.
-- `AssetRef` — `{ key }` where `key` is the embed path under `src/assets/config/` and doubles as the deploy store sub-path under `deployRoot` (`.mev/roles`, derived from `mevRoot`).
-- `HostPath` — symbolic path resolved against `context.home` at apply time.
-- `mevRoot` (`host/path.ts`, value `.mev`) — sole authority for the single root `~/.mev` under which mev owns every path it manages: the deploy store (`deployRoot`), the generated entities and selection manifests (coder, zed), agent plugin source state, identity state, and the symlink surface (`alias/`, `hooks/`, `rtk/`). `host/path.ts` also exports `mevPath(...segments)`, the sole builder composing mev-owned sub-paths on `mevRoot`, so every mev-managed host path derives from it and no call site hardcodes the `.mev` literal or a parallel root.
-- `Target` / `MakePlan` — a target groups its canonical name, aliases, role, packages, and `Activation[]`; `planMake()` merges selected targets into a deduplicated plan that preserves target-name attribution. See docs/architecture/targets.md for the full target shape and the `optional` flag's role in `create`/`sync` selection.
-- `Activation`, `ActivationDescription`, and `CommandScope` are defined in `activation/contract.ts`; `ResourceOutcome` is defined in `provisioning/resource-outcome.ts`.
+- `Context`: `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`。すべてのプロビジョニング呼び出しを通じて注入され、`createContext()`が組み立てる。テストは`createContext()`を呼ぶ代わりに、`tests/fixtures/`経由で手書きのフェイクを渡す。`basePath`/`tmpRoot`/環境変数の読み取りの仕組みと`CommandRunner.run`の契約はdocs/architecture/host.mdを参照。
+- `AssetRef`: `{ key }`。`key`は`src/assets/config/`配下の埋め込みパスで、`deployRoot`（`.mev/roles`、`mevRoot`から導出）配下のdeploy storeのサブパスも兼ねる。
+- `HostPath`: 適用時に`context.home`を基準に解決される論理パス。
+- `mevRoot`（`host/path.ts`、値は`.mev`）: mevが管理するすべてのパスをその下で所有する、単一のルート`~/.mev`の唯一の正本。配下には、deploy store（`deployRoot`）、生成されたエンティティと選択マニフェスト（coder、zed）、エージェントプラグインのソースの状態、identityの状態、symlink用のディレクトリ（`alias/`、`hooks/`、`rtk/`）がある。`host/path.ts`は`mevPath(...segments)`もエクスポートする。これは`mevRoot`の上にmevが所有するサブパスを組み立てる唯一のビルダーであり、そのため、mevが管理するホストのパスはすべて`mevRoot`から導出され、どの呼び出し箇所も`.mev`のリテラルや別のルートをハードコードしない。
+- `Target` / `MakePlan`: ターゲットは、正規名、エイリアス、ロール、パッケージ、`Activation[]`をまとめる。`planMake()`は、選択されたターゲットを、ターゲット名の帰属を保ったまま重複排除した1つのプランにマージする。ターゲットの完全な構造と、`create`/`sync`の選択における`optional`フラグの役割はdocs/architecture/targets.mdを参照。
+- `Activation`、`ActivationDescription`、`CommandScope`は`activation/contract.ts`で、`ResourceOutcome`は`provisioning/resource-outcome.ts`で定義される。
 
-### Asset Codegen
+### アセットのコード生成
 
-`registry.generated.ts` is generated by `scripts/generate-assets.ts` from `src/assets/config/` — do not hand-edit it. It regenerates via the `pree`/`pretest`/`pretest:unit`/`pretest:integration`/`pretypecheck`/`precheck` hooks, and `buildMev` regenerates it again before compiling, so the binary never embeds a stale registry. See docs/architecture/assets.md for the embedding format and the registry staleness check.
+`registry.generated.ts`は、`scripts/generate-assets.ts`が`src/assets/config/`から生成する。手で編集しない。`pree`/`pretest`/`pretest:unit`/`pretest:integration`/`pretypecheck`/`precheck`の各フックで再生成され、`buildMev`もコンパイルの前に再生成するため、バイナリが古いレジストリを埋め込むことはない。埋め込み形式とレジストリの古さの検査はdocs/architecture/assets.mdを参照。
 
-## Documentation Responsibilities
+## 文書の責務
 
-- AGENTS.md — source map, cross-cutting invariants, and pointers. The orientation layer.
-- README.md — installation, local development setup, and a minimal usage teaser. The front door.
-- docs/architecture/ — provisioning design and mechanics: the 3-phase engine, the activation DSL, targets, semantic sync, the CLI dispatch/error model, asset embedding, identity, and document conversion. See docs/architecture/README.md for the per-file index.
-- docs/config.md — the `mev config` selection subsystem: catalogs, manifests, opt-in/opt-out polarity, and the Zed settings-merge algorithm.
-- docs/usage.md — the complete command reference: every subcommand, alias, and flag, and the behavior each produces.
-- docs/testing.md — test design and layer map.
-- CONTRIBUTING.md — repository scope and the local task surface.
+- AGENTS.md: ソースの地図、横断的な不変条件、参照先。全体像をつかむための層。
+- README.md: インストール、ローカル開発のセットアップ、最小限の使い方の紹介。入口。
+- docs/architecture/: プロビジョニングの設計と仕組み。3フェーズのエンジン、activation DSL、ターゲット、Semantic Sync、CLIのディスパッチとエラーのモデル、アセットの埋め込み、identity、文書変換。ファイルごとの索引はdocs/architecture/README.mdを参照。
+- docs/config.md: `mev config`の選択サブシステム。カタログ、マニフェスト、オプトイン／オプトアウトの極性、Zedの設定マージのアルゴリズム。
+- docs/usage.md: 完全なコマンドリファレンス。すべてのサブコマンド、エイリアス、フラグと、それぞれの挙動。
+- docs/testing.md: テストの設計と層の一覧。
+- CONTRIBUTING.md: リポジトリの範囲と、ローカルタスクの窓口。

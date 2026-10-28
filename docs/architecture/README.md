@@ -1,42 +1,41 @@
-# Architecture
+# アーキテクチャ
 
-`mev` is Local IaC for macOS. Repository configuration is the source of truth;
-the compiled binary carries the configuration assets it deploys.
+`mev`はmacOS向けのLocal IaCである。リポジトリの設定が正本であり、コンパイル済みのバイナリは、自身がデプロイする設定アセットを内包している。
 
-## Provisioning phases
+## プロビジョニングのフェーズ
 
-| Phase | Responsibility |
+| フェーズ | 責務 |
 |---|---|
-| Preserve | Protect mutable host state before a role can replace it. |
-| Deploy | Reconcile selected role assets in the deploy store. |
-| Install | Resolve required Homebrew packages. |
-| Activate | Apply each declared activation in target order. |
+| Preserve | ロールによって置き換えられる前に、ホストの可変状態を保護する。 |
+| Deploy | 選択されたロールのアセットを、deploy storeで整合させる。 |
+| Install | 必要なHomebrewパッケージを解決する。 |
+| Activate | 宣言された各activationを、ターゲットの順に適用する。 |
 
-## Layer map
+## 層の構成
 
-| Domain | Responsibility |
+| 領域 | 責務 |
 |---|---|
-| `cli/` | Argument parsing, command routing, exit codes, and terminal rendering |
-| `app/` | Use-case orchestration for identity and config selection |
-| `provisioning/` | Targets, activations, signatures, and the provisioning phases |
-| `agent-plugin/` | Claude Code and Codex inventories and marketplace protocols |
-| `coder/`, `zed/`, `config-selection/` | Catalogs, manifests, and selected generated configuration |
-| `brew/`, `defaults/`, `duti/`, `editor/`, `pipx/`, `pnpm/` | External tool protocols |
-| `host/` | Context, subprocesses, files, parsing, transactions, and shared host boundaries |
-| `assets/`, `identity/`, `git/`, `internal/` | Embedded assets, Git identity, Git helpers, and hidden document/Git commands |
+| `cli/` | 引数のパース、コマンドのルーティング、終了コード、ターミナルのレンダリング |
+| `app/` | identityと設定選択のユースケースのオーケストレーション |
+| `provisioning/` | ターゲット、activation、シグネチャ、プロビジョニングのフェーズ |
+| `agent-plugin/` | Claude CodeとCodexのインベントリ、およびマーケットプレイスのプロトコル |
+| `coder/`、`zed/`、`config-selection/` | カタログ、マニフェスト、選択に応じて生成される設定 |
+| `brew/`、`defaults/`、`duti/`、`editor/`、`pipx/`、`pnpm/` | 外部ツールのプロトコル |
+| `host/` | Context、サブプロセス、ファイル、パース、トランザクション、共有されるホストの境界 |
+| `assets/`、`identity/`、`git/`、`internal/` | 埋め込みアセット、Git identity、Gitのヘルパー、文書とGitの隠しコマンド |
 
-## Documents
+## 文書
 
-- [cli.md](cli.md) — command routing and error/exit contracts
-- [provisioning.md](provisioning.md) — preservation and the provisioning phases
-- [targets.md](targets.md) — target shape, signatures, and semantic sync
-- [activation.md](activation.md) — the activation DSL and shared execution boundaries
-- [agent-plugins.md](agent-plugins.md) — plugin ownership and reconciliation
-- [app-owned-config.md](app-owned-config.md) — declared key ownership and deploy protection
-- [command-pipeline.md](command-pipeline.md) — the command activation vocabulary
-- [release.md](release.md) — release binaries and remote installer safety
-- [worktrees.md](worktrees.md) — worktree layout and cleanup safety
-- [host.md](host.md) — Context and CommandRunner contracts
-- [assets.md](assets.md) — asset embedding and the deploy store
-- [identity.md](identity.md) — Git identity ownership
-- [document.md](document.md) — Markdown/PDF conversion boundaries
+- [cli.md](cli.md): コマンドのルーティングと、エラーおよび終了コードの契約
+- [provisioning.md](provisioning.md): 保全とプロビジョニングのフェーズ
+- [targets.md](targets.md): ターゲットの構造、シグネチャ、Semantic Sync
+- [activation.md](activation.md): Activation DSLと、共有される実行の境界
+- [agent-plugins.md](agent-plugins.md): プラグインの所有権と整合処理
+- [app-owned-config.md](app-owned-config.md): 宣言されたキーの所有権と、デプロイ時の保護
+- [command-pipeline.md](command-pipeline.md): コマンドactivationの語彙
+- [release.md](release.md): リリースバイナリと、リモートインストーラーの安全性
+- [worktrees.md](worktrees.md): worktreeの配置と、後片付けの安全性
+- [host.md](host.md): ContextとCommandRunnerの契約
+- [assets.md](assets.md): アセットの埋め込みとdeploy store
+- [identity.md](identity.md): Git identityの所有権
+- [document.md](document.md): Markdown/PDF変換の境界

@@ -1,17 +1,16 @@
-# Usage
+# 使い方
 
-Command reference for the public `mev` CLI, its aliases, and its user-visible
-behavior.
+公開されている`mev` CLIとそのエイリアス、およびユーザーから見える挙動のコマンドリファレンス。
 
-## Provisioning
+## プロビジョニング
 
-| Command | Effect |
+| コマンド | 動作 |
 |---|---|
-| `mev make <target...>` (`mk`) | Deploy selected roles, install missing packages, and activate them. |
-| `mev create` (`cr`) | Provision every registered non-optional target. |
-| `mev sync` (`s`) | Apply only stale non-optional targets. |
-| `mev update` | Install the latest mev release and then apply `sync`. |
-| `mev list` (`ls`) | List registered targets. |
+| `mev make <target...>` (`mk`) | 選択したロールをデプロイし、不足しているパッケージをインストールし、activationを適用する。 |
+| `mev create` (`cr`) | `optional`でない登録済みのすべてのターゲットをプロビジョニングする。 |
+| `mev sync` (`s`) | 古くなった、`optional`でないターゲットだけを適用する。 |
+| `mev update` | 最新のmevのリリースをインストールし、続けて`sync`を実行する。 |
+| `mev list` (`ls`) | 登録済みのターゲットを一覧表示する。 |
 
 ```bash
 mev make git
@@ -21,97 +20,45 @@ mev sync
 mev update
 ```
 
-Selected targets that declare Homebrew packages require `brew` to be available
-on PATH. A failed prerequisite check exits with code 1 before provisioning state
-changes; an unavailable executable reports Homebrew installation and shell setup
-steps. Targets without Homebrew packages and a `sync` with no stale targets do
-not require Homebrew. `create` and `sync` clean obsolete provisioning state after
-the check, including a no-op sync's cleanup.
+Homebrewパッケージを宣言する、選択されたターゲットには、PATH上で`brew`が使えることが必要である。前提条件の検査に失敗すると、プロビジョニングの状態が変わる前に終了コード1で終了する。実行ファイルが利用できない場合は、Homebrewのインストールとシェルのセットアップの手順を報告する。Homebrewパッケージを宣言しないターゲットと、古くなったターゲットがない`sync`は、Homebrewを必要としない。`create`と`sync`は、検査の後に不要になったプロビジョニングの状態を整理する。これには、no-opのsyncによる整理も含まれる。
 
-Provisioning reports user-managed resources rather than internal config-file
-checks. `changed` means a probe observed a change, `current` means the resource
-was already correct, `applied` means an action succeeded without an independent
-state-difference probe, and failures identify blocked dependents. Changed and
-failed resources are listed individually; unchanged members of large
-collections such as macOS settings are summarized by count. Explicit paths stay
-visible individually.
+プロビジョニングは、内部の設定ファイルの検査ではなく、ユーザーが管理するリソースを報告する。`changed`はprobeが変更を観測したこと、`current`はリソースがすでに正しい状態だったこと、`applied`は状態の差分を独立にprobeすることなく操作が成功したことを意味する。失敗は、それによってブロックされた依存リソースを特定する。変更されたリソースと失敗したリソースは個別に列挙され、macOSの設定のような大きなコレクションのうち変更のない要素は、件数でまとめて示される。明示的なパスは個別に表示されたままである。
 
-TTY progress is transient. Completed target results and the final counts remain
-in the log. Agent plugin progress identifies each active client's operation,
-plugin or marketplace, and elapsed time. Release binary progress identifies each
-active binary, its current phase and resolved tag when known, and elapsed time
-for that phase. Redirected output records plugin and release binary operation
-starts and the same results without animation or ANSI control
-sequences. A no-op `sync` reports that no targets need reapplying
-and how many target definitions and managed assets match the last successful
-apply. App-owned configuration files enforce declared keys while keeping
-application-written keys. See [provisioning.md](architecture/provisioning.md)
-for phase boundaries and result semantics.
+TTYでの進捗は一時的である。完了したターゲットの結果と最終的な件数はログに残る。エージェントプラグインの進捗は、実行中の各クライアントの操作、プラグインまたはマーケットプレイス、経過時間を示す。リリースバイナリの進捗は、実行中の各バイナリ、現在のフェーズ、判明している場合は解決済みのタグ、そのフェーズの経過時間を示す。リダイレクトされた出力には、プラグインとリリースバイナリの操作の開始、および同じ結果が、アニメーションやANSI制御シーケンスなしで記録される。no-opの`sync`は、再適用が必要なターゲットがないことと、直近に成功した適用と一致しているターゲット定義および管理対象のアセットの数を報告する。アプリが所有する設定ファイルは、宣言されたキーを強制しつつ、アプリケーションが書き込んだキーを保持する。フェーズの境界と結果の意味は[provisioning.md](architecture/provisioning.md)を参照。
 
-### Upgrade
+### アップグレード
 
-`--upgrade` (`-u`) refreshes latest-assumed items: `make` and `create` apply it
-to their selected target set, while `sync` applies it only to targets already
-selected as stale. Selected installed Homebrew formulae and casks are upgraded;
-mev does not invoke `brew update`.
+`--upgrade`（`-u`）は、latestを前提とする項目を更新する。`make`と`create`は選択したターゲットの集合にこれを適用し、`sync`はすでに古くなったとして選択されたターゲットにだけ適用する。選択されたターゲットのインストール済みのHomebrewのformulaとcaskはアップグレードされる。mevは`brew update`を実行しない。
 
-Upgrade does not change target signatures or widen sync selection. Pinned entries
-remain untouched, and a plain provisioning run installs and enables declared
-agent plugins without requiring upgrade mode.
+アップグレードは、ターゲットのシグネチャを変えず、syncの選択も広げない。固定されたエントリは変更されず、通常のプロビジョニングの実行は、アップグレードモードを必要とせずに、宣言されたエージェントプラグインをインストールして有効化する。
 
-## Updating mev
+## mevの更新
 
-`mev update` resolves the latest published GitHub Release. The installed
-version comes from the running binary and the release version comes from its
-`v`-prefixed tag. A newer verified release replaces the installed command
-atomically; an equal version is also checked against the published SHA256 and
-reinstalled when its bytes differ. A locally newer version is kept rather than
-downgraded.
+`mev update`は、公開されている最新のGitHub Releaseを解決する。インストール済みのバージョンは実行中のバイナリから、リリースのバージョンは`v`付きのタグから得る。検証済みのより新しいリリースがあれば、インストール済みのコマンドをアトミックに置き換える。同じバージョンの場合も、公開されているSHA256と照合し、バイトが異なれば再インストールする。ローカルのほうが新しいバージョンは、ダウングレードされずに保持される。
 
-After a successful check or replacement, `update` runs `sync` through the exact
-installed path. `mev update --upgrade` (`-u`) runs `sync --upgrade`; as with a
-direct sync invocation, this affects only targets already selected as stale. An
-update failure does not run the old binary's sync, while a sync failure keeps the
-new binary installed for a direct retry.
+検査または置き換えが成功したあと、`update`はインストール済みのパスそのものを通して`sync`を実行する。`mev update --upgrade`（`-u`）は`sync --upgrade`を実行する。syncを直接呼び出した場合と同じく、これが影響するのは、すでに古くなったとして選択されたターゲットだけである。更新に失敗した場合は古いバイナリのsyncを実行せず、syncに失敗した場合は、新しいバイナリをインストールしたまま残して、直接の再試行に備える。
 
-Updates require an installed standalone release or the bundle installed by
-`bun run up`. Direct source execution through `bun e update` is rejected so a
-source file or the Bun runtime cannot be mistaken for the installed command.
+更新には、インストール済みのスタンドアロンのリリース、または`bun run up`でインストールしたバンドルが必要である。`bun e update`によるソースの直接実行は、ソースファイルやBunのランタイムがインストール済みのコマンドと取り違えられないよう拒否される。
 
-## Repository workspace
+## リポジトリのワークスペース
 
-| Command | Effect |
+| コマンド | 動作 |
 |---|---|
-| `mev make grove` | Installs Grove and materializes `~/Desktop/grove.toml`. |
-| `mev config ssh-host <alias>` | Stores the per-machine GitHub SSH host for the next sync. |
-| `gv sync` | Synchronizes repositories from the catalog after GitHub authentication. |
-| `git clone ...` / `g clone ...` | Uses the Grove clone cache from the managed interactive shell function. |
-| `command git clone ...` | Uses native Git explicitly. |
-| `git cl <url>... -- <options>...` | Batch-clones URLs with shared clone options. |
-| `git rf-cl <clone arguments>` | Clones from the repository's `references/` directory through Grove. |
+| `mev make grove` | Groveをインストールし、`~/Desktop/grove.toml`を書き出す。 |
+| `mev config ssh-host <alias>` | マシンごとのGitHub SSH hostを、次のsyncのために保存する。 |
+| `gv sync` | GitHubの認証後に、カタログからリポジトリを同期する。 |
+| `git clone ...` / `g clone ...` | 管理された対話的なシェル関数を通して、Groveのcloneキャッシュを使う。 |
+| `command git clone ...` | ネイティブのGitを明示的に使う。 |
+| `git cl <url>... -- <options>...` | 共通のcloneオプションで、複数のURLを一括でcloneする。 |
+| `git rf-cl <clone arguments>` | リポジトリの`references/`ディレクトリから、Groveを通してcloneする。 |
 
-Provisioning does not clone or update repositories. If Grove is unavailable, the
-interactive clone route reports how to install it and exits with status 127.
+プロビジョニングはリポジトリのcloneも更新も行わない。Groveが使えない場合、対話的なcloneの経路は、そのインストール方法を報告して、ステータス127で終了する。
 
-The embedded `grove/grove.toml` asset is the catalog of personal repositories.
-Adding, removing, or renaming a repository is an asset edit shipped in a mev
-release; each machine picks it up with `mev update` followed by `gv sync`, and
-a rename or removal declared under `removed` moves or trashes the old checkout
-there. The asset pins the Grove release whose schema it uses, so an installed
-`gv` older than that pin is replaced in the same run.
+埋め込みの`grove/grove.toml`アセットは、個人のリポジトリのカタログである。リポジトリの追加、削除、名前の変更は、mevのリリースで配布されるアセットの編集であり、各マシンは`mev update`に続けて`gv sync`を実行することでそれを取り込む。`removed`の下で宣言された名前の変更や削除は、そのマシンで古いcheckoutを移動し、またはゴミ箱へ移す。このアセットは、そのスキーマを使うGroveのリリースを固定しているため、その固定より古いインストール済みの`gv`は、同じ実行の中で置き換えられる。
 
-Rendering rewrites stock GitHub SSH remotes to the per-machine host and checks
-the result with `gv validate` before replacing `~/Desktop/grove.toml`; a
-rejected render leaves the existing file in place. mev also refuses to replace
-a file whose contents differ from what it last wrote, such as one extended by
-`gv add`: the target fails until those entries move into the asset or into
-`~/Desktop/grove.override.toml` (`gv add --override`) and the file is moved
-aside, after which `mev make grove` writes it again.
+レンダリングでは、標準のGitHub SSHリモートをマシンごとのSSH hostに書き換え、`~/Desktop/grove.toml`を置き換える前に、その結果を`gv validate`で検査する。拒否されたレンダリングは、既存のファイルをそのまま残す。mevは、最後に自分が書き込んだ内容と異なる内容のファイル、たとえば`gv add`で拡張されたファイルも置き換えない。その場合、ターゲットは、それらのエントリがアセットまたは`~/Desktop/grove.override.toml`（`gv add --override`）へ移り、ファイルが別の場所へ退避されるまで失敗する。その後は、`mev make grove`がファイルを再び書き込む。
 
-`~/Desktop/grove.override.toml` is outside mev: mev never creates, reads, or
-writes it, and Grove merges it over the rendered base on each machine. Work
-repositories and their `removed` declarations live there, so a machine without
-an override manages only the personal catalog.
+`~/Desktop/grove.override.toml`はmevの管理外であり、mevはこれを決して作成せず、読み取らず、書き込まない。Groveが各マシンで、レンダリングされたベースの上にこれをマージする。仕事用のリポジトリとその`removed`の宣言はここに置かれるため、オーバーライドを持たないマシンは個人のカタログだけを管理する。
 
 ```bash
 gh auth login --hostname github.com --git-protocol ssh --web
@@ -119,70 +66,62 @@ cd ~/Desktop
 gv sync
 ```
 
-## Listing targets
+## ターゲットの一覧表示
 
 ```bash
 mev list
 mev ls
 ```
 
-## Config
+## 設定
 
-| Command | Effect |
+| コマンド | 動作 |
 |---|---|
-| `mev config agents` (`cf ag`) | Toggle AGENTS.md sections. |
-| `mev config skills` (`cf sk`) | Toggle coder skills. |
-| `mev config zed` (`cf zd`) | Toggle Zed settings overrides. |
-| `mev config <surface> --clear` | Disable every entry on the selected surface. |
-| `mev config ssh-host <alias>` (`cf sh`) | Store a valid OpenSSH host alias and invalidate affected sync state. |
+| `mev config agents` (`cf ag`) | AGENTS.mdのセクションを切り替える。 |
+| `mev config skills` (`cf sk`) | coderのスキルを切り替える。 |
+| `mev config zed` (`cf zd`) | Zedの設定のオーバーライドを切り替える。 |
+| `mev config <surface> --clear` | 選択した設定対象のすべてのエントリを無効にする。 |
+| `mev config ssh-host <alias>` (`cf sh`) | 有効なOpenSSHのhostエイリアスを保存し、影響を受けるsyncの状態を無効化する。 |
 
-Selection commands use an interactive multi-select unless `--clear` is given.
-Catalog and manifest semantics are in [config.md](config.md).
+選択コマンドは、`--clear`が指定されない限り、対話的な複数選択を使う。カタログとマニフェストの意味は[config.md](config.md)にある。
 
 ## Git identity
 
-| Command | Effect |
+| コマンド | 動作 |
 |---|---|
-| `mev user` (`us`) | List identity subcommands. |
-| `mev user show` | Show stored identities and the effective one, labeled `git --local` when the current repository is pinned and `git --global` otherwise. |
-| `mev user set` | Configure identities interactively. |
-| `mev switch personal` / `work` (`sw`) | Write the selected identity to the global overlay `~/.gitconfig`. Warns when the current repository is pinned locally, since the pin shadows the change there. |
-| `mev switch <scope> -w` / `--write` | Pin the identity to the current repository's `.git/config` instead of the overlay. Fails outside a git repository. |
-| `mev switch -u` / `--unset` | Remove the current repository's pin so it follows the global identity again. Idempotent; reports the identity that is effective afterwards. Fails outside a git repository. |
+| `mev user` (`us`) | identityのサブコマンドを一覧表示する。 |
+| `mev user show` | 保存されているidentityと有効なidentityを表示する。有効なidentityには、現在のリポジトリが固定されている場合は`git --local`、そうでない場合は`git --global`のラベルを付ける。 |
+| `mev user set` | identityを対話的に設定する。 |
+| `mev switch personal` / `work` (`sw`) | 選択したidentityをグローバルのオーバーレイ`~/.gitconfig`へ書き込む。現在のリポジトリがローカルで固定されている場合は、その固定が変更を覆い隠すため警告する。 |
+| `mev switch <scope> -w` / `--write` | identityを、オーバーレイではなく現在のリポジトリの`.git/config`へ固定する。gitリポジトリの外では失敗する。 |
+| `mev switch -u` / `--unset` | 現在のリポジトリの固定を解除し、再びグローバルのidentityに従うようにする。冪等であり、解除後に有効になるidentityを報告する。gitリポジトリの外では失敗する。 |
 
-`make git` manages the static `~/.config/git/config`; switching manages the
-mutable overlay; pinning manages the repository-local config, which git
-resolves above both.
+`make git`は静的な`~/.config/git/config`を管理し、切り替えは可変のオーバーレイを管理し、固定はリポジトリローカルの設定を管理する。リポジトリローカルの設定は、gitがその両方より優先して解決する。
 
-## Worktrees
+## worktree
 
-| Command | Effect |
+| コマンド | 動作 |
 |---|---|
-| `git w-a <branch...> [--from <ref>]` | Add worktrees. New branches start at the fetched `origin/<default>`, or at `<ref>` without fetching. |
-| `git w-ls` | List worktrees and state. |
-| `git w-mv <worktree> <suffix>` | Move a linked worktree. |
-| `git w-rm <worktree...>` | Remove linked worktrees and keep their branches. |
-| `git w-td [-n]` | Tidy worktrees whose origin branches were deleted; `-n` previews. |
-| `git w-p [worktree]` | Print a worktree path. |
-| `wcd [worktree]` | Change to a worktree; with no argument, return to the main worktree. |
+| `git w-a <branch...> [--from <ref>]` | worktreeを追加する。新しいブランチは、fetchした`origin/<default>`から、またはfetchせずに`<ref>`から始まる。 |
+| `git w-ls` | worktreeと状態を一覧表示する。 |
+| `git w-mv <worktree> <suffix>` | linked worktreeを移動する。 |
+| `git w-rm <worktree...>` | linked worktreeを削除し、そのブランチは残す。 |
+| `git w-td [-n]` | originのブランチが削除されたworktreeを片付ける。`-n`はプレビューする。 |
+| `git w-p [worktree]` | worktreeのパスを出力する。 |
+| `wcd [worktree]` | worktreeへ移動する。引数なしの場合はmain worktreeへ戻る。 |
 
-Worktree layout, start points, carried ignored files, the shared `.tmp`, and tidy
-safety gates are in [architecture/worktrees.md](architecture/worktrees.md).
+worktreeの配置、起点、持ち込まれるignore対象のファイル、共有の`.tmp`、片付けの安全ゲートは[architecture/worktrees.md](architecture/worktrees.md)にある。
 
-## Submodule deletion
+## submoduleの削除
 
-`git sb-d <path>` deletes exactly one registered, repository-relative submodule
-path, including its Git-owned module storage. Selection is independent of the
-current directory within the repository. Options, pathspec patterns, traversal,
-ambiguous registration, and unexpected storage fail before mutation. A partial
-failure reports completed actions and the locations of remaining state.
+`git sb-d <path>`は、登録済みでリポジトリ相対のsubmoduleパスをちょうど1つだけ、Gitが所有するモジュールストレージを含めて削除する。選択は、リポジトリ内のカレントディレクトリに依存しない。オプション、pathspecパターン、パストラバーサル、曖昧な登録、想定外のストレージは、変更の前に失敗する。部分的に失敗した場合は、完了した操作と、残っている状態の場所を報告する。
 
-## Document conversion
+## 文書変換
 
-| Command | Effect |
+| コマンド | 動作 |
 |---|---|
-| `md2pdf <input>` | Convert a file or directory to PDF. |
-| `pdf2md <input>` | Extract UTF-8 text to Markdown. |
+| `md2pdf <input>` | ファイルまたはディレクトリをPDFに変換する。 |
+| `pdf2md <input>` | UTF-8のテキストをMarkdownとして抽出する。 |
 
 ```bash
 mev make shell
@@ -192,19 +131,16 @@ md2pdf notes.md --css print.css --margin-top 20mm
 pdf2md report.pdf
 ```
 
-| Command | Options |
+| コマンド | オプション |
 |---|---|
-| `md2pdf` | `--output-dir`/`-o`, `--css`/`-c`, and four margin options |
+| `md2pdf` | `--output-dir`/`-o`、`--css`/`-c`、4つのマージンのオプション |
 | `pdf2md` | `--output-dir`/`-o` |
 
-Directory conversion preserves the relative tree and defaults to the
-`document_outputs` directory when no output directory is supplied. `pdf2md`
-extracts text and does not infer semantic Markdown structure. See
-[document.md](architecture/document.md) for conversion boundaries.
+ディレクトリの変換では相対的なツリーが保たれ、出力ディレクトリが指定されない場合の既定は`document_outputs`ディレクトリになる。`pdf2md`はテキストを抽出するだけで、意味的なMarkdown構造は推測しない。変換の境界は[document.md](architecture/document.md)を参照。
 
-## Global flags
+## グローバルフラグ
 
-| Flag | Effect |
+| フラグ | 動作 |
 |---|---|
-| `--help`, `-h` | Show command help. |
-| `--version` | Print the binary version. |
+| `--help`、`-h` | コマンドのヘルプを表示する。 |
+| `--version` | バイナリのバージョンを出力する。 |

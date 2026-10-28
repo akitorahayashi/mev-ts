@@ -1,34 +1,21 @@
-# Document Conversion
+# 文書変換
 
-## Conversion boundaries
+## 変換の境界
 
-| Direction | Pipeline | Contract |
+| 方向 | パイプライン | 契約 |
 |---|---|---|
-| Markdown → PDF | Pandoc produces standalone HTML; a browser renders it with the bundled print stylesheet. | Local resources are embedded, HTTP requests are blocked, and PDFs are written atomically. |
-| PDF → Markdown | Poppler extracts UTF-8 text. | Text is preserved; semantic Markdown structure is not inferred. |
-| Input planning | One planner handles files and recursive directories. | Relative paths are preserved, nested output is excluded, and output collisions fail before conversion. |
+| Markdown → PDF | PandocがスタンドアロンのHTMLを生成し、ブラウザーが同梱の印刷用スタイルシートでそれをレンダリングする。 | ローカルのリソースは埋め込まれ、HTTPリクエストはブロックされ、PDFはアトミックに書き込まれる。 |
+| PDF → Markdown | PopplerがUTF-8のテキストを抽出する。 | テキストは保持され、意味的なMarkdown構造は推測しない。 |
+| 入力の計画 | 1つのプランナーが、ファイルと、再帰的にたどるディレクトリを扱う。 | 相対パスは保持され、入れ子になった出力は除外され、出力の衝突は変換の前に失敗する。 |
 
-The public shell aliases are backed by the hidden document commands described in
-[usage.md](../usage.md).
+公開されているシェルのエイリアスは、[usage.md](../usage.md)で説明している、文書用の隠しコマンドで実装されている。
 
-## Local resource ownership
+## ローカルリソースの所有権
 
-Pandoc renders HTML without fetching or embedding dependencies. The conversion
-layer parses that HTML and its CSS, embeds local images, fonts, and styles, and
-resolves recursive stylesheet imports relative to each containing file. Missing,
-cyclic, nonlocal, or unparseable dependencies fail with a conversion diagnostic.
-CSS imports and URLs, including data-encoded stylesheet imports, follow the same
-local-only policy. Resource base overrides, refreshes, and `srcset` are rejected;
-images use a single `src`.
+Pandocは、依存リソースの取得も埋め込みも行わずにHTMLを生成する。変換層は、そのHTMLとCSSを解析し、ローカルの画像、フォント、スタイルを埋め込み、再帰的なスタイルシートのインポートを、インポートを含むファイルを基準に解決する。存在しない、循環している、ローカルでない、または解析できない依存関係は、変換の診断メッセージとともに失敗する。CSSのインポートとURLは、データURLでエンコードされたスタイルシートのインポートも含めて、同じローカル限定の方針に従う。リソースのベースURLの上書き、メタリフレッシュ、`srcset`は拒否され、画像は単一の`src`だけを使う。
 
-Remote Markdown images remain external and are blocked by the browser's HTTP
-routing rather than fetched by Pandoc. Ordinary hyperlinks remain navigable in
-the output. Mermaid and MathML rendering retain their existing boundaries.
+リモートのMarkdown画像は外部のままで、Pandocが取得するのではなく、ブラウザーのHTTPルーティングによってブロックされる。通常のハイパーリンクは、出力でもたどれるまま残る。MermaidとMathMLのレンダリングは、既存の境界を維持する。
 
-## Build coupling
+## ビルド時の結合
 
-The renderer uses pinned `mermaid` and `playwright-core` dependencies. The
-Mermaid distribution path and the browser bundling workaround are coupled to
-those pins; the build checks that the pinned renderer path still resolves before
-producing a binary. A pin change is therefore a deliberate build decision, not
-an incidental lockfile refresh.
+レンダラーは、固定された`mermaid`と`playwright-core`の依存関係を使う。Mermaidの配布パスと、ブラウザーをバンドルする際の回避策は、これらの固定と結合している。ビルドは、バイナリを生成する前に、固定されたレンダラーのパスが今も解決できることを確認する。したがって、固定の変更は意図的なビルド上の判断であり、lockfileの更新に伴う偶発的なものではない。

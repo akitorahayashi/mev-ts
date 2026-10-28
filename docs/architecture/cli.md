@@ -1,20 +1,19 @@
 # CLI
 
-## Dispatch
+## ディスパッチ
 
-| Boundary | Contract |
+| 境界 | 契約 |
 |---|---|
-| Command registration | `cli/commands/registry.ts` is the single public and hidden command registry. |
-| Namespace help | Command paths derive help routing from the registry. |
-| Command implementation | Each command subclasses `Command`. |
+| コマンドの登録 | `cli/commands/registry.ts`が、公開コマンドと隠しコマンドの唯一のレジストリである。 |
+| 名前空間のヘルプ | コマンドのパスは、ヘルプのルーティングをレジストリから導出する。 |
+| コマンドの実装 | 各コマンドは`Command`のサブクラスである。 |
 
-## Errors and output
+## エラーと出力
 
-| Error class | Output | Exit behavior |
+| エラークラス | 出力 | 終了時の挙動 |
 |---|---|---|
-| `CommandLineError` / `UsageError` | Usage and the error on stdout | Command-line failure |
-| `AppError`, `ProvisioningError`, or `UpdateError` | `<error class>: <message>` on stderr | Exit code 1, without usage or a stack |
-| Pure renderer result | Renderer-owned output | No domain-error wrapper |
+| `CommandLineError` / `UsageError` | stdoutへのusageとエラー | コマンドラインの失敗 |
+| `AppError`、`ProvisioningError`、`UpdateError`のいずれか | stderrへの`<エラークラス>: <メッセージ>` | 終了コード1で、usageもスタックトレースも出力しない |
+| 純粋なレンダラーの結果 | レンダラーが所有する出力 | ドメインエラーのラッパーなし |
 
-The error hierarchy is defined in `src/errors.ts`; command routing and reporting
-share the registry and the domain-error boundary.
+エラーの階層は`src/errors.ts`で定義される。コマンドのルーティングと報告は、レジストリとドメインエラーの境界を共有する。

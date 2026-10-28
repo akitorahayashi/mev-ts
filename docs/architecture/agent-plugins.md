@@ -1,119 +1,84 @@
-# Agent Plugins
+# エージェントプラグイン
 
-`agentPlugins` reconciles the plugin state declared for Claude Code and Codex.
-The catalog format is owned by [docs/config.md](../config.md); this document
-defines the lifecycle and ownership contract.
+`agentPlugins`は、Claude CodeとCodex向けに宣言されたプラグインの状態を整合させる。カタログの形式は[docs/config.md](../config.md)が所有し、この文書はライフサイクルと所有権の契約を定義する。
 
-The activation coordinator sequences inventory, convergence, removal, and
-verification. Provisioning-owned components keep registration state, desired-state
-decisions, deletion gates, and post-run verification separate from client
-protocols. Verification identifies provisional results by client/plugin identity,
-independently of their position in the displayed result collection.
+activationのコーディネーターは、インベントリ、収束、削除、検証を順序立てて実行する。プロビジョニングが所有するコンポーネントは、登録の状態、望ましい状態の判断、削除のゲート、実行後の検証を、クライアントのプロトコルとは分離して保つ。検証は、暫定的な結果をクライアントとプラグインの識別情報で特定し、表示される結果の並びにおける位置には依存しない。
 
-## Desired state
+## 望ましい状態
 
-| Declaration | Required state |
+| 宣言 | 必要な状態 |
 |---|---|
-| `marketplaces[].plugins` | Installed and enabled. |
-| `marketplaces[].uninstall` | The named plugin is absent. |
-| `removed_marketplaces` | The owned marketplace and its namespace are absent. |
-| Omitted removal list | No removal is implied. |
+| `marketplaces[].plugins` | インストール済みかつ有効である。 |
+| `marketplaces[].uninstall` | 指定されたプラグインが存在しない。 |
+| `removed_marketplaces` | 所有するマーケットプレイスとその名前空間が存在しない。 |
+| 削除リストの省略 | 削除は暗示されない。 |
 
-Marketplaces identify GitHub repositories and use the fixed `main` ref through
-the per-machine SSH host. A plugin ID includes its marketplace name.
+マーケットプレイスはGitHubのリポジトリを指し、マシンごとのSSH hostを通じて、固定の`main`のrefを使う。プラグインのIDには、そのマーケットプレイス名が含まれる。
 
-## Ownership boundary
+## 所有権の境界
 
-| Host state | Treatment |
+| ホストの状態 | 扱い |
 |---|---|
-| Registration from the declared repository | Reconciled to the declared source and ref. |
-| Explicitly declared plugin | Installed, enabled, and verified. |
-| Explicit uninstall declaration | Uninstalled and verified absent. |
-| Explicit marketplace removal | Removed only after the registered source matches the tombstone. |
-| Same-named foreign, non-Git, or built-in marketplace | Refused; user state is not replaced or removed. |
-| Unlisted plugin | Preserved unless a client-required namespace replacement removes it as a side effect. |
+| 宣言されたリポジトリからの登録 | 宣言されたソースとrefに整合させる。 |
+| 明示的に宣言されたプラグイン | インストールし、有効化し、検証する。 |
+| 明示的なアンインストールの宣言 | アンインストールし、存在しないことを検証する。 |
+| 明示的なマーケットプレイスの削除 | 登録されたソースがtombstone（`removed_marketplaces`の宣言）と一致した後にだけ削除する。 |
+| 外部由来、Git以外、または組み込みの、同名のマーケットプレイス | 拒否する。ユーザーの状態は置き換えも削除もしない。 |
+| カタログに列挙されていないプラグイン | 保持する。ただし、クライアントが必要とする名前空間の置き換えが、副作用としてそれを削除する場合を除く。 |
 
-Claude plugin ownership is limited to the user scope. A same-ID plugin in another
-scope does not satisfy a declaration or fail a user-scope removal. Claude
-marketplace removal is not scoped: a registration can exist without a user
-settings declaration, so a source-matched tombstone deregisters it from every
-scope.
+Claudeのプラグインの所有権は、ユーザースコープに限られる。別のスコープにある同じIDのプラグインは、宣言を満たさず、ユーザースコープの削除を失敗させることもない。Claudeのマーケットプレイスの削除はスコープで限定されない。ユーザー設定に宣言がなくても登録は存在しうるため、ソースが一致したtombstoneは、その登録をすべてのスコープから解除する。
 
-## Lifecycle
+## ライフサイクル
 
-| Stage | Contract |
+| 段階 | 契約 |
 |---|---|
-| Inventory | Read each participating client's plugin state locally. |
-| Explicit removal | Remove declared plugins before marketplace work. |
-| Marketplace | Add, refresh, or re-register only when a plugin is missing, upgrade mode is active, or the owned source has drifted. |
-| Enablement | Enable an installed-but-disabled declaration locally; it does not fetch the marketplace. |
-| Verification | Declared plugins must be present and enabled; removed plugins must be absent. |
+| インベントリ | 参加している各クライアントのプラグインの状態を、ローカルで読み取る。 |
+| 明示的な削除 | マーケットプレイスの作業より前に、宣言されたプラグインを削除する。 |
+| マーケットプレイス | プラグインが欠けている場合、アップグレードモードが有効な場合、または所有するソースがドリフトした場合にだけ、追加、リフレッシュ、再登録を行う。 |
+| 有効化 | インストール済みだが無効な宣言を、ローカルで有効化する。マーケットプレイスは取得しない。 |
+| 検証 | 宣言されたプラグインは存在して有効でなければならず、削除されたプラグインは存在してはならない。 |
 
-Source identity is the repository `owner/name`; an SSH alias or missing ref is
-transport drift within mev's ownership. A different repository is foreign.
+ソースの同一性は、リポジトリの`owner/name`で決まる。SSHのエイリアスやrefの欠落は、mevの所有範囲内のトランスポートのドリフトである。別のリポジトリは外部由来である。
 
-## Removal safety
+## 削除の安全性
 
-1. Verify that the registered marketplace belongs to the removal declaration.
-2. Uninstall every plugin covered by that marketplace removal.
-3. Re-inventory and require those plugins to be absent.
-4. Deregister the marketplace only after verification succeeds.
+1. 登録されているマーケットプレイスが、削除の宣言に属していることを検証する。
+2. そのマーケットプレイスの削除の対象となるすべてのプラグインをアンインストールする。
+3. インベントリを取り直し、それらのプラグインが存在しないことを要求する。
+4. 検証に成功した後にだけ、マーケットプレイスの登録を解除する。
 
-A successful process exit is not removal proof. A survivor or unavailable
-verification blocks deregistration. An already absent registration can still have
-orphaned plugins in its namespace, which the tombstone removes.
+プロセスが正常に終了しても、削除の証明にはならない。プラグインが残存している場合や、検証が利用できない場合は、登録の解除をブロックする。すでに登録が存在しなくても、その名前空間に孤立したプラグインが残っていることがあり、tombstoneがそれを削除する。
 
-## Upgrade
+## アップグレード
 
-Upgrade is execution intent, not desired state or signature input. It refreshes
-declared marketplaces and re-resolves installed declared plugins. Enablement is
-independent, so an upgraded disabled plugin is enabled in the same run.
+アップグレードは実行時の意図であり、望ましい状態でもシグネチャの入力でもない。宣言されたマーケットプレイスをリフレッシュし、インストール済みで宣言されているプラグインを再解決する。有効化は独立しているため、アップグレードされた無効なプラグインは、同じ実行の中で有効化される。
 
-The post-run inventory settles the outcome. A pure upgrade can be unchanged when
-both versions match; a missing version cannot prove a no-op and remains changed.
-Installation, enablement, or re-registration is always a host change.
+実行後のインベントリが結果を確定する。純粋なアップグレードは、両方のバージョンが一致していればunchangedになりうる。バージョンが得られない場合は、no-opであることを証明できないため、changedのままになる。インストール、有効化、再登録は、常にホストの変更である。
 
-## Client constraints
+## クライアントの制約
 
-Capability adapters absorb command vocabulary. Only behavioral differences that
-affect reconciliation remain here:
+capabilityのアダプターは、コマンドの語彙の違いを吸収する。ここに残るのは、整合に影響する挙動の違いだけである:
 
-| Client | Constraint |
+| クライアント | 制約 |
 |---|---|
-| Claude Code | Reports the marketplace ref; same-repository source drift can be corrected in place; upgrading does not enable a disabled plugin. |
-| Codex | Does not report the marketplace ref; replacing a drifted registration can remove its namespace, so declared plugins are reinstalled; re-adding also enables. |
+| Claude Code | マーケットプレイスのrefを報告する。同じリポジトリ内のソースのドリフトは、その場で修正できる。アップグレードしても、無効なプラグインは有効にならない。 |
+| Codex | マーケットプレイスのrefを報告しない。ドリフトした登録を置き換えると名前空間が削除されることがあるため、宣言されたプラグインを再インストールする。再追加すると、有効にもなる。 |
 
-Client commands run with the activation-declared binary directories prepended
-to the inherited `PATH`, so a tool installed earlier in the same target is
-available without restarting the shell.
+クライアントのコマンドは、継承された`PATH`の先頭にactivationが宣言したバイナリのディレクトリを付け加えて実行される。そのため、同じターゲットで先にインストールされたツールは、シェルを再起動せずに使える。
 
-Each activation has one mutation queue per client. Registration, refresh,
-installation, enablement, upgrade, and removal share the client's settings stores
-and run serially, including the full process lifetime and multi-command source
-replacement. Different clients and read-only inventories remain independent.
-A failed operation reports its error without blocking later queued operations.
+各activationは、クライアントごとに変更キューを1つ持つ。登録、リフレッシュ、インストール、有効化、アップグレード、削除は、クライアントの設定ストアを共有するため、プロセスの全存続期間と、複数のコマンドにわたるソースの置き換えも含めて、直列に実行される。異なるクライアントと、読み取り専用のインベントリは、互いに独立している。失敗した操作は、そのエラーを報告するが、後続のキュー内の操作をブロックしない。
 
-Progress identifies the client, plugin or marketplace, and operation. Mutation
-starts are emitted when the client queue executes them. Local inventories and
-post-run verification have their own activity; a finished operation is not a
-verified resource outcome. TTY output shows concurrent operations and their
-elapsed times, while redirected output records operation starts as plain lines.
+進捗は、クライアント、プラグインまたはマーケットプレイス、操作を示す。変更の開始は、クライアントのキューがそれを実行した時点で発行される。ローカルのインベントリと実行後の検証は、それぞれ固有の進捗項目を持つ。完了した操作は、検証済みのリソースの結果ではない。TTYの出力は、並行して動く操作とその経過時間を表示し、リダイレクトされた出力は、操作の開始をプレーンな行として記録する。
 
-Client commands use noninteractive SSH with existing host-key trust required.
-Connection and keepalive limits bound SSH waits, and a command deadline terminates
-the owned process group, including Git and SSH descendants. The transport policy
-is owned by `src/agent-plugin/command.ts`.
+クライアントのコマンドは、非対話のSSHを使い、既存のホストキーが信頼済みであることを必須とする。接続とkeepaliveの上限がSSHの待ち時間を抑え、コマンドの期限が来ると、GitとSSHの子孫プロセスを含む、所有するプロセスグループを終了させる。トランスポートのポリシーは`src/agent-plugin/command.ts`が所有する。
 
-A marketplace fetch failure blocks installations and upgrades that require it,
-while installed declarations can still be enabled locally. Source conflicts and
-unavailable ownership inventories remain blocking. Failures appear in the final
-report and produce a nonzero command exit after independent work completes.
+マーケットプレイスの取得に失敗すると、それを必要とするインストールとアップグレードはブロックされるが、インストール済みの宣言はローカルで有効化できる。ソースの競合と、所有権を確認するインベントリが利用できない場合は、引き続きブロックとなる。失敗は最終レポートに表示され、独立した作業が完了した後に、コマンドは0以外の終了コードで終了する。
 
-## Sources of truth
+## 正本
 
-| Responsibility | Authority |
+| 責務 | 正本 |
 |---|---|
-| Catalog schema | `src/agent-plugin/catalog.ts` |
-| Client protocols | `src/agent-plugin/claude.ts`, `src/agent-plugin/codex.ts`, `src/agent-plugin/client.ts` |
-| Reconciliation | `src/provisioning/activation/agent-plugins.ts` |
-| Boundary tests | `tests/provisioning/agent-plugins.test.ts` |
+| カタログのスキーマ | `src/agent-plugin/catalog.ts` |
+| クライアントのプロトコル | `src/agent-plugin/claude.ts`、`src/agent-plugin/codex.ts`、`src/agent-plugin/client.ts` |
+| 整合 | `src/provisioning/activation/agent-plugins.ts` |
+| 境界のテスト | `tests/provisioning/agent-plugins.test.ts` |

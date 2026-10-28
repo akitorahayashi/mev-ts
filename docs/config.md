@@ -1,80 +1,67 @@
-# Config
+# 設定
 
-`mev config` (`cf`) manages selectable configuration surfaces and the per-machine
-GitHub SSH host. Command syntax is in [usage.md](usage.md); activation contracts
-are in [architecture/activation.md](architecture/activation.md).
+`mev config`（`cf`）は、選択可能な設定対象と、マシンごとのGitHub SSH hostを管理する。コマンドの構文は[usage.md](usage.md)、activationの契約は[architecture/activation.md](architecture/activation.md)にある。
 
-## Selectable surfaces
+## 選択可能な設定対象
 
-| Surface | Catalog source | Manifest | Key | Polarity |
+| 設定対象 | カタログのソース | マニフェスト | キー | 極性 |
 |---|---|---|---|---|
-| AGENTS.md sections | `catalog.yml` order | `~/.mev/coder/agents-sections.yml` | `disabled` | Opt-out |
-| Coder skills | Deployed skill directories | `~/.mev/coder/skills-selection.yml` | `disabled` | Opt-out |
-| Zed overrides | Deployed `<name>.json` files | `~/.mev/zed/overrides-selection.yml` | `enabled` | Opt-in |
+| AGENTS.mdのセクション | `catalog.yml`の順序 | `~/.mev/coder/agents-sections.yml` | `disabled` | オプトアウト |
+| Coderのスキル | デプロイ済みのスキルのディレクトリ | `~/.mev/coder/skills-selection.yml` | `disabled` | オプトアウト |
+| Zedのオーバーライド | デプロイ済みの`<name>.json`ファイル | `~/.mev/zed/overrides-selection.yml` | `enabled` | オプトイン |
 
-Skills and Zed overrides are filesystem-derived. AGENTS.md sections additionally
-require a one-to-one match between catalog entries and sibling section files;
-missing, extra, or duplicate entries fail.
+スキルとZedのオーバーライドは、ファイルシステムから導出される。AGENTS.mdのセクションは、これに加えて、カタログのエントリと、同じディレクトリにあるセクションファイルとが1対1で対応することを必要とする。欠けているエントリ、余分なエントリ、重複したエントリがある場合は失敗する。
 
-## Selection manifests
+## 選択マニフェスト
 
-Each manifest is one YAML mapping with one name-list key:
+各マニフェストは、名前のリストを持つキーを1つだけ含むYAMLのマッピングである:
 
 ```yaml
 disabled:
   - some-section-name
 ```
 
-| Condition | Opt-out surface | Opt-in surface |
+| 条件 | オプトアウトの設定対象 | オプトインの設定対象 |
 |---|---|---|
-| Absent manifest | All catalog entries enabled | No entries enabled |
-| Listed name | Disabled | Enabled |
-| Invalid shape or name list | Reject with `ProvisioningError` | Reject with `ProvisioningError` |
-| Name not in current catalog | Warn before the prompt | Warn before the prompt |
-| `--clear` | Write the current catalog as disabled | Remove the manifest |
+| マニフェストが存在しない | カタログのすべてのエントリが有効 | 有効なエントリなし |
+| 名前が列挙されている | 無効 | 有効 |
+| 構造または名前のリストが不正 | `ProvisioningError`で拒否する | `ProvisioningError`で拒否する |
+| 名前が現在のカタログにない | プロンプトの前に警告する | プロンプトの前に警告する |
+| `--clear` | 現在のカタログを無効として書き込む | マニフェストを削除する |
 
-The resolver derives the stored key from the surface policy, so an opt-out list
-cannot be interpreted as an opt-in list.
+リゾルバーは、保存するキーを設定対象のポリシーから導出する。そのため、オプトアウトのリストがオプトインのリストとして解釈されることはない。
 
-A changed selection invalidates its owning targets' applied markers before the
-manifest is saved, so the next `sync` regenerates the selected output. Cancellation
-and unchanged enabled entries retain the markers. Invalidation failure leaves the
-manifest untouched; a later write failure can leave the target safely stale.
+選択が変更されると、マニフェストを保存する前に、その選択を所有するターゲットの適用済みマーカーが無効化される。そのため、次の`sync`で、選択された出力が再生成される。キャンセルした場合と、有効なエントリが変わらない場合は、マーカーが保持される。無効化に失敗した場合、マニフェストは変更されない。その後の書き込みに失敗すると、ターゲットは古くなった状態のまま安全に残ることがある。
 
-## Zed settings merge
+## Zed設定のマージ
 
-The deployed `settings.json` is the base asset plus enabled overrides in catalog
-order.
+デプロイされる`settings.json`は、ベースのアセットに、有効なオーバーライドをカタログの順に重ねたものである。
 
-| Stage | Rule |
+| 段階 | 規則 |
 |---|---|
-| Combine overrides | Deep-merge selected fragments; conflicting leaf paths fail with both owners. |
-| Apply base | Override values win on every path they define. |
-| Validate | Override fragments reject `__proto__`, `constructor`, and `prototype`. |
+| オーバーライドの結合 | 選択したフラグメントをディープマージする。競合するリーフのパスは、双方の所有者を示して失敗する。 |
+| ベースの適用 | オーバーライドの値は、それが定義するすべてのパスで優先される。 |
+| 検証 | オーバーライドのフラグメントは、`__proto__`、`constructor`、`prototype`を拒否する。 |
 
 ## GitHub SSH host
 
-| State | Behavior |
+| 状態 | 挙動 |
 |---|---|
-| Store | `~/.mev/ssh-host`, one OpenSSH `Host` alias per line. |
-| Valid value | Letters, digits, `.`, `_`, and `-`. |
-| Absent store | Use `github.com`. |
-| Malformed store | Fail; never silently fall back. |
-| Affected provisioning | Grove renders the alias; agent-plugin registrations use it as transport. |
+| ストア | `~/.mev/ssh-host`。1行にOpenSSHの`Host`エイリアスを1つ書く。 |
+| 有効な値 | 英字、数字、`.`、`_`、`-`。 |
+| ストアが存在しない | `github.com`を使う。 |
+| ストアの形式が不正 | 失敗する。黙ってフォールバックすることは決してない。 |
+| 影響を受けるプロビジョニング | Groveがエイリアスをレンダリングし、agent-pluginの登録がそれをトランスポートとして使う。 |
 
 ```text
 github-personal
 ```
 
-Saving the host invalidates the affected applied markers so the next `sync`
-reconciles rendered URLs and marketplace registrations.
+GitHub SSH hostを保存すると、影響を受ける適用済みマーカーが無効化され、次の`sync`が、レンダリング済みのURLとマーケットプレイスの登録を整合させる。
 
-## Agent plugin catalog
+## エージェントプラグインのカタログ
 
-The embedded catalog declares marketplaces and plugin names for Claude Code and
-Codex. An entry declares the same marketplace for every client it lists. The
-marketplace name defaults to the repository name; `name` is needed only when
-the marketplace metadata uses a different name.
+埋め込みのカタログは、Claude CodeとCodex向けに、マーケットプレイスとプラグイン名を宣言する。エントリは、列挙したすべてのクライアントに対して同じマーケットプレイスを宣言する。マーケットプレイス名は既定でリポジトリ名になり、`name`が必要なのは、マーケットプレイスのメタデータが別の名前を使う場合だけである。
 
 ```yaml
 marketplaces:
@@ -86,7 +73,7 @@ marketplaces:
     plugins: [xlsx]
 ```
 
-Removal is explicit:
+削除は明示的である:
 
 ```yaml
 marketplaces:
@@ -100,13 +87,12 @@ removed_marketplaces:
     clients: [claude]
 ```
 
-Plugin lifecycle, source ownership, and verification are documented in
-[architecture/agent-plugins.md](architecture/agent-plugins.md).
+プラグインのライフサイクル、ソースの所有権、検証は、[architecture/agent-plugins.md](architecture/agent-plugins.md)に記載している。
 
-## Extending catalogs
+## カタログの拡張
 
-| Surface | Add |
+| 設定対象 | 追加するもの |
 |---|---|
-| Zed override | A `<name>.json` file under `src/assets/config/zed/overrides/`. |
-| Skill | A skill subdirectory under the deployed skills source. |
-| AGENTS.md section | A `<name>.md` file and one `catalog.yml` entry. |
+| Zedのオーバーライド | `src/assets/config/zed/overrides/`の下に置く`<name>.json`ファイル。 |
+| スキル | デプロイ済みのスキルのソースの下に置く、スキルのサブディレクトリ。 |
+| AGENTS.mdのセクション | `<name>.md`ファイルと、`catalog.yml`のエントリ1つ。 |

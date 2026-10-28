@@ -1,47 +1,40 @@
-# App-Owned Configuration
+# アプリが所有する設定
 
-`declaredKeys` applies when an application rewrites a configuration file at
-runtime. mev owns only the keys declared by the embedded asset; the application
-or user owns every other key.
+`declaredKeys`は、アプリケーションが実行時に設定ファイルを書き換える場合に適用される。mevが所有するのは、埋め込みアセットが宣言したキーだけであり、それ以外のすべてのキーはアプリケーションまたはユーザーが所有する。
 
-## Ownership contract
+## 所有権の契約
 
-| Destination value | Owner | Rule |
+| 配置先の値 | 所有者 | 規則 |
 |---|---|---|
-| Declared key | mev | Declared value wins; nested mappings merge recursively. |
-| Host-only key | Application or user | Preserved unchanged. |
-| Declared scalar or array | mev | Replaces the host value at that path. |
-| Parsed document | Format and application | Structural equality decides whether a write is needed. |
+| 宣言されたキー | mev | 宣言された値が優先される。入れ子のマッピングは再帰的にマージされる。 |
+| ホスト側にだけあるキー | アプリケーションまたはユーザー | 変更せずに保持される。 |
+| 宣言されたスカラーまたは配列 | mev | そのパスのホスト側の値を置き換える。 |
+| パース済みの文書 | フォーマットとアプリケーション | 書き込みが必要かどうかは、構造の同値性で決まる。 |
 
-The destination is a regular file, not a link into the deploy store. A link would
-route application writes into role state and let a later deploy erase them.
+配置先は、deploy storeへのリンクではなく、通常のファイルである。リンクにすると、アプリケーションの書き込みがロールの状態に流れ込み、後のデプロイでそれが消されてしまう。
 
-## Formats
+## フォーマット
 
-| Format | Write behavior |
+| フォーマット | 書き込みの挙動 |
 |---|---|
-| TOML or JSON | Serialize the merged document. |
-| JSONC | Edit declared paths in the host text so comments and formatting survive. |
+| TOMLまたはJSON | マージした文書をシリアライズする。 |
+| JSONC | コメントと書式が残るように、宣言されたパスをホストのテキスト上で編集する。 |
 
-The activation declares the format; it is not inferred from the asset filename.
-Declared documents reject prototype-reassigning keys at every depth.
+フォーマットはactivationが宣言するものであり、アセットのファイル名から推測しない。宣言された文書は、あらゆる深さで、プロトタイプを書き換えるキーを拒否する。
 
-## Deploy boundary
+## デプロイの境界
 
-1. Before deploy, materialize every declared destination that is a symlink, even
-   when its parsed values already match.
-2. Deploy the role without allowing replacement to erase the host document.
-3. Merge declared values and atomically replace the destination only when the
-   structural values differ.
+1. デプロイの前に、symlinkである宣言済みの配置先をすべて実体化する。パースした値がすでに一致していても実体化する。
+2. 置き換えによってホスト側の文書が消えないようにしながら、ロールをデプロイする。
+3. 宣言された値をマージし、構造上の値が異なる場合にだけ、配置先をアトミックに置き換える。
 
-The activation kind owns this protection, so targets do not need duplicate
-preservation hooks.
+この保護はactivation kindが所有するため、ターゲットが重複した保全フックを持つ必要はない。
 
-## Sources of truth
+## 正本
 
-| Responsibility | Authority |
+| 責務 | 正本 |
 |---|---|
-| Activation and format | `src/provisioning/activation/declared-keys.ts` |
-| Merge, equality, and unsafe keys | `src/host/declared-merge.ts` |
-| Preservation order | `src/provisioning/run.ts` |
-| Boundary tests | `tests/provisioning/declared-keys.test.ts` |
+| activationとフォーマット | `src/provisioning/activation/declared-keys.ts` |
+| マージ、同値性、安全でないキー | `src/host/declared-merge.ts` |
+| 保全の順序 | `src/provisioning/run.ts` |
+| 境界のテスト | `tests/provisioning/declared-keys.test.ts` |

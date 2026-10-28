@@ -1,80 +1,50 @@
-# Host Boundaries
+# ホストの境界
 
 ## Context
 
-| Field | Contract |
+| フィールド | 契約 |
 |---|---|
-| `home` | Root used to resolve symbolic host paths. |
-| `commands` | Injected `CommandRunner` for subprocess work. |
-| `assets` | Embedded `AssetSource`. |
-| `basePath` | PATH captured when the default context is created. |
-| `tmpRoot` | Scratch root for temporary work; tests replace it with a sandbox. |
+| `home` | 論理的なホストパスを解決するときに使うルート。 |
+| `commands` | サブプロセスを実行するために注入される`CommandRunner`。 |
+| `assets` | 埋め込みの`AssetSource`。 |
+| `basePath` | 既定のcontextの作成時に取得したPATH。 |
+| `tmpRoot` | 一時作業用のスクラッチルート。テストはこれをサンドボックスに置き換える。 |
 
-Provisioning receives `Context` through dependency injection. Tests build a
-hand-written context, so pure logic and orchestration do not need module mocks or
-real process launches.
+プロビジョニングは、依存性の注入によって`Context`を受け取る。テストは手書きのcontextを組み立てるため、純粋なロジックとオーケストレーションにモジュールのモックや実プロセスの起動は不要である。
 
-## Mutation ownership
+## 変更の所有権
 
-Application mutation boundaries acquire one per-home lease before decision-making
-reads and retain it through completion. This covers provisioning, sync scanning
-and pruning, configuration selection, identity changes, and executable update
-placement. Child sync starts only after self-update releases ownership. Read-only
-operations and document conversion remain independent.
+アプリケーションで変更を行う境界は、判断のための読み取りの前に、ホームごとに1つのleaseを取得し、完了まで保持する。対象は、プロビジョニング、syncのスキャンと不要になった状態の整理、設定の選択、identityの変更、実行ファイルの更新時の配置である。子プロセスのsyncは、自己更新が所有権を解放した後にだけ開始される。読み取り専用の操作と文書変換は、独立したままである。
 
-A competing operation fails immediately with the active operation and process;
-there is no wait option. Owner metadata records a unique token, PID, host, and
-operation. Reclamation requires the recorded PID to be absent on the same host.
-An active or reused PID cannot establish staleness. Incomplete metadata, another
-host, inconclusive liveness, and unexpected lease contents are preserved with a
-failure. A token-checked transition retires only the same lease incarnation,
-preventing competing stale-owner reclaimers from deleting a new owner's lease.
+競合する操作は、実行中の操作とプロセスを示して直ちに失敗する。待機するオプションはない。所有者のメタデータには、一意のトークン、PID、ホスト、操作が記録される。回収には、記録されたPIDが同じホストに存在しないことが必要である。稼働中のPIDや再利用されたPIDは、古さの根拠にならない。不完全なメタデータ、別のホスト、判定できない生存状態、想定外のleaseの内容は、そのまま保持され、失敗として扱われる。トークンを確認する遷移は、同じ世代のleaseだけを破棄するため、古い所有者の回収を競う処理が、新しい所有者のleaseを削除することはない。
 
-Low-level provisioning and filesystem functions consume the caller's ownership;
-they do not reacquire it. The lease coordinates mev invocations, not independently
-running agent clients or editors.
+低レベルのプロビジョニング関数とファイルシステム関数は、呼び出し元の所有権を引き継いで使い、再取得はしない。leaseが調整するのはmevの呼び出し同士であり、独立して動いているエージェントクライアントやエディターではない。
 
-## Interrupted replacements
+## 中断された置き換え
 
-Swap transactions carry an explicit home identifying the recovery store under
-`~/.mev/transactions`. A durable record precedes any destination rename. It binds
-the exact destination, staged entry, backup, directory identity, previous and
-replacement snapshots, and publication state to a stage-side ownership digest.
-Entry identity, kind, mode, file content, timestamps, and symlink targets establish
-ownership without following links into unrelated data.
-Special entries are identified from filesystem metadata and never opened as
-regular content, so named pipes cannot block reconciliation.
+swap transactionは、`~/.mev/transactions`配下のリカバリ用ストアを特定する明示的なhomeを持つ。永続的な記録は、配置先のrenameより前に書かれる。この記録は、正確な配置先、ステージされたエントリ、バックアップ、ディレクトリの識別情報、置き換え前と置き換え後のスナップショット、公開状態を、ステージ側の所有権ダイジェストに結び付ける。エントリの識別情報、種別、モード、ファイルの内容、タイムスタンプ、symlinkのリンク先が所有権を確立し、その際に無関係なデータへのリンクはたどらない。特殊なエントリはファイルシステムのメタデータから識別され、通常の内容として開かれることはないため、名前付きパイプが整合処理をブロックすることはない。
 
-Recovery runs under the mutation lease before application decision-making reads,
-including sync scanning and pruning. Actual filesystem identities reconcile gaps
-between a rename and its journal update:
+リカバリは、変更のleaseの下で、アプリケーションが判断のために行う読み取りより前に実行される。これにはsyncのスキャンと不要になった状態の整理も含まれる。実際のファイルシステムの識別情報が、renameとジャーナルの更新の間に生じる隙間を整合させる:
 
-| Proven state | Recovery result |
+| 確認された状態 | リカバリの結果 |
 |---|---|
-| Not published | Restore the previous entry, or preserve absence when there was no previous entry. |
-| Published | Keep the replacement. |
-| Partly cleaned | Continue removal only for unchanged recorded descendants; additions and edits fail. |
-| Unknown ownership, external changes, malformed metadata, or unrecorded legacy artifacts | Preserve remaining state and fail with locations for inspection. |
+| 未公開 | 以前のエントリを復元する。以前のエントリがなかった場合は、不在のまま保つ。 |
+| 公開済み | 置き換え後のものを残す。 |
+| 一部クリーンアップ済み | 記録済みで変更のない配下のエントリについてだけ、削除を続ける。追加や編集があれば失敗する。 |
+| 所有権が不明、外部からの変更、不正な形式のメタデータ、記録のない旧来の残存物 | 残りの状態を保持し、調査のための場所を示して失敗する。 |
 
-Cleanup checkpoints make repeated recovery idempotent. Applied signatures are
-not manufactured and later activations are not resumed blindly. The interrupted
-operation is reevaluated normally after recovery. Legacy checks cover mev-owned
-state and registered host surfaces; standalone replacement boundaries also refuse
-unfinished siblings. There is no recovery command or opt-in flag.
+クリーンアップのチェックポイントによって、リカバリを繰り返しても冪等になる。適用済みシグネチャは作り出されず、後続のactivationがやみくもに再開されることもない。中断された操作は、リカバリの後に通常どおり再評価される。旧来の残存物の検査は、mevが所有する状態と、登録済みターゲットが宣言したホスト上のパスに及ぶ。単独で行う置き換えの境界も、未完了の隣接エントリがあれば拒否する。リカバリ用のコマンドも、オプトインのフラグもない。
 
 ## CommandRunner
 
-| Option | Contract |
+| オプション | 契約 |
 |---|---|
-| `env` | Overlays the inherited environment. |
-| `cwd` | Sets the subprocess working directory. |
-| `stdout`, `stderr` | `pipe` captures output; `inherit` forwards it. |
-| `timeoutMs` | Optional positive millisecond deadline covering process exit and output completion; expiration terminates the owned process group and returns code 124 with a timeout diagnostic. |
-| Spawn failure | Resolves as exit code 127 with the failure in stderr. |
+| `env` | 継承された環境にオーバーレイする。 |
+| `cwd` | サブプロセスの作業ディレクトリを設定する。 |
+| `stdout`、`stderr` | `pipe`は出力を取得し、`inherit`はそれを転送する。 |
+| `timeoutMs` | プロセスの終了と出力の完了までを対象とする、ミリ秒単位の省略可能な正の期限。期限が切れると、自身が所有するプロセスグループを終了し、タイムアウトの診断とともにコード124を返す。 |
+| 起動の失敗 | 終了コード127で解決され、失敗の内容はstderrに入る。 |
 
-Each invocation explicitly passes the current inherited environment, including
-PATH, with any declared overrides applied on top. Command lookup therefore uses
-the same environment as the child process.
+各呼び出しは、PATHを含む現在の継承環境を明示的に渡し、宣言されたオーバーライドをその上に適用する。そのため、コマンドの検索には、子プロセスと同じ環境が使われる。
 
-Callers handle missing or unspawnable executables as ordinary non-zero results;
-the runner does not turn them into an untyped rejection.
+呼び出し側は、存在しない実行ファイルや起動できない実行ファイルを、通常の非ゼロの結果として扱う。ランナーがそれらを型のないrejectionに変換することはない。

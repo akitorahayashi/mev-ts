@@ -1,17 +1,12 @@
-# Git Identity
+# Git identity
 
-| Concern | Authority and state |
+| 項目 | 正本と状態 |
 |---|---|
-| Scope names and aliases | `identity/scope.ts` |
-| Stored profiles | `~/.mev/identity.json` |
-| Managed static Git config | `~/.config/git/config` |
-| Active overlay | `~/.gitconfig` |
-| Repository pin | `.git/config` of the current repository, written through `git config --local` so linked worktrees resolve to their shared config. |
-| Use cases | `app/identity.ts` handles show, set, switch, pin, and unpin. |
+| スコープ名とエイリアス | `identity/scope.ts` |
+| 保存されたプロファイル | `~/.mev/identity.json` |
+| 管理される静的なGit設定 | `~/.config/git/config` |
+| 有効なオーバーレイ | `~/.gitconfig` |
+| リポジトリへの固定 | 現在のリポジトリの`.git/config`。linked worktreeが共有の設定に解決されるよう、`git config --local`経由で書き込む。 |
+| ユースケース | `app/identity.ts`が、表示、設定、切り替え、固定、固定の解除を扱う。 |
 
-The Git target owns the static XDG config. Identity switching writes the selected
-`user.name` and `user.email` to the mutable overlay, preserving existing overlay
-values that are unrelated to identity. Pinning writes the same keys to the
-repository-local config instead. Git resolves `.git/config` over `~/.gitconfig`
-over `~/.config/git/config`, so a pin shadows every later global switch until it
-is unset.
+Gitのターゲットは、静的なXDG設定を所有する。identityの切り替えは、選択された`user.name`と`user.email`を、変更可能なオーバーレイに書き込み、identityと無関係な既存のオーバーレイの値は保持する。固定は、同じキーをオーバーレイではなく、リポジトリローカルの設定に書き込む。Gitは、`.git/config`、`~/.gitconfig`、`~/.config/git/config`の順に優先して解決するため、固定は、解除されるまで、その後のグローバルな切り替えをすべて覆い隠す。

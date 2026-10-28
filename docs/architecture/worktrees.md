@@ -1,83 +1,71 @@
-# Git Worktrees
+# Git worktree
 
-The hidden Git commands expose a small worktree lifecycle through Git aliases
-and the `wcd` shell function. This document records the layout and safety
-invariants; command syntax is in [usage.md](../usage.md).
+隠しGitコマンドは、Gitのエイリアスとシェル関数`wcd`を通じて、worktreeの小さなライフサイクルを提供する。この文書は、配置と安全上の不変条件を記録する。コマンドの構文は[usage.md](../usage.md)にある。
 
-## Layout and creation
+## 配置と作成
 
-| Concern | Contract |
+| 項目 | 契約 |
 |---|---|
-| Location | Linked worktrees are siblings of the main worktree. |
-| Name | `<repo>-<branch with slashes replaced by dashes>`. |
-| Layout source | The main worktree determines the repository family, regardless of the caller's current worktree. |
-| Branch selection | Existing local branch is checked out; a branch on exactly one remote tracks it, matched against configured remote names so names containing `/` resolve; otherwise a new branch is created. |
-| Start point | New branches start at `origin/<default>` with no upstream, regardless of the invoking worktree. `--from <ref>` starts them at that ref instead. |
-| Fetch | `origin` is fetched when a requested branch is not local and `--from` is absent, so checking out local branches works offline. |
-| Checkout | The tree is written after the worktree can reach the common directory's `git-crypt` state, because git-crypt reads its keys from the per-worktree git directory and its required filter otherwise fails the checkout. `post-checkout` hooks do not run. |
-| Validation | All requested branches are validated before the first worktree is created. |
-| Partial failure | Worktrees and branches created by the request are rolled back. |
-| Bare repositories | Unsupported. |
+| 場所 | linked worktreeは、main worktreeの隣に作られる。 |
+| 名前 | `<repo>-<スラッシュをダッシュに置き換えたブランチ名>`。 |
+| 配置の基準 | 呼び出し元の現在のworktreeにかかわらず、どのworktree群を同じリポジトリとして扱うかは、main worktreeが決める。 |
+| ブランチの選択 | 既存のローカルブランチはcheckoutする。ちょうど1つのリモートにあるブランチは、そのリモートを追跡する。その際、設定されているリモート名と照合するため、`/`を含む名前も解決できる。どちらでもなければ、新しいブランチを作る。 |
+| 起点 | 新しいブランチは、呼び出したworktreeにかかわらず、upstreamなしで`origin/<default>`から始まる。`--from <ref>`を指定すると、代わりにそのrefから始まる。 |
+| fetch | 要求されたブランチがローカルになく、`--from`も指定されていない場合に、`origin`をfetchする。そのため、ローカルのブランチのcheckoutはオフラインでも動く。 |
+| checkout | worktreeが共通ディレクトリの`git-crypt`の状態に到達できるようになってから、ツリーを書き込む。git-cryptは鍵をworktreeごとのgitディレクトリから読み、到達できないままでは、必須のフィルターがcheckoutを失敗させるためである。`post-checkout`フックは実行されない。 |
+| 検証 | 要求されたすべてのブランチを、最初のworktreeを作る前に検証する。 |
+| 部分的な失敗 | その要求で作成されたworktreeとブランチは、ロールバックされる。 |
+| bareリポジトリ | サポートしない。 |
 
-## Carrying ignored files
+## ignore対象のファイルの持ち込み
 
-Creating a worktree carries ignored paths from the main worktree so credentials,
-dependencies, and generated files do not require a second bootstrap.
+worktreeを作ると、main worktreeからignore対象のパスが持ち込まれる。これにより、認証情報、依存関係、生成ファイルのために、もう一度ブートストラップする必要がなくなる。
 
-| Rule | Result |
+| 規則 | 結果 |
 |---|---|
-| Repository or global ignore match | Carried. |
-| `.tmp` | Linked rather than copied; see below. |
-| Whole ignored directory | Carried as one path. |
-| Existing tracked path in the new branch | The checked-out tree wins; the carried path is not written over it. |
-| Clone unavailable | A regular copy is used and reported. |
-| Carry failure | The worktree remains usable and missing paths are named. |
+| リポジトリまたはグローバルのignoreに一致する | 持ち込まれる。 |
+| `.tmp` | コピーではなくリンクされる。後述。 |
+| ignore対象のディレクトリ全体 | 1つのパスとして持ち込まれる。 |
+| 新しいブランチですでに追跡されているパス | checkoutされたツリーが優先され、持ち込まれたパスはその上に書き込まれない。 |
+| クローンが使えない | 通常のコピーを使い、そのことを報告する。 |
+| 持ち込みの失敗 | worktreeは使える状態のまま残り、持ち込めなかったパスが示される。 |
 
-The carry set is read from the main worktree and applies to every new worktree;
-branch-specific ignore rules do not alter that set. Global ignores are carried
-because the global list mixes machine-local files a worktree needs, such as
-`*.local` settings, with regenerable clutter such as `.DS_Store`, and no pattern
-separates the two. Clones make the clutter cost metadata only.
+持ち込む対象の集合は、main worktreeから読み取られ、すべての新しいworktreeに適用される。ブランチ固有のignore規則は、その集合を変えない。グローバルのignoreも持ち込むのは、グローバルのリストには、`*.local`の設定のようにworktreeが必要とするマシンローカルのファイルと、`.DS_Store`のように再生成できる不要物とが混ざっており、両者を区別するパターンがないためである。クローンなら、不要物のコストはメタデータだけで済む。
 
-## Shared `.tmp`
+## 共有される`.tmp`
 
-| Concern | Contract |
+| 項目 | 契約 |
 |---|---|
-| Link | Each new worktree's `.tmp` is an absolute symlink to the main worktree's `.tmp`, which is created when absent. |
-| Lifetime | Removing a worktree removes the link; the shared content stays in the main worktree. |
-| Refusal | A `.tmp` tracked by the main worktree or the target tree, or a main `.tmp` that is not a directory, is refused before any worktree is created. |
-| Ignore | The link must be ignored, which a `.tmp` pattern without a trailing slash satisfies. Otherwise the request is rolled back and the last matching rule is named. |
+| リンク | 各新しいworktreeの`.tmp`は、main worktreeの`.tmp`（存在しなければ作成される）への絶対パスのsymlinkである。 |
+| 存続期間 | worktreeを削除するとリンクも削除される。共有された内容は、main worktreeに残る。 |
+| 拒否 | main worktreeまたは対象のツリーで追跡されている`.tmp`、あるいはディレクトリでないmain worktreeの`.tmp`は、worktreeが1つも作られる前に拒否される。 |
+| ignore | リンクはignoreされていなければならない。末尾にスラッシュのない`.tmp`パターンは、これを満たす。そうでなければ、その要求はロールバックされ、最後に一致した規則が示される。 |
 
-## Naming and mutation
+## 命名と変更
 
-| Operation | Contract |
+| 操作 | 契約 |
 |---|---|
-| List | Shows name, branch, ahead/behind counts, dirty state, and `gone`, `locked`, or `prunable` markers. |
-| Path | Prints the main worktree with no token, or resolves one existing worktree. |
-| Move | Accepts path, branch, suffix, or directory name; refuses ambiguity and moving the main worktree. |
-| Remove | Accepts the same selectors; removes worktrees but leaves their branches. The current, locked, and prunable worktrees are refused. |
-| Relative path | Resolved from the caller's directory, although git runs aliases from the worktree top. |
-| Selector failure | Names known candidates instead of guessing. |
+| 一覧 | 名前、ブランチ、ahead/behindの数、dirtyの状態、`gone`、`locked`、`prunable`のマーカーを表示する。 |
+| パス | 指定がなければmain worktreeのパスを出力し、指定があれば既存のworktreeを1つ解決する。 |
+| 移動 | パス、ブランチ、suffix、ディレクトリ名を受け付ける。曖昧な指定と、main worktreeの移動は拒否する。 |
+| 削除 | 同じセレクターを受け付ける。worktreeは削除するが、ブランチは残す。現在のworktree、locked、prunableのworktreeは拒否する。 |
+| 相対パス | 呼び出し元のディレクトリから解決される。ただし、gitはエイリアスをworktreeの最上位から実行する。 |
+| セレクターの失敗 | 推測せずに、既知の候補を示す。 |
 
-## Tidy decisions
+## 片付けの判定
 
-`w-td` prunes `origin`, then evaluates linked worktrees whose upstream is gone.
-Only origin evidence is eligible; local or other-remote upstreams are not.
+`w-td`は`origin`をpruneし、その後、upstreamが消えたlinked worktreeを評価する。根拠として認められるのはoriginのものだけで、ローカルや他のリモートのupstreamは認められない。
 
-| Gate | Decision |
+| ゲート | 判定 |
 |---|---|
-| Main worktree or default branch | Never remove. |
-| Current, locked, prunable, dirty, or non-origin upstream | Skip and report the reason. |
-| Linked worktree with a deleted origin upstream | Remove the worktree and its branch. |
-| Main worktree fast-forward | Perform only when it is on the default branch, clean, and tracks `origin/<default>`. Otherwise decline with the reason. |
-| `--dry-run` / `-n` | Report the same decisions and perform no removals; pruning still runs so the preview uses current origin state. |
+| main worktreeまたは既定のブランチ | 決して削除しない。 |
+| 現在のworktree、locked、prunable、dirty、またはupstreamがoriginでないもの | スキップし、その理由を報告する。 |
+| originのupstreamが削除されたlinked worktree | worktreeとそのブランチを削除する。 |
+| main worktreeのfast-forward | 既定のブランチにいて、cleanで、`origin/<default>`を追跡している場合にだけ実行する。そうでなければ、理由を示して見送る。 |
+| `--dry-run` / `-n` | 同じ判定を報告し、削除は行わない。pruneは引き続き実行されるため、プレビューは現在のoriginの状態を使う。 |
 
-Deleted upstream state is evidence of a remote branch removal, not proof of a
-merged pull request. The clean/branch safety gates keep tidy from discarding
-local work that cannot be recovered from the remote.
+upstreamが削除された状態は、リモートのブランチが削除されたことの根拠であり、マージされたpull requestの証明ではない。cleanとブランチの安全ゲートが、リモートから復元できないローカルの作業を、片付けが破棄してしまうのを防ぐ。
 
-## Sources of truth
+## 正本
 
-Layout, selectors, and carrying live under `src/internal/git/worktree/`; hidden
-commands are under `src/cli/commands/internal/`. Boundary behavior is covered by
-the worktree tests under `tests/internal/git/` and the CLI wrapper tests.
+配置、セレクター、持ち込みは`src/internal/git/worktree/`の下にあり、隠しコマンドは`src/cli/commands/internal/`の下にある。境界の挙動は、`tests/internal/git/`の下のworktreeのテストと、CLIラッパーのテストが検証する。

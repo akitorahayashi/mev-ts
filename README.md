@@ -1,32 +1,28 @@
 # mev
 
-`mev` is Local IaC for macOS, built with Bun and TypeScript.
+`mev`はmacOS向けのLocal IaCで、BunとTypeScriptで構築されている。
 
-## Install
+## インストール
 
-Homebrew is required when provisioning targets declare Homebrew packages; `mev` does not bootstrap it. On a fresh macOS installation, Homebrew comes first:
+プロビジョニングのターゲットがHomebrewパッケージを宣言する場合はHomebrewが必要であり、`mev`はHomebrewをブートストラップしない。macOSを新規にインストールした環境では、先にHomebrewを入れる:
 
 ```bash
 /bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-The Homebrew installer's Next steps configure the shell's PATH. Those steps must be applied before a new terminal session can find `brew`. Opening a new terminal loads the updated shell configuration; running the recommended `eval "$(.../bin/brew shellenv)"` command in the current terminal makes Homebrew available immediately without a restart. The [Homebrew installation guide](https://docs.brew.sh/Installation#post-installation-steps) describes this setup. Once Homebrew is available:
+Homebrewインストーラーが表示する「Next steps」は、シェルのPATHを設定する手順である。新しいターミナルセッションが`brew`を見つけられるようにするには、この手順を適用しなければならない。新しいターミナルを開くと、更新後のシェル設定が読み込まれる。現在のターミナルで、推奨される`eval "$(.../bin/brew shellenv)"`コマンドを実行すると、再起動せずにすぐHomebrewを使えるようになる。このセットアップは[Homebrewのインストールガイド](https://docs.brew.sh/Installation#post-installation-steps)で説明されている。Homebrewが使えるようになったら:
 
 ```bash
 brew --version
 ```
 
-`mev` ships as a single compiled binary for macOS on Apple Silicon and Intel:
+`mev`は、Apple SiliconとIntelのmacOS向けに、コンパイル済みの単一バイナリとして配布される:
 
 ```bash
 /bin/bash -c "$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/akitorahayashi/mev-ts/main/install.sh)"
 ```
 
-The script downloads the release binary for the host architecture, verifies its SHA256 checksum, and installs it to `~/.local/bin/mev`. It reports the installed binary's version and destination. `MEV_INSTALL_DIR` overrides the destination and `MEV_VERSION=vX.Y.Z` pins a release instead of the latest. The following commands make the default install directory available for the current terminal session and start provisioning:
-
-The verified binary is staged and version-probed on the destination filesystem
-before atomic publication. Failed preparation leaves an existing command intact;
-symlink and nonregular command destinations are rejected.
+このスクリプトは、ホストのアーキテクチャ向けのリリースバイナリをダウンロードし、そのSHA256チェックサムを検証して、`~/.local/bin/mev`にインストールする。インストールしたバイナリのバージョンとインストール先を報告する。`MEV_INSTALL_DIR`でインストール先を上書きでき、`MEV_VERSION=vX.Y.Z`で最新版ではなく特定のリリースに固定できる。次のコマンドは、既定のインストール先ディレクトリを現在のターミナルセッションで使えるようにしたうえで、プロビジョニングを始める:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
@@ -34,22 +30,22 @@ mev --version
 mev create
 ```
 
-For a custom `MEV_INSTALL_DIR`, the installer prints a PATH command using that directory. Install directories containing `:` are rejected before downloading or installing because `:` separates PATH entries. The installer does not edit shell configuration files or change its parent shell's PATH. Homebrew is not required to install `mev` or inspect its version; a provisioning run that needs Homebrew checks it before changing provisioning state.
+検証済みのバイナリは、アトミックに公開される前に、インストール先のファイルシステム上でステージされ、バージョンがprobeされる。準備に失敗しても既存のコマンドはそのまま残る。コマンドの配置先がsymlinkまたは通常ファイルでない場合は、拒否される。
 
-Installed releases update and reconcile the environment in one command:
+`MEV_INSTALL_DIR`にカスタムの値を指定した場合、インストーラーはそのディレクトリを使ったPATH設定のコマンドを表示する。`:`はPATHのエントリの区切りなので、`:`を含むインストール先ディレクトリは、ダウンロードやインストールの前に拒否される。インストーラーはシェルの設定ファイルを編集せず、親シェルのPATHも変更しない。`mev`のインストールやバージョンの確認にHomebrewは不要である。Homebrewが必要になるプロビジョニングの実行は、プロビジョニングの状態を変更する前にHomebrewを確認する。
+
+インストール済みのリリース版では、1つのコマンドで、更新と環境の整合を行える:
 
 ```bash
 mev update
 mev update --upgrade
 ```
 
-`update` resolves the latest published release, verifies and atomically replaces
-the installed command when needed, then runs `sync` from that exact path. The
-`--upgrade` form forwards the existing upgrade intent to `sync`.
+`update`は、公開されている最新のリリースを解決し、必要に応じて、検証したうえでインストール済みのコマンドをアトミックに置き換え、そのパスそのものから`sync`を実行する。`--upgrade`を付けた形は、既存のアップグレードの意図を`sync`へ引き渡す。
 
-## Development
+## 開発
 
-From a clone, install dependencies and run from source:
+cloneから、依存関係をインストールしてソースから実行する:
 
 ```bash
 bun install
@@ -59,14 +55,14 @@ export PATH="$HOME/.local/bin:$PATH"
 mev --version
 ```
 
-`bun run up` is the local installation path for a development clone. It regenerates the embedded asset registry, builds a Bun-targeted single-file JavaScript bundle, and installs it as `mev`. This replaces any previously installed standalone release binary at that path; the release installer remains the clean-install path for machines that do not yet have Bun. The full local verification task surface is in CONTRIBUTING.md.
+`bun run up`は、開発用cloneのローカルインストールの経路である。埋め込みアセットレジストリを再生成し、Bun向けの単一ファイルのJavaScriptバンドルをビルドして、`mev`としてインストールする。これにより、そのパスにインストール済みのスタンドアロンのリリースバイナリは置き換えられる。まだBunがないマシンでは、リリースのインストーラーが引き続きクリーンインストールの経路になる。ローカル検証のタスクの全体像はCONTRIBUTING.mdにある。
 
-## Usage
+## 使い方
 
 ```bash
-mev create                      # Provision the full environment
-mev sync                        # Re-apply only what changed since the last run
-mev update                      # Install the latest release and then sync
+mev create                      # 環境全体をプロビジョニングする
+mev sync                        # 前回の実行以降に変わったものだけを再適用する
+mev update                      # 最新のリリースをインストールしてからsyncする
 ```
 
-`create` runs every registered target except the optional ones through the deploy, package-install, and activation phases; `sync` re-scans the same targets and re-applies only the ones whose declared state or deployed assets changed. The complete command reference — `make`, `sync`, `update`, `config`, `list`, `user`/`switch`, and the `md2pdf`/`pdf2md` conversion aliases — is in docs/usage.md. Provisioning mechanics are in docs/architecture/provisioning.md, the activation DSL in docs/architecture/activation.md; the `mev config` selection surfaces are in docs/config.md.
+`create`は、`optional`なターゲットを除く登録済みのすべてのターゲットを、デプロイ、パッケージのインストール、activationの各フェーズに通して実行する。`sync`は同じターゲットを再スキャンし、宣言された状態またはデプロイ済みのアセットが変わったものだけを再適用する。コマンドリファレンスの全体（`make`、`sync`、`update`、`config`、`list`、`user`/`switch`、変換のエイリアス`md2pdf`/`pdf2md`）はdocs/usage.mdにある。プロビジョニングの仕組みはdocs/architecture/provisioning.md、activation DSLはdocs/architecture/activation.md、`mev config`の設定対象の選択はdocs/config.mdにある。

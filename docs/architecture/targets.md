@@ -1,49 +1,36 @@
-# Provisioning Targets
+# プロビジョニングのターゲット
 
-## Target contract
+## ターゲットの契約
 
-Each target is a file registered in `provisioning/registry.ts`:
+各ターゲットは、`provisioning/registry.ts`に登録されるファイルである:
 
-| Field | Meaning |
+| フィールド | 意味 |
 |---|---|
-| `name`, `aliases` | Canonical selector and alternate selectors |
-| `role` | Asset namespace under `src/assets/config/` |
-| `packages` | Required Homebrew formulae, taps, and casks |
-| `activations` | Ordered activation declarations |
-| `preserveBeforeDeploy` | Optional target-specific preservation hook |
-| `optional` | Excluded from full-environment selection when true |
-| `perMachineInputs` | Machine facts materialized into target output |
+| `name`、`aliases` | 正式なセレクターと別名のセレクター |
+| `role` | `src/assets/config/`配下のアセットの名前空間 |
+| `packages` | 必要なHomebrewのformula、tap、cask |
+| `activations` | 順序付きのactivation宣言 |
+| `preserveBeforeDeploy` | ターゲット固有の保全フック（省略可） |
+| `optional` | trueのとき、環境全体の選択から除外される |
+| `perMachineInputs` | ターゲットの出力に反映される、マシンごとの情報 |
 
-`make` resolves explicit selectors. `create` and `sync` use the registered
-non-optional selection; all three use the same provisioning phases.
+`make`は、明示されたセレクターを解決する。`create`と`sync`は、登録済みの`optional`でない選択を使う。3つとも同じプロビジョニングのフェーズを使う。
 
-## Semantic synchronization
+## Semantic Sync
 
-| Input | Sync behavior |
+| 入力 | syncの挙動 |
 |---|---|
-| Target declaration | Hash canonical name, role, package requirements, and activation intent. |
-| Embedded role | Hash asset keys, contents, and executable attributes. |
-| Per-machine input | Invalidate affected applied markers when a materialized value changes; never include it in the signature. |
-| Applied marker | Store the successful signature atomically under `~/.mev/applied/{target}`. |
-| Deployed role | Select when paths, contents, or executable attributes drift. |
-| Upgrade mode | Applies only after selection; never changes signatures or selection. |
+| ターゲットの宣言 | 正式名、ロール、パッケージの要件、activationの意図をハッシュ化する。 |
+| 埋め込みのロール | アセットのキー、内容、実行属性をハッシュ化する。 |
+| マシンごとの入力 | 出力に反映された値が変わったときは、影響を受ける適用済みマーカーを無効化する。シグネチャには決して含めない。 |
+| 適用済みマーカー | 成功したシグネチャを、`~/.mev/applied/{target}`にアトミックに保存する。 |
+| デプロイ済みのロール | パス、内容、実行属性のいずれかがドリフトしたときに選択する。 |
+| アップグレードモード | 選択の後にだけ適用され、シグネチャも選択も決して変えない。 |
 
-One authoritative role comparison supplies semantic drift and exact deployment
-equivalence. Under mutation ownership, an already-equivalent deployment skips
-staging and a second tree comparison; no cache is involved. Sync keeps its
-executability-as-a-boolean policy, while explicit deployment normalizes the full
-executable-bit mask. Entry kinds and extra directories participate in equivalence;
-an absent assetless role remains absent.
+意味上のドリフトとデプロイの厳密な同値性は、正本となる1つのロール比較から得られる。変更の所有権の下では、すでに同値となっているデプロイは、ステージングと2回目のツリー比較を省略する。キャッシュは関与しない。syncは、実行可能性を真偽値として扱う方針を保ち、明示的なデプロイは、実行ビットのマスク全体を正規化する。エントリの種別と余分なディレクトリも同値性の判定に関与し、アセットを持たないロールが存在しなければ、存在しないままになる。
 
-Command activation declarations contribute their data to the signature; the
-command vocabulary is defined in [command-pipeline.md](command-pipeline.md).
-Only `CommandStep.report` presentation metadata is excluded because it does not
-alter desired state or execution. Dictionary entries named `report`, including
-environment values and declared reads, remain semantic inputs.
+コマンドactivationの宣言は、そのデータをシグネチャに含める。コマンドの語彙は[command-pipeline.md](command-pipeline.md)で定義されている。`CommandStep.report`の表示用メタデータだけは、望ましい状態にも実行にも影響しないため、除外される。環境変数の値や宣言されたreadsを含め、`report`という名前の辞書エントリは、意味上の入力のままである。
 
-`runMake()` invalidates selected markers before deployment and records them only
-after deploy, package resolution, and activation succeed. A failed run therefore
-remains selected for the next sync.
+`runMake()`は、デプロイの前に、選択されたマーカーを無効化し、デプロイ、パッケージの解決、activationのすべてが成功した後にだけ、マーカーを記録する。そのため、失敗した実行は、次のsyncでも引き続き選択される。
 
-The registry test validates target asset existence and selector uniqueness for
-every registered target; adding a target does not require a new test file.
+レジストリのテストは、登録されたすべてのターゲットについて、ターゲットのアセットの存在とセレクターの一意性を検証する。ターゲットを追加しても、新しいテストファイルは必要ない。

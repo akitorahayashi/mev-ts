@@ -1,73 +1,43 @@
-# Provisioning Phases
+# プロビジョニングのフェーズ
 
-## Runtime prerequisites
+## 実行時の前提条件
 
-A selection declaring Homebrew packages requires a successful `brew --version`
-before obsolete-state cleanup, mutable-state preservation, marker invalidation,
-or deployment. An unavailable executable produces one provisioning error with
-Homebrew installation and shell-environment guidance. Other check failures retain
-the command's diagnostics. Selections without Homebrew packages skip the check.
+Homebrewパッケージを宣言する選択は、不要になった状態の整理、可変状態の保全、適用済みマーカーの無効化、デプロイのいずれよりも前に、`brew --version`の成功を必要とする。実行ファイルが利用できない場合は、Homebrewのインストールとシェル環境に関する案内を含む、プロビジョニングエラーを1つ出す。それ以外のチェックの失敗では、コマンドの診断出力を保持する。Homebrewパッケージを含まない選択は、このチェックを省略する。
 
-`create` and `sync` clean obsolete provisioning state after the prerequisite
-check. A `sync` with no stale targets still cleans obsolete state without
-requiring Homebrew.
+`create`と`sync`は、前提条件のチェックの後に、不要になったプロビジョニング状態を整理する。古くなったターゲットがない`sync`でも、Homebrewを必要とせずに、不要になった状態を整理する。
 
-## Preservation boundary
+## 保全の境界
 
-Mutable host state is protected before applied markers are invalidated or roles
-are replaced:
+ホストの可変状態は、適用済みマーカーが無効化される前、およびロールが置き換えられる前に保護される:
 
-| Layer | Owner | Contract |
+| 層 | 所有者 | 契約 |
 |---|---|---|
-| Activation-preserved paths | Activation kind | Protects state whose ownership is implied by the activation, such as app-owned documents. |
-| Target hook | Target | Protects state known only to that target, such as legacy Git identity keys. |
-| Failure boundary | Provisioning | A preservation or marker-invalidation failure prevents that role from deploying and blocks its dependent resources; independent roles continue. |
+| activationが保全するパス | activation kind | activationによって所有権が暗黙に定まる状態（アプリが所有する文書など）を保護する。 |
+| ターゲットのフック | ターゲット | そのターゲットだけが把握している状態（旧来のGit identityのキーなど）を保護する。 |
+| 失敗の境界 | プロビジョニング | 保全またはマーカー無効化の失敗は、そのロールのデプロイを妨げ、そのロールに依存するリソースをブロックする。独立したロールは続行する。 |
 
-## Phases
+## フェーズ
 
-| Phase | Order and result | Blocking condition |
+| フェーズ | 順序と結果 | ブロックの条件 |
 |---|---|---|
-| Deploy | Reconcile each selected role in the deploy store. | A role failure blocks groups using that role. |
-| Install | Resolve the deduplicated Homebrew requirements of the selection. | A failed required package blocks its target group. |
-| Activate | Apply activations in declaration order within each target group. | A failed or blocked activation blocks the remaining activations in that target. A blocked group produces blocked activation reports. |
+| Deploy | 選択された各ロールをdeploy storeに整合させる。 | ロールの失敗は、そのロールを使うグループをブロックする。 |
+| Install | 選択全体のHomebrew要件を、重複を除いて解決する。 | 必須パッケージの失敗は、そのターゲットグループをブロックする。 |
+| Activate | 各ターゲットグループ内で、activationを宣言順に適用する。 | 失敗またはブロックされたactivationは、そのターゲットの残りのactivationをブロックする。ブロックされたグループは、ブロックされたactivationのレポートを生成する。 |
 
-Activation kinds may parallelize independent work only when their own contract
-declares that safe. The phase boundaries preserve Homebrew and activation order.
+activation kindが独立した作業を並列化できるのは、そのkind自身の契約がそれを安全と宣言している場合に限られる。フェーズの境界は、Homebrewとactivationの順序を保つ。
 
-The deploy phase computes asset-level added, updated, and removed entries before
-replacement. `sync` uses the same comparison for drift selection, and link
-activations use it to report a managed-content update even when the symlink
-itself was already correct.
+デプロイフェーズは、置き換えの前に、アセット単位で追加・更新・削除されたエントリを計算する。`sync`は同じ比較を、ドリフトを理由とする選択に使い、link activationは、symlink自体がすでに正しい場合でも、管理対象の内容が更新されたことを報告するために使う。
 
-## Progress and results
+## 進捗と結果
 
-`runMake()` emits one typed event stream for phase progress. TTY clients render
-active operations transiently; completed package and target results are
-permanent. Agent plugin and release binary operations carry a client or binary
-identity, an operation identity, and a start/finish lifecycle, allowing concurrent
-work to remain visible with elapsed time per operation. Non-TTY clients write
-these operation starts as plain lines and render the same completed results
-without ANSI control sequences.
+`runMake()`は、フェーズの進捗を表す型付きのイベントストリームを1本出力する。TTYのクライアントは、実行中の操作を一時的にレンダリングし、完了したパッケージとターゲットの結果は残り続ける。エージェントプラグインとリリースバイナリの操作は、クライアントまたはバイナリの識別情報、操作の識別情報、開始と終了のライフサイクルを持つため、並行する作業を、操作ごとの経過時間とともに表示し続けられる。非TTYのクライアントは、これらの操作の開始をプレーンな行として書き出し、完了した結果を、ANSI制御シーケンスなしで同じようにレンダリングする。
 
-Activation descriptions identify stable resources. When a runner must probe
-before choosing an operation, it emits the actual activity after that decision;
-renderers do not infer install or update activity from command intent.
+activationのdescriptionは、安定したリソースを識別する。ランナーが操作を選ぶ前にprobeする必要がある場合は、その判断の後に実際の進捗項目を出力する。レンダラーは、コマンドの意図からインストールやアップデートの進捗項目を推測しない。
 
-Completed output is organized by target and user-managed resource. Changed,
-applied, failed, and blocked resources remain individual. Unchanged members of
-a declared collection are collapsed into a count, while explicit destination
-paths remain individual. The final result contains aggregate counts, actionable
-failures, and a retry command.
+完了後の出力は、ターゲットと、ユーザーが管理するリソースごとに整理される。変更された、適用された、失敗した、ブロックされたリソースは、個別のまま残る。宣言されたコレクションのうち変更のないメンバーは件数にまとめられるが、明示された配置先のパスは個別のまま残る。最終結果には、集計した件数、対処可能な失敗、再試行用のコマンドが含まれる。
 
-## Upgrade intent
+## アップグレードの意図
 
-`--upgrade` is execution intent, not desired state. It refreshes the kinds that
-support latest-assumed values and upgrades the selected targets' installed
-Homebrew formulae and casks. It never invokes `brew update`, changes target
-signatures, or widens the target selection made by `sync`.
+`--upgrade`は実行時の意図であり、望ましい状態ではない。最新版を前提とする値に対応するkindを更新し、選択されたターゲットのインストール済みHomebrew formulaとcaskをアップグレードする。`brew update`の呼び出し、ターゲットのシグネチャの変更、`sync`が行うターゲット選択の拡大は、いずれも行わない。
 
-Homebrew upgrade outcomes compare its installed-version inventory before and
-after the upgrade phase. A changed version set reports `changed`; an equal set
-reports `unchanged`. Formulae and casks are probed in per-kind batches through
-Homebrew's JSON v2 interface. A missing or invalid version observation fails the
-affected package rather than treating an unobserved upgrade as successful.
+Homebrewのアップグレード結果は、アップグレードフェーズの前後で、インストール済みバージョンのインベントリを比較して決まる。バージョンの集合が変わっていれば`changed`、同じなら`unchanged`を報告する。formulaとcaskは、種別ごとのバッチで、HomebrewのJSON v2インターフェース経由でprobeする。バージョンの観測が欠けている、または不正な場合は、観測できていないアップグレードを成功として扱うのではなく、影響を受けるパッケージを失敗とする。

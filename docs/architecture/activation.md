@@ -1,85 +1,64 @@
 # Activation DSL
 
-Targets declare provisioning work with factories from `provisioning/activation/`.
-The runtime dispatches by `Activation['kind']` through one registry.
+ターゲットは、`provisioning/activation/`のファクトリでプロビジョニングの作業を宣言する。ランタイムは、1つのレジストリを通じて`Activation['kind']`でディスパッチする。
 
-## Kinds
+## kind一覧
 
-| Kind | Factory | Contract |
+| kind | ファクトリ | 契約 |
 |---|---|---|
-| `file` | `link(source, dest)` | Reconciles one deployed asset as a symlink. |
-| `groveConfig` | `groveConfig(source, dest)` | Renders the per-machine GitHub host, validates the result with the installed `gv`, and materializes the catalog unless the destination changed since mev last wrote it. |
-| `tree` | `linkTree(prefix, dest)` | Mirrors a deployed asset prefix and removes managed stale links. |
-| `defaults` | `applyDefaults(configKey)` | Applies a declared macOS defaults manifest. |
-| `duti` | `applyDuti(configKey)` | Applies declared file associations. |
-| `pipx` | `applyPipx(configKey)` | Reconciles pipx tools, injections, post-installs, and explicit removals. |
-| `pnpm` | `applyPnpm(configKey)` | Reconciles global pnpm packages and explicit removals. |
-| `editorExtensions` | `installExtensions(command, configKey)` | Reconciles an editor's declared extensions. |
-| `coderAgents` | `coderAgents(sectionsPrefix, dests)` | Fans out selected embedded agent sections. |
-| `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | Fans out selected embedded skill files. |
-| `agentPlugins` | `installAgentPlugins(configKey, pathPrefix)` | Reconciles declared Claude Code and Codex plugins. See [agent-plugins.md](agent-plugins.md). |
-| `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | Builds settings from a base asset and selected overrides. |
-| `declaredKeys` | `declaredKeys(source, dest, format)` | Enforces declared keys in an app-owned document. See [app-owned-config.md](app-owned-config.md). |
-| `command` | `runCommand({ label, reads?, steps })` | Runs an ordered declarative host-command pipeline. See [command-pipeline.md](command-pipeline.md). |
-| `release` | `releaseBinaries(binaries)` | Reconciles versioned release binaries. See [release.md](release.md). |
-| `remoteInstaller` | `remoteInstaller(options)` | Runs an integrity-reviewed remote installer. See [release.md](release.md). |
+| `file` | `link(source, dest)` | デプロイ済みの1つのアセットをsymlinkとして整合させる。 |
+| `groveConfig` | `groveConfig(source, dest)` | マシンごとのGitHub hostをレンダリングし、結果をインストール済みの`gv`で検証し、配置先がmevの前回の書き込み以降に変更されている場合を除いて、カタログを実体化する。 |
+| `tree` | `linkTree(prefix, dest)` | デプロイ済みのアセットのプレフィックスをミラーし、管理対象の古いリンクを削除する。 |
+| `defaults` | `applyDefaults(configKey)` | 宣言されたmacOSのdefaultsマニフェストを適用する。 |
+| `duti` | `applyDuti(configKey)` | 宣言されたファイルの関連付けを適用する。 |
+| `pipx` | `applyPipx(configKey)` | pipxのツール、injection、post-install、明示的な削除を整合させる。 |
+| `pnpm` | `applyPnpm(configKey)` | グローバルなpnpmパッケージと、明示的な削除を整合させる。 |
+| `editorExtensions` | `installExtensions(command, configKey)` | エディターの宣言済みの拡張機能を整合させる。 |
+| `coderAgents` | `coderAgents(sectionsPrefix, dests)` | 選択された埋め込みのエージェントセクションを、複数の配置先へ展開する。 |
+| `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | 選択された埋め込みのスキルファイルを、複数の配置先へ展開する。 |
+| `agentPlugins` | `installAgentPlugins(configKey, pathPrefix)` | 宣言されたClaude CodeとCodexのプラグインを整合させる。[agent-plugins.md](agent-plugins.md)を参照。 |
+| `zedSettings` | `zedSettings(base, overridesPrefix, dest)` | ベースのアセットと選択されたオーバーライドから、設定を構築する。 |
+| `declaredKeys` | `declaredKeys(source, dest, format)` | アプリが所有する文書で、宣言されたキーを強制する。[app-owned-config.md](app-owned-config.md)を参照。 |
+| `command` | `runCommand({ label, reads?, steps })` | 順序付きの宣言的なホストコマンドのパイプラインを実行する。[command-pipeline.md](command-pipeline.md)を参照。 |
+| `release` | `releaseBinaries(binaries)` | バージョン付きのリリースバイナリを整合させる。[release.md](release.md)を参照。 |
+| `remoteInstaller` | `remoteInstaller(options)` | 完全性をレビュー済みのリモートインストーラーを実行する。[release.md](release.md)を参照。 |
 
-## Kind registry
+## kindのレジストリ
 
-`kinds.ts` is the authority for each kind's description, runner, referenced
-assets, and build-time parser. Dispatch, asset validation, and registry tests
-look up the same table, so adding a kind is a single union-and-registry change.
+`kinds.ts`は、各kindのdescription、ランナー、参照されるアセット、ビルド時のパーサーの正本である。ディスパッチ、アセットの検証、レジストリのテストは同じテーブルを参照するため、kindの追加は、union型とレジストリに対する1回の変更で済む。
 
-## Reconcile envelope
+## reconcile envelope
 
-Multi-item kinds share the following boundary:
+複数の項目を扱うkindは、次の境界を共有する:
 
-| Stage | Contract |
+| 段階 | 契約 |
 |---|---|
-| Declare | Resolve the items; a declaration failure aborts the activation. |
-| Build steps | Probe shared state and create one step per item; a probe failure aborts the activation. |
-| Execute | Isolate item failures and continue with independent siblings. |
-| Report | Convert each probe result into a user-managed resource outcome. |
-| Concurrency | Serial by default; parallelism is opt-in for independent work. |
+| 宣言 | 項目を解決する。宣言の失敗はactivationを中止させる。 |
+| ステップの構築 | 共有状態をprobeし、項目ごとに1つのステップを作る。probeの失敗はactivationを中止させる。 |
+| 実行 | 項目ごとの失敗を分離し、独立した他の項目は続行する。 |
+| 報告 | 各probe結果を、ユーザーが管理するリソースの結果に変換する。 |
+| 並行性 | 既定は直列で、独立した作業の並列化はオプトインである。 |
 
-`coderAgents` and `coderSkills` apply the same per-item failure boundary to their
-fan-out without using this envelope.
+`coderAgents`と`coderSkills`は、このenvelopeを使わないが、展開には同じ項目ごとの失敗の境界を適用する。
 
-## Outcome contract
+## 結果の契約
 
-An activation returns an `ActivationDescription` and `ResourceOutcome[]`.
-Descriptions name the user-facing subject and optionally identify a collection
-whose unchanged members may be aggregated. Each outcome names the affected
-path, setting, package, association, runtime, plugin, or other managed resource.
-The report carries only this outcome collection, its description, and optional
-notices. Whole-activation failures use a failed outcome naming the activation;
-blocked resources retain their reason in the same collection. Intermediate
-per-step probe results remain internal to reconciliation.
+activationは、`ActivationDescription`と`ResourceOutcome[]`を返す。descriptionは、ユーザー向けの対象を示し、必要に応じて、変更のないメンバーを集約してよいコレクションを特定する。各結果は、影響を受けたパス、設定、パッケージ、関連付け、ランタイム、プラグイン、その他の管理対象のリソースを示す。レポートが持つのは、この結果のコレクション、そのdescription、省略可能な通知だけである。activation全体の失敗は、そのactivationを示す失敗の結果で表し、ブロックされたリソースは、同じコレクションの中に理由を保持する。ステップごとの中間のprobe結果は、整合処理の内部にとどまる。
 
-| Status | Meaning |
+| ステータス | 意味 |
 |---|---|
-| `changed` | A probe established that the resource changed. |
-| `unchanged` | A probe established that the resource was already current. |
-| `applied` | An action succeeded, but its underlying state change was not independently observable. |
-| `failed` | The resource could not be reconciled. |
-| `blocked` | A prerequisite or earlier resource prevented reconciliation. |
+| `changed` | probeが、リソースの変更を確認した。 |
+| `unchanged` | probeが、リソースがすでに最新であったことを確認した。 |
+| `applied` | 操作は成功したが、その背後にある状態の変化は、独立には観測できなかった。 |
+| `failed` | リソースを整合させられなかった。 |
+| `blocked` | 前提条件または先行するリソースが、整合を妨げた。 |
 
-Activation and target statuses are derived from outcomes. Failures outrank
-blocks, observed changes, applied actions, and unchanged results. Internal role
-names, manifests, signatures, and applied markers are not success resources;
-their failures remain visible with phase context.
+activationとターゲットのステータスは、結果から導出される。失敗は、ブロック、観測された変更、適用された操作、変更のない結果よりも優先される。内部のロール名、マニフェスト、シグネチャ、適用済みマーカーは成功リソースではない。それらの失敗は、フェーズの文脈とともに引き続き表示される。
 
-## Manifest and selection boundaries
+## マニフェストと選択の境界
 
-Manifest-backed kinds parse deployed assets at build time with the same parser
-used at apply time. Shared version manifests use `latest` or an exact pin;
-`latest` is re-resolved only in upgrade mode, and removal is always explicit.
-Selection manifests and their opt-in/opt-out polarity are owned by
-[docs/config.md](../config.md).
+マニフェストに基づくkindは、ビルド時に、適用時と同じパーサーでデプロイ済みのアセットを解析する。共有のバージョンマニフェストは、`latest`か、厳密な固定を使う。`latest`はアップグレードモードのときにだけ再解決され、削除は常に明示的である。選択マニフェストと、そのオプトイン／オプトアウトの極性は、[docs/config.md](../config.md)が所有する。
 
-## Capability boundary
+## capabilityの境界
 
-Capability modules own an external tool's protocol, output format, and platform
-state probes. Activation modules depend on capabilities through `Context`; the
-capability layer does not import activation contracts. This keeps external
-protocol changes out of the activation DSL.
+capabilityモジュールは、外部ツールのプロトコル、出力形式、プラットフォームの状態のprobeを所有する。activationモジュールは`Context`を通じてcapabilityに依存し、capability層はactivationの契約をインポートしない。これにより、外部プロトコルの変更がActivation DSLに入り込まない。

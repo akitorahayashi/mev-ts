@@ -1,17 +1,15 @@
-# Asset Embedding
+# アセットの埋め込み
 
-The asset directory is the source of truth for deployable configuration.
+アセットのディレクトリは、デプロイ可能な設定の正本である。
 
-| Boundary | Contract |
+| 境界 | 契約 |
 |---|---|
-| Source | Files under `src/assets/config/{role}/`. |
-| Code generation | `scripts/generate-assets.ts` embeds content and a source-tree hash in `registry.generated.ts`. |
-| Runtime | `AssetSource` reads the generated map; an unknown key fails with `ProvisioningError`. |
-| Target declarations | `keysByPrefix` derives asset sets from the embedded registry. |
-| Deploy store | `AssetRef.key` is also the relative path under `~/.mev/roles/`. |
+| ソース | `src/assets/config/{role}/`配下のファイル。 |
+| コード生成 | `scripts/generate-assets.ts`が、内容とソースツリーのハッシュを`registry.generated.ts`に埋め込む。 |
+| ランタイム | `AssetSource`が生成されたマップを読む。未知のキーは`ProvisioningError`で失敗する。 |
+| ターゲットの宣言 | `keysByPrefix`が、埋め込まれたレジストリからアセットの集合を導出する。 |
+| deploy store | `AssetRef.key`は、`~/.mev/roles/`配下の相対パスでもある。 |
 
-## Deploy store
+## deploy store
 
-All deployed assets live under `~/.mev/roles/{key}`. `file` and `tree`
-activations link into that store; generated and managed paths derive from the
-single `mevRoot` authority in `host/path.ts`.
+デプロイされたアセットはすべて`~/.mev/roles/{key}`配下にある。`file`と`tree`のactivationは、そのdeploy storeへリンクする。生成されるパスと管理されるパスは、`host/path.ts`の`mevRoot`という唯一の正本から導出される。
