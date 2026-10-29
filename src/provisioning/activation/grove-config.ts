@@ -1,21 +1,13 @@
-import { createHash } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { type AssetRef, deployedPath } from '../../assets/ref';
 import { ProvisioningError } from '../../errors';
 import { readSshHost } from '../../github/ssh-host';
 import { renderConfig } from '../../grove/config';
-import { validateConfig } from '../../grove/validate';
-import { lstatIfPresent, readTextIfPresent } from '../../host/absence';
-import { writeFileIfChanged } from '../../host/atomic-file';
+import { replaceConfig } from '../../grove/replace';
+import { statIfPresent } from '../../host/absence';
 import type { Context } from '../../host/context';
 import { readDeployedText } from '../../host/deployed-file';
-import {
-  type HostPath,
-  mevPath,
-  resolveHostPath,
-  symbolic,
-} from '../../host/path';
-import { reconcileRegularFile } from '../../host/regular-file';
+import { type HostPath, resolveHostPath, symbolic } from '../../host/path';
 import type {
   Activation,
   ActivationDescription,
@@ -25,27 +17,8 @@ import { activationReport, guarded } from './reconcile';
 
 type GroveConfigActivation = Extract<Activation, { kind: 'groveConfig' }>;
 
-/*
- * `gv add` edits the base file in place, so a destination that no longer
- * matches what mev last wrote holds changes only the user can move into the
- * asset or an override; replacing it would silently drop them.
- */
-const writtenRecord = mevPath('grove', 'written');
-
-function digest(contents: Buffer): string {
-  return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
-}
-
-async function requireOwned(
-  existing: Buffer | null,
-  recordPath: string,
-  displayDest: string,
-): Promise<void> {
-  const record = (await readTextIfPresent(recordPath))?.trim();
-  if (existing !== null && digest(existing) === record) return;
-  throw new ProvisioningError(
-    `${displayDest} differs from what mev last wrote. Move its changes into the mev grove asset or a grove.override.toml (gv add --override), move the file aside, and run mev make grove again.`,
-  );
+async function readRegularFile(path: string): Promise<Buffer | null> {
+  return (await statIfPresent(path))?.isFile() ? readFile(path) : null;
 }
 
 export function groveConfig(source: AssetRef, dest: HostPath): Activation {
@@ -67,42 +40,34 @@ export async function runGroveConfig(
   const base = describeGroveConfig(activation);
   return guarded(base, async () => {
     const source = deployedPath(activation.source, context.home);
-    // The absence check runs first so a missing deploy surfaces the canonical
-    // deploy-first guidance instead of whichever ENOENT wins the race below.
     const raw = await readDeployedText(source, 'Grove config');
-    const [sourceStats, sshHost] = await Promise.all([
-      stat(source),
-      readSshHost(context.home),
-    ]);
-    const rendered = renderConfig(raw, sshHost, source);
-    const contents = Buffer.from(rendered);
+    const rendered = renderConfig(raw, await readSshHost(context.home), source);
     const dest = resolveHostPath(activation.dest, context.home);
-    const recordPath = resolveHostPath(writtenRecord, context.home);
-    const current = await lstatIfPresent(dest);
-    const existing = current?.isFile() ? await readFile(dest) : null;
-    if (!existing?.equals(contents)) {
-      if (current !== null) {
-        await requireOwned(existing, recordPath, base.subject);
-      }
-      await validateConfig(rendered, dest, context);
+    const existing = await readRegularFile(dest);
+    // Replace runs even when the bytes already match: a pin bump that leaves
+    // the asset unchanged must still be checked by the newly installed gv.
+    const notices = await replaceConfig(rendered, dest, context);
+    const written = await readRegularFile(dest);
+    if (written === null) {
+      throw new ProvisioningError(
+        `gv replace exited 0 but left ${base.subject} without a regular file.`,
+      );
     }
-    const changed = await reconcileRegularFile(
-      dest,
-      contents,
-      sourceStats.mode & 0o7777,
-      context,
+    const changed = !existing?.equals(written);
+    return activationReport(
+      base,
+      [
+        {
+          label: base.subject,
+          status: changed ? 'changed' : 'unchanged',
+          details: [
+            changed
+              ? 'rendered repository configuration updated'
+              : 'repository configuration already current',
+          ],
+        },
+      ],
+      notices,
     );
-    await writeFileIfChanged(recordPath, `${digest(contents)}\n`);
-    return activationReport(base, [
-      {
-        label: base.subject,
-        status: changed ? 'changed' : 'unchanged',
-        details: [
-          changed
-            ? 'rendered repository configuration updated'
-            : 'repository configuration already current',
-        ],
-      },
-    ]);
   });
 }

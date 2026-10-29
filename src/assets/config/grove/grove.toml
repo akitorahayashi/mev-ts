@@ -24,14 +24,3 @@ mev-ts = "git@github.com:akitorahayashi/mev-ts.git"
 [groups.Workspace]
 note = "git@github.com:akitorahayashi/note.git"
 eval-evidence = "git@github.com:akitorahayashi/eval-evidence.git"
-
-[removed.groups.Skills]
-agent-device-plugin = { url = "git@github.com:akitorahayashi/agent-device-plugin.git", moved_to = "agent-device" }
-backlog = "git@github.com:akitorahayashi/backlog.git"
-charles-traffic = "git@github.com:akitorahayashi/charles-traffic.git"
-code-incident-resolution = "git@github.com:akitorahayashi/code-incident-resolution.git"
-comment-review = "git@github.com:akitorahayashi/comment-review.git"
-direct-answer = "git@github.com:akitorahayashi/direct-answer.git"
-issue-probe = "git@github.com:akitorahayashi/issue-probe.git"
-qa-triage = "git@github.com:akitorahayashi/qa-triage.git"
-repro-steps = "git@github.com:akitorahayashi/repro-steps.git"

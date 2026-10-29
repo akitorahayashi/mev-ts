@@ -130,7 +130,9 @@ const ARCH_BY_MACHINE: Readonly<Record<string, ReleaseArch>> = {
   arm64: 'aarch64',
 };
 
-export async function detectArch(context: Context): Promise<ReleaseArch> {
+export async function detectArch(
+  context: Pick<Context, 'commands'>,
+): Promise<ReleaseArch> {
   const result = await runProcessStep(
     context.commands,
     'uname',
@@ -181,7 +183,7 @@ export async function installedVersion(
 async function reportedVersion(
   path: string,
   label: string,
-  context: Context,
+  context: Pick<Context, 'commands'>,
 ): Promise<string | null> {
   const result = await context.commands.run(path, ['--version']);
   if (result.code !== 0) return null;
@@ -289,7 +291,7 @@ export async function fetchReleaseBinary(
   tag: string,
   arch: ReleaseArch,
   dest: string,
-  context: Context,
+  context: Pick<Context, 'commands'>,
   onPhase?: (phase: ReleaseBinaryPhase) => void,
 ): Promise<void> {
   const asset = releaseAssetName(binary, arch);

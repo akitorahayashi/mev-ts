@@ -7,7 +7,7 @@
 | kind | ファクトリ | 契約 |
 |---|---|---|
 | `file` | `link(source, dest)` | デプロイ済みの1つのアセットをsymlinkとして整合させる。 |
-| `groveConfig` | `groveConfig(source, dest)` | マシンごとのGitHub hostをレンダリングし、結果をインストール済みの`gv`で検証し、配置先がmevの前回の書き込み以降に変更されている場合を除いて、カタログを実体化する。 |
+| `groveConfig` | `groveConfig(source, dest)` | マシンごとのGitHub hostでカタログをレンダリングし、インストール済みの`gv replace`に渡す。Groveが去るリポジトリを収束させて配置先を書き込み、その報告は通知になる。固定の更新を新しい`gv`で検査するため、配置先がすでにレンダリングと一致していても毎回実行する。 |
 | `tree` | `linkTree(prefix, dest)` | デプロイ済みのアセットのプレフィックスをミラーし、管理対象の古いリンクを削除する。 |
 | `defaults` | `applyDefaults(configKey)` | 宣言されたmacOSのdefaultsマニフェストを適用する。 |
 | `duti` | `applyDuti(configKey)` | 宣言されたファイルの関連付けを適用する。 |

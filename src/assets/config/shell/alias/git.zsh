@@ -2,7 +2,7 @@ git() {
 	if [[ "${1-}" == "clone" ]]; then
 		shift
 		if (( ! $+commands[gv] )); then
-			print -u2 -- "git clone requires gv; run 'mev make grove --upgrade'."
+			print -u2 -- "git clone requires gv; run 'mev make grove'."
 			return 127
 		fi
 		command gv clone "$@"

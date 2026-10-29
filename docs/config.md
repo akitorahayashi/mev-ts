@@ -57,7 +57,7 @@ disabled:
 github-personal
 ```
 
-GitHub SSH hostを保存すると、影響を受ける適用済みマーカーが無効化され、次の`sync`が、レンダリング済みのURLとマーケットプレイスの登録を整合させる。
+GitHub SSH hostを保存すると、影響を受ける適用済みマーカーが無効化され、次の`sync`が、レンダリング済みのURLとマーケットプレイスの登録を整合させる。Groveのカタログは新しいエイリアスで再レンダリングされ、groveターゲットの`gv replace`が、originが古いURLと一致する既存のcheckoutのoriginを付け替える。
 
 ## エージェントプラグインのカタログ
 

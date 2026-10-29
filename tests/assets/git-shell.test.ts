@@ -88,7 +88,7 @@ sandboxTest(
 
     const stderr = await new Response(process.stderr).text();
     expect(await process.exited).toBe(127);
-    expect(stderr).toContain("run 'mev make grove --upgrade'");
+    expect(stderr).toContain("run 'mev make grove'.");
   },
 );
 

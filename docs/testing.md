@@ -44,5 +44,5 @@
 |---|---|
 | `run-tests.yml` | 並列のmacOSマトリクスジョブによる、ユニットテストと統合テストのスイート |
 | `run-static-checks.yml` | Ubuntuでの`bun run check`とshellcheck |
-| `run-build.yml` | バイナリのコンパイルとスモークテスト |
+| `run-build.yml` | バイナリのコンパイルとスモークテスト。別のジョブが、固定された`gv`のリリースをダウンロードし、レンダリングした埋め込みのGroveカタログを`gv validate`で検査する。 |
 | プラットフォームの方針 | 製品向けのジョブは`macos-15`を使い、プラットフォームに依存しないチェックはUbuntuを使う。 |

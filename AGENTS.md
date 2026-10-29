@@ -25,8 +25,8 @@ src/
   editor/        エディター拡張のリストとインストールの操作
   git/           app/internalのコマンドが共有するGitの設定とコマンドのヘルパー
   github/        GitHubリリースのダウンロードと、マシンごとのSSH hostエイリアスのストア
-  grove/         マシンごとのSSH hostによるGroveカタログのレンダリングと、`gv validate`の検査
-  host/          CommandRunner、Context、HostPath。parse.ts（parsed-unknownのアサーションと、ラベル付きJSONのframing。どちらも送出するエラークラスを受け取る）、yaml.ts（YAMLの読み込みとシリアライズ）、toml.ts（TOMLの読み込みとシリアライズ）、json.ts（JSONオブジェクトの読み込みとシリアライズ）、jsonc.ts（JSONCの読み込みと、コメントを保つ編集）、declared-merge.ts（アプリが所有する設定ファイル向けの、declared-keysのマージと構造的等価性）、transaction.ts（アトミックなステージングとswap-transactionのenvelope）、atomic-file.ts（アトミックな書き込み、変更時のみの書き込み）、regular-file.ts（通常ファイルの整合処理）、command-run.ts（サブプロセスのstep/capture、LC_ALL固定）、https-download.ts（堅牢化したcurlによるダウンロード）、managed-links.ts（共有のsymlink整合処理）、deployed-file.ts（デプロイ済み優先の読み取り）、task-pool.ts（上限付きの並行実行）、cleanup-error.ts（クリーンアップエラーの合成）
+  grove/         マシンごとのSSH hostによるGroveカタログのレンダリングと、`gv replace`による置き換え
+  host/          CommandRunner、Context、HostPath。parse.ts（parsed-unknownのアサーションと、ラベル付きJSONのframing。どちらも送出するエラークラスを受け取る）、yaml.ts（YAMLの読み込みとシリアライズ）、toml.ts（TOMLの読み込みとシリアライズ）、json.ts（JSONオブジェクトの読み込みとシリアライズ）、jsonc.ts（JSONCの読み込みと、コメントを保つ編集）、declared-merge.ts（アプリが所有する設定ファイル向けの、declared-keysのマージと構造的等価性）、transaction.ts（アトミックなステージングとswap-transactionのenvelope）、atomic-file.ts（アトミックな書き込み、変更時のみの書き込み）、command-run.ts（サブプロセスのstep/capture、LC_ALL固定）、https-download.ts（堅牢化したcurlによるダウンロード）、managed-links.ts（共有のsymlink整合処理）、deployed-file.ts（デプロイ済み優先の読み取り）、task-pool.ts（上限付きの並行実行）、cleanup-error.ts（クリーンアップエラーの合成）
   identity/      Git identityのスコープの列挙型と、ディスク上のストア
   internal/
     document/    Pandoc/Popplerによる変換と、ブラウザーによるPDFのレンダリング
