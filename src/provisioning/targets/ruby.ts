@@ -8,7 +8,6 @@ export const rubyTarget = target('ruby', {
   description: 'Ruby toolchain via rbenv with bundler',
   aliases: ['rb'],
   role: 'ruby',
-  packages: { formulae: ['openssl@3', 'rbenv', 'ruby-build'] },
   activations: [
     runCommand({
       label: 'ruby toolchain',

@@ -47,6 +47,9 @@ export function mergePackages(
   };
 }
 
+/** Homebrew tap, formula, and cask names use only these characters. */
+export const SAFE_TOKEN_NAME = /^[A-Za-z0-9._@/+-]+$/;
+
 export type PackageKind = 'tap' | 'formula' | 'cask';
 
 export type UpgradeablePackageKind = Exclude<PackageKind, 'tap'>;

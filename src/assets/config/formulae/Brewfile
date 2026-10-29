@@ -1,0 +1,17 @@
+# Standalone command-line tools wanted on every development machine. Toolchain
+# formulae (uv, rbenv, fnm, …) live in their own target's Brewfile.
+brew "bat"
+brew "eza"
+brew "fd"
+brew "ffmpeg"
+brew "jq"
+brew "mise"
+brew "ollama"
+brew "postgresql"
+brew "rclone"
+brew "redis"
+brew "ripgrep"
+brew "shellcheck"
+brew "shfmt"
+brew "tokei"
+brew "yq"

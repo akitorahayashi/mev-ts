@@ -19,7 +19,9 @@ function report(failed = false): MakeReport {
       targetNames: ['shell'],
       roles: ['shell'],
       packages: { taps: [], formulae: [], casks: [] },
-      groups: [shellTarget],
+      groups: [
+        { ...shellTarget, packages: { taps: [], formulae: [], casks: [] } },
+      ],
     },
     deploys: [],
     install: [],

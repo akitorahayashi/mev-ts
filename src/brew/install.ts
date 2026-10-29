@@ -12,6 +12,7 @@ import {
 import {
   type PackageRequirement,
   type PackageToken,
+  SAFE_TOKEN_NAME,
   tokens,
   type UpgradeablePackageKind,
 } from './package';
@@ -79,12 +80,9 @@ async function withBrewfile<T>(
   );
 }
 
-// Homebrew tap/formula/cask names use only these characters. The emit layer
-// validates before interpolating a name into the Ruby-string Brewfile DSL, so a
-// name containing `"`, a newline, or `#{}` cannot break out or inject a
-// directive regardless of where the name originated.
-const SAFE_TOKEN_NAME = /^[A-Za-z0-9._@/+-]+$/;
-
+// The emit layer validates before interpolating a name into the Ruby-string
+// Brewfile DSL, so a name containing `"`, a newline, or `#{}` cannot break out
+// or inject a directive regardless of where the name originated.
 function brewfileLine(token: PackageToken): string {
   if (!SAFE_TOKEN_NAME.test(token.name)) {
     throw new ProvisioningError(

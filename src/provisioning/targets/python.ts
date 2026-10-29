@@ -7,7 +7,6 @@ export const pythonTarget = target('python', {
   description: 'Python via uv',
   aliases: ['py'],
   role: 'python',
-  packages: { formulae: ['uv'] },
   activations: [
     link(asset('python/uv.toml'), home('.config/uv/uv.toml')),
     runCommand({

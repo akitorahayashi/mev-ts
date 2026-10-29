@@ -21,7 +21,7 @@ import {
   pruneObsoleteDeployState,
 } from './deploy-store';
 import { groupSucceeded } from './group-outcome';
-import { type MakePlan, planMake } from './plan';
+import { type MakePlan, type PlannedTarget, planMake } from './plan';
 import { outcomeStatus, outcomeSucceeded } from './resource-outcome';
 import { targetSignature } from './signature';
 import type { Target } from './target';
@@ -187,7 +187,7 @@ async function runDeployPhase(
 }
 
 function computeBlockers(
-  group: Target,
+  group: PlannedTarget,
   failedRoles: ReadonlyMap<string, string>,
   failedPackages: readonly Extract<
     InstallReport,
@@ -235,7 +235,7 @@ export async function runMake(
   request: MakeRequest,
   context: Context,
 ): Promise<MakeReport> {
-  const selection = planMake(request.selectors);
+  const selection = await planMake(request.selectors, context.assets);
   const upgrade = request.upgrade ?? false;
   request.onEvent?.({ type: 'selection', selection });
   if (tokens(selection.packages).length > 0) {

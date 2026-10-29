@@ -7,6 +7,5 @@ export const ghosttyTarget = target('ghostty', {
   description: 'Ghostty terminal emulator configuration',
   aliases: ['gst'],
   role: 'ghostty',
-  packages: { casks: ['ghostty'] },
   activations: [link(asset('ghostty/config'), home('.config/ghostty/config'))],
 });

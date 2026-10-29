@@ -10,7 +10,6 @@ import { target } from '../target';
 export const gitTarget = target('git', {
   description: 'Git configuration and global gitignore',
   role: 'git',
-  packages: { formulae: ['git'] },
   preserveBeforeDeploy: (context) =>
     preserveIdentityOverlay(
       { home: context.home, run: context.commands },

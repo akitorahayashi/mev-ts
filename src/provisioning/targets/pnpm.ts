@@ -7,7 +7,6 @@ export const pnpmTarget = target('pnpm', {
   description: 'pnpm global packages',
   aliases: ['pn'],
   role: 'pnpm',
-  packages: { formulae: ['pnpm'] },
   activations: [
     link(
       asset('pnpm/config.yaml'),

@@ -7,9 +7,8 @@ export const nvimTarget = target('nvim', {
   description: 'Neovim configuration',
   aliases: ['nv'],
   role: 'nvim',
-  packages: { formulae: ['neovim'] },
   activations: [
     link(asset('nvim/.vimrc'), home('.vimrc')),
-    linkTree('nvim/', home('.config/nvim')),
+    linkTree('nvim/config/', home('.config/nvim')),
   ],
 });

@@ -1,8 +1,8 @@
-import { rm, rmdir } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deployedDir } from '../assets/ref';
 import { errorMessage, ProvisioningError } from '../errors';
-import { isNotFound, readDirentsIfPresent } from '../host/absence';
+import { readDirentsIfPresent } from '../host/absence';
 import type { Context } from '../host/context';
 import { mevPath, symbolic } from '../host/path';
 import { isTransactionArtifact } from '../host/transaction';
@@ -19,73 +19,23 @@ export interface DeployStorePruneReport {
   readonly appliedTargets: readonly string[];
 }
 
-function isRolePathCovered(path: string, roles: readonly string[]): boolean {
-  return roles.some((role) => role === path || role.startsWith(`${path}/`));
-}
-
 async function removePath(path: string): Promise<void> {
   await rm(path, { force: true, recursive: true });
 }
 
-async function removeEmptyDirectory(path: string): Promise<void> {
-  try {
-    await rmdir(path);
-  } catch (error) {
-    if (isNotFound(error)) return;
-    if ((error as NodeJS.ErrnoException).code === 'ENOTEMPTY') return;
-    throw error;
-  }
-}
-
-async function pruneRoles(
+async function pruneUnlisted(
   root: string,
-  roles: readonly string[],
-  relative: string,
-  removed: string[],
-): Promise<void> {
-  const directory = relative === '' ? root : join(root, relative);
-  const children = await readDirentsIfPresent(directory);
-  if (children === null) return;
-  children.sort((left, right) => left.name.localeCompare(right.name));
-
-  const roleSet = new Set(roles);
-  for (const child of children) {
-    if (child.isDirectory() && isTransactionArtifact(child.name)) continue;
-
-    const path = relative === '' ? child.name : `${relative}/${child.name}`;
-    const absolute = join(root, path);
-    const covered = isRolePathCovered(path, roles);
-    if (!covered) {
-      await removePath(absolute);
-      removed.push(path);
-      continue;
-    }
-
-    if (roleSet.has(path)) continue;
-    if (!child.isDirectory()) {
-      await removePath(absolute);
-      removed.push(path);
-      continue;
-    }
-
-    await pruneRoles(root, roles, path, removed);
-    await removeEmptyDirectory(absolute);
-  }
-}
-
-async function pruneAppliedTargets(
-  root: string,
-  targets: readonly string[],
+  listed: readonly string[],
 ): Promise<string[]> {
   const children = await readDirentsIfPresent(root);
   if (children === null) return [];
   children.sort((left, right) => left.name.localeCompare(right.name));
 
-  const targetSet = new Set(targets);
+  const listedSet = new Set(listed);
   const removed: string[] = [];
   for (const child of children) {
     if (child.isDirectory() && isTransactionArtifact(child.name)) continue;
-    if (targetSet.has(child.name)) continue;
+    if (listedSet.has(child.name)) continue;
     await removePath(join(root, child.name));
     removed.push(child.name);
   }
@@ -107,9 +57,8 @@ export async function pruneDeployStore(
   const roleRoot = deployedDir('', context.home);
 
   try {
-    const roles: string[] = [];
-    await pruneRoles(roleRoot, request.roles, '', roles);
-    const appliedTargets = await pruneAppliedTargets(
+    const roles = await pruneUnlisted(roleRoot, request.roles);
+    const appliedTargets = await pruneUnlisted(
       appliedRoot(context.home),
       request.targets,
     );

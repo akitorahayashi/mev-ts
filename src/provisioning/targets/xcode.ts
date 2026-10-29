@@ -6,6 +6,5 @@ export const xcodeTarget = target('xcode', {
   description: 'Xcode preferences via macOS defaults',
   aliases: ['xc'],
   role: 'xcode',
-  packages: { formulae: ['mint', 'xcbeautify', 'xcodes'] },
-  activations: applyDefaultsTree(embeddedAssets, 'xcode/'),
+  activations: applyDefaultsTree(embeddedAssets, 'xcode/defaults/'),
 });

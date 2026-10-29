@@ -6,6 +6,5 @@ import { target } from '../target';
 export const ghTarget = target('gh', {
   description: 'GitHub CLI configuration and label management',
   role: 'gh',
-  packages: { formulae: ['gh'] },
   activations: [link(asset('gh/config.yml'), home('.config/gh/config.yml'))],
 });

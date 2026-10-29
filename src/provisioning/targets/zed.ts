@@ -15,7 +15,6 @@ export const zedTarget = target('zed', {
   description: 'Zed editor configuration',
   aliases: ['zd'],
   role: 'zed',
-  packages: { casks: ['zed'] },
   perMachineInputs: ['zedOverrides'],
   activations: [
     zedSettings(

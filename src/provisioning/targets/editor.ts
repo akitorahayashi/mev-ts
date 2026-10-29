@@ -12,7 +12,6 @@ export interface EditorTargetSpec {
   readonly name: string;
   readonly description: string;
   readonly aliases: readonly string[];
-  readonly cask: string;
   readonly extensionCli: string;
   readonly userDir: string;
   readonly optional?: boolean;
@@ -24,7 +23,6 @@ export function editorTarget(spec: EditorTargetSpec): Target {
     aliases: [...spec.aliases],
     role: spec.name,
     optional: spec.optional,
-    packages: { casks: [spec.cask] },
     activations: [
       // Merged, not linked: the editor rewrites settings.json in place when a
       // setting is toggled through its UI, normalizing values as it goes, so a
