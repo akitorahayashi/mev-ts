@@ -389,10 +389,10 @@ sandboxTest(
       'UiOrder',
     ];
     const assetKeys = [
-      'xcode/behavior.yml',
-      'xcode/build.yml',
-      'xcode/editor.yml',
-      'xcode/ui.yml',
+      'xcode/defaults/behavior.yml',
+      'xcode/defaults/build.yml',
+      'xcode/defaults/editor.yml',
+      'xcode/defaults/ui.yml',
     ];
     const assets = new Map(
       assetKeys.map((key, index) => [
@@ -618,7 +618,7 @@ sandboxTest(
       ...contextFor(sandbox),
       assets: {
         read: (key) =>
-          key.startsWith('git/')
+          key.startsWith('git/') && key !== 'git/Brewfile'
             ? Promise.reject(new Error('deploy boom'))
             : embeddedAssets.read(key),
         keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
@@ -661,7 +661,7 @@ sandboxTest(
       home: sandbox,
       assets: {
         read: (key) =>
-          key.startsWith('duti/')
+          key.startsWith('duti/') && key !== 'duti/Brewfile'
             ? Promise.reject(new Error('duti deploy boom'))
             : embeddedAssets.read(key),
         keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),

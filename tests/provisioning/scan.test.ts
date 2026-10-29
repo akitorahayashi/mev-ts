@@ -33,7 +33,6 @@ function contextFor(home: string, source: AssetSource): Context {
 const demoTarget = target('demo', {
   description: 'demo',
   role: 'demo',
-  packages: { formulae: ['fd'] },
   activations: [],
 });
 
@@ -114,24 +113,25 @@ sandboxTest(
 );
 
 sandboxTest(
-  'a package-only declaration change is detected by signature',
+  'a Brewfile edit selects the target by signature and drift',
   async (home) => {
-    const source = mapAssetSource({});
-    const context = contextFor(home, source);
+    const context = contextFor(
+      home,
+      mapAssetSource({ 'demo/Brewfile': 'brew "fd"\n' }),
+    );
+    await deployRole('demo', context);
     await writeApplied(
       appliedPath(home, demoTarget.name),
-      await targetSignature(demoTarget, source),
+      await targetSignature(demoTarget, context.assets),
     );
-    const changed = target('demo', {
-      description: 'demo',
-      role: 'demo',
-      packages: { formulae: ['fd', 'ripgrep'] },
-      activations: [],
-    });
+    const edited = contextFor(
+      home,
+      mapAssetSource({ 'demo/Brewfile': 'brew "fd"\nbrew "ripgrep"\n' }),
+    );
 
-    const [scan] = await scanTargets([changed], context);
+    const [scan] = await scanTargets([demoTarget], edited);
 
-    expect(scanned(scan).reasons).toEqual(['signature']);
+    expect(scanned(scan).reasons).toEqual(['signature', 'drift']);
   },
 );
 
@@ -148,7 +148,6 @@ sandboxTest(
     const sibling = target('other', {
       description: 'other',
       role: 'other',
-      packages: { formulae: [] },
       activations: [],
     });
 

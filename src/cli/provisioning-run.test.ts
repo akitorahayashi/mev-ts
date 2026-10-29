@@ -18,7 +18,12 @@ function makeReport(status: 'changed' | 'unchanged' | 'failed'): MakeReport {
       targetNames: ['shell'],
       roles: ['shell'],
       packages: { taps: [], formulae: ['git'], casks: [] },
-      groups: [shellTarget],
+      groups: [
+        {
+          ...shellTarget,
+          packages: { taps: [], formulae: ['git'], casks: [] },
+        },
+      ],
     },
     deploys: [],
     install: [{ token: { kind: 'formula', name: 'git' }, status: 'present' }],

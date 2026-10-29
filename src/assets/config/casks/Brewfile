@@ -1,0 +1,9 @@
+# Standalone GUI applications. Apps with their own configuration (Ghostty, Zed,
+# and VS Code) declare their cask in their own target's Brewfile.
+cask "docker"
+cask "iina"
+cask "ngrok"
+cask "obsidian"
+cask "slack"
+cask "tailscale"
+cask "claude"

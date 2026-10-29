@@ -7,7 +7,6 @@ export const microTarget = target('micro', {
   description: 'Micro terminal editor configuration',
   aliases: ['mc'],
   role: 'micro',
-  packages: { formulae: ['micro'] },
   activations: [
     // Merged, not linked: Micro rewrites this file at runtime; a symlink
     // would route those writes into the deployed role (app-owned-config.md).

@@ -12,23 +12,15 @@ const report = {
   detail: 'applied',
 } as const;
 
-test('declared assets, packages, and activation destinations affect the signature', async () => {
+test('declared assets and activation destinations affect the signature', async () => {
   const original = target('demo', {
     description: 'original',
     role: 'demo',
-    packages: { formulae: ['fd'] },
-    activations: [link(config, home('.config/demo'))],
-  });
-  const packageChanged = target('demo', {
-    description: 'original',
-    role: 'demo',
-    packages: { formulae: ['fd', 'ripgrep'] },
     activations: [link(config, home('.config/demo'))],
   });
   const destinationChanged = target('demo', {
     description: 'original',
     role: 'demo',
-    packages: { formulae: ['fd'] },
     activations: [link(config, home('.config/demo/config'))],
   });
   const assets = mapAssetSource({ [config.key]: 'one\n' });
@@ -38,30 +30,31 @@ test('declared assets, packages, and activation destinations affect the signatur
     original,
     mapAssetSource({ [config.key]: 'two\n' }),
   );
-  const packageChangedSignature = await targetSignature(packageChanged, assets);
+  const brewfileAddedSignature = await targetSignature(
+    original,
+    mapAssetSource({ [config.key]: 'one\n', 'demo/Brewfile': 'brew "fd"\n' }),
+  );
   const destinationChangedSignature = await targetSignature(
     destinationChanged,
     assets,
   );
 
   expect(changedAssetSignature).not.toBe(originalSignature);
-  expect(packageChangedSignature).not.toBe(originalSignature);
+  expect(brewfileAddedSignature).not.toBe(originalSignature);
   expect(destinationChangedSignature).not.toBe(originalSignature);
 });
 
-test('package ordering and target display metadata do not affect the signature', async () => {
+test('target display metadata does not affect the signature', async () => {
   const left = target('demo', {
     description: 'left',
     aliases: ['l'],
     role: 'demo',
-    packages: { formulae: ['ripgrep', 'fd', 'fd'] },
     activations: [],
   });
   const right = target('demo', {
     description: 'right',
     aliases: ['r'],
     role: 'demo',
-    packages: { formulae: ['fd', 'ripgrep'] },
     activations: [],
     optional: true,
   });

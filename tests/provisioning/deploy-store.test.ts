@@ -23,35 +23,33 @@ async function exists(path: string): Promise<boolean> {
 sandboxTest(
   'pruneDeployStore removes only unregistered mev roles and applied markers',
   async (home) => {
-    await write(join(home, '.mev/roles/brew/cask/Brewfile'));
-    await write(join(home, '.mev/roles/brew/formulae/Brewfile'));
-    await write(join(home, '.mev/roles/brew/old/Brewfile'));
-    await write(join(home, '.mev/roles/cmux/config.yml'));
+    await write(join(home, '.mev/roles/casks/Brewfile'));
+    await write(join(home, '.mev/roles/formulae/Brewfile'));
+    await write(join(home, '.mev/roles/old/Brewfile'));
+    await write(join(home, '.mev/roles/stray-file'));
     await write(join(home, '.mev/roles/.cmux.abcdef/backup/config.yml'));
-    await write(join(home, '.mev/roles/brew/.cask.abcdef/backup/Brewfile'));
-    await write(join(home, '.mev/applied/cask'));
+    await write(join(home, '.mev/applied/casks'));
     await write(join(home, '.mev/applied/cmux'));
     await write(join(home, '.mev/applied/.cmux.abcdef/file'));
 
     const report = await pruneDeployStore(
       {
-        roles: ['brew/cask', 'brew/formulae'],
-        targets: ['cask', 'formulae'],
+        roles: ['casks', 'formulae'],
+        targets: ['casks', 'formulae'],
       },
       { home },
     );
 
     expect(report).toEqual({
-      roles: ['brew/old', 'cmux'],
+      roles: ['old', 'stray-file'],
       appliedTargets: ['cmux'],
     });
-    expect(await exists(join(home, '.mev/roles/brew/cask'))).toBe(true);
-    expect(await exists(join(home, '.mev/roles/brew/formulae'))).toBe(true);
-    expect(await exists(join(home, '.mev/roles/brew/old'))).toBe(false);
-    expect(await exists(join(home, '.mev/roles/cmux'))).toBe(false);
+    expect(await exists(join(home, '.mev/roles/casks/Brewfile'))).toBe(true);
+    expect(await exists(join(home, '.mev/roles/formulae/Brewfile'))).toBe(true);
+    expect(await exists(join(home, '.mev/roles/old'))).toBe(false);
+    expect(await exists(join(home, '.mev/roles/stray-file'))).toBe(false);
     expect(await exists(join(home, '.mev/roles/.cmux.abcdef'))).toBe(true);
-    expect(await exists(join(home, '.mev/roles/brew/.cask.abcdef'))).toBe(true);
-    expect(await exists(join(home, '.mev/applied/cask'))).toBe(true);
+    expect(await exists(join(home, '.mev/applied/casks'))).toBe(true);
     expect(await exists(join(home, '.mev/applied/cmux'))).toBe(false);
     expect(await exists(join(home, '.mev/applied/.cmux.abcdef'))).toBe(true);
   },

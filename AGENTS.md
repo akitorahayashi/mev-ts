@@ -13,7 +13,7 @@ src/
   app/           ユースケースのオーケストレーション（identity、SSH hostの変更、リリースの自己更新、config-selection/上のconfig-toggle.ts）
   agent-plugin/  Claude Code/Codexのマーケットプレイスカタログ、インストール済みプラグインのインベントリ、インストールと有効化の操作
   assets/        埋め込みの設定アセットとアセットレジストリ（コード生成: registry.generated.ts）
-  brew/          BrewfileによるHomebrewの一括インストール
+  brew/          ロールのBrewfileの解析と、Homebrewの一括インストール
   coder/         Coderのセクション/スキルのカタログ、マニフェスト、レンダラー
   cli/
     commands/    コマンドごとに1クラス。registry.tsに列挙される。内部コマンド（hidden）はrunInternalCommandを共有する
@@ -37,7 +37,7 @@ src/
   provisioning/
     activation/  Activation DSLの語彙、kindごとのレジストリ（kinds.ts）、kindごとのランナー、reconcile envelope、マニフェストのローダー
     targets/     プロビジョニングのターゲットごとに1ファイル
-    signature.ts パッケージ、activationの意図、埋め込みアセットから導出する、ターゲットのセマンティックなシグネチャ
+    signature.ts activationの意図と、Brewfileを含む埋め込みアセットから導出する、ターゲットのセマンティックなシグネチャ
     applied.ts   成功したシグネチャを`~/.mev/applied/{target}`へアトミックに保存するストア
     role-state.ts アセット単位で、埋め込み版とデプロイ済み版のロールを比較する共有処理
     resource-outcome.ts ユーザーが管理するリソースのステータスとリデューサー
@@ -87,7 +87,7 @@ kindごとの表と、整合処理およびマニフェストの仕組みはdocs
 - `AssetRef`: `{ key }`。`key`は`src/assets/config/`配下の埋め込みパスで、`deployRoot`（`.mev/roles`、`mevRoot`から導出）配下のdeploy storeのサブパスも兼ねる。
 - `HostPath`: 適用時に`context.home`を基準に解決される論理パス。
 - `mevRoot`（`host/path.ts`、値は`.mev`）: mevが管理するすべてのパスをその下で所有する、単一のルート`~/.mev`の唯一の正本。配下には、deploy store（`deployRoot`）、生成されたエンティティと選択マニフェスト（coder、zed）、エージェントプラグインのソースの状態、identityの状態、symlink用のディレクトリ（`alias/`、`hooks/`、`rtk/`）がある。`host/path.ts`は`mevPath(...segments)`もエクスポートする。これは`mevRoot`の上にmevが所有するサブパスを組み立てる唯一のビルダーであり、そのため、mevが管理するホストのパスはすべて`mevRoot`から導出され、どの呼び出し箇所も`.mev`のリテラルや別のルートをハードコードしない。
-- `Target` / `MakePlan`: ターゲットは、正規名、エイリアス、ロール、パッケージ、`Activation[]`をまとめる。`planMake()`は、選択されたターゲットを、ターゲット名の帰属を保ったまま重複排除した1つのプランにマージする。ターゲットの完全な構造と、`create`/`sync`の選択における`optional`フラグの役割はdocs/architecture/targets.mdを参照。
+- `Target` / `MakePlan`: ターゲットは、正規名、エイリアス、ロール、`Activation[]`をまとめる。Homebrew要件はロール直下の`Brewfile`アセットが持つ。`planMake()`は、選択されたターゲットを、ターゲット名の帰属を保ったまま重複排除し、各ロールのBrewfileを解決した1つのプランにマージする。ターゲットの完全な構造と、`create`/`sync`の選択における`optional`フラグの役割はdocs/architecture/targets.mdを参照。
 - `Activation`、`ActivationDescription`、`CommandScope`は`activation/contract.ts`で、`ResourceOutcome`は`provisioning/resource-outcome.ts`で定義される。
 
 ### アセットのコード生成

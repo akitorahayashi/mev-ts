@@ -7,7 +7,6 @@ export const nodejsTarget = target('nodejs', {
   description: 'Node.js via fnm',
   aliases: ['nd'],
   role: 'nodejs',
-  packages: { formulae: ['fnm'] },
   activations: [
     link(asset('nodejs/.npmrc'), home('.npmrc')),
     runCommand({

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import type { AssetSource } from '../assets/registry';
-import type { PackageRequirement } from '../brew/package';
 import type { Activation, CommandStep } from './activation/contract';
 import type { Target } from './target';
 
@@ -14,21 +13,8 @@ export interface AssetIntent {
 interface SignatureInput {
   readonly target: string;
   readonly role: string;
-  readonly packages: PackageRequirement;
   readonly assets: readonly AssetIntent[];
   readonly activations: readonly unknown[];
-}
-
-function sortedUnique(values: readonly string[]): string[] {
-  return [...new Set(values)].sort();
-}
-
-function packageIntent(packages: PackageRequirement): PackageRequirement {
-  return {
-    taps: sortedUnique(packages.taps),
-    formulae: sortedUnique(packages.formulae),
-    casks: sortedUnique(packages.casks),
-  };
 }
 
 function stepIntent({ report: _report, ...intent }: CommandStep): unknown {
@@ -84,7 +70,6 @@ export function signatureOf(
   const input: SignatureInput = {
     target: target.name,
     role: target.role,
-    packages: packageIntent(target.packages),
     assets,
     activations: target.activations.map(activationIntent),
   };

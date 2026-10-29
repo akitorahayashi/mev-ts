@@ -1,0 +1,9 @@
+brew "fzf"
+brew "powerlevel10k"
+brew "zoxide"
+brew "zsh-autosuggestions"
+brew "zsh-syntax-highlighting"
+# Runtimes of the document conversion aliases, kept in the same target.
+brew "pandoc"
+brew "poppler"
+cask "google-chrome"
