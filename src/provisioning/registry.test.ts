@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { embeddedAssets } from '../assets/registry';
+import { manifestName } from '../brew/manifest';
 import type { Activation, AssetReference } from './activation/contract';
 import { handlerFor } from './activation/kinds';
 import { planMake } from './plan';
@@ -42,6 +43,25 @@ test('every activation references an existing asset under its own role', async (
       }
     }
   }
+});
+
+// A role Brewfile declares packages; an activation that also consumed it would
+// apply or link the declaration as configuration.
+test('no activation consumes its role Brewfile', () => {
+  const consumers: string[] = [];
+  for (const t of allTargets()) {
+    const brewfile = `${t.role}/${manifestName}`;
+    for (const activation of t.activations) {
+      for (const reference of referencedAssets(activation)) {
+        const consumed =
+          'key' in reference
+            ? reference.key === brewfile
+            : brewfile.startsWith(reference.prefix);
+        if (consumed) consumers.push(`${t.name}: ${activation.kind}`);
+      }
+    }
+  }
+  expect(consumers).toEqual([]);
 });
 
 test('every target deploys assets or runs activations', () => {

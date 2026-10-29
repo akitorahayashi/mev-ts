@@ -13,7 +13,7 @@
 | `optional` | trueのとき、環境全体の選択から除外される |
 | `perMachineInputs` | ターゲットの出力に反映される、マシンごとの情報 |
 
-ターゲットのHomebrew要件の正本は、ロール直下の`Brewfile`である。Brewfileを持たないロールは、Homebrewパッケージを必要としない。`planMake()`は、プロビジョニングの状態を変更する前に、[`src/brew/manifest.ts`](../../src/brew/manifest.ts)でこれを解析する。受け付けるのは、二重引用符で囲んだ名前1つを持つ`tap`、`brew`、`cask`の宣言とコメントだけで、オプションやその他のディレクティブは拒否する。この形式は`brew bundle dump`の出力と一致するため、デプロイされたBrewfileは`brew bundle check --file`でも使える。
+ターゲットのHomebrew要件の正本は、ロール直下の`Brewfile`である。Brewfileを持たないロールは、Homebrewパッケージを必要としない。`planMake()`は、プロビジョニングの状態を変更する前に、[`src/brew/manifest.ts`](../../src/brew/manifest.ts)でこれを解析する。受け付けるのは、二重引用符で囲んだ名前1つを持つ`tap`、`brew`、`cask`の宣言とコメントだけで、オプションやその他のディレクティブは拒否する。この形式は`brew bundle dump`の出力と一致するため、デプロイされたBrewfileは`brew bundle check --file`でも使える。activationは、ロールのBrewfileを参照せず、ツリーのプレフィックスにも含めない。ロールの設定をツリーとして扱うターゲットは、その設定をサブディレクトリに置く。
 
 `make`は、明示されたセレクターを解決する。`create`と`sync`は、登録済みの`optional`でない選択を使う。3つとも同じプロビジョニングのフェーズを使う。
 
