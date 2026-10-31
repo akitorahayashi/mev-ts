@@ -1,0 +1,5 @@
+interface:
+  display_name: "Direct answer"
+  short_description: "Answer the question asked, first, and keep facts apart from guesses"
+policy:
+  allow_implicit_invocation: false

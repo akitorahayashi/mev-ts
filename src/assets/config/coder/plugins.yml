@@ -14,7 +14,8 @@ marketplaces:
     #   uninstall: [diff-verify]
   - repo: akitorahayashi/work-plugins
     clients: [claude, codex]
-    plugins: [backlog, charles-traffic, code-incident-resolution, comment-review, direct-answer, issue-probe, qa-triage, repro-steps]
+    plugins: [backlog, charles-traffic, code-incident-resolution, comment-review, issue-probe, qa-triage, repro-steps]
+    uninstall: [direct-answer]
   - repo: akitorahayashi/prune-comments
     clients: [claude, codex]
     plugins: [prune-comments]
@@ -45,8 +46,6 @@ removed_marketplaces:
   - repo: akitorahayashi/code-incident-resolution
     clients: [claude, codex]
   - repo: akitorahayashi/comment-review
-    clients: [claude, codex]
-  - repo: akitorahayashi/direct-answer
     clients: [claude, codex]
   - repo: akitorahayashi/issue-probe
     clients: [claude, codex]
