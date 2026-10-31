@@ -18,6 +18,9 @@ skills-plugin = "git@github.com:akitorahayashi/skills-plugin.git"
 iphone-duo-playbook = "git@github.com:akitorahayashi/iphone-duo-playbook.git"
 work-plugins = "git@github.com:akitorahayashi/work-plugins.git"
 
+[groups.Swift]
+sample-todo-app = "git@github.com:akitorahayashi/sample-todo-app.git"
+
 [groups.TypeScript]
 mev-ts = "git@github.com:akitorahayashi/mev-ts.git"
 
