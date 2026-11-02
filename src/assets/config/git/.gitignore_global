@@ -16,6 +16,10 @@ Desktop.ini
 *.local.*
 .tmp
 
+# sourcekit-lsp build server bindings (machine-specific paths)
+buildServer.json
+.compile
+
 # Python cache / generated files
 __pycache__/
 *.py[cod]

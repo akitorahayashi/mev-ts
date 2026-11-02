@@ -18,6 +18,7 @@ import { InternalGitWorktreeMoveCommand } from './internal/git-worktree-move';
 import { InternalGitWorktreePathCommand } from './internal/git-worktree-path';
 import { InternalGitWorktreeRemoveCommand } from './internal/git-worktree-remove';
 import { InternalGitWorktreeTidyCommand } from './internal/git-worktree-tidy';
+import { InternalXcodeBindLspCommand } from './internal/xcode-bind-lsp';
 import { ListCommand } from './list';
 import { MakeCommand } from './make';
 import { SwitchCommand } from './switch';
@@ -59,4 +60,5 @@ export const commands: readonly CommandClass[] = [
   InternalGitWorktreeTidyCommand,
   InternalGhLabelsDeployCommand,
   InternalGhLabelsResetCommand,
+  InternalXcodeBindLspCommand,
 ];

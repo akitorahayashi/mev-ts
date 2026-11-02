@@ -140,6 +140,17 @@ pdf2md report.pdf
 
 ディレクトリの変換では相対的なツリーが保たれ、出力ディレクトリが指定されない場合の既定は`document_outputs`ディレクトリになる。`pdf2md`はテキストを抽出するだけで、意味的なMarkdown構造は推測しない。変換の境界は[document.md](architecture/document.md)を参照。
 
+## Swiftの言語サーバー
+
+`xc-lsp [directory] [--scheme|-s <scheme>]`は、`.xcworkspace`、`.xcodeproj`、`Package.swift`のいずれかを含むディレクトリ（既定はカレントディレクトリ）に`buildServer.json`を書き出し、Zedなどのエディターのsourcekit-lspがXcodeのコンパイラフラグでシンボルを解決できるようにする。これがないと、sourcekit-lspはmacOS向けの単一ファイルの解析にフォールバックし、他のファイルの型やiOS専用のAPIを解決できない。`xcode-build-server`は`mev make xcode`で入る。
+
+| プロジェクト | 束縛 | 更新 |
+|---|---|---|
+| `.xcworkspace`（なければ`.xcodeproj`） | 最新のXcodeのビルドログ。`--scheme`がない場合は最後にビルドしたスキーム | Xcodeでビルドするたびに追従する |
+| `Package.swift` | iOS Simulator向けの1回の`xcodebuild`のログ。スキームが複数ある場合は`--scheme`が必須 | ファイルの追加やビルド設定の変更のあとに再実行する |
+
+`Package.swift`を`xcodebuild`経由でビルドするのは、Swift Playgroundsのアプリパッケージ（`.swiftpm`）のマニフェストが、XcodeのSwiftPMだけが読み込める`AppleProductTypes`をimportするためである。束縛のあとは、エディターでSwiftの言語サーバーを再起動する（Zedでは`editor: restart language server`）。`buildServer.json`と`.compile`はマシン固有の絶対パスを含むため、グローバルのgitignoreが除外する。
+
 ## グローバルフラグ
 
 | フラグ | 動作 |

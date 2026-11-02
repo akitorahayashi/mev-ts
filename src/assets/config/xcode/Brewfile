@@ -1,3 +1,4 @@
 brew "mint"
 brew "xcbeautify"
+brew "xcode-build-server"
 brew "xcodes"

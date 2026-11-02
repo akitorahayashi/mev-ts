@@ -167,3 +167,25 @@ for (const path of INTERNAL_LEAVES) {
     },
   );
 }
+
+for (const flag of ['--scheme', '-s']) {
+  sandboxTest(
+    `xcode bind-lsp takes the package scheme from ${flag}`,
+    async (sandbox) => {
+      const project = join(sandbox, 'App.swiftpm');
+      await mkdir(project);
+      await writeFile(join(project, 'Package.swift'), '');
+
+      const result = await runCli(
+        ['internal', 'xcode', 'bind-lsp', project, flag, 'App'],
+        sandbox,
+      );
+
+      // A given scheme skips `xcodebuild -list`, so the empty PATH first fails
+      // at the build itself.
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('xcodebuild failed with code 127');
+      expect(result.stderr).not.toContain('-list');
+    },
+  );
+}

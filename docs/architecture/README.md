@@ -22,7 +22,7 @@
 | `coder/`、`zed/`、`config-selection/` | カタログ、マニフェスト、選択に応じて生成される設定 |
 | `brew/`、`defaults/`、`duti/`、`editor/`、`pipx/`、`pnpm/` | 外部ツールのプロトコル |
 | `host/` | Context、サブプロセス、ファイル、パース、トランザクション、共有されるホストの境界 |
-| `assets/`、`identity/`、`git/`、`internal/` | 埋め込みアセット、Git identity、Gitのヘルパー、文書とGitの隠しコマンド |
+| `assets/`、`identity/`、`git/`、`internal/` | 埋め込みアセット、Git identity、Gitのヘルパー、文書、Git、Xcodeの隠しコマンド |
 
 ## 文書
 
