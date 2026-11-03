@@ -31,6 +31,7 @@ import { defaultsKind } from './defaults';
 import { dutiKind } from './duti';
 import { extensionsKind } from './extensions';
 import { describeGroveConfig, runGroveConfig } from './grove-config';
+import { huggingfaceKind } from './huggingface';
 import { pipxKind } from './pipx';
 import { pnpmKind } from './pnpm';
 import { releaseKind } from './release';
@@ -134,6 +135,7 @@ export const activationKinds: ActivationKinds = {
   duti: dutiKind,
   pipx: pipxKind,
   pnpm: pnpmKind,
+  huggingfaceModels: huggingfaceKind,
   editorExtensions: extensionsKind,
   release: releaseKind,
   coderAgents: {

@@ -10,6 +10,7 @@ import { ghosttyTarget } from './targets/ghostty';
 import { gitTarget } from './targets/git';
 import { groveTarget } from './targets/grove';
 import { herdrTarget } from './targets/herdr';
+import { hfTarget } from './targets/hf';
 import { microTarget } from './targets/micro';
 import { nodejsTarget } from './targets/nodejs';
 import { nvimTarget } from './targets/nvim';
@@ -35,6 +36,7 @@ const targets: readonly Target[] = [
   systemTarget,
   pythonTarget,
   pipxTarget,
+  hfTarget,
   rubyTarget,
   nodejsTarget,
   pnpmTarget,

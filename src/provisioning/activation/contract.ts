@@ -53,6 +53,10 @@ export type Activation =
       readonly configKey: string;
     }
   | {
+      readonly kind: 'huggingfaceModels';
+      readonly configKey: string;
+    }
+  | {
       readonly kind: 'editorExtensions';
       readonly command: string;
       readonly configKey: string;
