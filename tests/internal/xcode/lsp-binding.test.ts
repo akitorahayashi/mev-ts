@@ -50,44 +50,172 @@ function scriptedRunner(
 
 const silent = () => {};
 
+const PLAYGROUND_MANIFEST =
+  'import PackageDescription\nimport AppleProductTypes\n';
+const PLAIN_MANIFEST = 'import PackageDescription\n';
+
+const sweetpadWrote = (path: string): CommandResult =>
+  ok(JSON.stringify({ schema: 1, ok: true, data: { buildServerJson: path } }));
+
 sandboxTest(
-  'binds a workspace to Xcode build logs in preference to its project',
+  'binds a workspace through sweetpad in preference to its project',
   async (directory) => {
     await mkdir(join(directory, 'App.xcworkspace'));
     await mkdir(join(directory, 'App.xcodeproj'));
     const calls: Call[] = [];
+    const messages: string[] = [];
 
     await bindXcodeLsp(
-      scriptedRunner([ok()], calls),
-      { directory, scheme: 'App' },
-      silent,
+      scriptedRunner([sweetpadWrote('buildServer.json')], calls),
+      { directory },
+      (message) => messages.push(message),
     );
 
     expect(calls).toEqual([
       {
-        command: 'xcode-build-server',
-        args: ['config', '-workspace', 'App.xcworkspace', '-scheme', 'App'],
+        command: 'sweetpad',
+        args: [
+          '--json',
+          '--non-interactive',
+          'bsp',
+          'init',
+          '--workspace',
+          'App.xcworkspace',
+        ],
         cwd: directory,
       },
     ]);
+    expect(messages.join('')).toContain(join(directory, 'buildServer.json'));
+  },
+);
+
+sandboxTest('binds a lone project through sweetpad', async (directory) => {
+  await mkdir(join(directory, 'App.xcodeproj'));
+  const calls: Call[] = [];
+
+  await bindXcodeLsp(
+    scriptedRunner([sweetpadWrote(join(directory, 'buildServer.json'))], calls),
+    { directory },
+    silent,
+  );
+
+  expect(calls).toEqual([
+    {
+      command: 'sweetpad',
+      args: [
+        '--json',
+        '--non-interactive',
+        'bsp',
+        'init',
+        '--project',
+        'App.xcodeproj',
+      ],
+      cwd: directory,
+    },
+  ]);
+});
+
+for (const [layout, prepare] of [
+  [
+    'an Xcode project',
+    (directory: string) => mkdir(join(directory, 'App.xcodeproj')),
+  ],
+  [
+    'a plain package',
+    (directory: string) =>
+      writeFile(join(directory, 'Package.swift'), PLAIN_MANIFEST),
+  ],
+] as const) {
+  sandboxTest(
+    `rejects --scheme for ${layout} before running anything`,
+    async (directory) => {
+      await prepare(directory);
+      const calls: Call[] = [];
+
+      await expect(
+        bindXcodeLsp(
+          scriptedRunner([], calls),
+          { directory, scheme: 'App' },
+          silent,
+        ),
+      ).rejects.toBeInstanceOf(CommandLineError);
+      expect(calls).toHaveLength(0);
+    },
+  );
+}
+
+sandboxTest(
+  'names the target that installs sweetpad when it is missing',
+  async (directory) => {
+    await mkdir(join(directory, 'App.xcodeproj'));
+
+    await expect(
+      bindXcodeLsp(
+        scriptedRunner(
+          [{ code: 127, stdout: '', stderr: 'spawn sweetpad ENOENT' }],
+          [],
+        ),
+        { directory },
+        silent,
+      ),
+    ).rejects.toThrow('mev make sp');
   },
 );
 
 sandboxTest(
-  'binds a lone project and leaves the scheme to the latest build',
+  'rejects a sweetpad envelope that reports failure',
   async (directory) => {
     await mkdir(join(directory, 'App.xcodeproj'));
-    const calls: Call[] = [];
 
-    await bindXcodeLsp(scriptedRunner([ok()], calls), { directory }, silent);
+    await expect(
+      bindXcodeLsp(
+        scriptedRunner([ok(JSON.stringify({ schema: 1, ok: false }))], []),
+        { directory },
+        silent,
+      ),
+    ).rejects.toBeInstanceOf(XcodeLspBindingError);
+  },
+);
 
-    expect(calls).toEqual([
-      {
-        command: 'xcode-build-server',
-        args: ['config', '-project', 'App.xcodeproj'],
-        cwd: directory,
+sandboxTest(
+  'reports the message of a failure envelope sweetpad prints on stderr',
+  async (directory) => {
+    await mkdir(join(directory, 'App.xcodeproj'));
+    const envelope = JSON.stringify({
+      schema: 1,
+      ok: false,
+      error: {
+        code: 'target_resolution',
+        message: '--project App.xcodeproj: no such path',
       },
-    ]);
+    });
+
+    const error: unknown = await bindXcodeLsp(
+      scriptedRunner([{ code: 4, stdout: '', stderr: envelope }], []),
+      { directory },
+      silent,
+    ).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(XcodeLspBindingError);
+    expect((error as Error).message).toContain(
+      '--project App.xcodeproj: no such path',
+    );
+    expect((error as Error).message).not.toContain('"schema"');
+  },
+);
+
+sandboxTest(
+  'surfaces a failed sweetpad run without an envelope',
+  async (directory) => {
+    await mkdir(join(directory, 'App.xcodeproj'));
+
+    await expect(
+      bindXcodeLsp(
+        scriptedRunner([fail('error: unexpected argument')], []),
+        { directory },
+        silent,
+      ),
+    ).rejects.toThrow('sweetpad bsp init failed');
   },
 );
 
@@ -107,9 +235,35 @@ sandboxTest('rejects a directory without a project', async (directory) => {
 });
 
 sandboxTest(
-  'builds a package for the iOS Simulator and parses the build log',
+  'leaves a plain package to sourcekit-lsp and removes a stale binding',
   async (directory) => {
-    await writeFile(join(directory, 'Package.swift'), '');
+    await writeFile(join(directory, 'Package.swift'), PLAIN_MANIFEST);
+    await writeFile(join(directory, 'buildServer.json'), '{}');
+    await writeFile(join(directory, '.compile'), '[]');
+    const calls: Call[] = [];
+
+    await bindXcodeLsp(scriptedRunner([], calls), { directory }, silent);
+
+    expect(calls).toHaveLength(0);
+    expect(existsSync(join(directory, 'buildServer.json'))).toBe(false);
+    expect(existsSync(join(directory, '.compile'))).toBe(false);
+  },
+);
+
+sandboxTest('leaves an unbound plain package untouched', async (directory) => {
+  await writeFile(join(directory, 'Package.swift'), PLAIN_MANIFEST);
+  const calls: Call[] = [];
+
+  await bindXcodeLsp(scriptedRunner([], calls), { directory }, silent);
+
+  expect(calls).toHaveLength(0);
+  expect(existsSync(join(directory, 'buildServer.json'))).toBe(false);
+});
+
+sandboxTest(
+  'builds a Playgrounds package for the iOS Simulator and parses the build log',
+  async (directory) => {
+    await writeFile(join(directory, 'Package.swift'), PLAYGROUND_MANIFEST);
     const calls: Call[] = [];
     const listing = JSON.stringify({
       workspace: { name: 'App', schemes: ['App'] },
@@ -148,9 +302,9 @@ sandboxTest(
 );
 
 sandboxTest(
-  'requires --scheme when a package has several schemes',
+  'requires --scheme when a Playgrounds package has several schemes',
   async (directory) => {
-    await writeFile(join(directory, 'Package.swift'), '');
+    await writeFile(join(directory, 'Package.swift'), PLAYGROUND_MANIFEST);
     const calls: Call[] = [];
     const listing = JSON.stringify({
       workspace: { name: 'App', schemes: ['App', 'AppTests'] },
@@ -164,9 +318,9 @@ sandboxTest(
 );
 
 sandboxTest(
-  'reports compiler errors and skips parsing when the package build fails',
+  'reports compiler errors and skips parsing when the Playgrounds build fails',
   async (directory) => {
-    await writeFile(join(directory, 'Package.swift'), '');
+    await writeFile(join(directory, 'Package.swift'), PLAYGROUND_MANIFEST);
     const calls: Call[] = [];
 
     const binding = bindXcodeLsp(
@@ -190,7 +344,7 @@ sandboxTest(
 );
 
 sandboxTest('surfaces a failed parse as a binding error', async (directory) => {
-  await writeFile(join(directory, 'Package.swift'), '');
+  await writeFile(join(directory, 'Package.swift'), PLAYGROUND_MANIFEST);
 
   await expect(
     bindXcodeLsp(

@@ -28,10 +28,13 @@ export type VersionInventory = Readonly<
 
 // `brew list -1` and `brew tap` are directory listings without Ruby startup,
 // so a full inventory costs milliseconds regardless of package count.
+// `--full-name` lists tapped packages as `owner/tap/name`, the form a Brewfile
+// declares them in; against the short listing a qualified declaration never
+// counts as installed, so it would reinstall every run and never upgrade.
 const enumerations: Record<PackageKind, readonly string[]> = {
   tap: ['tap'],
-  formula: ['list', '--formula', '-1'],
-  cask: ['list', '--cask', '-1'],
+  formula: ['list', '--formula', '-1', '--full-name'],
+  cask: ['list', '--cask', '-1', '--full-name'],
 };
 
 const unprobed: KindInventory = { loaded: true, names: new Set() };
@@ -170,7 +173,7 @@ function installedVersionMaps(
         `Invalid ${label}: ${collectionName}[${index}] must be an object.`,
       );
     }
-    const nameField = kind === 'formula' ? 'name' : 'token';
+    const nameField = kind === 'formula' ? 'full_name' : 'full_token';
     const reportedName = entry[nameField];
     if (typeof reportedName !== 'string' || reportedName.trim() === '') {
       throw new ProvisioningError(

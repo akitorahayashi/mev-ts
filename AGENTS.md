@@ -33,7 +33,7 @@ src/
     document/    Pandoc/Popplerによる変換と、ブラウザーによるPDFのレンダリング
     gh/          GitHub CLIのラッパー
     git/         Gitのラッパー（ブランチ、clone、submodule、worktree）
-    xcode/       xcode-build-serverによる、sourcekit-lspとXcodeのビルドの結び付け
+    xcode/       sweetpadとxcode-build-serverによる、sourcekit-lspとXcodeのビルドの結び付け
   pipx/          pipxのinstall、inject、post-installの操作
   pnpm/          fnmのランタイム経由でのpnpmグローバルパッケージのインストールと削除
   provisioning/
@@ -88,7 +88,7 @@ kindごとの表と、整合処理およびマニフェストの仕組みはdocs
 - `Context`: `{ home, commands: CommandRunner, assets: AssetSource, basePath, tmpRoot }`。すべてのプロビジョニング呼び出しを通じて注入され、`createContext()`が組み立てる。テストは`createContext()`を呼ぶ代わりに、`tests/fixtures/`経由で手書きのフェイクを渡す。`basePath`/`tmpRoot`/環境変数の読み取りの仕組みと`CommandRunner.run`の契約はdocs/architecture/host.mdを参照。
 - `AssetRef`: `{ key }`。`key`は`src/assets/config/`配下の埋め込みパスで、`deployRoot`（`.mev/roles`、`mevRoot`から導出）配下のdeploy storeのサブパスも兼ねる。
 - `HostPath`: 適用時に`context.home`を基準に解決される論理パス。
-- `mevRoot`（`host/path.ts`、値は`.mev`）: mevが管理するすべてのパスをその下で所有する、単一のルート`~/.mev`の唯一の正本。配下には、deploy store（`deployRoot`）、生成されたエンティティと選択マニフェスト（coder、zed）、エージェントプラグインのソースの状態、identityの状態、symlink用のディレクトリ（`alias/`、`hooks/`、`rtk/`）がある。`host/path.ts`は`mevPath(...segments)`もエクスポートする。これは`mevRoot`の上にmevが所有するサブパスを組み立てる唯一のビルダーであり、そのため、mevが管理するホストのパスはすべて`mevRoot`から導出され、どの呼び出し箇所も`.mev`のリテラルや別のルートをハードコードしない。
+- `mevRoot`（`host/path.ts`、値は`.mev`）: mevが管理するすべてのパスをその下で所有する、単一のルート`~/.mev`の唯一の正本。配下には、deploy store（`deployRoot`）、生成されたエンティティと選択マニフェスト（coder、zed）、エージェントプラグインのソースの状態、identityの状態、symlink用のディレクトリ（`alias/`、`hooks/`、`rtk/`）、`.zshrc`がfpathに加えるzsh補完の生成先（`completions/`）がある。`host/path.ts`は`mevPath(...segments)`もエクスポートする。これは`mevRoot`の上にmevが所有するサブパスを組み立てる唯一のビルダーであり、そのため、mevが管理するホストのパスはすべて`mevRoot`から導出され、どの呼び出し箇所も`.mev`のリテラルや別のルートをハードコードしない。
 - `Target` / `MakePlan`: ターゲットは、正規名、エイリアス、ロール、`Activation[]`をまとめる。Homebrew要件はロール直下の`Brewfile`アセットが持つ。`planMake()`は、選択されたターゲットを、ターゲット名の帰属を保ったまま重複排除し、各ロールのBrewfileを解決した1つのプランにマージする。ターゲットの完全な構造と、`create`/`sync`の選択における`optional`フラグの役割はdocs/architecture/targets.mdを参照。
 - `Activation`、`ActivationDescription`、`CommandScope`は`activation/contract.ts`で、`ResourceOutcome`は`provisioning/resource-outcome.ts`で定義される。
 

@@ -174,7 +174,10 @@ for (const flag of ['--scheme', '-s']) {
     async (sandbox) => {
       const project = join(sandbox, 'App.swiftpm');
       await mkdir(project);
-      await writeFile(join(project, 'Package.swift'), '');
+      await writeFile(
+        join(project, 'Package.swift'),
+        'import AppleProductTypes\n',
+      );
 
       const result = await runCli(
         ['internal', 'xcode', 'bind-lsp', project, flag, 'App'],

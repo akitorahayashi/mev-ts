@@ -21,6 +21,7 @@ import { rubyTarget } from './targets/ruby';
 import { rustTarget } from './targets/rust';
 import { rustCliTarget } from './targets/rust-cli';
 import { shellTarget } from './targets/shell';
+import { sweetpadTarget } from './targets/sweetpad';
 import { systemTarget } from './targets/system';
 import { vscodeTarget } from './targets/vscode';
 import { xcodeTarget } from './targets/xcode';
@@ -53,6 +54,7 @@ const targets: readonly Target[] = [
   zedTarget,
   vscodeTarget,
   xcodeTarget,
+  sweetpadTarget,
 ];
 
 export function resolveTarget(selector: string): Target {

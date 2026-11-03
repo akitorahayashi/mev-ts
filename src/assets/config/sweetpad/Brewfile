@@ -1,0 +1,2 @@
+tap "sweetpad-dev/tap"
+brew "sweetpad-dev/tap/sweetpad"

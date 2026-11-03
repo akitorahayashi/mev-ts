@@ -1,0 +1,8 @@
+alias xs="xcodes"
+alias xs-v="xcodes version"
+alias xs-u="xcodes update"
+alias xs-ls="xcodes list"
+alias xs-sl="xcodes select"
+alias xs-i="xcodes install"
+alias xs-id="xcodes installed"
+alias xs-ui="xcodes uninstall"

@@ -1,7 +1,11 @@
+import { mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { ProvisioningError } from '../../errors';
 import { lstatIfPresent } from '../../host/absence';
+import { writeFileIfChanged } from '../../host/atomic-file';
 import type { CommandOptions, CommandResult } from '../../host/command';
 import type { Context } from '../../host/context';
+import { resolveHostPath, symbolic } from '../../host/path';
 import type {
   Activation,
   ActivationDescription,
@@ -18,9 +22,13 @@ import type {
 import { activationReport, guarded, stepOutcome } from './reconcile';
 
 type CommandActivation = Extract<Activation, { kind: 'command' }>;
-type UnreportedCommandStep = Omit<CommandStep, 'capture' | 'report'> & {
+type UnreportedCommandStep = Omit<
+  CommandStep,
+  'capture' | 'report' | 'stdoutTo'
+> & {
   readonly capture?: never;
   readonly report?: never;
+  readonly stdoutTo?: never;
 };
 type CommandInput = Omit<CommandActivation, 'kind' | 'steps'> & {
   readonly steps: readonly (CommandStep | UnreportedCommandStep)[];
@@ -35,7 +43,13 @@ export function runCommand(input: CommandInput): Activation {
     }
   }
   const steps: CommandStep[] = input.steps.map((step) => {
-    if (step.capture !== undefined || step.report) return step as CommandStep;
+    if (
+      step.capture !== undefined ||
+      step.report ||
+      step.stdoutTo !== undefined
+    ) {
+      return step as CommandStep;
+    }
     return {
       ...step,
       report: {
@@ -246,7 +260,9 @@ export async function runCommandStep(
   const env = step.env ? resolveEnv(step.env, scope) : undefined;
   const subject = step.report
     ? resolveArg(step.report.subject, scope).join('')
-    : label;
+    : step.stdoutTo
+      ? symbolic(step.stdoutTo)
+      : label;
 
   if (
     step.skipIf &&
@@ -267,6 +283,17 @@ export async function runCommandStep(
       value: argv.join(' '),
       status: 'failed',
       error: result.stderr.trim() || `exit code ${result.code}`,
+    };
+  }
+
+  if (step.stdoutTo) {
+    const dest = resolveHostPath(step.stdoutTo, context.home);
+    await mkdir(dirname(dest), { recursive: true });
+    const written = await writeFileIfChanged(dest, result.stdout);
+    return {
+      key: subject,
+      value: written ? 'generated' : 'already current',
+      status: written ? 'changed' : 'unchanged',
     };
   }
 

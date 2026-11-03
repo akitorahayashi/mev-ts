@@ -160,14 +160,15 @@ pdf2md report.pdf
 
 ## Swiftの言語サーバー
 
-`xc-lsp [directory] [--scheme|-s <scheme>]`は、`.xcworkspace`、`.xcodeproj`、`Package.swift`のいずれかを含むディレクトリ（既定はカレントディレクトリ）に`buildServer.json`を書き出し、Zedなどのエディターのsourcekit-lspがXcodeのコンパイラフラグでシンボルを解決できるようにする。これがないと、sourcekit-lspはmacOS向けの単一ファイルの解析にフォールバックし、他のファイルの型やiOS専用のAPIを解決できない。`xcode-build-server`は`mev make xcode`で入る。
+`xc-lsp [directory] [--scheme|-s <scheme>]`は、`.xcworkspace`、`.xcodeproj`、`Package.swift`のいずれかを含むディレクトリ（既定はカレントディレクトリ）について、Zedなどのエディターのsourcekit-lspがXcodeのコンパイラフラグでシンボルを解決できるよう、プロジェクトの種別に応じた束縛へ収束させる。Xcodeのプロジェクトでは、`buildServer.json`がないとsourcekit-lspはmacOS向けの単一ファイルの解析にフォールバックし、他のファイルの型やiOS専用のAPIを解決できない。`sweetpad`は`mev make sp`で、`xcode-build-server`は`mev make xcode`で入る。
 
 | プロジェクト | 束縛 | 更新 |
 |---|---|---|
-| `.xcworkspace`（なければ`.xcodeproj`） | 最新のXcodeのビルドログ。`--scheme`がない場合は最後にビルドしたスキーム | Xcodeでビルドするたびに追従する |
-| `Package.swift` | iOS Simulator向けの1回の`xcodebuild`のログ。スキームが複数ある場合は`--scheme`が必須 | ファイルの追加やビルド設定の変更のあとに再実行する |
+| `.xcworkspace`（なければ`.xcodeproj`） | `sweetpad bsp init`が書く`buildServer.json`。sweetpadがBSPサーバーとしてプロジェクトからコンパイラフラグを導出する | 不要。sourcekit-lspのバックグラウンドインデックスがsweetpad経由でビルドし、ファイルの追加やビルド設定の変更に追従する |
+| `import AppleProductTypes`を含む`Package.swift`（Swift Playgroundsのアプリパッケージ） | iOS Simulator向けの1回の`xcodebuild`のログを`xcode-build-server parse`で束縛する。スキームが複数ある場合は`--scheme`が必須 | ファイルの追加やビルド設定の変更のあとに再実行する |
+| それ以外の`Package.swift` | 束縛しない。sourcekit-lsp自身のSwiftPM対応がビルドする。以前の束縛が残した`buildServer.json`と`.compile`は削除する | 不要 |
 
-`Package.swift`を`xcodebuild`経由でビルドするのは、Swift Playgroundsのアプリパッケージ（`.swiftpm`）のマニフェストが、XcodeのSwiftPMだけが読み込める`AppleProductTypes`をimportするためである。束縛のあとは、エディターでSwiftの言語サーバーを再起動する（Zedでは`editor: restart language server`）。`buildServer.json`と`.compile`はマシン固有の絶対パスを含むため、グローバルのgitignoreが除外する。
+Playgroundsのアプリパッケージだけを`xcodebuild`経由でビルドするのは、そのマニフェストがimportする`AppleProductTypes`を、XcodeのSwiftPMしか読み込めないためである。sweetpadとsourcekit-lspはこのマニフェストを扱えない。`--scheme`はこの種別だけが受け付ける。束縛のあとは、エディターでSwiftの言語サーバーを再起動する（Zedでは`editor: restart language server`）。`buildServer.json`と`.compile`はマシン固有の絶対パスを含むため、グローバルのgitignoreが除外する。
 
 ## グローバルフラグ
 

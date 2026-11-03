@@ -34,6 +34,10 @@ interface BrewState {
   readonly installCode?: number;
 }
 
+function shortName(name: string): string {
+  return name.split('/').at(-1) ?? name;
+}
+
 function brewContext(
   home: string,
   state: BrewState,
@@ -51,7 +55,11 @@ function brewContext(
       }
       if (args[0] === 'list') {
         const names = args.includes('--cask') ? state.casks : state.formulae;
-        return { code: 0, stdout: (names ?? []).join('\n'), stderr: '' };
+        // Homebrew lists a tapped package by its bare name unless --full-name.
+        const listed = args.includes('--full-name')
+          ? (names ?? [])
+          : (names ?? []).map(shortName);
+        return { code: 0, stdout: listed.join('\n'), stderr: '' };
       }
       if (args[0] === 'info') {
         const kind = args.includes('--cask') ? 'cask' : 'formula';
@@ -62,7 +70,8 @@ function brewContext(
             code: 0,
             stdout: JSON.stringify({
               casks: names.map((name) => ({
-                token: name,
+                token: shortName(name),
+                full_token: name,
                 installed:
                   (upgraded.has(`cask:${name}`)
                     ? state.upgradedCaskVersions?.[name]
@@ -78,7 +87,8 @@ function brewContext(
           code: 0,
           stdout: JSON.stringify({
             formulae: names.map((name) => ({
-              name,
+              name: shortName(name),
+              full_name: name,
               installed: (
                 (upgraded.has(`formula:${name}`)
                   ? state.upgradedFormulaVersions?.[name]
@@ -176,6 +186,54 @@ test('upgrade mode reports a changed installed formula with both versions', asyn
   });
 });
 
+test('reports a tapped formula declared by its qualified name as present', async (sandbox) => {
+  const sink: Sink = {};
+  const reports = await installPackages(
+    packages({ taps: ['owner/tap'], formulae: ['owner/tap/tool'] }),
+    brewContext(
+      sandbox,
+      { taps: ['owner/tap'], formulae: ['owner/tap/tool'] },
+      sink,
+    ),
+  );
+
+  expect(reports.map((report) => report.status)).toEqual([
+    'present',
+    'present',
+  ]);
+  expect(recordedArgs(sink).some((args) => args[0] === 'bundle')).toBe(false);
+});
+
+test('upgrade mode upgrades a tapped formula under its qualified name', async (sandbox) => {
+  const sink: Sink = {};
+  const reports = await installPackages(
+    packages({ formulae: ['owner/tap/tool'] }),
+    brewContext(
+      sandbox,
+      {
+        formulae: ['owner/tap/tool'],
+        formulaVersions: { 'owner/tap/tool': ['1.0.0'] },
+        upgradedFormulaVersions: { 'owner/tap/tool': ['1.1.0'] },
+      },
+      sink,
+    ),
+    { upgrade: true },
+  );
+
+  expect(reports[0]).toEqual({
+    token: { kind: 'formula', name: 'owner/tap/tool' },
+    status: 'upgraded',
+    previousVersions: ['1.0.0'],
+    versions: ['1.1.0'],
+  });
+  expect(recordedArgs(sink)).toContainEqual([
+    'upgrade',
+    '--no-ask',
+    '--formula',
+    'owner/tap/tool',
+  ]);
+});
+
 test('upgrade mode upgrades an installed cask and leaves an installed tap alone', async (sandbox) => {
   const sink: Sink = {};
   const reports = await installPackages(
@@ -252,7 +310,7 @@ test('a failed formula upgrade fails the package', async (sandbox) => {
         return {
           code: 0,
           stdout: JSON.stringify({
-            formulae: [{ name: 'git', installed: [{ version: '1.0.0' }] }],
+            formulae: [{ full_name: 'git', installed: [{ version: '1.0.0' }] }],
           }),
           stderr: '',
         };
@@ -341,10 +399,10 @@ test('a malformed package version does not prevent other upgrades in the batch',
             formulae:
               infoCalls === 1
                 ? [
-                    { name: 'git' },
-                    { name: 'gh', installed: [{ version: '2.80.0' }] },
+                    { full_name: 'git' },
+                    { full_name: 'gh', installed: [{ version: '2.80.0' }] },
                   ]
-                : [{ name: 'gh', installed: [{ version: '2.80.0' }] }],
+                : [{ full_name: 'gh', installed: [{ version: '2.80.0' }] }],
           }),
           stderr: '',
         };
@@ -387,7 +445,7 @@ test('ticks each upgrade when its brew command completes', async (sandbox) => {
           code: 0,
           stdout: JSON.stringify({
             formulae: ['git', 'gh'].map((name) => ({
-              name,
+              full_name: name,
               installed: [{ version: '1.0.0' }],
             })),
           }),
@@ -430,7 +488,7 @@ test('fails a successful upgrade when the post-upgrade version is absent', async
           stdout: JSON.stringify({
             formulae: [
               {
-                name: 'git',
+                full_name: 'git',
                 installed: infoCalls === 1 ? [{ version: '1.0.0' }] : [],
               },
             ],
@@ -467,7 +525,9 @@ test('fails a successful upgrade when the post-upgrade probe fails', async (sand
           ? {
               code: 0,
               stdout: JSON.stringify({
-                formulae: [{ name: 'git', installed: [{ version: '1.0.0' }] }],
+                formulae: [
+                  { full_name: 'git', installed: [{ version: '1.0.0' }] },
+                ],
               }),
               stderr: '',
             }
@@ -562,7 +622,7 @@ test('a failed enumeration fails every token of that kind without installing', a
   expect(reports.map((report) => report.status)).toEqual(['failed', 'failed']);
   expect(reports[0]).toMatchObject({
     status: 'failed',
-    error: 'brew list --formula -1 failed with code 1: brew broken',
+    error: 'brew list --formula -1 --full-name failed with code 1: brew broken',
   });
   expect(calls.some((call) => call.args[0] === 'bundle')).toBe(false);
 });

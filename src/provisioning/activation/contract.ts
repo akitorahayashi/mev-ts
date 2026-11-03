@@ -236,10 +236,24 @@ export type CommandStep =
   | (CommandStepBase & {
       readonly capture: string;
       readonly report?: never;
+      readonly stdoutTo?: never;
     })
   | (CommandStepBase & {
       readonly capture?: never;
       readonly report: CommandStepReport;
+      readonly stdoutTo?: never;
+    })
+  /**
+   * Materializes stdout as the file at `stdoutTo`. Whether the file content
+   * changed is the step's change classification, so `changedWhen` and `report`
+   * do not apply; a shell redirect would hide the destination from the
+   * signature and report a change on every run.
+   */
+  | (Omit<CommandStepBase, 'changedWhen'> & {
+      readonly capture?: never;
+      readonly report?: never;
+      readonly changedWhen?: never;
+      readonly stdoutTo: HostPath;
     });
 
 export interface RemoteInstallerUpgrade {

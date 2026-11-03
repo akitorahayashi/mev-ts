@@ -1,10 +1,27 @@
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { AppError, CommandLineError, errorMessage } from '../../errors';
 import { runWithCleanup } from '../../host/cleanup-error';
-import type { CommandRunner } from '../../host/command';
+import {
+  type CommandResult,
+  type CommandRunner,
+  formatCommandFailure,
+} from '../../host/command';
 import { runProcessStep } from '../../host/command-run';
+import {
+  isRecord,
+  parseJsonLabeled,
+  requireNonEmptyString,
+  requireRecord,
+} from '../../host/parse';
 
 export class XcodeLspBindingError extends AppError {}
 
@@ -15,8 +32,18 @@ const xcodeLspBindingError = (message: string): Error =>
 // code signing, so it works without the package's team being provisioned.
 const PACKAGE_DESTINATION = 'generic/platform=iOS Simulator';
 
+// Only Xcode's SwiftPM can load a manifest that imports AppleProductTypes;
+// sweetpad and sourcekit-lsp both fail on it, so the import, not the `.swiftpm`
+// directory name, selects the Xcode build path.
+const PLAYGROUND_IMPORT = /^\s*import\s+AppleProductTypes\b/m;
+
+// sourcekit-lsp prefers a buildServer.json over its own SwiftPM support, so a
+// binding left behind in a package directory would pin it to an old build log.
+const BINDING_FILES = ['buildServer.json', '.compile'] as const;
+
 type XcodeProject =
   | { readonly kind: 'workspace' | 'project'; readonly name: string }
+  | { readonly kind: 'playground' }
   | { readonly kind: 'package' };
 
 export interface XcodeLspBindingRequest {
@@ -45,9 +72,92 @@ async function detectProject(directory: string): Promise<XcodeProject> {
     const [name] = names;
     if (name !== undefined) return { kind, name };
   }
-  if (entries.includes('Package.swift')) return { kind: 'package' };
-  throw new XcodeLspBindingError(
-    `${directory} contains no .xcworkspace, .xcodeproj, or Package.swift.`,
+  if (!entries.includes('Package.swift')) {
+    throw new XcodeLspBindingError(
+      `${directory} contains no .xcworkspace, .xcodeproj, or Package.swift.`,
+    );
+  }
+  const manifestPath = join(directory, 'Package.swift');
+  let manifest: string;
+  try {
+    manifest = await readFile(manifestPath, 'utf8');
+  } catch (error) {
+    throw new XcodeLspBindingError(
+      `Cannot read ${manifestPath}: ${errorMessage(error)}`,
+    );
+  }
+  return { kind: PLAYGROUND_IMPORT.test(manifest) ? 'playground' : 'package' };
+}
+
+// Under `--json`, sweetpad prints a failure envelope on stderr (see `sweetpad
+// help exit-codes`); only a flag clap rejects is reported as plain usage text,
+// so raw output is the detail when no envelope parses.
+function sweetpadFailure(result: CommandResult): string {
+  let envelope: unknown;
+  try {
+    envelope = JSON.parse(result.stderr);
+  } catch {
+    envelope = undefined;
+  }
+  const message =
+    isRecord(envelope) && isRecord(envelope['error'])
+      ? envelope['error']['message']
+      : undefined;
+  return typeof message === 'string' && message.trim() !== ''
+    ? `sweetpad bsp init failed with code ${result.code}: ${message}`
+    : formatCommandFailure('sweetpad bsp init failed', result);
+}
+
+async function bindThroughSweetpad(
+  run: CommandRunner,
+  directory: string,
+  project: { readonly kind: 'workspace' | 'project'; readonly name: string },
+  write: (message: string) => void,
+): Promise<void> {
+  const result = await run.run(
+    'sweetpad',
+    [
+      '--json',
+      '--non-interactive',
+      'bsp',
+      'init',
+      `--${project.kind}`,
+      project.name,
+    ],
+    { cwd: directory },
+  );
+  if (result.code === 127) {
+    throw new XcodeLspBindingError(
+      `sweetpad is not installed; run \`mev make sp\` first. ${result.stderr.trim()}`,
+    );
+  }
+  if (result.code !== 0) {
+    throw new XcodeLspBindingError(sweetpadFailure(result));
+  }
+  const label = 'sweetpad bsp init output';
+  const envelope = requireRecord(
+    parseJsonLabeled(result.stdout, label, xcodeLspBindingError),
+    label,
+    xcodeLspBindingError,
+  );
+  if (envelope['ok'] !== true) {
+    throw new XcodeLspBindingError(
+      `${label} reported failure: ${result.stdout.trim()}`,
+    );
+  }
+  // sweetpad reports the path relative to its working directory.
+  const bindingPath = resolve(
+    directory,
+    requireNonEmptyString(
+      requireRecord(envelope['data'], `${label} data`, xcodeLspBindingError)[
+        'buildServerJson'
+      ],
+      `${label} data.buildServerJson`,
+      xcodeLspBindingError,
+    ),
+  );
+  write(
+    `Bound sourcekit-lsp to ${project.name} through sweetpad at ${bindingPath}; the editor builds and indexes it in the background.\n`,
   );
 }
 
@@ -83,7 +193,7 @@ async function resolvePackageScheme(
   return String(schemes[0]);
 }
 
-async function bindPackage(
+async function bindPlayground(
   run: CommandRunner,
   directory: string,
   requestedScheme: string | undefined,
@@ -127,36 +237,43 @@ async function bindPackage(
   );
 }
 
-async function bindXcodeBuildLog(
-  run: CommandRunner,
+/** Removes binding files from a package sourcekit-lsp builds itself. */
+async function unbindPackage(
   directory: string,
-  project: { readonly kind: 'workspace' | 'project'; readonly name: string },
-  scheme: string | undefined,
   write: (message: string) => void,
-): Promise<void> {
-  await runProcessStep(
-    run,
-    'xcode-build-server',
-    [
-      'config',
-      `-${project.kind}`,
-      project.name,
-      ...(scheme === undefined ? [] : ['-scheme', scheme]),
-    ],
-    'xcode-build-server config failed',
-    { cwd: directory, raise: xcodeLspBindingError },
-  );
-  write(
-    `Bound sourcekit-lsp to the latest Xcode build of ${project.name}; build in Xcode to refresh compiler flags.\n`,
-  );
+): Promise<boolean> {
+  const removed: string[] = [];
+  for (const name of BINDING_FILES) {
+    try {
+      await unlink(join(directory, name));
+      removed.push(name);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw new XcodeLspBindingError(
+          `Cannot remove stale ${join(directory, name)}: ${errorMessage(error)}`,
+        );
+      }
+    }
+  }
+  write('sourcekit-lsp builds Swift packages itself; no binding is needed.\n');
+  if (removed.length > 0) {
+    write(
+      `Removed stale ${removed.join(' and ')} so the package no longer follows an old Xcode build.\n`,
+    );
+  }
+  return removed.length > 0;
 }
 
 /**
- * Write `buildServer.json` into the project directory so sourcekit-lsp resolves
- * symbols with Xcode's compiler flags instead of falling back to macOS
- * single-file analysis. Xcode projects follow Xcode's build logs; packages are
- * built once, because Playgrounds app manifests import `AppleProductTypes`,
- * which only Xcode's SwiftPM can load.
+ * Converge the sourcekit-lsp binding of a project directory so editors such as
+ * Zed resolve symbols with Xcode's compiler flags instead of falling back to
+ * macOS single-file analysis. Xcode workspaces and projects get a
+ * `buildServer.json` from `sweetpad bsp init`, whose BSP server derives flags
+ * from the project and builds on request, so background indexing needs no
+ * manual build. Playgrounds app packages are built once with Xcode and parsed
+ * by xcode-build-server, because their manifests import `AppleProductTypes`,
+ * which only Xcode's SwiftPM can load. Other packages are left to sourcekit-lsp's
+ * own SwiftPM support, with any earlier binding removed.
  */
 export async function bindXcodeLsp(
   run: CommandRunner,
@@ -165,12 +282,27 @@ export async function bindXcodeLsp(
 ): Promise<void> {
   const directory = resolve(request.directory);
   const project = await detectProject(directory);
-  if (project.kind === 'package') {
-    await bindPackage(run, directory, request.scheme, write);
-  } else {
-    await bindXcodeBuildLog(run, directory, project, request.scheme, write);
+  if (request.scheme !== undefined && project.kind !== 'playground') {
+    throw new CommandLineError(
+      '--scheme applies to a Playgrounds app package; sweetpad and sourcekit-lsp derive the targets of other projects themselves.',
+    );
   }
-  write(
-    'Restart the Swift language server in the editor to apply the binding.\n',
-  );
+  let changed: boolean;
+  switch (project.kind) {
+    case 'package':
+      changed = await unbindPackage(directory, write);
+      break;
+    case 'playground':
+      await bindPlayground(run, directory, request.scheme, write);
+      changed = true;
+      break;
+    default:
+      await bindThroughSweetpad(run, directory, project, write);
+      changed = true;
+  }
+  if (changed) {
+    write(
+      'Restart the Swift language server in the editor to apply the change.\n',
+    );
+  }
 }
