@@ -177,17 +177,47 @@ sandboxTest(
   },
 );
 
-sandboxTest('surfaces a failed sweetpad run', async (directory) => {
-  await mkdir(join(directory, 'App.xcodeproj'));
+sandboxTest(
+  'reports the message of a failure envelope sweetpad prints on stderr',
+  async (directory) => {
+    await mkdir(join(directory, 'App.xcodeproj'));
+    const envelope = JSON.stringify({
+      schema: 1,
+      ok: false,
+      error: {
+        code: 'target_resolution',
+        message: '--project App.xcodeproj: no such path',
+      },
+    });
 
-  await expect(
-    bindXcodeLsp(
-      scriptedRunner([fail('no such project')], []),
+    const error: unknown = await bindXcodeLsp(
+      scriptedRunner([{ code: 4, stdout: '', stderr: envelope }], []),
       { directory },
       silent,
-    ),
-  ).rejects.toThrow('sweetpad bsp init failed');
-});
+    ).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(XcodeLspBindingError);
+    expect((error as Error).message).toContain(
+      '--project App.xcodeproj: no such path',
+    );
+    expect((error as Error).message).not.toContain('"schema"');
+  },
+);
+
+sandboxTest(
+  'surfaces a failed sweetpad run without an envelope',
+  async (directory) => {
+    await mkdir(join(directory, 'App.xcodeproj'));
+
+    await expect(
+      bindXcodeLsp(
+        scriptedRunner([fail('error: unexpected argument')], []),
+        { directory },
+        silent,
+      ),
+    ).rejects.toThrow('sweetpad bsp init failed');
+  },
+);
 
 sandboxTest('rejects multiple workspaces', async (directory) => {
   await mkdir(join(directory, 'A.xcworkspace'));

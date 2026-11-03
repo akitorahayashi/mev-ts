@@ -89,12 +89,13 @@ async function detectProject(directory: string): Promise<XcodeProject> {
   return { kind: PLAYGROUND_IMPORT.test(manifest) ? 'playground' : 'package' };
 }
 
-// A failing `--json` run still prints the envelope, whose error message is the
-// readable part; raw output is the detail only when no envelope came back.
+// Under `--json`, sweetpad prints a failure envelope on stderr (see `sweetpad
+// help exit-codes`); only a flag clap rejects is reported as plain usage text,
+// so raw output is the detail when no envelope parses.
 function sweetpadFailure(result: CommandResult): string {
   let envelope: unknown;
   try {
-    envelope = JSON.parse(result.stdout);
+    envelope = JSON.parse(result.stderr);
   } catch {
     envelope = undefined;
   }
