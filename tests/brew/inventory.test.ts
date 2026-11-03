@@ -21,7 +21,7 @@ test('probes only the kinds the requirement declares', async () => {
     context,
   );
 
-  expect(argsOf(calls)).toEqual([['list', '--formula', '-1']]);
+  expect(argsOf(calls)).toEqual([['list', '--formula', '-1', '--full-name']]);
   expect(inventory.formula).toEqual({ loaded: true, names: new Set(['git']) });
   expect(inventory.tap).toEqual({ loaded: true, names: new Set() });
   expect(inventory.cask).toEqual({ loaded: true, names: new Set() });
@@ -41,8 +41,8 @@ test('enumerates each declared kind with its own command', async () => {
 
   expect(argsOf(calls)).toEqual([
     ['tap'],
-    ['list', '--formula', '-1'],
-    ['list', '--cask', '-1'],
+    ['list', '--formula', '-1', '--full-name'],
+    ['list', '--cask', '-1', '--full-name'],
   ]);
 });
 
@@ -119,7 +119,7 @@ test('a nonzero enumeration exit is carried as a per-kind error', async () => {
 
   expect(inventory.formula).toEqual({
     loaded: false,
-    error: 'brew list --formula -1 failed with code 1: brew broken',
+    error: 'brew list --formula -1 --full-name failed with code 1: brew broken',
   });
 });
 
@@ -147,7 +147,7 @@ test('reads and normalizes formula and cask versions from JSON v2', async () => 
             JSON.stringify({
               formulae: [
                 {
-                  name: 'git',
+                  full_name: 'git',
                   installed: [
                     { version: '2.51.0' },
                     { version: '2.50.0' },
@@ -160,7 +160,9 @@ test('reads and normalizes formula and cask versions from JSON v2', async () => 
           )
         : listed(
             JSON.stringify({
-              casks: [{ token: 'zed', installed: '1.17.2', ignored: true }],
+              casks: [
+                { full_token: 'zed', installed: '1.17.2', ignored: true },
+              ],
             }),
           );
     },
@@ -216,8 +218,8 @@ test('isolates a malformed named entry from valid package versions', async () =>
       listed(
         JSON.stringify({
           formulae: [
-            { name: 'git' },
-            { name: 'gh', installed: [{ version: '2.80.0' }] },
+            { full_name: 'git' },
+            { full_name: 'gh', installed: [{ version: '2.80.0' }] },
           ],
         }),
       ),

@@ -2,6 +2,9 @@
 alias me="mev"
 export SHELL_START_DIR="${SHELL_START_DIR:-$PWD}"
 
+typeset -U fpath
+fpath=("$HOME/.mev/completions" $fpath)
+
 autoload -Uz compinit
 compinit
 

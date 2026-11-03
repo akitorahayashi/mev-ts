@@ -31,6 +31,9 @@ marketplaces:
   - repo: akitorahayashi/iphone-duo-playbook
     clients: [claude, codex]
     plugins: [iphone-duo]
+  - repo: akitorahayashi/sweetpad
+    clients: [claude, codex]
+    plugins: [sweetpad]
 # To remove a marketplace and uninstall the plugins it still has installed,
 # delete its entry above and move its repo and clients lines here:
 #   removed_marketplaces:

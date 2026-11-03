@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AssetSource } from '../../src/assets/registry';
+import { home } from '../../src/host/path';
 import { runActivation, runCommand } from '../../src/provisioning/activation';
 import { outcomeStatus } from '../../src/provisioning/resource-outcome';
 import { fail, ok } from '../fixtures/fake-command-runner';
@@ -504,4 +506,71 @@ test('outputNotContains marks changed when phrase absent from combined output', 
   });
   const report = await runActivation(activation, context);
   expect(outcomeStatus(report.outcomes)).toBe('changed');
+});
+test('stdoutTo writes the output and reports changed only when the file content changes', async () => {
+  await withTemporaryDirectory(
+    async (sandbox) => {
+      let output = '#compdef tool\n_tool() {}\n';
+      const { context } = recordingContext({
+        home: sandbox,
+        assets: emptyAssets,
+        respond: () => ok(output),
+      });
+      const activation = runCommand({
+        label: 'tool completions',
+        steps: [
+          {
+            label: 'tool completions zsh',
+            argv: ['tool', 'completions', 'zsh'],
+            stdoutTo: home('completions/_tool'),
+          },
+        ],
+      });
+      const dest = join(sandbox, 'completions/_tool');
+
+      const first = await runActivation(activation, context);
+      expect(outcomeStatus(first.outcomes)).toBe('changed');
+      expect(await readFile(dest, 'utf8')).toBe(output);
+      const written = await stat(dest);
+
+      const repeated = await runActivation(activation, context);
+      expect(outcomeStatus(repeated.outcomes)).toBe('unchanged');
+      expect((await stat(dest)).ino).toBe(written.ino);
+
+      output = '#compdef tool\n_tool() { _arguments }\n';
+      const updated = await runActivation(activation, context);
+      expect(outcomeStatus(updated.outcomes)).toBe('changed');
+      expect(await readFile(dest, 'utf8')).toBe(output);
+    },
+    { prefix: 'cmd-stdout-' },
+  );
+});
+test('a failing stdoutTo step leaves the existing file untouched', async () => {
+  await withTemporaryDirectory(
+    async (sandbox) => {
+      const dest = join(sandbox, 'completions/_tool');
+      await mkdir(join(sandbox, 'completions'));
+      await writeFile(dest, 'previous\n');
+      const { context } = recordingContext({
+        home: sandbox,
+        assets: emptyAssets,
+        respond: () => fail('unknown shell'),
+      });
+      const activation = runCommand({
+        label: 'tool completions',
+        steps: [
+          {
+            label: 'tool completions zsh',
+            argv: ['tool', 'completions', 'zsh'],
+            stdoutTo: home('completions/_tool'),
+          },
+        ],
+      });
+
+      const report = await runActivation(activation, context);
+      expect(outcomeStatus(report.outcomes)).toBe('failed');
+      expect(await readFile(dest, 'utf8')).toBe('previous\n');
+    },
+    { prefix: 'cmd-stdout-fail-' },
+  );
 });

@@ -237,7 +237,9 @@ sandboxTest(
         if (args[0] === 'info') {
           const installed = versionProbe === 0 ? '1.18.0' : '1.18.1';
           versionProbe += 1;
-          return ok(JSON.stringify({ casks: [{ token: 'zed', installed }] }));
+          return ok(
+            JSON.stringify({ casks: [{ full_token: 'zed', installed }] }),
+          );
         }
         if (args[0] === 'upgrade') return ok();
         if (args[0] === '--prefix') return ok('/opt/homebrew\n');

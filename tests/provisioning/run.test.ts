@@ -693,7 +693,9 @@ sandboxTest(
         if (args[0] === 'info') {
           return ok(
             JSON.stringify({
-              formulae: [{ name: 'gh', installed: [{ version: '2.80.0' }] }],
+              formulae: [
+                { full_name: 'gh', installed: [{ version: '2.80.0' }] },
+              ],
             }),
           );
         }
