@@ -33,7 +33,7 @@ src/
     document/    Pandoc/Popplerによる変換と、ブラウザーによるPDFのレンダリング
     gh/          GitHub CLIのラッパー
     git/         Gitのラッパー（ブランチ、clone、submodule、worktree）
-    xcode/       xcode-build-serverによる、sourcekit-lspとXcodeのビルドの結び付け
+    xcode/       sweetpadとxcode-build-serverによる、sourcekit-lspとXcodeのビルドの結び付け
   pipx/          pipxのinstall、inject、post-installの操作
   pnpm/          fnmのランタイム経由でのpnpmグローバルパッケージのインストールと削除
   provisioning/
