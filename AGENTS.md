@@ -26,6 +26,7 @@ src/
   git/           app/internalのコマンドが共有するGitの設定とコマンドのヘルパー
   github/        GitHubリリースのダウンロードと、マシンごとのSSH hostエイリアスのストア
   grove/         マシンごとのSSH hostによるGroveカタログのレンダリングと、`gv replace`による置き換え
+  huggingface/   Hugging Faceのモデルキャッシュのインベントリ、取得、更新、明示的な削除
   host/          CommandRunner、Context、HostPath。parse.ts（parsed-unknownのアサーションと、ラベル付きJSONのframing。どちらも送出するエラークラスを受け取る）、yaml.ts（YAMLの読み込みとシリアライズ）、toml.ts（TOMLの読み込みとシリアライズ）、json.ts（JSONオブジェクトの読み込みとシリアライズ）、jsonc.ts（JSONCの読み込みと、コメントを保つ編集）、declared-merge.ts（アプリが所有する設定ファイル向けの、declared-keysのマージと構造的等価性）、transaction.ts（アトミックなステージングとswap-transactionのenvelope）、atomic-file.ts（アトミックな書き込み、変更時のみの書き込み）、command-run.ts（サブプロセスのstep/capture、LC_ALL固定）、https-download.ts（堅牢化したcurlによるダウンロード）、managed-links.ts（共有のsymlink整合処理）、deployed-file.ts（デプロイ済み優先の読み取り）、task-pool.ts（上限付きの並行実行）、cleanup-error.ts（クリーンアップエラーの合成）
   identity/      Git identityのスコープの列挙型と、ディスク上のストア
   internal/
@@ -66,7 +67,7 @@ tests/                CLI、ファイルシステム、サブプロセス、ネ�
 
 ### Activation DSL
 
-`activation/`はプロビジョニング作業のための内部DSLである。ターゲットは`activation/index.ts`からファクトリをimportし、`kinds.ts`は各`Activation`のkindをそのハンドラーへ対応付ける。ディスパッチ、ビルド時のアセット検証、レジストリのテストは、いずれもこの対応のルックアップである。`src/<tool>/`配下のcapabilityモジュール（`pipx/`、`pnpm/`、`duti/`、`editor/`、`agent-plugin/`、`github/`、`grove/`）は、各外部ツールのプロトコルを所有し、`Context`を受け取る。activationはcapabilityをimportしてよいが、その逆は決して許されない。
+`activation/`はプロビジョニング作業のための内部DSLである。ターゲットは`activation/index.ts`からファクトリをimportし、`kinds.ts`は各`Activation`のkindをそのハンドラーへ対応付ける。ディスパッチ、ビルド時のアセット検証、レジストリのテストは、いずれもこの対応のルックアップである。`src/<tool>/`配下のcapabilityモジュール（`pipx/`、`pnpm/`、`duti/`、`editor/`、`agent-plugin/`、`github/`、`grove/`、`huggingface/`）は、各外部ツールのプロトコルを所有し、`Context`を受け取る。activationはcapabilityをimportしてよいが、その逆は決して許されない。
 
 kindごとの表と、整合処理およびマニフェストの仕組みはdocs/architecture/activation.mdを参照。
 

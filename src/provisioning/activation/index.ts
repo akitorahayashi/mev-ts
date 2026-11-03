@@ -25,6 +25,7 @@ export { blockedReport, describeActivation, runActivation } from './dispatch';
 export { applyDuti } from './duti';
 export { installExtensions } from './extensions';
 export { groveConfig } from './grove-config';
+export { applyHuggingfaceModels } from './huggingface';
 export { preservedPaths } from './kinds';
 export { applyPipx } from './pipx';
 export { applyPnpm } from './pnpm';

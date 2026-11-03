@@ -108,4 +108,11 @@ test('the full-setup selection is every non-optional target', () => {
   expect(full).toEqual(allTargets().filter((t) => !t.optional));
   expect(full.every((t) => !t.optional)).toBe(true);
   expect(full).not.toContain(resolveTarget('casks'));
+  expect(full).not.toContain(resolveTarget('hf'));
+});
+
+test('hf can be selected independently of Python tool targets', async () => {
+  const plan = await planMake(['hf'], embeddedAssets);
+  expect(plan.targetNames).toEqual(['hf']);
+  expect(plan.packages.formulae).toEqual(['hf']);
 });

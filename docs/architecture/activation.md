@@ -13,6 +13,7 @@
 | `duti` | `applyDuti(configKey)` | 宣言されたファイルの関連付けを適用する。 |
 | `pipx` | `applyPipx(configKey)` | pipxのツール、injection、post-install、明示的な削除を整合させる。 |
 | `pnpm` | `applyPnpm(configKey)` | グローバルなpnpmパッケージと、明示的な削除を整合させる。 |
+| `huggingfaceModels` | `applyHuggingfaceModels(configKey)` | Hugging Faceキャッシュのモデルを整合させる。通常は取得済みの`main`のcommitを維持し、アップグレード時にだけ再解決する。削除は明示されたrepoの全revisionに限られる。[使い方](../usage.md#hugging-faceのモデル)を参照。 |
 | `editorExtensions` | `installExtensions(command, configKey)` | エディターの宣言済みの拡張機能を整合させる。 |
 | `coderAgents` | `coderAgents(sectionsPrefix, dests)` | 選択された埋め込みのエージェントセクションを、複数の配置先へ展開する。 |
 | `coderSkills` | `coderSkills(skillsPrefix, targetDirs)` | 選択された埋め込みのスキルファイルを、複数の配置先へ展開する。 |
