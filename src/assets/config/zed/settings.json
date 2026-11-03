@@ -85,15 +85,44 @@
       "show": "auto"
     }
   },
+  "language_models": {
+    "openai_compatible": {
+      "mlx": {
+        "api_url": "http://127.0.0.1:8080/v1",
+        "available_models": [
+          {
+            "name": "mlx-community/Qwen3.5-4B-4bit",
+            "display_name": "Qwen3.5 4B (MLX)",
+            "max_tokens": 16384,
+            "max_output_tokens": 512,
+            "capabilities": {
+              "tools": false,
+              "images": false,
+              "parallel_tool_calls": false,
+              "prompt_cache_key": false
+            }
+          }
+        ]
+      }
+    }
+  },
   "agent": {
     "button": true,
     "dock": "right",
     "default_width": 560,
     "default_height": 320,
     "commit_message_model": {
-      "provider": "google",
-      "model": "gemini-3.1-flash-lite"
-    }
+      "provider": "mlx",
+      "model": "mlx-community/Qwen3.5-4B-4bit"
+    },
+    "commit_message_instructions": "Write a single English commit message as '<type>: <short imperative summary>'. Use a lowercase type such as feat, fix, or remove. Add '- ' bullet points after a blank line when useful; use only the subject for small changes.",
+    "model_parameters": [
+      {
+        "provider": "mlx",
+        "model": "mlx-community/Qwen3.5-4B-4bit",
+        "temperature": 0
+      }
+    ]
   },
   "agent_servers": {
     "claude-acp": {
