@@ -43,6 +43,14 @@ disabled:
 | ベースの適用 | オーバーライドの値は、それが定義するすべてのパスで優先される。 |
 | 検証 | オーバーライドのフラグメントは、`__proto__`、`constructor`、`prototype`を拒否する。 |
 
+### ローカルモデルによるコミットメッセージ生成
+
+コミットメッセージの生成は、[Zed設定アセット](../src/assets/config/zed/settings.json)に登録されたMLXのOpenAI互換APIを使う。`ml-ls`がローカルに取得済みのモデルを一覧表示する。`ml-z [model]`がローカルサーバーを起動し、thinkingを無効にする。モデルの取得は`hf`ターゲット、ランタイムの導入は`pipx`ターゲットの責務であり、Zedターゲットはサーバーを起動しない。
+
+ZedのOpenAI互換プロバイダーは、認証のないローカルサーバーにもAPIキーの登録を要求する。MLXプロバイダーに保存する`local`のようなダミーキーは、Zedのキーチェーンに保持され、設定アセットには含まれない。モデルの登録方法は[ZedのAPI設定](https://zed.dev/docs/ai/use-api-access#openai-compatible-endpoints)にある。
+
+生成言語は、これまでのコミット履歴に合わせて英語である。コミット生成専用の追加指示は`agent.commit_message_instructions`が持ち、変更種別を付けた件名と必要に応じた箇条書きを指定する。小さな変更は件名だけになる。プロジェクトのルールも引き続き入力に含まれる。
+
 ## GitHub SSH host
 
 | 状態 | 挙動 |
