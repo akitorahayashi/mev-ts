@@ -2,7 +2,8 @@ import { stat } from 'node:fs/promises';
 import { basename, isAbsolute, join } from 'node:path';
 import { brewPrefix } from '../brew/prefix';
 import { ProvisioningError } from '../errors';
-import { runProcessStep } from '../host/command-run';
+import { lstatIfPresent } from '../host/absence';
+import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 import {
   parseJsonLabeled,
@@ -59,16 +60,36 @@ async function execute(
   parseOutput = true,
 ): Promise<unknown> {
   const executable = join(await brewPrefix(context), 'bin', 'hf');
-  const result = await runProcessStep(
-    context.commands,
+  const result = await context.commands.run(
     executable,
     [...args, '--format', 'json'],
-    `hf ${args.join(' ')} failed`,
     {
       cwd: context.home,
-      env: { HOME: context.home, HF_HUB_DISABLE_PROGRESS_BARS: '1' },
+      env: {
+        HOME: context.home,
+        HF_HUB_DISABLE_PROGRESS_BARS: '1',
+        LC_ALL: 'C',
+      },
     },
   );
+  if (result.code !== 0) {
+    const missingCache =
+      result.code === 1 && args[0] === 'cache' && args[1] === 'ls'
+        ? /^(?:Error: )?Cache directory not found: (.+)$/m.exec(
+            result.stderr,
+          )?.[1]
+        : undefined;
+    if (
+      missingCache &&
+      isAbsolute(missingCache) &&
+      (await lstatIfPresent(missingCache)) === null
+    ) {
+      return [];
+    }
+    throw new ProvisioningError(
+      formatCommandFailure(`hf ${args.join(' ')} failed`, result),
+    );
+  }
   return parseOutput
     ? parseJsonLabeled(result.stdout, `hf ${args.join(' ')} output`)
     : undefined;

@@ -48,7 +48,7 @@ TTYでの進捗は一時的である。完了したターゲットの結果と�
 
 モデルはHugging Faceの通常のキャッシュに保存され、`HF_HOME`と`HF_HUB_CACHE`も引き継がれる。独自の保存先やインストール履歴は持たない。更新後の旧revisionや宣言されていないモデルの一括pruneは行わない。
 
-`hf` CLIはHomebrewで管理され、通常セットアップの`formulae`と、単独適用の`hf`が同じformulaを要求する。Pythonツールのターゲットを先に適用する必要はない。MLXの推論ツールはpipxが管理し、モデルの取得には関与しない。
+`hf` CLIはHomebrewで管理され、通常セットアップの`formulae`と、単独適用の`hf`が同じformulaを要求する。シェルの`hf`とそのエイリアスも、Homebrewのシェル環境が示す実行ファイルを使い、PATH上の旧pipx版を選ばない。Pythonツールのターゲットを先に適用する必要はない。MLXの推論ツールはpipxが管理し、モデルの取得には関与しない。
 
 ## mevの更新
 

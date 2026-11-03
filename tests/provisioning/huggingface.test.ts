@@ -84,6 +84,63 @@ function responder(
 }
 
 sandboxTest(
+  'a missing cache does not prevent first installation',
+  async (dir) => {
+    const absentCache = join(dir, 'cache not created');
+    const base = responder(dir, []);
+    const { context } = await setup(
+      dir,
+      `models: [${REPO}]`,
+      (command, args, options) =>
+        args[0] === 'cache' && args[1] === 'ls'
+          ? fail(
+              `Error: Cache directory not found: ${absentCache}\nHint: set HF_DEBUG=1 as environment variable for full traceback.\n`,
+            )
+          : base(command, args, options),
+    );
+    const report = await runActivation(activation, context);
+    expect(report.outcomes).toEqual([
+      { label: REPO, status: 'changed', details: [`installed ${COMMIT}`] },
+    ]);
+  },
+);
+
+sandboxTest(
+  'a missing-cache diagnostic cannot hide a failure for an existing path',
+  async (dir) => {
+    const existingCache = join(dir, 'cache');
+    await mkdir(existingCache);
+    const { context, calls } = await setup(dir, `models: [${REPO}]`, () =>
+      fail(`Error: Cache directory not found: ${existingCache}\n`),
+    );
+    const report = await runActivation(activation, context);
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining('Cache directory not found'),
+    });
+    expect(calls.filter((call) => call.command === HF)).toHaveLength(1);
+  },
+);
+
+for (const diagnostic of [
+  'Permission denied',
+  'Corrupt cache',
+  'Unknown option: --format',
+]) {
+  sandboxTest(`cache errors retain diagnostics: ${diagnostic}`, async (dir) => {
+    const { context, calls } = await setup(dir, `models: [${REPO}]`, () =>
+      fail(diagnostic),
+    );
+    const report = await runActivation(activation, context);
+    expect(report.outcomes[0]).toMatchObject({
+      status: 'failed',
+      error: expect.stringContaining(diagnostic),
+    });
+    expect(calls.filter((call) => call.command === HF)).toHaveLength(1);
+  });
+}
+
+sandboxTest(
   'fresh models are downloaded completely with the Homebrew CLI',
   async (dir) => {
     const { context, calls } = await setup(
