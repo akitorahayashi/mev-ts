@@ -115,7 +115,8 @@
       "provider": "mlx",
       "model": "mlx-community/Qwen3.5-4B-4bit"
     },
-    "commit_message_instructions": "Write a single English commit message as '<type>: <short imperative summary>'. Use a lowercase type such as feat, fix, or remove. Add '- ' bullet points after a blank line when useful; use only the subject for small changes.",
+    "commit_message_include_project_rules": false,
+    "commit_message_instructions": "Write a single English commit message as '<type>: <short imperative summary>'. Use a lowercase type such as feat, fix, or remove. For larger changes, add concise '- ' bullet points after a blank line. Use only the subject for small changes.",
     "model_parameters": [
       {
         "provider": "mlx",
