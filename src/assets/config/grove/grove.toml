@@ -17,7 +17,6 @@ skills-plugin-py = "git@github.com:akitorahayashi/skills-plugin-py.git"
 skills-plugin = "git@github.com:akitorahayashi/skills-plugin.git"
 iphone-duo-playbook = "git@github.com:akitorahayashi/iphone-duo-playbook.git"
 work-plugins = "git@github.com:akitorahayashi/work-plugins.git"
-sweetpad = "git@github.com:akitorahayashi/sweetpad.git"
 
 [groups.Swift]
 sample-todo-app = "git@github.com:akitorahayashi/sample-todo-app.git"
