@@ -32,7 +32,7 @@ interface BrewState {
   >;
   readonly upgradedCaskVersions?: Readonly<Record<string, string>>;
   readonly installCode?: number;
-  readonly trustCode?: number;
+  readonly trustRefused?: readonly string[];
 }
 
 function shortName(name: string): string {
@@ -102,10 +102,11 @@ function brewContext(
         };
       }
       if (args[0] === 'trust') {
+        const refused = args.some((arg) => state.trustRefused?.includes(arg));
         return {
-          code: state.trustCode ?? 0,
+          code: refused ? 1 : 0,
           stdout: '',
-          stderr: state.trustCode ? 'trust refused' : '',
+          stderr: refused ? 'trust refused' : '',
         };
       }
       if (args[0] === 'upgrade') {
@@ -247,13 +248,16 @@ test('trusts a missing tapped cask before installing it', async (sandbox) => {
   ]);
 });
 
-test('a failed trust fails the tapped formula without blocking others', async (sandbox) => {
+test('a failed trust fails only its own tapped formula', async (sandbox) => {
   const sink: Sink = {};
   const reports = await installPackages(
-    packages({ formulae: ['git', 'owner/tap/tool'] }),
+    packages({ formulae: ['git', 'owner/tap/bad', 'owner/tap/good'] }),
     brewContext(
       sandbox,
-      { formulae: ['git', 'owner/tap/tool'], trustCode: 1 },
+      {
+        formulae: ['git', 'owner/tap/bad', 'owner/tap/good'],
+        trustRefused: ['owner/tap/bad'],
+      },
       sink,
     ),
     { upgrade: true },
@@ -262,6 +266,7 @@ test('a failed trust fails the tapped formula without blocking others', async (s
   expect(reports.map((report) => report.status)).toEqual([
     'upgrade-current',
     'failed',
+    'upgrade-current',
   ]);
   const failed = reports[1];
   expect(failed?.status === 'failed' && failed.error).toContain(
@@ -269,7 +274,7 @@ test('a failed trust fails the tapped formula without blocking others', async (s
   );
   expect(
     recordedArgs(sink).some(
-      (args) => args.at(-1) === 'owner/tap/tool' && args[0] !== 'trust',
+      (args) => args[0] !== 'trust' && args.includes('owner/tap/bad'),
     ),
   ).toBe(false);
 });

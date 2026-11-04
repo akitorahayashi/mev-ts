@@ -122,6 +122,10 @@ async function upgrade(
   );
 }
 
+type TrustErrors = Readonly<
+  Record<UpgradeablePackageKind, ReadonlyMap<string, string>>
+>;
+
 function isTapQualified(name: string): boolean {
   return name.split('/').length === 3;
 }
@@ -134,23 +138,30 @@ function isTapQualified(name: string): boolean {
  */
 async function trustTapped(
   context: Context,
-  kind: UpgradeablePackageKind,
-  names: readonly string[],
-): Promise<ReadonlyMap<string, string>> {
-  const tapped = names.filter(isTapQualified);
-  if (tapped.length === 0) return new Map();
-  try {
-    await runProcessStep(
-      context.commands,
-      'brew',
-      ['trust', `--${kind}`, ...tapped],
-      `brew trust failed for ${tapped.join(', ')}`,
-    );
-    return new Map();
-  } catch (error) {
-    const message = errorMessage(error);
-    return new Map(tapped.map((name) => [name, message]));
+  names: Record<UpgradeablePackageKind, readonly string[]>,
+): Promise<TrustErrors> {
+  const errors = {
+    formula: new Map<string, string>(),
+    cask: new Map<string, string>(),
+  };
+  // Sequential and one name per call: every `brew trust` rewrites the shared
+  // trust store, and Homebrew keeps the names it trusted before a failing one,
+  // so only a per-name call attributes a failure to its own package.
+  for (const kind of ['formula', 'cask'] as const) {
+    for (const name of names[kind].filter(isTapQualified)) {
+      try {
+        await runProcessStep(
+          context.commands,
+          'brew',
+          ['trust', `--${kind}`, name],
+          `brew trust failed for ${kind} ${name}`,
+        );
+      } catch (error) {
+        errors[kind].set(name, errorMessage(error));
+      }
+    }
   }
+  return errors;
 }
 
 function namesToLoad(
@@ -179,7 +190,7 @@ async function installMissingPackage(
 function upgradeCandidates(
   req: PackageRequirement,
   inventory: Awaited<ReturnType<typeof loadInventory>>,
-  trustErrors: Record<UpgradeablePackageKind, ReadonlyMap<string, string>>,
+  trustErrors: TrustErrors,
   enabled: boolean,
 ): PackageRequirement {
   if (!enabled) return { taps: [], formulae: [], casks: [] };
@@ -252,22 +263,10 @@ export async function installPackages(
 
   const inventory = await loadInventory(req, context);
   const upgrading = options.upgrade === true;
-  const [formulaTrustErrors, caskTrustErrors] = await Promise.all([
-    trustTapped(
-      context,
-      'formula',
-      namesToLoad(req.formulae, inventory.formula, upgrading),
-    ),
-    trustTapped(
-      context,
-      'cask',
-      namesToLoad(req.casks, inventory.cask, upgrading),
-    ),
-  ]);
-  const trustErrors: Record<
-    UpgradeablePackageKind,
-    ReadonlyMap<string, string>
-  > = { formula: formulaTrustErrors, cask: caskTrustErrors };
+  const trustErrors = await trustTapped(context, {
+    formula: namesToLoad(req.formulae, inventory.formula, upgrading),
+    cask: namesToLoad(req.casks, inventory.cask, upgrading),
+  });
   const reports: Array<InstallReport | PendingUpgrade> = [];
   for (const token of list) {
     if (token.kind !== 'tap') continue;
