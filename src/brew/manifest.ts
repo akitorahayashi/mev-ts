@@ -6,8 +6,9 @@ export const manifestName = 'Brewfile';
 // Homebrew evaluates a Brewfile as Ruby, but mev reads only the declarations it
 // installs token by token. Options, other directives, and Ruby expressions are
 // refused rather than ignored, so a line mev cannot honor never looks applied.
-// The accepted form matches `brew bundle dump` output, so a deployed Brewfile
-// still works with `brew bundle check --file`.
+// The accepted form is a subset of the Homebrew Bundle Brewfile format, so a
+// deployed Brewfile still works with `brew bundle check --file`. `trusted: true`
+// is refused because the install phase owns trust for tap-qualified names.
 const ENTRY = /^(tap|brew|cask)\s+"([^"]+)"\s*(?:#.*)?$/;
 
 export function parseManifest(raw: string, path: string): PackageRequirement {

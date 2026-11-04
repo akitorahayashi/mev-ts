@@ -32,6 +32,7 @@ interface BrewState {
   >;
   readonly upgradedCaskVersions?: Readonly<Record<string, string>>;
   readonly installCode?: number;
+  readonly trustRefused?: readonly string[];
 }
 
 function shortName(name: string): string {
@@ -98,6 +99,14 @@ function brewContext(
             })),
           }),
           stderr: '',
+        };
+      }
+      if (args[0] === 'trust') {
+        const refused = args.some((arg) => state.trustRefused?.includes(arg));
+        return {
+          code: refused ? 1 : 0,
+          stdout: '',
+          stderr: refused ? 'trust refused' : '',
         };
       }
       if (args[0] === 'upgrade') {
@@ -202,6 +211,72 @@ test('reports a tapped formula declared by its qualified name as present', async
     'present',
   ]);
   expect(recordedArgs(sink).some((args) => args[0] === 'bundle')).toBe(false);
+  expect(recordedArgs(sink).some((args) => args[0] === 'trust')).toBe(false);
+});
+
+test('upgrade mode trusts a tapped formula before probing its version', async (sandbox) => {
+  const sink: Sink = {};
+  await installPackages(
+    packages({ formulae: ['git', 'owner/tap/tool'] }),
+    brewContext(sandbox, { formulae: ['git', 'owner/tap/tool'] }, sink),
+    { upgrade: true },
+  );
+
+  const args = recordedArgs(sink);
+  const trustIndex = args.findIndex((call) => call[0] === 'trust');
+  expect(args[trustIndex]).toEqual(['trust', '--formula', 'owner/tap/tool']);
+  expect(trustIndex).toBeLessThan(args.findIndex((call) => call[0] === 'info'));
+});
+
+test('trusts a missing tapped cask before installing it', async (sandbox) => {
+  const sink: Sink = {};
+  const reports = await installPackages(
+    packages({ casks: ['owner/tap/app'] }),
+    brewContext(sandbox, {}, sink),
+  );
+
+  expect(reports[0]?.status).toBe('installed');
+  expect(recordedArgs(sink).map((args) => args[0])).toEqual([
+    'list',
+    'trust',
+    'bundle',
+  ]);
+  expect(recordedArgs(sink)).toContainEqual([
+    'trust',
+    '--cask',
+    'owner/tap/app',
+  ]);
+});
+
+test('a failed trust fails only its own tapped formula', async (sandbox) => {
+  const sink: Sink = {};
+  const reports = await installPackages(
+    packages({ formulae: ['git', 'owner/tap/bad', 'owner/tap/good'] }),
+    brewContext(
+      sandbox,
+      {
+        formulae: ['git', 'owner/tap/bad', 'owner/tap/good'],
+        trustRefused: ['owner/tap/bad'],
+      },
+      sink,
+    ),
+    { upgrade: true },
+  );
+
+  expect(reports.map((report) => report.status)).toEqual([
+    'upgrade-current',
+    'failed',
+    'upgrade-current',
+  ]);
+  const failed = reports[1];
+  expect(failed?.status === 'failed' && failed.error).toContain(
+    'trust refused',
+  );
+  expect(
+    recordedArgs(sink).some(
+      (args) => args[0] !== 'trust' && args.includes('owner/tap/bad'),
+    ),
+  ).toBe(false);
 });
 
 test('upgrade mode upgrades a tapped formula under its qualified name', async (sandbox) => {

@@ -122,6 +122,57 @@ async function upgrade(
   );
 }
 
+type TrustErrors = Readonly<
+  Record<UpgradeablePackageKind, ReadonlyMap<string, string>>
+>;
+
+function isTapQualified(name: string): boolean {
+  return name.split('/').length === 3;
+}
+
+/**
+ * Homebrew refuses to load a formula or cask from a non-official tap until it
+ * is trusted, and declaring it in a role Brewfile is that trust decision. Only
+ * names that this run is about to load are trusted, so an all-present run stays
+ * free of the Ruby startup `brew trust` costs.
+ */
+async function trustTapped(
+  context: Context,
+  names: Record<UpgradeablePackageKind, readonly string[]>,
+): Promise<TrustErrors> {
+  const errors = {
+    formula: new Map<string, string>(),
+    cask: new Map<string, string>(),
+  };
+  // Sequential and one name per call: every `brew trust` rewrites the shared
+  // trust store, and Homebrew keeps the names it trusted before a failing one,
+  // so only a per-name call attributes a failure to its own package.
+  for (const kind of ['formula', 'cask'] as const) {
+    for (const name of names[kind].filter(isTapQualified)) {
+      try {
+        await runProcessStep(
+          context.commands,
+          'brew',
+          ['trust', `--${kind}`, name],
+          `brew trust failed for ${kind} ${name}`,
+        );
+      } catch (error) {
+        errors[kind].set(name, errorMessage(error));
+      }
+    }
+  }
+  return errors;
+}
+
+function namesToLoad(
+  names: readonly string[],
+  kindInventory: KindInventory,
+  upgrade: boolean,
+): string[] {
+  if (!kindInventory.loaded) return [];
+  return names.filter((name) => upgrade || !kindInventory.names.has(name));
+}
+
 async function installMissingPackage(
   token: PackageToken,
   context: Context,
@@ -139,20 +190,27 @@ async function installMissingPackage(
 function upgradeCandidates(
   req: PackageRequirement,
   inventory: Awaited<ReturnType<typeof loadInventory>>,
+  trustErrors: TrustErrors,
   enabled: boolean,
 ): PackageRequirement {
   if (!enabled) return { taps: [], formulae: [], casks: [] };
+  // An untrusted name would fail the whole batched version probe.
   const installedCandidates = (
     names: readonly string[],
-    kindInventory: KindInventory,
-  ): string[] =>
-    kindInventory.loaded
-      ? names.filter((name) => kindInventory.names.has(name))
+    kind: UpgradeablePackageKind,
+  ): string[] => {
+    const kindInventory = inventory[kind];
+    return kindInventory.loaded
+      ? names.filter(
+          (name) =>
+            kindInventory.names.has(name) && !trustErrors[kind].has(name),
+        )
       : [];
+  };
   return {
     taps: [],
-    formulae: installedCandidates(req.formulae, inventory.formula),
-    casks: installedCandidates(req.casks, inventory.cask),
+    formulae: installedCandidates(req.formulae, 'formula'),
+    casks: installedCandidates(req.casks, 'cask'),
   };
 }
 
@@ -191,7 +249,8 @@ function sameVersions(
  * lookups. Missing tokens spawn `brew bundle install`; explicit upgrade mode
  * also runs `brew upgrade` for installed formulae and casks. Tokens run in
  * taps→formulae→casks order, so a missing tap is installed before the formulae
- * that resolve through it. The hooks drive live progress labels.
+ * that resolve through it. Tap-qualified formulae and casks are trusted before
+ * anything loads them. The hooks drive live progress labels.
  */
 export async function installPackages(
   req: PackageRequirement,
@@ -203,6 +262,11 @@ export async function installPackages(
   if (list.length === 0) return [];
 
   const inventory = await loadInventory(req, context);
+  const upgrading = options.upgrade === true;
+  const trustErrors = await trustTapped(context, {
+    formula: namesToLoad(req.formulae, inventory.formula, upgrading),
+    cask: namesToLoad(req.casks, inventory.cask, upgrading),
+  });
   const reports: Array<InstallReport | PendingUpgrade> = [];
   for (const token of list) {
     if (token.kind !== 'tap') continue;
@@ -216,19 +280,22 @@ export async function installPackages(
   }
 
   const before = await loadInstalledVersions(
-    upgradeCandidates(req, inventory, options.upgrade === true),
+    upgradeCandidates(req, inventory, trustErrors, upgrading),
     context,
   );
 
   for (const token of list) {
     if (token.kind === 'tap') continue;
     const installed = inventory[token.kind];
+    const trustError = trustErrors[token.kind].get(token.name);
     let report: InstallReport | PendingUpgrade;
     if (!installed.loaded) {
       report = { token, status: 'failed', error: installed.error };
+    } else if (trustError) {
+      report = { token, status: 'failed', error: trustError };
     } else {
       const isInstalled = installed.names.has(token.name);
-      const isUpgrade = isInstalled && options.upgrade === true;
+      const isUpgrade = isInstalled && upgrading;
       if (isInstalled && !isUpgrade) {
         report = { token, status: 'present' };
       } else if (isUpgrade) {
