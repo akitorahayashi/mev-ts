@@ -13,7 +13,7 @@
 | `optional` | trueのとき、環境全体の選択から除外される |
 | `perMachineInputs` | ターゲットの出力に反映される、マシンごとの情報 |
 
-ターゲットのHomebrew要件の正本は、ロール直下の`Brewfile`である。Brewfileを持たないロールは、Homebrewパッケージを必要としない。`planMake()`は、プロビジョニングの状態を変更する前に、[`src/brew/manifest.ts`](../../src/brew/manifest.ts)でこれを解析する。受け付けるのは、二重引用符で囲んだ名前1つを持つ`tap`、`brew`、`cask`の宣言とコメントだけで、オプションやその他のディレクティブは拒否する。この形式は`brew bundle dump`の出力と一致するため、デプロイされたBrewfileは`brew bundle check --file`でも使える。Tapのパッケージは、`tap`行と完全修飾名（`owner/tap/name`）で宣言する。インストール済みかどうかは、Homebrewが報告する完全名で照合するため、短縮名が同じcoreのパッケージと取り違えることはない。activationは、ロールのBrewfileを参照せず、ツリーのプレフィックスにも含めない。ロールの設定をツリーとして扱うターゲットは、その設定をサブディレクトリに置く。
+ターゲットのHomebrew要件の正本は、ロール直下の`Brewfile`である。Brewfileを持たないロールは、Homebrewパッケージを必要としない。`planMake()`は、プロビジョニングの状態を変更する前に、[`src/brew/manifest.ts`](../../src/brew/manifest.ts)でこれを解析する。受け付けるのは、二重引用符で囲んだ名前1つを持つ`tap`、`brew`、`cask`の宣言とコメントだけで、オプションやその他のディレクティブは拒否する。この形式は`brew bundle dump`の出力と一致するため、デプロイされたBrewfileは`brew bundle check --file`でも使える。Tapのパッケージは、`tap`行と完全修飾名（`owner/tap/name`）で宣言する。インストール済みかどうかは、Homebrewが報告する完全名で照合するため、短縮名が同じcoreのパッケージと取り違えることはない。Homebrewは公式以外のtapのパッケージを信頼されるまで読み込まないため、Brewfileで完全修飾名を宣言することを信頼の判断とみなす。インストールフェーズは、その実行でインストールまたはアップグレードのために読み込む完全修飾名のformulaとcaskだけを、`brew trust`でパッケージ単位に信頼する。tap全体は信頼しない。activationは、ロールのBrewfileを参照せず、ツリーのプレフィックスにも含めない。ロールの設定をツリーとして扱うターゲットは、その設定をサブディレクトリに置く。
 
 `make`は、明示されたセレクターを解決する。`create`と`sync`は、登録済みの`optional`でない選択を使う。3つとも同じプロビジョニングのフェーズを使う。
 
