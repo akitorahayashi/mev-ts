@@ -1,4 +1,5 @@
 alias mi="mint"
+alias mi-bt="mint bootstrap"
 alias mi-r="mint run"
 alias as="osascript"
 alias xc="xed"
