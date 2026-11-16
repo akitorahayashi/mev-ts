@@ -20,6 +20,8 @@ work-plugins = "git@github.com:akitorahayashi/work-plugins.git"
 
 [groups.Swift]
 sample-todo-app = "git@github.com:akitorahayashi/sample-todo-app.git"
+mvvm-tmpl = "git@github.com:akitorahayashi/mvvm-tmpl.git"
+tca-tmpl = "git@github.com:akitorahayashi/tca-tmpl.git"
 
 [groups.TypeScript]
 mev-ts = "git@github.com:akitorahayashi/mev-ts.git"

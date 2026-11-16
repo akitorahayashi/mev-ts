@@ -16,6 +16,7 @@
   "autoMemoryEnabled": false,
   "copyOnSelect": false,
   "theme": "auto",
+  "outputStyle": "Concise",
   "autoCompactEnabled": false,
   "attribution": {
     "commit": "",
