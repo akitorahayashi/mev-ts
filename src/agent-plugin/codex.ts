@@ -11,14 +11,21 @@ import { capturePluginJson } from './output';
  * Installed plugins mapped to what codex reports about each. The version is kept
  * optional because only the pluginId and enablement are contractual; upgrade mode
  * uses the version to classify an upgrade as changed or unchanged when reported.
+ *
+ * The listing disables `remote_plugin` because codex otherwise pages OpenAI's
+ * whole remote catalog whenever its three-hour cache is cold: minutes of
+ * sequential requests that outlast the command deadline, with the cache
+ * written only after the last page, so a killed listing never warms it. Only
+ * `@openai-curated-remote` entries drop out, which no catalog entry can
+ * declare. No other plugin subcommand reads that catalog (codex 0.169.0).
  */
 export async function listCodexPlugins(
   context: Context,
 ): Promise<PluginInventory> {
   const raw = await capturePluginJson(
-    context.commands,
+    context,
     'codex',
-    ['plugin', 'list', '--json'],
+    ['plugin', 'list', '--json', '--disable', 'remote_plugin'],
     'Codex plugin inventory',
   );
   if (!isRecord(raw) || !Array.isArray(raw['installed'])) {
@@ -50,7 +57,7 @@ export async function addCodexMarketplace(
   context: Context,
 ): Promise<void> {
   const raw = await capturePluginJson(
-    context.commands,
+    context,
     'codex',
     ['plugin', 'marketplace', 'add', url, '--ref', MARKETPLACE_REF, '--json'],
     `Codex marketplace add ${url}`,
@@ -68,7 +75,7 @@ export async function upgradeCodexMarketplace(
   context: Context,
 ): Promise<void> {
   await capturePluginJson(
-    context.commands,
+    context,
     'codex',
     ['plugin', 'marketplace', 'upgrade', name, '--json'],
     `Codex marketplace upgrade ${name}`,
@@ -81,7 +88,7 @@ export async function installCodexPlugin(
   context: Context,
 ): Promise<void> {
   await capturePluginJson(
-    context.commands,
+    context,
     'codex',
     ['plugin', 'add', id, '--json'],
     `Codex plugin install ${id}`,
@@ -98,7 +105,7 @@ export async function listCodexMarketplaces(
   context: Context,
 ): Promise<Map<string, string | undefined>> {
   const raw = await capturePluginJson(
-    context.commands,
+    context,
     'codex',
     ['plugin', 'marketplace', 'list', '--json'],
     'Codex marketplace inventory',
@@ -132,7 +139,7 @@ export async function removeCodexPlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'codex',
     ['plugin', 'remove', id],
     `Codex plugin remove ${id}`,
@@ -144,7 +151,7 @@ export async function removeCodexMarketplace(
   context: Context,
 ): Promise<void> {
   await capturePluginJson(
-    context.commands,
+    context,
     'codex',
     ['plugin', 'marketplace', 'remove', name, '--json'],
     `Codex marketplace remove ${name}`,

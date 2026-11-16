@@ -1,4 +1,4 @@
-import { expect } from 'bun:test';
+import { expect, test } from 'bun:test';
 import { noninteractiveRunner } from '../../src/agent-plugin/command';
 import { ok } from '../fixtures/fake-command-runner';
 import { recordingContext } from '../fixtures/fake-context';
@@ -13,7 +13,7 @@ sandboxTest(
       home,
       respond: () => ok('result'),
     });
-    const result = await noninteractiveRunner(context.commands).run(
+    const result = await noninteractiveRunner(context).run(
       'claude',
       ['plugin', 'list', '--json'],
       {
@@ -46,3 +46,20 @@ sandboxTest(
     expect(calls[0]?.options?.timeoutMs).toBeGreaterThan(0);
   },
 );
+
+test('fetches share one connection per SSH alias under the mev root', async () => {
+  // git hands GIT_SSH_COMMAND to the shell, so the socket path must survive
+  // word splitting and quote removal as a single argument.
+  const { context, calls } = recordingContext({
+    home: "/Users/o'brien smith",
+    respond: () => ok(),
+  });
+  await noninteractiveRunner(context).run('claude', ['plugin', 'install', 'x']);
+
+  const transport = calls[0]?.options?.env?.['GIT_SSH_COMMAND'];
+  expect(transport).toContain('-o ControlMaster=auto');
+  expect(transport).toMatch(/-o ControlPersist=[1-9]\d*/);
+  expect(transport).toContain(
+    "-S '/Users/o'\\''brien smith/.mev/ssh-control-%n'",
+  );
+});

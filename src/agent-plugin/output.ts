@@ -1,19 +1,19 @@
 import { ProvisioningError } from '../errors';
-import type { CommandRunner } from '../host/command';
 import { formatCommandFailure } from '../host/command';
 import { runProcessCapture } from '../host/command-run';
+import type { Context } from '../host/context';
 import { type ErrorFactory, parseJsonLabeled } from '../host/parse';
 import { noninteractiveRunner } from './command';
 
 export async function capturePluginJson(
-  run: CommandRunner,
+  context: Context,
   command: string,
   args: readonly string[],
   label: string,
   raise: ErrorFactory = (message) => new ProvisioningError(message),
 ): Promise<unknown> {
   const result = await runProcessCapture(
-    noninteractiveRunner(run),
+    noninteractiveRunner(context),
     command,
     args,
   );
