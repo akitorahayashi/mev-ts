@@ -119,7 +119,7 @@ for (const phase of ['check', 'install', 'verify', 'remove'] as const) {
       const { context } = recordingContext({
         home,
         respond: async (command, args) => {
-          const inventory = args.join(' ') === 'plugin list --json';
+          const inventory = args[1] === 'list';
           const count = (counts.get(command) ?? 0) + (inventory ? 1 : 0);
           counts.set(command, count);
           if (
@@ -218,7 +218,10 @@ sandboxTest(
             ),
           );
         }
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory(['xlsx@xlsx']));
         }
         if (
@@ -250,7 +253,7 @@ sandboxTest(
       calls.map(({ command, args }) => `${command} ${args.join(' ')}`),
     ).toEqual([
       'claude plugin list --json',
-      'codex plugin list --json',
+      'codex plugin list --json --disable remote_plugin',
       'claude plugin marketplace list --json',
       'codex plugin marketplace list --json',
     ]);
@@ -445,7 +448,10 @@ sandboxTest(
         if (command === 'claude' && line === 'plugin marketplace list --json') {
           return fail('claude marketplace listing unavailable');
         }
-        if (command === 'codex' && line === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          line === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory(['xlsx@xlsx']));
         }
         if (command === 'codex' && line === 'plugin marketplace list --json') {
@@ -557,7 +563,10 @@ sandboxTest(
           return ok();
         }
         if (command === 'claude' && args[1] === 'marketplace') return ok();
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([...codexInstalled]));
         }
         if (
@@ -609,6 +618,51 @@ sandboxTest(
   },
 );
 sandboxTest(
+  "a marketplace's plugin operations directly follow its fetch",
+  async (home) => {
+    await deployCatalog(
+      home,
+      `
+marketplaces:
+  - clients: [claude]
+    repo: akitorahayashi/agent-device-plugin
+    plugins: [agent-device, device-verification]
+  - clients: [claude]
+    repo: akitorahayashi/xlsx
+    plugins: [xlsx]
+`,
+    );
+    const installed = new Set<string>();
+    const { context, calls } = recordingContext({
+      home,
+      respond: (command, args) => {
+        if (command !== 'claude') return fail(`unexpected ${command}`);
+        const line = args.join(' ');
+        if (line === 'plugin list --json') {
+          return ok(claudeInventory([...installed]));
+        }
+        if (line === 'plugin marketplace list --json') return ok('[]');
+        if (args[1] === 'install') installed.add(args[2] as string);
+        return ok();
+      },
+    });
+    await run(context);
+    // Claude re-fetches a marketplace for an install issued long after its
+    // fetch, so fetching every marketplace first would fetch each one twice.
+    expect(
+      calls
+        .map(({ args }) => args.slice(1).join(' '))
+        .filter((line) => !line.includes('list')),
+    ).toEqual([
+      'marketplace add git@github.com:akitorahayashi/agent-device-plugin.git#main',
+      'install agent-device@agent-device-plugin',
+      'install device-verification@agent-device-plugin',
+      'marketplace add git@github.com:akitorahayashi/xlsx.git#main',
+      'install xlsx@xlsx',
+    ]);
+  },
+);
+sandboxTest(
   'refreshes existing main marketplaces only when plugins are missing',
   async (home) => {
     const catalog = `
@@ -649,7 +703,10 @@ marketplaces:
           return ok();
         }
         if (command === 'claude' && args[1] === 'marketplace') return ok();
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([...codexInstalled]));
         }
         if (
@@ -961,7 +1018,10 @@ sandboxTest(
           claudeVersion = '1.1.0';
           return ok();
         }
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(
             codexInventory([{ id: 'xlsx@xlsx', version: codexVersion }]),
           );
@@ -1066,7 +1126,10 @@ sandboxTest(
         }
         if (command === 'claude' && args[1] === 'marketplace') return ok();
         if (command === 'claude' && args[1] === 'update') return ok();
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([{ id: 'xlsx@xlsx', version: '0.1.0' }]));
         }
         if (
@@ -1260,7 +1323,10 @@ sandboxTest(
           claudeInstalled.delete(args[2] as string);
           return ok();
         }
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([...codexInstalled]));
         }
         if (
@@ -1359,7 +1425,10 @@ removed_marketplaces:
           );
           return ok();
         }
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([...codexInstalled]));
         }
         if (
@@ -1631,7 +1700,10 @@ marketplaces:
     const { context, calls } = recordingContext({
       home,
       respond: (command, args) => {
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([...installed]));
         }
         if (
@@ -1718,7 +1790,10 @@ marketplaces:
     const { context } = recordingContext({
       home,
       respond: (command, args) => {
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([...installed]));
         }
         if (
@@ -1822,7 +1897,10 @@ removed_marketplaces:
             ]),
           );
         }
-        if (command === 'codex' && args.join(' ') === 'plugin list --json') {
+        if (
+          command === 'codex' &&
+          args.join(' ') === 'plugin list --json --disable remote_plugin'
+        ) {
           return ok(codexInventory([]));
         }
         if (

@@ -25,7 +25,7 @@ export async function listClaudePlugins(
   context: Context,
 ): Promise<PluginInventory> {
   const raw = await capturePluginJson(
-    context.commands,
+    context,
     'claude',
     ['plugin', 'list', '--json'],
     'Claude plugin inventory',
@@ -54,7 +54,7 @@ export async function listClaudeMarketplaces(
   context: Context,
 ): Promise<Map<string, ClaudeMarketplace>> {
   const raw = await capturePluginJson(
-    context.commands,
+    context,
     'claude',
     ['plugin', 'marketplace', 'list', '--json'],
     'Claude marketplace inventory',
@@ -89,7 +89,7 @@ export async function addClaudeMarketplace(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'marketplace', 'add', `${url}#${MARKETPLACE_REF}`],
     `Claude marketplace add ${url}`,
@@ -102,7 +102,7 @@ export async function updateClaudeMarketplace(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'marketplace', 'update', name],
     `Claude marketplace update ${name}`,
@@ -115,7 +115,7 @@ export async function installClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'install', id],
     `Claude plugin install ${id}`,
@@ -130,7 +130,7 @@ export async function enableClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'enable', id, '--scope', 'user'],
     `Claude plugin enable ${id}`,
@@ -142,7 +142,7 @@ export async function updateClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'update', id],
     `Claude plugin update ${id}`,
@@ -156,7 +156,7 @@ export async function uninstallClaudePlugin(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'uninstall', id, '--scope', 'user'],
     `Claude plugin uninstall ${id}`,
@@ -172,7 +172,7 @@ export async function removeClaudeMarketplace(
   context: Context,
 ): Promise<void> {
   await runProcessStep(
-    noninteractiveRunner(context.commands),
+    noninteractiveRunner(context),
     'claude',
     ['plugin', 'marketplace', 'remove', name],
     `Claude marketplace remove ${name}`,

@@ -132,28 +132,38 @@ export function runAgentPlugins(
     const declared: DeclaredTarget[] = [];
     const removals: VerificationTarget[] = [];
     const registrations = new MarketplaceRegistrations(clientOps);
-    const marketplaceOutcomes = await drainAll(
-      catalog.marketplaces.map((marketplace): Promise<MarketplaceOutcome> => {
-        const inventory = inventories.get(marketplace.client);
-        if (!inventory?.installed) {
-          return Promise.resolve({
-            entries: inventoryFailureEntries(
-              marketplace,
-              inventory?.error ?? 'Plugin inventory is unavailable.',
-            ),
-            declared: [],
-            removals: [],
-          });
+    const marketplaceOutcomes = new Array<MarketplaceOutcome>(
+      catalog.marketplaces.length,
+    );
+    // One marketplace at a time per client, so a marketplace's plugin
+    // operations directly follow its fetch: claude re-fetches a marketplace on
+    // any install or update issued more than about thirty seconds after its
+    // last fetch. The client's mutation queue is already serial, so this costs
+    // no concurrency.
+    await drainAll(
+      clients.map(async (client) => {
+        for (const [index, marketplace] of catalog.marketplaces.entries()) {
+          if (marketplace.client !== client) continue;
+          const inventory = inventories.get(client);
+          marketplaceOutcomes[index] = inventory?.installed
+            ? await reconcileMarketplace(
+                marketplace,
+                sshHost,
+                inventory.installed,
+                options.upgrade,
+                clientContext,
+                registrations,
+                clientOps,
+              )
+            : {
+                entries: inventoryFailureEntries(
+                  marketplace,
+                  inventory?.error ?? 'Plugin inventory is unavailable.',
+                ),
+                declared: [],
+                removals: [],
+              };
         }
-        return reconcileMarketplace(
-          marketplace,
-          sshHost,
-          inventory.installed,
-          options.upgrade,
-          clientContext,
-          registrations,
-          clientOps,
-        );
       }),
     );
     for (const outcome of marketplaceOutcomes) {
