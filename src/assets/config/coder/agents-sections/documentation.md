@@ -1,9 +1,9 @@
-## Documentation
+## ドキュメント
 
-- Conversational replies use the language the user is conversing in. Written documentation follows the repository's established language; when revising an existing document, its current language takes precedence over any default.
-- Documentation for LLMs (AGENTS.md, CLAUDE.md, etc.) is kept concise for token efficiency, focusing only on essential information.
-- Documentation is written in a declarative style describing the current state. Imperative or changelog-style descriptions are prohibited.
-- Markdown structure matches the information: headings express hierarchy, tables express comparisons and state matrices, lists express independent rules or sequences, and prose is reserved for rationale and relationships.
-- Documentation owns contracts, boundaries, rationale, and externally observable behavior. Source code, schemas, registries, and catalogs own implementation mechanics and enumerable values; documentation links to those authorities instead of reproducing them.
-- The documentation must conform to the implementation, and the implementation must not be modified to conform to the documentation.
-- Do not use bold emphasis (**) in Markdown. Use hierarchy and headings for organization.
+- 会話の返答にはユーザーが使用している言語を使用する。作成するドキュメントはリポジトリで確立された言語に従う。既存のドキュメントを改訂する場合は、いかなるデフォルトよりもそのドキュメントの現在の言語を優先する。
+- LLM向けドキュメント（AGENTS.md、CLAUDE.md など）はトークン効率のために簡潔さを保ち、不可欠な情報のみに絞る。
+- ドキュメントは現在の状態を記述する宣言的なスタイルで書く。命令形や変更履歴（Changelog）スタイルの記述は禁止する。
+- Markdownの構造は情報と一致させる: 見出しは階層を表し、表は比較や状態マトリクスを表し、リストは独立したルールや手順を表し、散文は理由や関係性の記述のために確保する。
+- ドキュメントは契約、境界、理由、外部から観測可能な振る舞いを所有する。ソースコード、スキーマ、レジストリ、カタログは実装の仕組みと列挙可能な値を所有する。ドキュメントはそれらを再掲せず、SSOTへのリンクにとどめる。
+- 基本的にはドキュメントは実装に従う、合理的な理由がない限り、ドキュメントに合わせるために実装を変更しない。
+- Markdownで太字による強調（**）を使用しない。整理には階層と見出しを使用する。

@@ -1,8 +1,8 @@
-## Testing
+## テスト
 
-- Test the owning boundary’s contract. Assert only externally observable behavior that the boundary explicitly owns.
-- Respect dependency boundaries. Do not test behavior owned by dependencies; test only repository-owned behavior exposed through those boundaries.
-- Avoid coupling tests to implementation structure. Do not freeze file placement, includes, wording, generated layout, or responsibility splits between nearby modules unless the tested boundary explicitly owns them as observable behavior.
-- Use independent sources of truth. Derive expected results from an independent authority, never from the implementation under test, production-owned artifacts, or duplicated production logic.
-- Keep migration checks out of durable tests. Check for residue from renames, deletions, and restructuring with implementation-time searches unless legacy handling is an explicit compatibility contract.
-- Manage temporary artifacts safely. Use the language or runtime’s standard temporary-file and temporary-directory facilities when available, and ensure that anything created under `/tmp/` is removed even when the test fails.
+- 所有する境界の契約をテストする。その境界が明示的に所有する、外部から観測可能な振る舞いのみを検証する。
+- 依存関係の境界を尊重する。依存先が所有する振る舞いはテストせず、その境界を通じて公開されるリポジトリ所有の振る舞いのみをテストする。
+- テストを実装構造と結合させない。テスト対象の境界が観測可能な振る舞いとして明示的に所有していない限り、ファイル配置、インクルード、文言、生成レイアウト、近接モジュール間の責務分割を固定しない。
+- 独立したSSOTを使用する。期待される結果は独立したSSOTから導出するものとし、テスト対象の実装、プロダクションが所有する成果物、あるいは複製したプロダクションロジックから導出してはならない。
+- 恒久的なテストに移行確認を含めない。過去バージョンの取り扱いが明示的な互換性の契約でない限り、リネーム、削除、再構築の残骸は実装時の検索によって確認する。
+- 一時的な成果物は安全に管理する。利用可能な場合は言語やランタイムの標準の一時ファイルおよび一時ディレクトリ機能を使用し、`/tmp/` 配下に作成されたものはテストが失敗した場合でも確実に削除する。

@@ -1,37 +1,33 @@
-## Design
+## 設計
 
-- Feature additions and refactorings include the removal of old modules and deprecated features to eliminate technical debt, bugs, and complexity.
-- Class and file must not have ambiguous names or responsibilities such as base, common, core, utils, or helpers.
-- Within a scoped directory, file and symbol names must not repeat the directory context;
-  name them only by their specific responsibility.
-- Files and classes identify single, specific responsibilities; names that restate package or directory scope are avoided to prevent unrelated concerns.
-- Enumerable values are generated dynamically from authoritative sources (catalog, registry, schema) rather than hardcoded.
-- Silent fallbacks are prohibited; any fallback is explicit, opt-in, and surfaced as a failure or a clearly logged, reviewed decision.
-- UX simplicity is prioritized over excessive configuration.
-- Validate necessity by contribution to purpose. Usage elsewhere is not a valid justification.
-- Systemic fixes are preferred over patches; invariants and owning components are addressing at boundaries to benefit all call sites without workarounds.
+- 機能変更やリファクタリングでは、当該スコープ内で不要・非推奨となった古いモジュールや機能の削除まで完結させ、作業スコープ外の既存負債には手を付けない。
+- クラスやファイルに base、common、core、utils、helpers などの曖昧な名前や責務を持たせてはない方が良い。
+- スコープ付けされたディレクトリ内では、ファイル名やシンボル名でディレクトリのコンテキストを繰り返してはならない。固有の責務によってのみ命名する。
+- ファイルやクラスは単一の固有の責務を特定するものとし、冗長な名前を防ぐため、パッケージやディレクトリのスコープをprefixなどで繰り返す名前は避ける。
+- 列挙可能な値はハードコードせず(可読性や保守性が向上する場合)、SSOT（カタログ、レジストリ、スキーマなど）から動的に生成する。
+- サイレントフォールバックは禁止する。すべてのフォールバックは明示的かつオプトインとし、エラーとして表面化させるか、明確にログ記録・レビューされた決定とする。
+- 過度な設定よりもUXのシンプルさを優先する。
+- 必要性は目的に対する貢献度によって検証する。他所での使用実績は正当な理由にならない。
+- 対症療法的なパッチよりも根本的な修正を優先する。ワークアラウンドなしにすべての呼び出し箇所が恩恵を受けられるよう、解決する。
 
-## Comments
+## コメント
 
-- Avoid writing comments whenever possible; if you do write them, keep them concise. Do not write comments if the code's purpose is obvious from the names or implementation.
-- Include only information that cannot be gleaned from the code itself. Do not include descriptions that merely explain how the code works; such comments add no value and only reduce readability.
-- What to include: reasons for choosing a specific implementation (including why other options were rejected), external constraints, past incidents, the rationale behind specifications, counter-intuitive behaviors, etc.
-- What not to include: the mechanics of the code (details evident from the code), paraphrasing of function or variable names, or simple descriptions of actions (e.g., "initialize X").
-- Do not use comments to address uncertainty in the implementation. Instead, explicitly communicate any uncertainties through interactions with users or in design documentation.
+- 可能な限りコメントの記述は避ける。書く場合でも簡潔にとどめる。コードの目的が名前や実装から自明である場合はコメントを書かない。
+- コード自体から読み取れない情報のみを含める。コードの動作を単に説明するだけの記述は含めない。そのようなコメントは何の価値ももたらさず、可読性を下げるだけである。
+- 含めるべき情報: 特定の実装を選択した理由（他の選択肢を却下した理由を含む）、外部制約、過去のインシデント、仕様の背景にある理由、直感に反する挙動など。
+- 含めるべきでない情報: コードの仕組み（コードから明らかな詳細）、関数名や変数名の言い換え、単純な操作の説明（例: 「Xを初期化する」など）。
+- 実装の不確実性を解消するためにコメントを使わない。不確実な点は、ユーザーとの対話や設計ドキュメントを通じて明示的に伝達する。
 
-## Implementation
+## 実装
 
-- Post-implementation inventorying (git status, git diff, etc.) is avoided; only evidential verification (testing, etc.) is performed.
-- Validation focuses on the appropriate scope, providing minimal evidence unless intent dictates otherwise.
-- When renaming, deleting, or restructuring, a comprehensive search (e.g., `rg`) for the old structure or terms must be performed at the end to ensure no remnants are left behind.
-- Do not attempt to run the `check` command without first executing available auto-fix commands (such as `fix`). Please run the fix command if applicable before running the check.
-- Avoid unnecessary actions, such as running the `test` command for changes unrelated to the implementation (e.g., modifications to Markdown files).
+- 実装後の不要な棚卸し（`git status`、`git diff` など）は避ける。証拠となる検証（テストなど）のみを実行する。
+- 検証は適切なスコープに絞り、意図的に指示されない限り必要最小限のエビデンスを提示する。
+- リネーム、削除、または構造の変更を行う場合は、古い構造や用語が残っていないことを確認するため、最後に包括的な検索（例: `rg`）を実行する。
+- 利用可能な自動修正コマンド（`fix` など）を先に実行せずに `check` コマンドを実行しない。適用可能な場合は `check` の前に `fix` コマンドを実行する。
+- 実装と無関係な変更（例: Markdownファイルの修正）に対して `test` コマンドを実行するなど、不要なアクションは避ける。
 
-## Tools
+## ツール
 
-- Text searches over files and command output use `rg` instead of `grep`.
-- File and directory lookups by name or path use `fd` instead of `find`.
-- RTK is available as the `rtk` shell command in mev-provisioned coder environments.
-- Claude Code and Codex shell hooks may rewrite supported Bash commands through `rtk rewrite` before execution.
-- Commands that already start with `rtk` remain unchanged and are not prefixed again.
-- Installation verification uses `rtk --version`; analytics and history commands are optional and are not part of provisioning checks.
+- ファイルやコマンド出力に対するテキスト検索には、`grep` ではなく `rg` を使用する。
+- 名前やパスによるファイルおよびディレクトリの検索には、`find` ではなく `fd` を使用する。
+- Claude Code および Codex のシェルフックは、対応する Bash コマンドを実行前に `rtk rewrite` を通じて書き換えることがある。

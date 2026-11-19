@@ -1,11 +1,11 @@
-## Safety
+## 安全性
 
-- Commands that discard uncommitted changes (for example `git checkout -- <path>`, `git restore`, `git reset`) are only run after explicit user approval.
-- A request to create branches, commit, push, or perform other Git write operations apply only to the changes requested at that time and do not serve as permanent instructions for subsequent changes.
-- Do not use `rm -rf` for agent-initiated file or directory removal. Use `/usr/bin/trash <path...>` instead so removed items remain recoverable.
+- 未コミットの変更を破棄するコマンド（例: `git checkout -- <path>`, `git restore`, `git reset`）は、ユーザーの明示的な承認を得た後にのみ実行する。
+- ブランチ作成、コミット、プッシュ、その他のGit書き込み操作の要求は、その時点で要求された変更にのみ適用され、以後の変更に対する恒久的な指示としては扱わない。
+- エージェント起点のファイルやディレクトリの削除に `rm -rf` を使わない。削除した項目を復元可能に保つため、代わりに `/usr/bin/trash <path...>` を使う。
 
-## User-specific
+## ユーザー固有
 
-- `.tmp/*.md` files are context-file storage. Read only upon explicit instruction.
-- Relative path references to `references/` are prohibited (primarily because it's a clone for reference purposes). If you need the assets (JSON/images, etc.) within it, please copy them as appropriate.
-- Dependencies and GitHub Actions owned by `akitorahayashi` use reviewed release or major tags rather than SHA pins. Third-party GitHub Actions and Git-hosted dependencies use immutable full commit SHAs.
+- `.tmp/*.md` ファイルはコンテキストファイルの保管場所である。明示的な指示があった場合にのみ読み取る。
+- `references/` への相対パス参照は禁止する（参照用のクローンであることが主な理由）。内部のアセット（JSONや画像など）が必要な場合は、適宜コピーして使用する。
+- `akitorahayashi` が所有する依存関係およびGitHub Actionsは、SHA pinではなくレビュー済みのリリースタグまたはメジャータグを使用する。サードパーティのGitHub ActionsおよびGitでホストされる依存関係は、不変の完全なコミットSHAを使用する。

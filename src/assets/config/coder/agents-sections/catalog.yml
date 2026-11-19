@@ -1,8 +1,8 @@
 ---
-# Master list of AGENTS.md sections. Declared order is the concatenation order,
-# and the listed set is the authority for which sections exist. Each entry maps
-# to a sibling `<name>.md`. A listed name without a `.md`, or a `.md` without a
-# listing, is a startup error.
+# AGENTS.mdセクションのマスターリスト。宣言された順序が結合順序となり、
+# 列挙された集合が存在するセクションのSSOTとなる。各エントリは同階層の
+# `<name>.md`に対応する。`.md`のないリスト名、またはリストにない`.md`は
+# 起動時エラーとなる。
 sections:
   - communication
   - user-specific
