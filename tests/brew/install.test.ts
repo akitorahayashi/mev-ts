@@ -1,28 +1,20 @@
-import { expect } from 'bun:test';
-import { mkdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { expect, test } from 'bun:test';
 import { installPackages } from '../../src/brew/install';
-import { type PackageToken, packages } from '../../src/brew/package';
+import type { PackageSet, PackageToken } from '../../src/brew/package';
 import type { Context } from '../../src/host/context';
 import {
   emptyAssets,
   type Invocation,
   recordingContext,
 } from '../fixtures/fake-context';
-import { sandboxedTest } from '../fixtures/temporary-directory';
 
-// Brewfile staging is real filesystem work, so every case runs against a
-// sandbox home rather than a nonexistent path plus the real system temp root.
-const test = sandboxedTest('brew-');
+const home = '/sandbox';
 
 interface Sink {
-  brewfile?: string;
-  brewfilePath?: string;
   calls?: readonly Invocation[];
 }
 
 interface BrewState {
-  readonly taps?: readonly string[];
   readonly formulae?: readonly string[];
   readonly casks?: readonly string[];
   readonly formulaVersions?: Readonly<Record<string, readonly string[]>>;
@@ -39,21 +31,16 @@ function shortName(name: string): string {
   return name.split('/').at(-1) ?? name;
 }
 
-function brewContext(
-  home: string,
-  state: BrewState,
-  sink: Sink = {},
-  tmpRoot?: string,
-): Context {
+function packages(set: Partial<PackageSet>): PackageSet {
+  return { formulae: set.formulae ?? [], casks: set.casks ?? [] };
+}
+
+function brewContext(state: BrewState, sink: Sink = {}): Context {
   const upgraded = new Set<string>();
   const recorded = recordingContext({
     home,
     assets: emptyAssets,
-    tmpRoot,
     async respond(_command, args) {
-      if (args[0] === 'tap') {
-        return { code: 0, stdout: (state.taps ?? []).join('\n'), stderr: '' };
-      }
       if (args[0] === 'list') {
         const names = args.includes('--cask') ? state.casks : state.formulae;
         // Homebrew lists a tapped package by its bare name unless --full-name.
@@ -113,13 +100,11 @@ function brewContext(
         const kind = args.includes('--cask') ? 'cask' : 'formula';
         const name = args.at(-1);
         if (name) upgraded.add(`${kind}:${name}`);
+        return { code: 0, stdout: '', stderr: '' };
       }
-      const fileArg = args.find((arg) => arg.startsWith('--file='));
-      if (fileArg) {
-        sink.brewfilePath = fileArg.slice('--file='.length);
-        sink.brewfile = await readFile(sink.brewfilePath, 'utf8');
-      }
-      return { code: state.installCode ?? 0, stdout: '', stderr: '' };
+      return state.installCode
+        ? { code: state.installCode, stdout: '', stderr: 'install refused' }
+        : { code: 0, stdout: '', stderr: '' };
     },
   });
   sink.calls = recorded.calls;
@@ -134,23 +119,23 @@ function recordedArgs(sink: Sink): readonly (readonly string[])[] {
     .map((call) => call.args);
 }
 
-test('reports present without invoking brew bundle when the formula is listed', async (sandbox) => {
+test('reports present without installing when the formula is listed', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
     oneFormula,
-    brewContext(sandbox, { formulae: ['git'] }, sink),
+    brewContext({ formulae: ['git'] }, sink),
   );
 
   expect(reports[0]?.status).toBe('present');
-  expect(recordedArgs(sink).some((args) => args[0] === 'bundle')).toBe(false);
+  expect(recordedArgs(sink).some((args) => args[0] === 'install')).toBe(false);
 });
 
-test('upgrade mode reports an unchanged installed formula as current', async (sandbox) => {
+test('upgrade mode reports an unchanged installed formula as current', async () => {
   const sink: Sink = {};
   const actions: string[] = [];
   const reports = await installPackages(
     oneFormula,
-    brewContext(sandbox, { formulae: ['git'] }, sink),
+    brewContext({ formulae: ['git'] }, sink),
     {
       upgrade: true,
       onTokenStart: (token, action) =>
@@ -176,10 +161,10 @@ test('upgrade mode reports an unchanged installed formula as current', async (sa
   expect(actions).toEqual(['upgrade formula git']);
 });
 
-test('upgrade mode reports a changed installed formula with both versions', async (sandbox) => {
+test('upgrade mode reports a changed installed formula with both versions', async () => {
   const reports = await installPackages(
     oneFormula,
-    brewContext(sandbox, {
+    brewContext({
       formulae: ['git'],
       formulaVersions: { git: ['2.50.0'] },
       upgradedFormulaVersions: { git: ['2.51.0'] },
@@ -195,30 +180,23 @@ test('upgrade mode reports a changed installed formula with both versions', asyn
   });
 });
 
-test('reports a tapped formula declared by its qualified name as present', async (sandbox) => {
+test('reports a tapped formula declared by its qualified name as present', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
-    packages({ taps: ['owner/tap'], formulae: ['owner/tap/tool'] }),
-    brewContext(
-      sandbox,
-      { taps: ['owner/tap'], formulae: ['owner/tap/tool'] },
-      sink,
-    ),
+    packages({ formulae: ['owner/tap/tool'] }),
+    brewContext({ formulae: ['owner/tap/tool'] }, sink),
   );
 
-  expect(reports.map((report) => report.status)).toEqual([
-    'present',
-    'present',
-  ]);
-  expect(recordedArgs(sink).some((args) => args[0] === 'bundle')).toBe(false);
+  expect(reports.map((report) => report.status)).toEqual(['present']);
+  expect(recordedArgs(sink).some((args) => args[0] === 'install')).toBe(false);
   expect(recordedArgs(sink).some((args) => args[0] === 'trust')).toBe(false);
 });
 
-test('upgrade mode trusts a tapped formula before probing its version', async (sandbox) => {
+test('upgrade mode trusts a tapped formula before probing its version', async () => {
   const sink: Sink = {};
   await installPackages(
     packages({ formulae: ['git', 'owner/tap/tool'] }),
-    brewContext(sandbox, { formulae: ['git', 'owner/tap/tool'] }, sink),
+    brewContext({ formulae: ['git', 'owner/tap/tool'] }, sink),
     { upgrade: true },
   );
 
@@ -228,32 +206,26 @@ test('upgrade mode trusts a tapped formula before probing its version', async (s
   expect(trustIndex).toBeLessThan(args.findIndex((call) => call[0] === 'info'));
 });
 
-test('trusts a missing tapped cask before installing it', async (sandbox) => {
+test('trusts a missing tapped cask before installing it', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
     packages({ casks: ['owner/tap/app'] }),
-    brewContext(sandbox, {}, sink),
+    brewContext({}, sink),
   );
 
   expect(reports[0]?.status).toBe('installed');
-  expect(recordedArgs(sink).map((args) => args[0])).toEqual([
-    'list',
-    'trust',
-    'bundle',
-  ]);
-  expect(recordedArgs(sink)).toContainEqual([
-    'trust',
-    '--cask',
-    'owner/tap/app',
+  expect(recordedArgs(sink)).toEqual([
+    ['list', '--cask', '-1', '--full-name'],
+    ['trust', '--cask', 'owner/tap/app'],
+    ['install', '--cask', 'owner/tap/app'],
   ]);
 });
 
-test('a failed trust fails only its own tapped formula', async (sandbox) => {
+test('a failed trust fails only its own tapped formula', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
     packages({ formulae: ['git', 'owner/tap/bad', 'owner/tap/good'] }),
     brewContext(
-      sandbox,
       {
         formulae: ['git', 'owner/tap/bad', 'owner/tap/good'],
         trustRefused: ['owner/tap/bad'],
@@ -279,12 +251,11 @@ test('a failed trust fails only its own tapped formula', async (sandbox) => {
   ).toBe(false);
 });
 
-test('upgrade mode upgrades a tapped formula under its qualified name', async (sandbox) => {
+test('upgrade mode upgrades a tapped formula under its qualified name', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
     packages({ formulae: ['owner/tap/tool'] }),
     brewContext(
-      sandbox,
       {
         formulae: ['owner/tap/tool'],
         formulaVersions: { 'owner/tap/tool': ['1.0.0'] },
@@ -309,73 +280,37 @@ test('upgrade mode upgrades a tapped formula under its qualified name', async (s
   ]);
 });
 
-test('upgrade mode upgrades an installed cask and leaves an installed tap alone', async (sandbox) => {
+test('upgrade mode upgrades an installed cask', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
-    packages({ taps: ['a/b'], casks: ['zed'] }),
-    brewContext(sandbox, { taps: ['a/b'], casks: ['zed'] }, sink),
+    packages({ casks: ['zed'] }),
+    brewContext({ casks: ['zed'] }, sink),
     { upgrade: true },
   );
 
-  expect(reports.map((report) => report.status)).toEqual([
-    'present',
-    'upgrade-current',
-  ]);
+  expect(reports.map((report) => report.status)).toEqual(['upgrade-current']);
   expect(recordedArgs(sink)).toContainEqual([
     'upgrade',
     '--no-ask',
     '--cask',
     'zed',
   ]);
-  expect(recordedArgs(sink)).not.toContainEqual([
-    'upgrade',
-    '--no-ask',
-    '--tap',
-    'a/b',
-  ]);
 });
 
-test('installs a missing tap before probing an installed formula version', async (sandbox) => {
+test('upgrade mode installs a missing formula without invoking upgrade', async () => {
   const sink: Sink = {};
-  const reports = await installPackages(
-    packages({ taps: ['a/b'], formulae: ['git'] }),
-    brewContext(sandbox, { formulae: ['git'] }, sink),
-    { upgrade: true },
-  );
-
-  expect(reports.map((report) => report.status)).toEqual([
-    'installed',
-    'upgrade-current',
-  ]);
-  expect(recordedArgs(sink).map((args) => args[0])).toEqual([
-    'tap',
-    'list',
-    'bundle',
-    'info',
-    'upgrade',
-    'info',
-  ]);
-  expect(sink.brewfile).toBe('tap "a/b"\n');
-});
-
-test('upgrade mode installs a missing formula without invoking upgrade', async (sandbox) => {
-  const sink: Sink = {};
-  const reports = await installPackages(
-    oneFormula,
-    brewContext(sandbox, {}, sink),
-    { upgrade: true },
-  );
+  const reports = await installPackages(oneFormula, brewContext({}, sink), {
+    upgrade: true,
+  });
 
   expect(reports[0]?.status).toBe('installed');
-  expect(recordedArgs(sink).find((args) => args[0] === 'bundle')).toContain(
-    '--no-upgrade',
-  );
+  expect(recordedArgs(sink)).toContainEqual(['install', '--formula', 'git']);
   expect(recordedArgs(sink).some((args) => args[0] === 'upgrade')).toBe(false);
 });
 
-test('a failed formula upgrade fails the package', async (sandbox) => {
+test('a failed formula upgrade fails the package', async () => {
   const context = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -406,12 +341,11 @@ test('a failed formula upgrade fails the package', async (sandbox) => {
   });
 });
 
-test('batches version probes per kind around multiple upgrades', async (sandbox) => {
+test('batches version probes per kind around multiple upgrades', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
     packages({ formulae: ['git', 'gh'] }),
     brewContext(
-      sandbox,
       {
         formulae: ['git', 'gh'],
         formulaVersions: { git: ['1.0.0'], gh: ['2.0.0'] },
@@ -431,9 +365,9 @@ test('batches version probes per kind around multiple upgrades', async (sandbox)
   ]);
 });
 
-test('does not upgrade when the pre-upgrade version probe fails', async (sandbox) => {
+test('does not upgrade when the pre-upgrade version probe fails', async () => {
   const { context, calls } = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -457,10 +391,10 @@ test('does not upgrade when the pre-upgrade version probe fails', async (sandbox
   expect(calls.some((call) => call.args[0] === 'upgrade')).toBe(false);
 });
 
-test('a malformed package version does not prevent other upgrades in the batch', async (sandbox) => {
+test('a malformed package version does not prevent other upgrades in the batch', async () => {
   let infoCalls = 0;
   const { context, calls } = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -505,10 +439,10 @@ test('a malformed package version does not prevent other upgrades in the batch',
   ).toEqual(['gh']);
 });
 
-test('ticks each upgrade when its brew command completes', async (sandbox) => {
+test('ticks each upgrade when its brew command completes', async () => {
   const events: string[] = [];
   const context = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -547,10 +481,10 @@ test('ticks each upgrade when its brew command completes', async (sandbox) => {
   ]);
 });
 
-test('fails a successful upgrade when the post-upgrade version is absent', async (sandbox) => {
+test('fails a successful upgrade when the post-upgrade version is absent', async () => {
   let infoCalls = 0;
   const context = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -585,10 +519,10 @@ test('fails a successful upgrade when the post-upgrade version is absent', async
   });
 });
 
-test('fails a successful upgrade when the post-upgrade probe fails', async (sandbox) => {
+test('fails a successful upgrade when the post-upgrade probe fails', async () => {
   let infoCalls = 0;
   const context = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -620,54 +554,39 @@ test('fails a successful upgrade when the post-upgrade probe fails', async (sand
   });
 });
 
-test('installs a missing formula through a temporary Brewfile', async (sandbox) => {
+test('installs missing formulae before missing casks by kind', async () => {
   const sink: Sink = {};
   const reports = await installPackages(
-    oneFormula,
-    brewContext(sandbox, {}, sink),
+    packages({ formulae: ['git'], casks: ['zed'] }),
+    brewContext({}, sink),
   );
 
-  expect(reports[0]?.status).toBe('installed');
-  expect(sink.brewfile).toBe('brew "git"\n');
-  expect(sink.brewfilePath).toMatch(/Brewfile$/);
-  expect(recordedArgs(sink).find((args) => args[0] === 'bundle')).toEqual([
-    'bundle',
-    'install',
-    '--no-upgrade',
-    expect.stringMatching(/^--file=/),
+  expect(reports.map((report) => report.status)).toEqual([
+    'installed',
+    'installed',
   ]);
-  expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
+  expect(recordedArgs(sink).filter((args) => args[0] === 'install')).toEqual([
+    ['install', '--formula', 'git'],
+    ['install', '--cask', 'zed'],
+  ]);
 });
 
-test('removes the Brewfile directory when the install runner throws', async (sandbox) => {
-  const sink: Sink = {};
-  const context = recordingContext({
-    home: sandbox,
-    assets: emptyAssets,
-    respond(_command, args) {
-      if (args[0] === 'list') {
-        return { code: 0, stdout: '', stderr: '' };
-      }
-      const fileArg = args.find((arg) => arg.startsWith('--file='));
-      if (fileArg) {
-        sink.brewfilePath = fileArg.slice('--file='.length);
-      }
-      throw new Error('runner failed');
-    },
-  }).context;
+test('reports a failed install with the brew diagnostic', async () => {
+  const reports = await installPackages(
+    oneFormula,
+    brewContext({ installCode: 1 }),
+  );
 
-  const reports = await installPackages(oneFormula, context);
-
-  expect(reports[0]).toMatchObject({
+  expect(reports[0]).toEqual({
+    token: { kind: 'formula', name: 'git' },
     status: 'failed',
-    error: 'runner failed',
+    error: 'brew install failed for formula git with code 1: install refused',
   });
-  expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
 });
 
-test('reports failure when the enumeration rejects without a reason', async (sandbox) => {
+test('reports failure when the enumeration rejects without a reason', async () => {
   const context = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond: () => Promise.reject(),
   }).context;
@@ -677,9 +596,9 @@ test('reports failure when the enumeration rejects without a reason', async (san
   expect(reports[0]).toMatchObject({ status: 'failed', error: 'undefined' });
 });
 
-test('a failed enumeration fails every token of that kind without installing', async (sandbox) => {
+test('a failed enumeration fails every token of that kind without installing', async () => {
   const { context, calls } = recordingContext({
-    home: sandbox,
+    home,
     assets: emptyAssets,
     respond(_command, args) {
       if (args[0] === 'list') {
@@ -699,62 +618,33 @@ test('a failed enumeration fails every token of that kind without installing', a
     status: 'failed',
     error: 'brew list --formula -1 --full-name failed with code 1: brew broken',
   });
-  expect(calls.some((call) => call.args[0] === 'bundle')).toBe(false);
+  expect(calls.some((call) => call.args[0] === 'install')).toBe(false);
 });
 
-test('allocates Brewfile scratch under the injected temporary root', async (sandbox) => {
-  const root = join(sandbox, 'tmp root');
-  await mkdir(root);
-  const sink: Sink = {};
-
-  await installPackages(oneFormula, brewContext(sandbox, {}, sink, root));
-
-  expect(sink.brewfilePath?.startsWith(join(root, 'mev-brewfile-'))).toBe(true);
-  expect(await Bun.file(sink.brewfilePath as string).exists()).toBe(false);
-});
-
-test('installs a missing tap while present formulae skip the install step', async (sandbox) => {
-  const sink: Sink = {};
-  const reports = await installPackages(
-    packages({ taps: ['a/b'], formulae: ['git'] }),
-    brewContext(sandbox, { formulae: ['git'] }, sink),
-  );
-
-  expect(
-    reports.map((report) => `${report.status} ${report.token.name}`),
-  ).toEqual(['installed a/b', 'present git']);
-  expect(sink.brewfile).toBe('tap "a/b"\n');
-});
-
-test('hooks report the total and tick per token', async (sandbox) => {
+test('hooks tick per token without starting present ones', async () => {
   const started: PackageToken[] = [];
   const ticked: PackageToken[] = [];
-  let total = -1;
   const reports = await installPackages(
-    packages({ taps: ['a/b'], formulae: ['git', 'gh'] }),
-    brewContext(sandbox, { taps: ['a/b'], formulae: ['git', 'gh'] }),
+    packages({ formulae: ['git', 'gh'] }),
+    brewContext({ formulae: ['git', 'gh'] }),
     {
-      onStart: (n) => {
-        total = n;
-      },
       onTokenStart: (token) => started.push(token),
       onTick: (token) => ticked.push(token),
     },
   );
-  expect(total).toBe(3);
   expect(started).toEqual([]);
   expect(
     reports.map((report) => `${report.status} ${report.token.name}`),
-  ).toEqual(['present a/b', 'present git', 'present gh']);
-  expect(ticked.map((t) => t.name)).toEqual(['a/b', 'git', 'gh']);
+  ).toEqual(['present git', 'present gh']);
+  expect(ticked.map((t) => t.name)).toEqual(['git', 'gh']);
 });
 
-test('hooks report the installing token for missing packages', async (sandbox) => {
+test('hooks report the installing token for missing packages', async () => {
   const started: string[] = [];
 
   const reports = await installPackages(
     oneFormula,
-    brewContext(sandbox, { installCode: 1 }),
+    brewContext({ installCode: 1 }),
     {
       onTokenStart: (token) => {
         started.push(`${token.kind} ${token.name}`);
@@ -766,16 +656,4 @@ test('hooks report the installing token for missing packages', async (sandbox) =
   expect(
     reports.map((report) => `${report.status} ${report.token.name}`),
   ).toEqual(['failed git']);
-});
-
-test('rejects a token name that could break out of the Brewfile DSL', async (sandbox) => {
-  const reports = await installPackages(
-    packages({ formulae: ['evil"\nbrew "malware'] }),
-    brewContext(sandbox, {}),
-  );
-
-  expect(reports[0]).toMatchObject({
-    status: 'failed',
-    error: expect.stringContaining('unsafe Homebrew token name'),
-  });
 });

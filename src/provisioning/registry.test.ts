@@ -45,18 +45,18 @@ test('every activation references an existing asset under its own role', async (
   }
 });
 
-// A role Brewfile declares packages; an activation that also consumed it would
-// apply or link the declaration as configuration.
-test('no activation consumes its role Brewfile', () => {
+// A role Homebrew manifest declares packages; an activation that also consumed
+// it would apply or link the declaration as configuration.
+test('no activation consumes its role Homebrew manifest', () => {
   const consumers: string[] = [];
   for (const t of allTargets()) {
-    const brewfile = `${t.role}/${manifestName}`;
+    const manifest = `${t.role}/${manifestName}`;
     for (const activation of t.activations) {
       for (const reference of referencedAssets(activation)) {
         const consumed =
           'key' in reference
-            ? reference.key === brewfile
-            : brewfile.startsWith(reference.prefix);
+            ? reference.key === manifest
+            : manifest.startsWith(reference.prefix);
         if (consumed) consumers.push(`${t.name}: ${activation.kind}`);
       }
     }
@@ -71,7 +71,9 @@ test('every target deploys assets or runs activations', () => {
   }
 });
 
-test('every embedded role Brewfile is a valid declaration', async () => {
+// Merging every target also proves no role uninstalls a package another role
+// installs, which a partial selection could not detect.
+test('every embedded role Homebrew manifest is valid and consistent', async () => {
   await expect(
     planMake(
       allTargets().map((t) => t.name),
@@ -114,5 +116,5 @@ test('the full-setup selection is every non-optional target', () => {
 test('hf can be selected independently of Python tool targets', async () => {
   const plan = await planMake(['hf'], embeddedAssets);
   expect(plan.targetNames).toEqual(['hf']);
-  expect(plan.packages.formulae).toEqual(['hf']);
+  expect(plan.packages.install.formulae).toEqual(['hf']);
 });

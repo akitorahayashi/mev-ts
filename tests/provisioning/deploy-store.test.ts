@@ -23,9 +23,9 @@ async function exists(path: string): Promise<boolean> {
 sandboxTest(
   'pruneDeployStore removes only unregistered mev roles and applied markers',
   async (home) => {
-    await write(join(home, '.mev/roles/casks/Brewfile'));
-    await write(join(home, '.mev/roles/formulae/Brewfile'));
-    await write(join(home, '.mev/roles/old/Brewfile'));
+    await write(join(home, '.mev/roles/casks/brew.yml'));
+    await write(join(home, '.mev/roles/formulae/brew.yml'));
+    await write(join(home, '.mev/roles/old/brew.yml'));
     await write(join(home, '.mev/roles/stray-file'));
     await write(join(home, '.mev/roles/.cmux.abcdef/backup/config.yml'));
     await write(join(home, '.mev/applied/casks'));
@@ -44,8 +44,8 @@ sandboxTest(
       roles: ['old', 'stray-file'],
       appliedTargets: ['cmux'],
     });
-    expect(await exists(join(home, '.mev/roles/casks/Brewfile'))).toBe(true);
-    expect(await exists(join(home, '.mev/roles/formulae/Brewfile'))).toBe(true);
+    expect(await exists(join(home, '.mev/roles/casks/brew.yml'))).toBe(true);
+    expect(await exists(join(home, '.mev/roles/formulae/brew.yml'))).toBe(true);
     expect(await exists(join(home, '.mev/roles/old'))).toBe(false);
     expect(await exists(join(home, '.mev/roles/stray-file'))).toBe(false);
     expect(await exists(join(home, '.mev/roles/.cmux.abcdef'))).toBe(true);

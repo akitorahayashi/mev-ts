@@ -1,6 +1,16 @@
 import { assertBrewAvailable } from '../brew/availability';
-import { type InstallReport, installPackages } from '../brew/install';
-import { mergePackages, type PackageToken, tokens } from '../brew/package';
+import {
+  type InstallAction,
+  type InstallReport,
+  installPackages,
+} from '../brew/install';
+import {
+  mergePackages,
+  type PackageRequirement,
+  type PackageToken,
+  tokens,
+} from '../brew/package';
+import { type UninstallReport, uninstallPackages } from '../brew/uninstall';
 import { errorMessage } from '../errors';
 import type { Context } from '../host/context';
 import { resolveHostPath } from '../host/path';
@@ -50,10 +60,14 @@ export interface ActivationGroupReport {
   readonly markerError?: string;
 }
 
+export type PackageReport = UninstallReport | InstallReport;
+
+export type PackageAction = InstallAction | 'uninstall';
+
 export interface MakeReport {
   readonly selection: MakePlan;
   readonly deploys: readonly DeployResult[];
-  readonly install: readonly InstallReport[];
+  readonly packages: readonly PackageReport[];
   readonly groups: readonly ActivationGroupReport[];
   readonly failed: boolean;
 }
@@ -66,12 +80,12 @@ export type MakeEvent =
   | {
       readonly type: 'package-start';
       readonly token: PackageToken;
-      readonly action: 'install' | 'upgrade';
+      readonly action: PackageAction;
     }
   | { readonly type: 'package-tick'; readonly token: PackageToken }
   | {
       readonly type: 'package-phase-complete';
-      readonly reports: readonly InstallReport[];
+      readonly reports: readonly PackageReport[];
     }
   | { readonly type: 'activation-phase-start' }
   | {
@@ -186,23 +200,59 @@ async function runDeployPhase(
   return { deploys, failedRoles };
 }
 
+type FailedPackageReport = Extract<
+  PackageReport,
+  { readonly status: 'failed' }
+>;
+
+function packageCount(req: PackageRequirement): number {
+  return tokens(req.install).length + tokens(req.uninstall).length;
+}
+
+// Removals run ahead of installs, so a package replaced by another is gone
+// before its successor installs.
+async function runPackagePhase(
+  req: PackageRequirement,
+  upgrade: boolean,
+  context: Context,
+  onEvent?: MakeRequest['onEvent'],
+): Promise<PackageReport[]> {
+  onEvent?.({ type: 'package-phase-start', total: packageCount(req) });
+  const onTick = (token: PackageToken) =>
+    onEvent?.({ type: 'package-tick', token });
+  const removed = await uninstallPackages(req.uninstall, context, {
+    onTokenStart: (token) =>
+      onEvent?.({ type: 'package-start', token, action: 'uninstall' }),
+    onTick,
+  });
+  const installed = await installPackages(req.install, context, {
+    upgrade,
+    onTokenStart: (token, action) =>
+      onEvent?.({ type: 'package-start', token, action }),
+    onTick,
+  });
+  const reports = [...removed, ...installed];
+  onEvent?.({ type: 'package-phase-complete', reports });
+  return reports;
+}
+
 function computeBlockers(
   group: PlannedTarget,
   failedRoles: ReadonlyMap<string, string>,
-  failedPackages: readonly Extract<
-    InstallReport,
-    { readonly status: 'failed' }
-  >[],
+  failedPackages: readonly FailedPackageReport[],
 ): ActivationBlocker[] {
   const blockers: ActivationBlocker[] = [];
   const deployError = failedRoles.get(group.role);
   if (deployError) {
     blockers.push({ kind: 'deploy', role: group.role, error: deployError });
   }
-  const requiredPackages = tokens(group.packages);
+  const declaredPackages = [
+    ...tokens(group.packages.install),
+    ...tokens(group.packages.uninstall),
+  ];
   for (const failedPackage of failedPackages) {
     if (
-      requiredPackages.some((token) => sameToken(token, failedPackage.token))
+      declaredPackages.some((token) => sameToken(token, failedPackage.token))
     ) {
       blockers.push({
         kind: 'package',
@@ -226,7 +276,7 @@ async function recordSuccessfulTarget(
 
 /**
  * Protect target-declared mutable state, then drive the three provisioning
- * phases: deploy each role's config, resolve required packages, and activate
+ * phases: deploy each role's config, resolve declared packages, and activate
  * the deployed assets grouped by target. Phase boundaries emit typed events so
  * the CLI can interleave transient progress with permanent result blocks; the
  * returned report carries everything needed to render the final summary.
@@ -238,7 +288,7 @@ export async function runMake(
   const selection = await planMake(request.selectors, context.assets);
   const upgrade = request.upgrade ?? false;
   request.onEvent?.({ type: 'selection', selection });
-  if (tokens(selection.packages).length > 0) {
+  if (packageCount(selection.packages) > 0) {
     await assertBrewAvailable(context);
   }
   if (request.pruneObsoleteState) {
@@ -254,24 +304,19 @@ export async function runMake(
     request.onEvent,
   );
 
-  const installablePackages = mergePackages(
-    selection.groups
-      .filter((group) => !failedRoles.has(group.role))
-      .map((group) => group.packages),
-  );
-  const install = await installPackages(installablePackages, context, {
+  const packages = await runPackagePhase(
+    mergePackages(
+      selection.groups
+        .filter((group) => !failedRoles.has(group.role))
+        .map((group) => group.packages),
+    ),
     upgrade,
-    onStart: (total) =>
-      request.onEvent?.({ type: 'package-phase-start', total }),
-    onTokenStart: (token, action) =>
-      request.onEvent?.({ type: 'package-start', token, action }),
-    onTick: (token) => request.onEvent?.({ type: 'package-tick', token }),
-  });
-  const failedPackages = install.filter(
-    (report): report is Extract<InstallReport, { readonly status: 'failed' }> =>
-      report.status === 'failed',
+    context,
+    request.onEvent,
   );
-  request.onEvent?.({ type: 'package-phase-complete', reports: install });
+  const failedPackages = packages.filter(
+    (report): report is FailedPackageReport => report.status === 'failed',
+  );
 
   const groups: ActivationGroupReport[] = [];
   const changesByRole = new Map(
@@ -343,8 +388,8 @@ export async function runMake(
 
   const failed =
     failedRoles.size > 0 ||
-    install.some((r) => r.status === 'failed') ||
+    failedPackages.length > 0 ||
     groups.some((group) => !groupSucceeded(group));
 
-  return { selection, deploys, install, groups, failed };
+  return { selection, deploys, packages, groups, failed };
 }

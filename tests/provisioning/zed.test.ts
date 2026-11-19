@@ -251,7 +251,7 @@ sandboxTest(
       context,
     );
     expect(report.failed).toBe(false);
-    expect(report.install).toEqual([
+    expect(report.packages).toEqual([
       {
         token: { kind: 'cask', name: 'zed' },
         status: 'upgraded',

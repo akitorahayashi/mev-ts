@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { noPackages } from '../../brew/package';
 import type { MakeReport } from '../../provisioning/run';
 import { target } from '../../provisioning/target';
 import {
@@ -18,13 +19,11 @@ function report(failed = false): MakeReport {
     selection: {
       targetNames: ['shell'],
       roles: ['shell'],
-      packages: { taps: [], formulae: [], casks: [] },
-      groups: [
-        { ...shellTarget, packages: { taps: [], formulae: [], casks: [] } },
-      ],
+      packages: noPackages,
+      groups: [{ ...shellTarget, packages: noPackages }],
     },
     deploys: [],
-    install: [],
+    packages: [],
     groups: [
       {
         targetName: 'shell',
@@ -123,6 +122,21 @@ test('package report shows observed upgrades and current upgrade targets', () =>
   );
   expect(rendered).toContain('current   1 other packages');
   expect(rendered).not.toContain('applied');
+});
+
+test('package report shows removals and folds absent ones into the unchanged count', () => {
+  const rendered = renderPackageReport(
+    [
+      { token: { kind: 'cask', name: 'iina' }, status: 'uninstalled' },
+      { token: { kind: 'formula', name: 'redis' }, status: 'absent' },
+      { token: { kind: 'formula', name: 'fd' }, status: 'present' },
+    ],
+    { isTTY: false },
+  );
+
+  expect(rendered).toContain('changed   cask iina — uninstalled');
+  expect(rendered).not.toContain('redis');
+  expect(rendered).toContain('current   2 other packages');
 });
 
 test('package report brackets multiple installed versions', () => {

@@ -2,11 +2,7 @@ import { errorMessage, ProvisioningError } from '../errors';
 import { formatCommandFailure } from '../host/command';
 import type { Context } from '../host/context';
 import { isRecord, parseJsonLabeled } from '../host/parse';
-import type {
-  PackageKind,
-  PackageRequirement,
-  UpgradeablePackageKind,
-} from './package';
+import type { PackageKind, PackageSet } from './package';
 
 export type KindInventory =
   | { readonly loaded: true; readonly names: ReadonlySet<string> }
@@ -23,16 +19,15 @@ export type KindVersionInventory =
   | { readonly loaded: false; readonly error: string };
 
 export type VersionInventory = Readonly<
-  Record<UpgradeablePackageKind, KindVersionInventory>
+  Record<PackageKind, KindVersionInventory>
 >;
 
-// `brew list -1` and `brew tap` are directory listings without Ruby startup,
-// so a full inventory costs milliseconds regardless of package count.
-// `--full-name` lists tapped packages as `owner/tap/name`, the form a Brewfile
-// declares them in; against the short listing a qualified declaration never
-// counts as installed, so it would reinstall every run and never upgrade.
+// `brew list -1` is a directory listing without Ruby startup, so a full
+// inventory costs milliseconds regardless of package count. `--full-name`
+// lists tapped packages as `owner/tap/name`, the form a manifest declares them
+// in; against the short listing a qualified declaration never counts as
+// installed, so it would reinstall every run and never upgrade or uninstall.
 const enumerations: Record<PackageKind, readonly string[]> = {
-  tap: ['tap'],
   formula: ['list', '--formula', '-1', '--full-name'],
   cask: ['list', '--cask', '-1', '--full-name'],
 };
@@ -76,21 +71,20 @@ async function enumerate(
 }
 
 /**
- * Enumerate installed Homebrew state once per kind the requirement uses, so
- * presence checks become in-memory set lookups. Kinds the requirement does
- * not declare are never probed. An enumeration failure is carried as a
- * per-kind error so the caller fails exactly the tokens that depended on it.
+ * Enumerate installed Homebrew state once per kind the set uses, so presence
+ * checks become in-memory set lookups. Kinds the set does not declare are never
+ * probed. An enumeration failure is carried as a per-kind error so the caller
+ * fails exactly the tokens that depended on it.
  */
 export async function loadInventory(
-  req: PackageRequirement,
+  set: PackageSet,
   context: Context,
 ): Promise<Inventory> {
-  const [tap, formula, cask] = await Promise.all([
-    req.taps.length > 0 ? enumerate(context, 'tap') : unprobed,
-    req.formulae.length > 0 ? enumerate(context, 'formula') : unprobed,
-    req.casks.length > 0 ? enumerate(context, 'cask') : unprobed,
+  const [formula, cask] = await Promise.all([
+    set.formulae.length > 0 ? enumerate(context, 'formula') : unprobed,
+    set.casks.length > 0 ? enumerate(context, 'cask') : unprobed,
   ]);
-  return { tap, formula, cask };
+  return { formula, cask };
 }
 
 function normalizedVersions(versions: readonly string[]): readonly string[] {
@@ -147,7 +141,7 @@ function caskInstalledVersions(
 
 function installedVersionMaps(
   stdout: string,
-  kind: UpgradeablePackageKind,
+  kind: PackageKind,
 ): {
   readonly versions: ReadonlyMap<string, readonly string[]>;
   readonly errors: ReadonlyMap<string, string>;
@@ -203,7 +197,7 @@ function installedVersionMaps(
 
 async function enumerateInstalledVersions(
   context: Context,
-  kind: UpgradeablePackageKind,
+  kind: PackageKind,
   names: readonly string[],
 ): Promise<KindVersionInventory> {
   const args = ['info', '--json=v2', `--${kind}`, ...names];
@@ -228,15 +222,15 @@ async function enumerateInstalledVersions(
  * concurrently. Empty kinds are not probed.
  */
 export async function loadInstalledVersions(
-  req: PackageRequirement,
+  set: PackageSet,
   context: Context,
 ): Promise<VersionInventory> {
   const [formula, cask] = await Promise.all([
-    req.formulae.length > 0
-      ? enumerateInstalledVersions(context, 'formula', req.formulae)
+    set.formulae.length > 0
+      ? enumerateInstalledVersions(context, 'formula', set.formulae)
       : unprobedVersions,
-    req.casks.length > 0
-      ? enumerateInstalledVersions(context, 'cask', req.casks)
+    set.casks.length > 0
+      ? enumerateInstalledVersions(context, 'cask', set.casks)
       : unprobedVersions,
   ]);
   return { formula, cask };

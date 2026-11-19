@@ -2,59 +2,126 @@ import { expect, test } from 'bun:test';
 import { ProvisioningError } from '../errors';
 import { parseManifest } from './manifest';
 
-test('parseManifest reads tap, brew, and cask declarations in file order', () => {
+test('parseManifest reads install and uninstall lists in file order', () => {
   const raw = [
     '# Baseline tools',
-    'tap "owner/repo"',
-    '',
-    'brew "ripgrep"',
-    'cask "zed"  # editor',
-    'brew "openssl@3"',
-    '  brew "owner/repo/tool"',
+    'formulae:',
+    '  - ripgrep',
+    '  - openssl@3',
+    '  - owner/repo/tool',
+    'casks:',
+    '  - zed',
+    'uninstall:',
+    '  formulae:',
+    '    - redis',
+    '  casks:',
+    '    - iina',
   ].join('\n');
 
-  expect(parseManifest(raw, 'demo/Brewfile')).toEqual({
-    taps: ['owner/repo'],
-    formulae: ['ripgrep', 'openssl@3', 'owner/repo/tool'],
-    casks: ['zed'],
+  expect(parseManifest(raw, 'demo/brew.yml')).toEqual({
+    install: {
+      formulae: ['ripgrep', 'openssl@3', 'owner/repo/tool'],
+      casks: ['zed'],
+    },
+    uninstall: { formulae: ['redis'], casks: ['iina'] },
   });
 });
 
-test('parseManifest treats a file of comments as no requirements', () => {
-  expect(parseManifest('# nothing yet\n', 'demo/Brewfile')).toEqual({
-    taps: [],
-    formulae: [],
-    casks: [],
+test('parseManifest treats omitted lists as empty', () => {
+  expect(parseManifest('casks:\n  - zed\n', 'demo/brew.yml')).toEqual({
+    install: { formulae: [], casks: ['zed'] },
+    uninstall: { formulae: [], casks: [] },
+  });
+  expect(
+    parseManifest('uninstall:\n  formulae:\n    - redis\n', 'demo/brew.yml'),
+  ).toEqual({
+    install: { formulae: [], casks: [] },
+    uninstall: { formulae: ['redis'], casks: [] },
   });
 });
 
-for (const line of [
-  'brew "ripgrep", args: ["HEAD"]',
-  'cask "docker", greedy: true',
-  "brew 'ripgrep'",
-  'mas "Xcode", id: 497799835',
-  'vscode "golang.go"',
-  'brew "ripgrep" if OS.mac?',
-  'brew ""',
-  'brew',
+for (const raw of [
+  'taps:\n  - owner/repo\n',
+  'formulae:\n  - fd\nmas:\n  - Xcode\n',
+  'uninstall:\n  taps:\n    - owner/repo\n',
 ]) {
-  test(`parseManifest refuses the unsupported line ${JSON.stringify(line)}`, () => {
-    expect(() => parseManifest(`${line}\n`, 'demo/Brewfile')).toThrow(
-      'Brewfile demo/Brewfile:1 must declare one double-quoted',
+  test(`parseManifest refuses the unknown field in ${JSON.stringify(raw)}`, () => {
+    expect(() => parseManifest(raw, 'demo/brew.yml')).toThrow(
+      'contains unknown field',
     );
   });
 }
 
-test('parseManifest refuses a name outside the Homebrew character set', () => {
-  expect(() => parseManifest('brew "rip#{grep}"\n', 'demo/Brewfile')).toThrow(
-    new ProvisioningError(
-      "Brewfile demo/Brewfile:1 declares the unsafe name 'rip#{grep}'; names may contain only letters, digits, and ._@/+- characters.",
-    ),
+for (const raw of [
+  'formulae: fd\n',
+  'formulae:\n  - name: fd\n',
+  'uninstall:\n  - fd\n',
+  '- fd\n',
+]) {
+  test(`parseManifest refuses the malformed shape ${JSON.stringify(raw)}`, () => {
+    expect(() => parseManifest(raw, 'demo/brew.yml')).toThrow(
+      ProvisioningError,
+    );
+  });
+}
+
+for (const name of [
+  '-fd',
+  '--cask',
+  'owner/repo',
+  'owner/repo/tool/extra',
+  'owner//tool',
+  'owner/repo/-tool',
+  '../tool',
+  'rip#{grep}',
+  'rip grep',
+  '',
+]) {
+  test(`parseManifest refuses the invalid name ${JSON.stringify(name)}`, () => {
+    expect(() =>
+      parseManifest(
+        `formulae:\n  - ${JSON.stringify(name)}\n`,
+        'demo/brew.yml',
+      ),
+    ).toThrow(
+      'Homebrew manifest demo/brew.yml formulae contains the invalid name',
+    );
+  });
+}
+
+test('parseManifest validates uninstall names like install names', () => {
+  expect(() =>
+    parseManifest('uninstall:\n  casks:\n    - "-zap"\n', 'demo/brew.yml'),
+  ).toThrow(
+    "Homebrew manifest demo/brew.yml uninstall casks contains the invalid name '-zap'",
   );
 });
 
-test('parseManifest refuses a duplicate declaration and names its line', () => {
+test('parseManifest refuses a name declared twice within one kind', () => {
   expect(() =>
-    parseManifest('brew "fd"\ncask "fd"\nbrew "fd"\n', 'demo/Brewfile'),
-  ).toThrow("Brewfile demo/Brewfile:3 declares brew 'fd' more than once.");
+    parseManifest('formulae:\n  - fd\n  - fd\n', 'demo/brew.yml'),
+  ).toThrow(
+    "Homebrew manifest demo/brew.yml formulae contains duplicate 'fd'.",
+  );
+});
+
+test('parseManifest refuses a name both installed and uninstalled', () => {
+  expect(() =>
+    parseManifest(
+      'casks:\n  - zed\nuninstall:\n  casks:\n    - zed\n',
+      'demo/brew.yml',
+    ),
+  ).toThrow("Homebrew manifest demo/brew.yml casks contains duplicate 'zed'.");
+});
+
+test('parseManifest keeps a formula and a cask of the same name apart', () => {
+  expect(
+    parseManifest(
+      'formulae:\n  - docker\ncasks:\n  - docker\n',
+      'demo/brew.yml',
+    ),
+  ).toEqual({
+    install: { formulae: ['docker'], casks: ['docker'] },
+    uninstall: { formulae: [], casks: [] },
+  });
 });

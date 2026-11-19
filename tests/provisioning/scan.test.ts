@@ -113,11 +113,11 @@ sandboxTest(
 );
 
 sandboxTest(
-  'a Brewfile edit selects the target by signature and drift',
+  'a Homebrew manifest edit selects the target by signature and drift',
   async (home) => {
     const context = contextFor(
       home,
-      mapAssetSource({ 'demo/Brewfile': 'brew "fd"\n' }),
+      mapAssetSource({ 'demo/brew.yml': 'formulae:\n  - fd\n' }),
     );
     await deployRole('demo', context);
     await writeApplied(
@@ -126,7 +126,9 @@ sandboxTest(
     );
     const edited = contextFor(
       home,
-      mapAssetSource({ 'demo/Brewfile': 'brew "fd"\nbrew "ripgrep"\n' }),
+      mapAssetSource({
+        'demo/brew.yml': 'formulae:\n  - fd\n  - ripgrep\n',
+      }),
     );
 
     const [scan] = await scanTargets([demoTarget], edited);

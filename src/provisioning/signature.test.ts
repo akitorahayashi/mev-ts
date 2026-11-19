@@ -30,9 +30,12 @@ test('declared assets and activation destinations affect the signature', async (
     original,
     mapAssetSource({ [config.key]: 'two\n' }),
   );
-  const brewfileAddedSignature = await targetSignature(
+  const manifestAddedSignature = await targetSignature(
     original,
-    mapAssetSource({ [config.key]: 'one\n', 'demo/Brewfile': 'brew "fd"\n' }),
+    mapAssetSource({
+      [config.key]: 'one\n',
+      'demo/brew.yml': 'formulae:\n  - fd\n',
+    }),
   );
   const destinationChangedSignature = await targetSignature(
     destinationChanged,
@@ -40,7 +43,7 @@ test('declared assets and activation destinations affect the signature', async (
   );
 
   expect(changedAssetSignature).not.toBe(originalSignature);
-  expect(brewfileAddedSignature).not.toBe(originalSignature);
+  expect(manifestAddedSignature).not.toBe(originalSignature);
   expect(destinationChangedSignature).not.toBe(originalSignature);
 });
 

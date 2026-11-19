@@ -1,0 +1,12 @@
+# pandoc, poppler, and google-chrome are runtimes of the document conversion
+# aliases, kept in the same target.
+formulae:
+  - fzf
+  - powerlevel10k
+  - zoxide
+  - zsh-autosuggestions
+  - zsh-syntax-highlighting
+  - pandoc
+  - poppler
+casks:
+  - google-chrome

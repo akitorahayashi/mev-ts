@@ -12,21 +12,21 @@ const shellTarget = target('shell', {
   activations: [],
 });
 
+const gitRequirement = {
+  install: { formulae: ['git'], casks: [] },
+  uninstall: { formulae: [], casks: [] },
+};
+
 function makeReport(status: 'changed' | 'unchanged' | 'failed'): MakeReport {
   return {
     selection: {
       targetNames: ['shell'],
       roles: ['shell'],
-      packages: { taps: [], formulae: ['git'], casks: [] },
-      groups: [
-        {
-          ...shellTarget,
-          packages: { taps: [], formulae: ['git'], casks: [] },
-        },
-      ],
+      packages: gitRequirement,
+      groups: [{ ...shellTarget, packages: gitRequirement }],
     },
     deploys: [],
-    install: [{ token: { kind: 'formula', name: 'git' }, status: 'present' }],
+    packages: [{ token: { kind: 'formula', name: 'git' }, status: 'present' }],
     groups: [
       {
         targetName: 'shell',
@@ -71,11 +71,11 @@ function fakeRun(report: MakeReport): {
       request.onEvent?.({ type: 'selection', selection: report.selection });
       request.onEvent?.({
         type: 'package-phase-start',
-        total: report.install.length,
+        total: report.packages.length,
       });
       request.onEvent?.({
         type: 'package-phase-complete',
-        reports: report.install,
+        reports: report.packages,
       });
       request.onEvent?.({ type: 'activation-phase-start' });
       for (const group of report.groups) {

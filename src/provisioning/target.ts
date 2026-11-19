@@ -14,7 +14,7 @@ export type PerMachineInput = 'githubSshHost' | SelectionInput;
  * A named unit of provisioning. A target owns its canonical selector and
  * aliases, the role whose assets it deploys, protection required before
  * replacing that role, and its activations. Its Homebrew requirements are the
- * role's Brewfile asset. `optional` targets are still selectable but excluded
+ * role's `brew.yml` asset. `optional` targets are still selectable but excluded
  * from a full-environment `create`.
  */
 export interface Target {

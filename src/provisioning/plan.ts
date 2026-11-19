@@ -2,13 +2,13 @@ import type { AssetSource } from '../assets/registry';
 import { manifestName, parseManifest } from '../brew/manifest';
 import {
   mergePackages,
+  noPackages,
   type PackageRequirement,
-  packages,
 } from '../brew/package';
 import { resolveTarget } from './registry';
 import type { Target } from './target';
 
-/** A selected target with the Homebrew requirements its role's Brewfile declares. */
+/** A selected target with the Homebrew requirements its role manifest declares. */
 export interface PlannedTarget extends Target {
   readonly packages: PackageRequirement;
 }
@@ -31,15 +31,15 @@ async function rolePackages(
   assets: AssetSource,
 ): Promise<PackageRequirement> {
   const key = `${role}/${manifestName}`;
-  if (!assets.keysByPrefix(key).includes(key)) return packages();
+  if (!assets.keysByPrefix(key).includes(key)) return noPackages;
   return parseManifest(await assets.read(key), key);
 }
 
 /**
  * Resolve selectors into a plan. Targets are deduped so a target named by two
  * selectors contributes once, while target attribution is preserved per group.
- * Brewfiles are parsed here, before any provisioning state changes, so a
- * malformed declaration fails the run up front.
+ * Homebrew manifests are parsed and merged here, before any provisioning state
+ * changes, so a malformed or conflicting declaration fails the run up front.
  */
 export async function planMake(
   selectors: readonly string[],

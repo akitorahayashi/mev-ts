@@ -8,7 +8,7 @@
 |---|---|
 | Preserve | ロールによって置き換えられる前に、ホストの可変状態を保護する。 |
 | Deploy | 選択されたロールのアセットを、deploy storeで整合させる。 |
-| Install | 必要なHomebrewパッケージを解決する。 |
+| Install | 宣言されたHomebrewパッケージを削除またはインストールする。 |
 | Activate | 宣言された各activationを、ターゲットの順に適用する。 |
 
 ## 層の構成
