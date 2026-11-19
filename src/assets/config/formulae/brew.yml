@@ -1,0 +1,20 @@
+# Standalone command-line tools wanted on every development machine. Toolchain
+# formulae (uv, rbenv, fnm, …) live in their own target's manifest.
+formulae:
+  - shellcheck
+  - shfmt
+  - tokei
+  - bottom
+  - bat
+  - eza
+  - ripgrep
+  - fd
+  - jq
+  - yq
+  - ffmpeg
+  - mise
+  - ollama
+  - hf
+  - postgresql
+  - rclone
+  - redis

@@ -207,7 +207,7 @@ sandboxTest(
     expect(await readFile(deployedConfig, 'utf8')).toBe(
       'previous deployed content\n',
     );
-    expect(report.install).toEqual([]);
+    expect(report.packages).toEqual([]);
     expect(
       calls.filter(({ command }) => command === 'brew').map(({ args }) => args),
     ).toEqual([['--version']]);
@@ -618,7 +618,7 @@ sandboxTest(
       ...contextFor(sandbox),
       assets: {
         read: (key) =>
-          key.startsWith('git/') && key !== 'git/Brewfile'
+          key.startsWith('git/') && key !== 'git/brew.yml'
             ? Promise.reject(new Error('deploy boom'))
             : embeddedAssets.read(key),
         keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
@@ -661,7 +661,7 @@ sandboxTest(
       home: sandbox,
       assets: {
         read: (key) =>
-          key.startsWith('duti/') && key !== 'duti/Brewfile'
+          key.startsWith('duti/') && key !== 'duti/brew.yml'
             ? Promise.reject(new Error('duti deploy boom'))
             : embeddedAssets.read(key),
         keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
@@ -670,11 +670,11 @@ sandboxTest(
     });
     const report = await runMake({ selectors: ['duti', 'zed'] }, context);
     expect(report.failed).toBe(true);
-    expect(report.install).toEqual([
+    expect(report.packages).toEqual([
       { token: { kind: 'cask', name: 'zed' }, status: 'installed' },
     ]);
     expect(
-      report.install.some(
+      report.packages.some(
         ({ token }) => token.kind === 'formula' && token.name === 'duti',
       ),
     ).toBe(false);
@@ -724,6 +724,69 @@ sandboxTest(
   },
 );
 sandboxTest(
+  'a failed uninstall blocks only the target that declares it, ahead of installs',
+  async (sandbox) => {
+    const events: string[] = [];
+    const { context } = recordingContext({
+      home: sandbox,
+      assets: {
+        read: (key) =>
+          key === 'gh/brew.yml'
+            ? Promise.resolve(
+                'formulae:\n  - gh\nuninstall:\n  casks:\n    - iina\n',
+              )
+            : embeddedAssets.read(key),
+        keysByPrefix: (prefix) => embeddedAssets.keysByPrefix(prefix),
+        isExecutable: (key) => embeddedAssets.isExecutable(key),
+      },
+      respond(command, args) {
+        if (command !== 'brew') return ok();
+        if (args[0] === 'list') {
+          return ok(args.includes('--cask') ? 'iina\n' : 'gh\ngit\n');
+        }
+        if (args[0] === 'uninstall') {
+          return { code: 1, stdout: '', stderr: 'iina is running' };
+        }
+        return ok();
+      },
+    });
+    const report = await runMake(
+      {
+        selectors: ['gh', 'git'],
+        onEvent: (event) => {
+          if (event.type === 'package-start') {
+            events.push(
+              `${event.action} ${event.token.kind} ${event.token.name}`,
+            );
+          }
+        },
+      },
+      context,
+    );
+    const failure =
+      'brew uninstall failed for cask iina with code 1: iina is running';
+    expect(report.failed).toBe(true);
+    expect(events).toEqual(['uninstall cask iina']);
+    expect(report.packages[0]).toEqual({
+      token: { kind: 'cask', name: 'iina' },
+      status: 'failed',
+      error: failure,
+    });
+    expect(
+      report.groups.find((group) => group.targetName === 'gh')?.blockers,
+    ).toEqual([
+      {
+        kind: 'package',
+        token: { kind: 'cask', name: 'iina' },
+        error: failure,
+      },
+    ]);
+    expect(
+      report.groups.find((group) => group.targetName === 'git')?.blockers,
+    ).toEqual([]);
+  },
+);
+sandboxTest(
   'a failed package blocks dependent activations',
   async (sandbox) => {
     const commands: string[] = [];
@@ -735,15 +798,8 @@ sandboxTest(
           if (command !== 'brew') {
             return { code: 0, stdout: '', stderr: '' };
           }
-          const fileArg = args.find((arg) => arg.startsWith('--file='));
-          if (!fileArg) {
-            // Enumeration probes report nothing installed.
-            return { code: 0, stdout: '', stderr: '' };
-          }
-          const brewfile = await Bun.file(
-            fileArg.slice('--file='.length),
-          ).text();
-          if (args.includes('install') && brewfile.includes('brew "uv"')) {
+          // Enumeration probes report nothing installed.
+          if (args.join(' ') === 'install --formula uv') {
             return { code: 1, stdout: '', stderr: 'uv unavailable' };
           }
           return { code: 0, stdout: '', stderr: '' };
@@ -764,16 +820,16 @@ sandboxTest(
     const report = await runMake({ selectors: ['python'] }, context);
     const group = report.groups.find((entry) => entry.targetName === 'python');
     expect(report.failed).toBe(true);
-    expect(report.install).toContainEqual({
+    expect(report.packages).toContainEqual({
       token: { kind: 'formula', name: 'uv' },
       status: 'failed',
-      error: 'brew bundle install failed for uv with code 1: uv unavailable',
+      error: 'brew install failed for formula uv with code 1: uv unavailable',
     });
     expect(group?.blockers).toEqual([
       {
         kind: 'package',
         token: { kind: 'formula', name: 'uv' },
-        error: 'brew bundle install failed for uv with code 1: uv unavailable',
+        error: 'brew install failed for formula uv with code 1: uv unavailable',
       },
     ]);
     expect(

@@ -1,20 +1,17 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { errorMessage, ProvisioningError } from '../errors';
-import { runWithCleanup } from '../host/cleanup-error';
+import { errorMessage } from '../errors';
 import { runProcessStep } from '../host/command-run';
 import type { Context } from '../host/context';
 import {
   type KindInventory,
   loadInstalledVersions,
   loadInventory,
+  type VersionInventory,
 } from './inventory';
 import {
-  type PackageRequirement,
+  type PackageKind,
+  type PackageSet,
   type PackageToken,
-  SAFE_TOKEN_NAME,
   tokens,
-  type UpgradeablePackageKind,
 } from './package';
 
 export type InstallAction = 'install' | 'upgrade';
@@ -44,74 +41,33 @@ export type InstallReport =
 export type InstallStatus = InstallReport['status'];
 
 interface PendingUpgrade {
-  readonly token: PackageToken & { readonly kind: UpgradeablePackageKind };
+  readonly token: PackageToken;
   readonly status: 'upgrade-pending';
   readonly previousVersions: readonly string[];
 }
 
 export interface InstallOptions {
   readonly upgrade?: boolean;
-  onStart?(total: number): void;
   /** Fires only for tokens that actually reach an install or upgrade step. */
   onTokenStart?(token: PackageToken, action: InstallAction): void;
   /** Fires after each token's individual work; successful upgrades are version-verified later in a batch. */
   onTick?(token: PackageToken): void;
 }
 
-/**
- * Writes a single-entry Brewfile to a temporary path and passes it to the given
- * action. Homebrew Bundle treats already-installed entries as no-ops, so
- * `install` is idempotent.
- */
-async function withBrewfile<T>(
-  tmpRoot: string,
-  line: string,
-  action: (file: string) => Promise<T>,
-): Promise<T> {
-  const dir = await mkdtemp(join(tmpRoot, 'mev-brewfile-'));
-  const file = join(dir, 'Brewfile');
-  return runWithCleanup(
-    async () => {
-      await writeFile(file, `${line}\n`);
-      return action(file);
-    },
-    () => rm(dir, { force: true, recursive: true }),
-    `Failed to clean up Brewfile directory ${dir}.`,
+// Only missing names reach this step, so a plain install never upgrades an
+// installed package outside `--upgrade`.
+async function install(context: Context, token: PackageToken): Promise<void> {
+  await runProcessStep(
+    context.commands,
+    'brew',
+    ['install', `--${token.kind}`, token.name],
+    `brew install failed for ${token.kind} ${token.name}`,
   );
-}
-
-// The emit layer validates before interpolating a name into the Ruby-string
-// Brewfile DSL, so a name containing `"`, a newline, or `#{}` cannot break out
-// or inject a directive regardless of where the name originated.
-function brewfileLine(token: PackageToken): string {
-  if (!SAFE_TOKEN_NAME.test(token.name)) {
-    throw new ProvisioningError(
-      `Refusing to emit unsafe Homebrew token name '${token.name}'; names may contain only letters, digits, and ._@/+- characters.`,
-    );
-  }
-  if (token.kind === 'tap') return `tap "${token.name}"`;
-  if (token.kind === 'cask') return `cask "${token.name}"`;
-  return `brew "${token.name}"`;
-}
-
-async function install(
-  context: Context,
-  line: string,
-  name: string,
-): Promise<void> {
-  await withBrewfile(context.tmpRoot, line, async (file) => {
-    await runProcessStep(
-      context.commands,
-      'brew',
-      ['bundle', 'install', '--no-upgrade', `--file=${file}`],
-      `brew bundle install failed for ${name}`,
-    );
-  });
 }
 
 async function upgrade(
   context: Context,
-  kind: UpgradeablePackageKind,
+  kind: PackageKind,
   name: string,
 ): Promise<void> {
   await runProcessStep(
@@ -122,9 +78,7 @@ async function upgrade(
   );
 }
 
-type TrustErrors = Readonly<
-  Record<UpgradeablePackageKind, ReadonlyMap<string, string>>
->;
+type TrustErrors = Readonly<Record<PackageKind, ReadonlyMap<string, string>>>;
 
 function isTapQualified(name: string): boolean {
   return name.split('/').length === 3;
@@ -132,13 +86,13 @@ function isTapQualified(name: string): boolean {
 
 /**
  * Homebrew refuses to load a formula or cask from a non-official tap until it
- * is trusted, and declaring it in a role Brewfile is that trust decision. Only
+ * is trusted, and declaring it in a role manifest is that trust decision. Only
  * names that this run is about to load are trusted, so an all-present run stays
  * free of the Ruby startup `brew trust` costs.
  */
 async function trustTapped(
   context: Context,
-  names: Record<UpgradeablePackageKind, readonly string[]>,
+  names: Record<PackageKind, readonly string[]>,
 ): Promise<TrustErrors> {
   const errors = {
     formula: new Map<string, string>(),
@@ -180,7 +134,7 @@ async function installMissingPackage(
 ): Promise<InstallReport> {
   try {
     options.onTokenStart?.(token, 'install');
-    await install(context, brewfileLine(token), token.name);
+    await install(context, token);
     return { token, status: 'installed' };
   } catch (error) {
     return { token, status: 'failed', error: errorMessage(error) };
@@ -188,16 +142,16 @@ async function installMissingPackage(
 }
 
 function upgradeCandidates(
-  req: PackageRequirement,
+  set: PackageSet,
   inventory: Awaited<ReturnType<typeof loadInventory>>,
   trustErrors: TrustErrors,
   enabled: boolean,
-): PackageRequirement {
-  if (!enabled) return { taps: [], formulae: [], casks: [] };
+): PackageSet {
+  if (!enabled) return { formulae: [], casks: [] };
   // An untrusted name would fail the whole batched version probe.
   const installedCandidates = (
     names: readonly string[],
-    kind: UpgradeablePackageKind,
+    kind: PackageKind,
   ): string[] => {
     const kindInventory = inventory[kind];
     return kindInventory.loaded
@@ -208,9 +162,8 @@ function upgradeCandidates(
       : [];
   };
   return {
-    taps: [],
-    formulae: installedCandidates(req.formulae, 'formula'),
-    casks: installedCandidates(req.casks, 'cask'),
+    formulae: installedCandidates(set.formulae, 'formula'),
+    casks: installedCandidates(set.casks, 'cask'),
   };
 }
 
@@ -243,49 +196,64 @@ function sameVersions(
   );
 }
 
+async function upgradeInstalledPackage(
+  token: PackageToken,
+  before: VersionInventory,
+  context: Context,
+  options: InstallOptions,
+): Promise<InstallReport | PendingUpgrade> {
+  const versionInventory = before[token.kind];
+  if (!versionInventory.loaded) {
+    return probeFailure('before', token, versionInventory.error);
+  }
+  const versionError = versionInventory.errors.get(token.name);
+  if (versionError) return probeFailure('before', token, versionError);
+  const previousVersions = versionInventory.versions.get(token.name);
+  if (!previousVersions || previousVersions.length === 0) {
+    return {
+      token,
+      status: 'failed',
+      error: missingVersionError('pre-upgrade', token),
+    };
+  }
+  try {
+    options.onTokenStart?.(token, 'upgrade');
+    await upgrade(context, token.kind, token.name);
+    return { token, status: 'upgrade-pending', previousVersions };
+  } catch (error) {
+    return { token, status: 'failed', error: errorMessage(error) };
+  }
+}
+
 /**
  * Resolve every required package as a batch. Installed state is enumerated
  * once up front (see loadInventory), so present tokens resolve as in-memory
- * lookups. Missing tokens spawn `brew bundle install`; explicit upgrade mode
- * also runs `brew upgrade` for installed formulae and casks. Tokens run in
- * taps→formulae→casks order, so a missing tap is installed before the formulae
- * that resolve through it. Tap-qualified formulae and casks are trusted before
- * anything loads them. The hooks drive live progress labels.
+ * lookups. Missing tokens spawn `brew install`; explicit upgrade mode also runs
+ * `brew upgrade` for installed formulae and casks. A tap-qualified name taps
+ * its tap on install, and is trusted before anything loads it. The hooks drive
+ * live progress labels.
  */
 export async function installPackages(
-  req: PackageRequirement,
+  set: PackageSet,
   context: Context,
   options: InstallOptions = {},
 ): Promise<InstallReport[]> {
-  const list = tokens(req);
-  options.onStart?.(list.length);
+  const list = tokens(set);
   if (list.length === 0) return [];
 
-  const inventory = await loadInventory(req, context);
+  const inventory = await loadInventory(set, context);
   const upgrading = options.upgrade === true;
   const trustErrors = await trustTapped(context, {
-    formula: namesToLoad(req.formulae, inventory.formula, upgrading),
-    cask: namesToLoad(req.casks, inventory.cask, upgrading),
+    formula: namesToLoad(set.formulae, inventory.formula, upgrading),
+    cask: namesToLoad(set.casks, inventory.cask, upgrading),
   });
-  const reports: Array<InstallReport | PendingUpgrade> = [];
-  for (const token of list) {
-    if (token.kind !== 'tap') continue;
-    const report = !inventory.tap.loaded
-      ? { token, status: 'failed' as const, error: inventory.tap.error }
-      : inventory.tap.names.has(token.name)
-        ? { token, status: 'present' as const }
-        : await installMissingPackage(token, context, options);
-    reports.push(report);
-    options.onTick?.(token);
-  }
-
   const before = await loadInstalledVersions(
-    upgradeCandidates(req, inventory, trustErrors, upgrading),
+    upgradeCandidates(set, inventory, trustErrors, upgrading),
     context,
   );
 
+  const reports: Array<InstallReport | PendingUpgrade> = [];
   for (const token of list) {
-    if (token.kind === 'tap') continue;
     const installed = inventory[token.kind];
     const trustError = trustErrors[token.kind].get(token.name);
     let report: InstallReport | PendingUpgrade;
@@ -293,53 +261,12 @@ export async function installPackages(
       report = { token, status: 'failed', error: installed.error };
     } else if (trustError) {
       report = { token, status: 'failed', error: trustError };
+    } else if (!installed.names.has(token.name)) {
+      report = await installMissingPackage(token, context, options);
+    } else if (!upgrading) {
+      report = { token, status: 'present' };
     } else {
-      const isInstalled = installed.names.has(token.name);
-      const isUpgrade = isInstalled && upgrading;
-      if (isInstalled && !isUpgrade) {
-        report = { token, status: 'present' };
-      } else if (isUpgrade) {
-        const upgradeToken: PendingUpgrade['token'] = {
-          kind: token.kind,
-          name: token.name,
-        };
-        const versionInventory = before[upgradeToken.kind];
-        if (!versionInventory.loaded) {
-          report = probeFailure('before', upgradeToken, versionInventory.error);
-        } else {
-          const versionError = versionInventory.errors.get(upgradeToken.name);
-          const previousVersions = versionInventory.versions.get(
-            upgradeToken.name,
-          );
-          if (versionError) {
-            report = probeFailure('before', upgradeToken, versionError);
-          } else if (!previousVersions || previousVersions.length === 0) {
-            report = {
-              token: upgradeToken,
-              status: 'failed',
-              error: missingVersionError('pre-upgrade', upgradeToken),
-            };
-          } else {
-            try {
-              options.onTokenStart?.(upgradeToken, 'upgrade');
-              await upgrade(context, upgradeToken.kind, upgradeToken.name);
-              report = {
-                token: upgradeToken,
-                status: 'upgrade-pending',
-                previousVersions,
-              };
-            } catch (error) {
-              report = {
-                token: upgradeToken,
-                status: 'failed',
-                error: errorMessage(error),
-              };
-            }
-          }
-        }
-      } else {
-        report = await installMissingPackage(token, context, options);
-      }
+      report = await upgradeInstalledPackage(token, before, context, options);
     }
     reports.push(report);
     options.onTick?.(token);
@@ -350,7 +277,6 @@ export async function installPackages(
   );
   const after = await loadInstalledVersions(
     {
-      taps: [],
       formulae: pending
         .filter((report) => report.token.kind === 'formula')
         .map((report) => report.token.name),

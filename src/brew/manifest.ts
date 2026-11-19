@@ -1,52 +1,71 @@
 import { ProvisioningError } from '../errors';
-import { type PackageRequirement, SAFE_TOKEN_NAME } from './package';
+import {
+  requireExactKeys,
+  requireRecord,
+  requireStringArray,
+  requireUniqueBy,
+} from '../host/parse';
+import { loadYaml } from '../host/yaml';
+import type { PackageRequirement, PackageSet } from './package';
 
-export const manifestName = 'Brewfile';
+export const manifestName = 'brew.yml';
 
-// Homebrew evaluates a Brewfile as Ruby, but mev reads only the declarations it
-// installs token by token. Options, other directives, and Ruby expressions are
-// refused rather than ignored, so a line mev cannot honor never looks applied.
-// The accepted form is a subset of the Homebrew Bundle Brewfile format, so a
-// deployed Brewfile still works with `brew bundle check --file`. `trusted: true`
-// is refused because the install phase owns trust for tap-qualified names.
-const ENTRY = /^(tap|brew|cask)\s+"([^"]+)"\s*(?:#.*)?$/;
+// Names are passed to brew as argv, so a leading dash would be read as an
+// option. A tap-qualified name is the only form that may carry slashes.
+const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._@+-]*$/;
+
+function requireName(name: string, label: string): string {
+  const segments = name.split('/');
+  if (
+    (segments.length !== 1 && segments.length !== 3) ||
+    !segments.every((segment) => SEGMENT.test(segment))
+  ) {
+    throw new ProvisioningError(
+      `${label} contains the invalid name '${name}'; use a bare name or a tap-qualified owner/tap/name whose segments start with a letter or digit and contain only letters, digits, and ._@+- characters.`,
+    );
+  }
+  return name;
+}
+
+function parseList(value: unknown, label: string): string[] {
+  if (value === undefined) return [];
+  return requireStringArray(value, label).map((name) =>
+    requireName(name, label),
+  );
+}
+
+function parseSet(record: Record<string, unknown>, label: string): PackageSet {
+  requireExactKeys(record, ['formulae', 'casks'], label);
+  return {
+    formulae: parseList(record['formulae'], `${label} formulae`),
+    casks: parseList(record['casks'], `${label} casks`),
+  };
+}
 
 export function parseManifest(raw: string, path: string): PackageRequirement {
-  const declared = {
-    tap: [] as string[],
-    brew: [] as string[],
-    cask: [] as string[],
-  };
-  for (const [index, line] of raw.split('\n').entries()) {
-    const entry = line.trim();
-    if (entry === '' || entry.startsWith('#')) continue;
-    const location = `${path}:${index + 1}`;
-    const match = ENTRY.exec(entry);
-    const kind = match?.[1];
-    const name = match?.[2];
-    if (
-      name === undefined ||
-      (kind !== 'tap' && kind !== 'brew' && kind !== 'cask')
-    ) {
-      throw new ProvisioningError(
-        `Brewfile ${location} must declare one double-quoted tap, brew, or cask name without options: ${entry}`,
-      );
-    }
-    if (!SAFE_TOKEN_NAME.test(name)) {
-      throw new ProvisioningError(
-        `Brewfile ${location} declares the unsafe name '${name}'; names may contain only letters, digits, and ._@/+- characters.`,
-      );
-    }
-    if (declared[kind].includes(name)) {
-      throw new ProvisioningError(
-        `Brewfile ${location} declares ${kind} '${name}' more than once.`,
-      );
-    }
-    declared[kind].push(name);
-  }
-  return {
-    taps: declared.tap,
-    formulae: declared.brew,
-    casks: declared.cask,
-  };
+  const label = `Homebrew manifest ${path}`;
+  const parsed = requireRecord(loadYaml(raw, path), label);
+  requireExactKeys(parsed, ['formulae', 'casks', 'uninstall'], label);
+  const { uninstall: uninstallValue, ...installValue } = parsed;
+  const install = parseSet(installValue, label);
+  // Absent means nothing to remove; only names written here are ever
+  // uninstalled.
+  const uninstall =
+    uninstallValue === undefined
+      ? { formulae: [], casks: [] }
+      : parseSet(
+          requireRecord(uninstallValue, `${label} uninstall`),
+          `${label} uninstall`,
+        );
+  requireUniqueBy(
+    [...install.formulae, ...uninstall.formulae],
+    (name) => name,
+    `${label} formulae`,
+  );
+  requireUniqueBy(
+    [...install.casks, ...uninstall.casks],
+    (name) => name,
+    `${label} casks`,
+  );
+  return { install, uninstall };
 }

@@ -89,8 +89,11 @@ export async function executeProvisioningRun(
             }
             break;
           case 'package-start': {
-            const label =
-              event.action === 'install' ? 'installing' : 'upgrading';
+            const label = {
+              install: 'installing',
+              upgrade: 'upgrading',
+              uninstall: 'uninstalling',
+            }[event.action];
             bar?.setLabel(`${label} ${event.token.kind} ${event.token.name}`);
             break;
           }

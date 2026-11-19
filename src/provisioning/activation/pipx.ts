@@ -62,8 +62,8 @@ function pipxStep(
         await upgradePackage(context, options, tool.package);
         // Classification diffs the pre/post inventory versions instead of
         // pipx's machine-readable upgrade output, which only exists in recent
-        // pipx releases that provisioning never guarantees (the install phase
-        // runs `brew bundle install --no-upgrade`, so an older pipx stays).
+        // pipx releases that provisioning never guarantees (the package phase
+        // upgrades an installed pipx only under `--upgrade`).
         const refreshed = (await listInstalled(context, options)).get(
           normalizedPackageName(tool.package),
         );

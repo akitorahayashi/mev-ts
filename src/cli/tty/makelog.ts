@@ -1,11 +1,14 @@
-import type { InstallReport } from '../../brew/install';
 import type { DeployStorePruneReport } from '../../provisioning/deploy-store';
 import { groupSucceeded } from '../../provisioning/group-outcome';
 import {
   OUTCOME_STATUSES,
   type ResourceOutcome,
 } from '../../provisioning/resource-outcome';
-import type { ActivationGroupReport, MakeReport } from '../../provisioning/run';
+import type {
+  ActivationGroupReport,
+  MakeReport,
+  PackageReport,
+} from '../../provisioning/run';
 import { makeStyle } from './style';
 
 interface RenderOptions {
@@ -148,11 +151,13 @@ export function renderTargetCompletionLine(
   return renderTargetReport(group, options);
 }
 
-function packageOutcome(report: InstallReport): ResourceOutcome {
+function packageOutcome(report: PackageReport): ResourceOutcome {
   const label = `${report.token.kind} ${report.token.name}`;
   switch (report.status) {
     case 'installed':
       return { label, status: 'changed', details: ['installed'] };
+    case 'uninstalled':
+      return { label, status: 'changed', details: ['uninstalled'] };
     case 'upgraded':
       return {
         label,
@@ -171,6 +176,8 @@ function packageOutcome(report: InstallReport): ResourceOutcome {
       };
     case 'present':
       return { label, status: 'unchanged', details: ['already installed'] };
+    case 'absent':
+      return { label, status: 'unchanged', details: ['not installed'] };
     case 'failed':
       return {
         label,
@@ -186,8 +193,12 @@ function formatInstalledVersions(versions: readonly string[]): string {
     : `[${versions.join(', ')}]`;
 }
 
+function isSettled(report: PackageReport): boolean {
+  return report.status === 'present' || report.status === 'absent';
+}
+
 export function renderPackageReport(
-  reports: readonly InstallReport[],
+  reports: readonly PackageReport[],
   options: RenderOptions,
 ): string | null {
   if (reports.length === 0) return null;
@@ -196,10 +207,10 @@ export function renderPackageReport(
     outcome: packageOutcome(report),
   }));
   const unchanged = entries
-    .filter(({ report }) => report.status === 'present')
+    .filter(({ report }) => isSettled(report))
     .map(({ outcome }) => outcome);
   const visible = entries
-    .filter(({ report }) => report.status !== 'present')
+    .filter(({ report }) => !isSettled(report))
     .map(({ outcome }) => outcome);
   const lines = [
     'Homebrew',
@@ -240,7 +251,7 @@ function countStatuses(report: MakeReport): Map<string, number> {
   for (const deploy of report.deploys) {
     if (deploy.error) add('failed');
   }
-  for (const item of report.install) add(packageOutcome(item).status);
+  for (const item of report.packages) add(packageOutcome(item).status);
   for (const group of report.groups) {
     for (const activation of group.reports) {
       for (const outcome of activation.outcomes) add(outcome.status);

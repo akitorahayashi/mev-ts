@@ -43,7 +43,7 @@ sandboxTest(
     });
     const first = await runMake({ selectors: ['herdr'] }, context);
     expect(first.failed).toBe(false);
-    expect(first.selection.packages.formulae).toEqual([]);
+    expect(first.selection.packages.install.formulae).toEqual([]);
     expect(calls.map((call) => call.command)).toEqual(['curl', 'sh', binary]);
     const firstCallCount = calls.length;
     const second = await runMake({ selectors: ['herdr'] }, context);

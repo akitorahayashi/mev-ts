@@ -1,7 +1,11 @@
 import { expect, test } from 'bun:test';
 import { loadInstalledVersions, loadInventory } from '../../src/brew/inventory';
-import { packages } from '../../src/brew/package';
+import type { PackageSet } from '../../src/brew/package';
 import { emptyAssets, recordingContext } from '../fixtures/fake-context';
+
+function packages(set: Partial<PackageSet> = {}): PackageSet {
+  return { formulae: set.formulae ?? [], casks: set.casks ?? [] };
+}
 
 const listed = (stdout: string) => ({ code: 0, stdout, stderr: '' }) as const;
 
@@ -23,7 +27,6 @@ test('probes only the kinds the requirement declares', async () => {
 
   expect(argsOf(calls)).toEqual([['list', '--formula', '-1', '--full-name']]);
   expect(inventory.formula).toEqual({ loaded: true, names: new Set(['git']) });
-  expect(inventory.tap).toEqual({ loaded: true, names: new Set() });
   expect(inventory.cask).toEqual({ loaded: true, names: new Set() });
 });
 
@@ -34,13 +37,9 @@ test('enumerates each declared kind with its own command', async () => {
     respond: () => listed(''),
   });
 
-  await loadInventory(
-    packages({ taps: ['a/b'], formulae: ['git'], casks: ['zed'] }),
-    context,
-  );
+  await loadInventory(packages({ formulae: ['git'], casks: ['zed'] }), context);
 
   expect(argsOf(calls)).toEqual([
-    ['tap'],
     ['list', '--formula', '-1', '--full-name'],
     ['list', '--cask', '-1', '--full-name'],
   ]);
@@ -48,7 +47,6 @@ test('enumerates each declared kind with its own command', async () => {
 
 test('starts declared kind enumerations concurrently in kind order', async () => {
   const releases = {
-    tap: Promise.withResolvers<void>(),
     formula: Promise.withResolvers<void>(),
     cask: Promise.withResolvers<void>(),
   };
@@ -57,12 +55,7 @@ test('starts declared kind enumerations concurrently in kind order', async () =>
     home: '/sandbox',
     assets: emptyAssets,
     async respond(_command, args) {
-      const kind =
-        args[0] === 'tap'
-          ? 'tap'
-          : args.includes('--formula')
-            ? 'formula'
-            : 'cask';
+      const kind = args.includes('--formula') ? 'formula' : 'cask';
       started.push(kind);
       await releases[kind].promise;
       return listed(kind);
@@ -70,16 +63,14 @@ test('starts declared kind enumerations concurrently in kind order', async () =>
   });
 
   const inventoryPromise = loadInventory(
-    packages({ taps: ['a/b'], formulae: ['git'], casks: ['zed'] }),
+    packages({ formulae: ['git'], casks: ['zed'] }),
     context,
   );
 
-  expect(started).toEqual(['tap', 'formula', 'cask']);
-  releases.tap.resolve();
+  expect(started).toEqual(['formula', 'cask']);
   releases.formula.resolve();
   releases.cask.resolve();
   const inventory = await inventoryPromise;
-  expect(inventory.tap).toEqual({ loaded: true, names: new Set(['tap']) });
   expect(inventory.formula).toEqual({
     loaded: true,
     names: new Set(['formula']),
@@ -132,9 +123,9 @@ test('a throwing runner is carried as a per-kind error', async () => {
     },
   });
 
-  const inventory = await loadInventory(packages({ taps: ['a/b'] }), context);
+  const inventory = await loadInventory(packages({ casks: ['zed'] }), context);
 
-  expect(inventory.tap).toEqual({ loaded: false, error: 'runner failed' });
+  expect(inventory.cask).toEqual({ loaded: false, error: 'runner failed' });
 });
 
 test('reads and normalizes formula and cask versions from JSON v2', async () => {

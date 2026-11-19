@@ -11,8 +11,8 @@ import { loadYaml } from '../host/yaml';
 import { LATEST } from '../version-pin';
 
 // A package name flows into `join(venvs, package, 'bin', ...)` which is then
-// spawned, so it is charset-guarded like brew tokens (SAFE_TOKEN_NAME) and
-// github release fields: only letters, digits, and ._- and never a leading '-'
+// spawned, so it is charset-guarded like Homebrew manifest names and github
+// release fields: only letters, digits, and ._- and never a leading '-'
 // or '.', so a `..`- or `/`-bearing name cannot traverse out of the venv root.
 // The manifest is repo-owned, so this is defense-in-depth.
 const SAFE_PACKAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
