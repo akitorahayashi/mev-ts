@@ -14,7 +14,7 @@ marketplaces:
     #   uninstall: [diff-verify]
   - repo: akitorahayashi/work-plugins
     clients: [claude, codex]
-    plugins: [backlog, charles-traffic, code-incident-resolution, comment-review, direct-answer, google-calendar, issue-probe, qa-triage, repro-steps]
+    plugins: [backlog, charles-traffic, code-incident-resolution, comment-review, direct-answer, google-calendar, issue-probe, qa-triage, repro-steps, weekly-status-report]
   - repo: akitorahayashi/prune-comments
     clients: [claude, codex]
     plugins: [prune-comments]
